@@ -1,0 +1,73 @@
+- [ ] **IDLE**
+	- [x] Action 
+		- [x] EMPTY
+	- [ ] Transitions
+		- [ ] Serial input ('GO' signal) -> **READY**
+
+
+- [ ] **READY**
+	- [ ] Action 
+		- [ ] Light ON
+		- [ ] Start local timer
+	- [ ] Transitions
+		- [ ] Serial input ('QUIT' signal) -> **QUIT**
+		- [ ] Time out w/o pressing the lever-> **ABORT TRIAL**
+		- [ ] Lever pressed -> **RANDOM WAIT**
+
+
+- [ ] **RANDOM WAIT**
+	- [ ] Action 
+		- [ ] Wait for a random number of seconds
+	- [ ] Transitions
+		- [ ] Serial input ('QUIT' signal) -> **QUIT**
+		- [ ] Lever released -> **ABORT TRIAL**
+		- [ ] Random wait complete -> **CUE ON**
+
+
+- [ ] **CUE ON**
+	- [ ] Action 
+		- [ ] Turn on LED
+		- [ ] Play sound cue
+		- [ ] Timestamp: GVAR(time_cueOn)
+		- [ ] Start local timer
+	- [ ] Transitions
+		- [ ] Serial input ('QUIT' signal) -> **QUIT**
+		- [ ] Time out -> **ABORT TRIAL**
+		- [ ] Lever released -> **LEVER RELEASED**
+
+
+- [ ] **LEVER_RELEASED**
+	- [ ] Action 
+		- [ ] Timestamp: GVAR(time_leverRelease)
+		- [ ] Calculate interval: GVAR(intervalLength) = GVAR(time_leverRelease) - GVAR(time_cueOn)
+	- [ ] Transitions
+		- [ ] Serial input ('QUIT' signal) -> **QUIT**
+		- [ ] Interval too short or too long -> **ABORT TRIAL**
+		- [ ] Interval correct -> **REWARD**
+
+
+- [ ] **REWARD**
+	- [ ] Action 
+		- [ ] Deliver reward
+	- [ ] Transitions
+		- [ ] Serial input ('QUIT' signal) -> **QUIT**
+		- [ ] Always -> **INTERTRIAL**
+
+
+- [ ] **INTERTRIAL**
+	- [ ] Action
+		- [ ] Serial output (GVAR(intervalLength) to MATLAB)
+		- [ ] Wait for serial input (New parameters from MATLAB)
+		- [ ] Start local timer
+	- [ ] Transitions
+		- [ ] Serial input ('QUIT' signal) -> **QUIT**
+		- [ ] Serial input (New params) -> **UPDATE PARAMS**
+		- [ ] Timeout w/o new params (in case MATLAB crashes) -> **READY**
+
+
+- [ ] **UPDATE PARAMS**
+	- [ ] Action
+		- [ ] Update params GVAR(params)
+	- [ ] Transitions
+		- [ ] Serial input ('QUIT' signal) -> **QUIT**
+		- [ ] Always -> **READY**
