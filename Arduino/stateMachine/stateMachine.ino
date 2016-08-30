@@ -31,7 +31,7 @@ enum SoundType
 	CORRECT,		// Correct tone
 	INCORRECT,		// Error tone
 	START_INTERVAL 	// 'Start counting the interval' cue
-}
+};
 
 // Timer
 unsigned long timer;
@@ -56,6 +56,8 @@ typedef struct
 	unsigned int arg1;
 	unsigned int arg2;
 }MessageAsStruct;
+
+MessageAsStruct MessageParsed; 
 
 /*****************************************************
 	Main
@@ -83,8 +85,7 @@ void loop()
 	// Declare and init once
 	static State nextState = WAIT_FOR_GO;
 	static String usbMessage = "";
-	char inByte;
-	MessageAsStruct MessageParsed; 
+	static char inByte;
 
 	// 1) Read from USB, if available
 	if (Serial.available() > 0) 
@@ -156,6 +157,8 @@ State wait_for_go()
 	{
 		previousState = currentState;
 
+		sendMessage('G', 0);
+
 		// Lights off
 		setLight(false);
 
@@ -211,13 +214,14 @@ State ready()
 /*** RANDOM WAIT ***/
 State random_wait()
 {
+	static unsigned long randomWaitInterval;
 	// Actions - only execute upon state entry
 	if (currentState != previousState)
 	{
 		previousState = currentState;
 
 		// Start random timer
-		static long randomWaitInterval = random(RANDOM_WAIT_MIN, RANDOM_WAIT_MAX);
+		randomWaitInterval = random(RANDOM_WAIT_MIN, RANDOM_WAIT_MAX);
 		timer = millis();
 	}
 
@@ -477,12 +481,6 @@ void sendMessage(char c, int val)
 MessageAsStruct parseMessage(String message)
 {
 	message.trim(); // Remove leading and trailing white space
-	int len = message.length();
-	if (len==0) 
-	{
-		Serial.println("#"); // "#" means error
-		return;
-	}
 
 	// Parse command string
 	char command = message[0]; // The command is the first char of a message
