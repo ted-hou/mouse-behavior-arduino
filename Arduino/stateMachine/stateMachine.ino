@@ -1,12 +1,14 @@
 /*****************************************************
 	Arduino code for lever task
 *****************************************************/
+
+/*****************************************************
+	Global declarations/inits
+*****************************************************/
 #define PIN_LED 		34	// DIGITAL OUT
+#define PIN_LIGHT 		35	// DIGITAL OUT
 #define PIN_SPEAKER		2	// PWM OUT
 #define PIN_LEVER 		51	// DIGITAL IN
-
-// I/O
-String usbMessage = "";
 
 // States
 enum State
@@ -18,20 +20,46 @@ enum State
 	LEVER_RELEASED,
 	REWARD,
 	INTERTRIAL,
-	UPDATE_PARAMS,
-	ABORT_TRIAL,
-	QUIT
+	ABORT_TRIAL
 };
 State currentState = WAIT_FOR_GO;
 State previousState = WAIT_FOR_GO;
 
-// Local and global timers
-unsigned long time;
-unsigned long globalTime;
+// Sound cue types
+enum SoundType
+{
+	CORRECT,		// Correct tone
+	INCORRECT,		// Error tone
+	START_INTERVAL 	// 'Start counting the interval' cue
+}
 
-// Initialize test parameters
-int TIMEOUT_READY = 5000;
+// Timer
+unsigned long timer;
 
+// Output
+unsigned long leverPressDuration;
+
+// Initialize parameters
+unsigned int TIMEOUT_READY = 5000;
+unsigned int RANDOM_WAIT_MIN = 1000;
+unsigned int RANDOM_WAIT_MAX = 2000;
+unsigned int TIMEOUT_RELEASE = 2000;
+unsigned int INTERVAL_MIN = 500;
+unsigned int INTERVAL_MAX = 2000;
+unsigned int REWARD_SIZE = 100;
+unsigned int ITI = 5000;
+
+// Incoming messages from Serial port are parsed into structs.
+typedef struct
+{
+	char command;
+	unsigned int arg1;
+	unsigned int arg2;
+}MessageAsStruct;
+
+/*****************************************************
+	Main
+*****************************************************/
 void setup()
 {
 	// Init pins
@@ -39,8 +67,10 @@ void setup()
 	pinMode(PIN_SPEAKER, OUTPUT);
 	pinMode(PIN_LEVER, INPUT_PULLUP);
 
-	digitalWrite(PIN_LED, LOW);
-	tone(PIN_SPEAKER, 512, 200);
+	// Lights off
+	setLight(false);
+	// LED off
+	setLED(false);
 
 	// Set up USB communication at 115200 baud 
 	Serial.begin(115200);
@@ -50,56 +80,69 @@ void setup()
 
 void loop()
 {
+	// Declare and init once
+	static State nextState = WAIT_FOR_GO;
+	static String usbMessage = "";
+	char inByte;
+	MessageAsStruct MessageParsed; 
+
 	// 1) Read from USB, if available
 	if (Serial.available() > 0) 
 	{
 		// Read next char if available
 		char inByte = Serial.read();
+		// append character to message buffer
 		if (inByte == '\n')
 		{
-			// The new-line character ('\n') indicates a complete message so interprete the message and then clear buffer
-			interpretCommand(usbMessage);
-			usbMessage = ""; // clear message buffer
+			MessageParsed = parseMessage(usbMessage);
 		}
 		else
 		{
-			// append character to message buffer
 			usbMessage = usbMessage + inByte;
 		}
 	}
 
 	// 2) update state machine
-	switch ()
+	switch (nextState)
 	{
-		case :
+		case WAIT_FOR_GO:
 		{
-			break;
-		}
-		case :
+			nextState = wait_for_go();
+		} break;
+		case READY:
 		{
-			break;
-		}
-		case :
+			nextState = ready();
+		} break;
+		case RANDOM_WAIT:
 		{
-			break;
-		}
-		case :
+			nextState = random_wait();
+		} break;
+		case CUE_ON:
 		{
-			break;
-		}
-		case :
+			nextState = cue_on();
+		} break;
+		case LEVER_RELEASED:
 		{
-			break;
-		}
-		case :
+			nextState = lever_released();
+		} break;
+		case REWARD:
 		{
-			break;
-		}
-		case :
+			nextState = reward();
+		} break;
+		case INTERTRIAL:
 		{
-			break;
-		}
+			nextState = intertrial();
+		} break;
+		case ABORT_TRIAL:
+		{
+			nextState = abort_trial();
+		} break;
 	}
+	// 3) Clear message buffer if new line ('\n') encountered, otherwise it's carried over to the next loop
+	if (inByte == '\n')
+	{
+		usbMessage = "";
+	}	
 }
 
 /*****************************************************
@@ -112,11 +155,17 @@ State wait_for_go()
 	if (currentState != previousState)
 	{
 		previousState = currentState;
+
+		// Lights off
+		setLight(false);
+
+		// LED off
+		setLED(false);	
 	}
 
 	// Transitions
 	// Lever pressed -> RANDOM_WAIT
-	if (getCommand() == 'G')
+	if (MessageParsed.command == 'G')
 	{
 		return READY;
 	}
@@ -135,18 +184,23 @@ State ready()
 		// Light on
 		setLight(true);
 
-		// Reset timer
-		time = millis();
+		// Start local timer
+		timer = millis();
 	}
 
 	// Transitions
+	// Serial input ('QUIT' signal) -> WAIT_FOR_GO
+	if (MessageParsed.command == 'Q')
+	{
+		return WAIT_FOR_GO;
+	}
 	// Lever pressed -> RANDOM_WAIT
 	if (getLever())
 	{
 		return RANDOM_WAIT;
 	}
 	// Timeout waiting for lever press -> ABORT_TRIAL
-	if (millis() - time >= TIMEOUT_READY)
+	if (millis() - timer >= TIMEOUT_READY)
 	{
 		return ABORT_TRIAL;
 	}
@@ -154,10 +208,212 @@ State ready()
 	return READY;
 }
 
+/*** RANDOM WAIT ***/
+State random_wait()
+{
+	// Actions - only execute upon state entry
+	if (currentState != previousState)
+	{
+		previousState = currentState;
+
+		// Start random timer
+		static long randomWaitInterval = random(RANDOM_WAIT_MIN, RANDOM_WAIT_MAX);
+		timer = millis();
+	}
+
+	// Transitions
+	// Serial input ('QUIT' signal) -> WAIT_FOR_GO
+	if (MessageParsed.command == 'Q')
+	{
+		return WAIT_FOR_GO;
+	}
+	// Lever released -> ABORT_TRIAL
+	if (!getLever())
+	{
+		return ABORT_TRIAL;
+	}
+	// Random wait complete -> CUE_ON
+	if (millis() - timer >= randomWaitInterval)
+	{
+		return CUE_ON;
+	}
+	// Otherwise stay in the same state
+	return RANDOM_WAIT;
+}
+
+/*** CUE_ON ***/
+State cue_on()
+{
+	// Actions - only execute upon state entry
+	if (currentState != previousState)
+	{
+		previousState = currentState;
+
+		// Light on
+		setLED(true);
+
+		// Sound cue
+		playSound(START_INTERVAL);
+
+		// Start timer
+		timer = millis(); 
+	}
+
+	// Transitions
+	// Serial input ('QUIT' signal) -> WAIT_FOR_GO
+	if (MessageParsed.command == 'Q')
+	{
+		return WAIT_FOR_GO;
+	}
+	// Lever released -> LEVER_RELEASED
+	if (!getLever())
+	{
+		return LEVER_RELEASED;
+	}
+	// Otherwise stay in the same state
+	return CUE_ON;
+}
+
+/*** LEVER_RELEASED ***/
+State lever_released()
+{
+	// Actions - only execute upon state entry
+	if (currentState != previousState)
+	{
+		previousState = currentState;
+
+		// Store interval length
+		leverPressDuration = millis() - timer;
+	}
+
+	// Transitions
+	// Serial input ('QUIT' signal) -> WAIT_FOR_GO
+	if (MessageParsed.command == 'Q')
+	{
+		return WAIT_FOR_GO;
+	}
+	// Interval correct -> REWARD
+	if (leverPressDuration <= INTERVAL_MAX && leverPressDuration >= INTERVAL_MIN)
+	{
+		return REWARD;
+	}
+	// Interval incorrect -> ABORT_TRIAL
+	else
+	{
+		return ABORT_TRIAL;
+	}
+}
+
+/*** REWARD ***/
+State reward()
+{
+	// Actions - only execute upon state entry
+	if (currentState != previousState)
+	{
+		previousState = currentState;
+
+		// Give reward
+		giveReward(REWARD_SIZE);
+
+		// Sound cue: correct
+		playSound(CORRECT);
+	}
+
+	// Transitions
+	// Serial input ('QUIT' signal) -> WAIT_FOR_GO
+	if (MessageParsed.command == 'Q')
+	{
+		return WAIT_FOR_GO;
+	}
+	// Always -> INTERTRIAL
+	return INTERTRIAL;
+}
+
+/*** INTERTRIAL ***/
+State intertrial()
+{
+	// Actions - only execute upon state entry
+	if (currentState != previousState)
+	{
+		previousState = currentState;
+
+		// Start timer
+		timer = millis();
+
+		// Lights off
+		setLight(false);
+
+		// LED off
+		setLED(false);
+
+		// Send interval length (as integer) and reset GVAR
+		sendMessage('I', leverPressDuration);
+		leverPressDuration = 0;
+	}
+
+	// Transitions
+	// Serial input ('QUIT' signal) -> WAIT_FOR_GO
+	if (MessageParsed.command == 'Q')
+	{
+		return WAIT_FOR_GO;
+	}
+	// Serial input new param received ('P' for Params)
+	if (MessageParsed.command == 'P')
+	{
+		updateParam(MessageParsed.arg1, MessageParsed.arg2);
+		return INTERTRIAL;
+	}
+	// ITI Complete
+	if (millis() - timer >= ITI)
+	{
+		return READY;
+	}
+	// Otherwise stay in the same state
+	return INTERTRIAL;
+}
+
+/*** ABORT_TRIAL ***/
+State abort_trial()
+{
+	// Actions - only execute upon state entry
+	if (currentState != previousState)
+	{
+		previousState = currentState;
+
+		// Start timer
+		timer = millis();
+
+		// Sound cue: incorrect
+		playSound(INCORRECT);
+	}
+
+	// Transitions
+	// Serial input ('QUIT' signal) -> WAIT_FOR_GO
+	if (MessageParsed.command == 'Q')
+	{
+		return WAIT_FOR_GO;
+	}
+	// Always -> INTERTRIAL
+	return INTERTRIAL;
+}
+
+
 /*****************************************************
 	Hardware controls
 *****************************************************/
 void setLight(bool turnOn)
+{
+	if (turnOn)
+	{
+		digitalWrite(PIN_LIGHT, HIGH);
+	}
+	else
+	{
+		digitalWrite(PIN_LIGHT, LOW);
+	}
+}
+
+void setLED(bool turnOn)
 {
 	if (turnOn)
 	{
@@ -181,6 +437,30 @@ bool getLever()
 	}
 }
 
+void playSound(SoundType soundType)
+{
+	if (soundType == CORRECT)
+	{
+		// Play correct tone
+		return;
+	}
+	if (soundType == INCORRECT)
+	{
+		// Play incorrect tone
+		return;
+	}
+	if (soundType == START_INTERVAL)
+	{
+		// Play start interval tone
+		return;
+	}
+}
+
+void giveReward(int size)
+{
+	// Give some reward
+}
+
 /*****************************************************
 	Serial comms
 *****************************************************/
@@ -194,27 +474,7 @@ void sendMessage(char c, int val)
 	Serial.println(message);
 }
 
-// Read a message from USB port
-String getMessage()
-{
-	String usbMessage = ""; 	// Initialize usbMessage to empty string, happens once at start of program
-	
-	if (Serial.available() > 0) 
-	{
-		// Read next char if available
-		char inByte = Serial.read();
-		if (inByte == '\n') {
-			// The new-line character ('\n') indicates a complete message so interprete the message and then clear buffer
-			interpretCommand(usbMessage);
-			usbMessage = ""; // clear message buffer
-		} else {
-			// append character to message buffer
-			usbMessage = usbMessage + inByte;
-		}
-	}
-}
-
-void interpretCommand(String message) 
+MessageAsStruct parseMessage(String message)
 {
 	message.trim(); // Remove leading and trailing white space
 	int len = message.length();
@@ -236,7 +496,7 @@ void interpretCommand(String message)
 		intString += parameters[0];
 		parameters.remove(0,1);
 	}
-	long arg1 = intString.toInt();
+	int arg1 = intString.toInt();
 
 	// Parse second (optional) integer argument  
 	parameters.trim();
@@ -246,46 +506,52 @@ void interpretCommand(String message)
 		intString += parameters[0];
 		parameters.remove(0,1);
 	}
-	long arg2 = intString.toInt();
+	int arg2 = intString.toInt();
 
-	// Dubgging output
-	DEBUG(String("Command: ")+command);
-	DEBUG(String("Argument 1: ")+arg1);
-	DEBUG(String("Argument 2: ")+arg2);
+	// Return everything as a struct
+	MessageAsStruct parsed;
+	parsed.command 	= command;
+	parsed.arg1 	= arg1;
+	parsed.arg2 	= arg2;
 
-	if (command == 'A') 
-	{ // A: return the sum (addition)
-		sendMessage('P', arg1 + arg2);
-		
-	} else if (command == 'D') 
-	{ // D: return the difference
-		sendMessage('P', arg1 - arg2);
-	} else if (command == 'P') 
-	{ // P: return the product
-		sendMessage('P', arg1 * arg2);
-	} else if (command == 'L') 
-	{ // L: turn active LED on
-		digitalWrite(active_LED, HIGH);
-	} else if (command == 'O') 
-	{ // O: turn active LED off
-		digitalWrite(active_LED, LOW);
-	} else if (command == 'B') 
-	{ // B: return button state
-		int buttonState = digitalRead(Button_pin);
-		sendMessage('P', buttonState);
-	} else if (command == 'S') 
-	{ // S: switch active LED
-		if (active_LED == LED1_pin) 
+	return parsed;
+}
+
+void updateParam(int arg1, int arg2)
+{
+	switch (arg1)
+	{
+		case 1:
 		{
-				active_LED = LED2_pin;
-				sendMessage('L', 2);
-		} else 
+			TIMEOUT_READY = arg2;
+		} break;
+		case 2:
 		{
-				active_LED = LED1_pin;      
-				sendMessage('L', 1);
-		}
-	} else 
-	{ // Unknown command
-		Serial.println("#"); // "#" means error
+			RANDOM_WAIT_MIN = arg2;
+		} break;
+		case 3:
+		{
+			RANDOM_WAIT_MAX = arg2;
+		} break;
+		case 4:
+		{
+			TIMEOUT_RELEASE = arg2;
+		} break;
+		case 5:
+		{
+			INTERVAL_MIN = arg2;
+		} break;
+		case 6:
+		{
+			INTERVAL_MAX = arg2;
+		} break;
+		case 7:
+		{
+			REWARD_SIZE = arg2;
+		} break;
+		case 8:
+		{
+			ITI = arg2;
+		} break;
 	}
 }

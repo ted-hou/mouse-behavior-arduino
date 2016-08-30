@@ -1,18 +1,18 @@
-- [ ] **IDLE**
+- [x] **WAIT_FOR_GO**
 	- [x] Action 
 		- [x] EMPTY
-	- [ ] Transitions
-		- [ ] Serial input ('GO' signal) -> **READY**
+	- [x] Transitions
+		- [x] Serial input ('GO' signal) -> **READY**
 
 
-- [ ] **READY**
-	- [ ] Action 
-		- [ ] Light ON
-		- [ ] Start local timer
-	- [ ] Transitions
-		- [ ] Serial input ('QUIT' signal) -> **QUIT**
-		- [ ] Time out w/o pressing the lever-> **ABORT TRIAL**
-		- [ ] Lever pressed -> **RANDOM WAIT**
+- [x] **READY**
+	- [x] Action 
+		- [x] Light ON
+		- [x] Start local timer
+	- [x] Transitions
+		- [x] Serial input ('QUIT' signal) -> **QUIT**
+		- [x] Time out w/o pressing the lever-> **ABORT TRIAL**
+		- [x] Lever pressed -> **RANDOM WAIT**
 
 
 - [ ] **RANDOM WAIT**
