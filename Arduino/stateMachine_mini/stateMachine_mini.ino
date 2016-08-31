@@ -5,33 +5,19 @@
 /*****************************************************
 	Global declarations/inits
 *****************************************************/
-#define PIN_LED 		34	// DIGITAL OUT
-#define PIN_LIGHT 		35	// DIGITAL OUT
+#define PIN_LED_A 		34	// DIGITAL OUT
+#define PIN_LED_B 		35	// DIGITAL OUT
 
 // States
 enum State
 {
-	WAIT_FOR_GO,
-	CUE_ON
+	_INIT,
+	STATE_A,
+	STATE_B
 };
-State currentState = WAIT_FOR_GO;
-State previousState = WAIT_FOR_GO;
-
-// Timer
-unsigned long timer;
 
 // Initialize parameters
 unsigned int TIMEOUT_CUE_ON = 2000;
-
-// Incoming messages from Serial port are parsed into structs.
-typedef struct
-{
-	char command;
-	unsigned int arg1;
-	unsigned int arg2;
-}MessageAsStruct;
-
-MessageAsStruct MessageParsed; 
 
 /*****************************************************
 	Main
@@ -39,13 +25,12 @@ MessageAsStruct MessageParsed;
 void setup()
 {
 	// Init pins
-	pinMode(PIN_LED, OUTPUT);
-	pinMode(PIN_LIGHT, OUTPUT);
+	pinMode(PIN_LED_A, OUTPUT);
+	pinMode(PIN_LED_B, OUTPUT);
 
-	// Lights off
-	setLight(false);
-	// LED off
-	setLED(false);
+	// LEDs off
+	setLED_A(false);
+	setLED_B(false);
 
 	// Set up USB communication at 115200 baud 
 	Serial.begin(115200);
@@ -53,25 +38,30 @@ void setup()
 	Serial.println("S");
 }
 
+unsigned long timer;
+
 void loop()
 {
-	// Declare and init once
-	static State nextState = WAIT_FOR_GO;
-	static String usbMessage = "";
-	static char inByte;
+	char command = '0';
+	static State nextState = _INIT;
+	static State prevState = _INIT;
 
 	// 1) Read from USB, if available
-	if (Serial.available() > 0) 
-	{
+	static String usbMessage = ""; 	// Initialize usbMessage to empty string, happens once at start of program
+	
+	if (Serial.available() > 0) {
 		// Read next char if available
 		char inByte = Serial.read();
-		// append character to message buffer
-		if (inByte == '\n')
+		if (inByte == '#') 
 		{
-			MessageParsed = parseMessage(usbMessage);
+			// The pound sign ('#') indicates a complete message so interprete the message and then clear buffer
+			command = usbMessage[0];
+			// Serial.println(command);
+			usbMessage = ""; // clear message buffer
 		}
 		else
 		{
+			// append character to message buffer
 			usbMessage = usbMessage + inByte;
 		}
 	}
@@ -79,111 +69,119 @@ void loop()
 	// 2) update state machine
 	switch (nextState)
 	{
-		case WAIT_FOR_GO:
+		case _INIT:
 		{
-			nextState = wait_for_go();
+			state_a(&nextState, &prevState, &timer, command);
 		} break;
-		case CUE_ON:
+		case STATE_A:
 		{
-			nextState = cue_on();
+			state_a(&nextState, &prevState, &timer, command);
+		} break;
+		case STATE_B:
+		{
+			state_b(&nextState, &prevState, &timer, command);
 		} break;
 	}
-	// 3) Clear message buffer if new line ('\n') encountered, otherwise it's carried over to the next loop
-	if (inByte == '\n')
-	{
-		usbMessage = "";
-	}
+	// Serial.println(String(state, DEC));
 }
 
 /*****************************************************
 	States for the State Machine
 *****************************************************/
 /*** WAIT FOR GO ***/
-State wait_for_go()
+void state_a(State *nextState, State *prevState, unsigned long *timer, char command)
 {
 	// Actions - only execute upon state entry
-	if (currentState != previousState)
+	if (*prevState != *nextState)
 	{
-		previousState = currentState;
+		*prevState = *nextState;
 
-		sendMessage('G', 0);
+		// Cue on
+		Serial.println("State A.");
 
-		// Lights off
-		setLight(true);
+		// LED A on
+		setLED_A(true);
 
-		// LED off
-		setLED(false);	
+		// LED B on
+		setLED_B(false);
 	}
 
 	// Transitions
 	// Lever pressed -> RANDOM_WAIT
-	if (MessageParsed.command == 'G')
+	if (command == 'B')
 	{
-		return CUE_ON;
-	}
-	if ()
-	{
-		return CUE_ON;
+		*nextState = STATE_B;
+		return;
 	}
 	// Otherwise stay in the same state
-	return WAIT_FOR_GO;
+	*nextState = STATE_A;
+	return;
 }
 
 /*** CUE_ON ***/
-State cue_on()
+void state_b(State *nextState, State *prevState, unsigned long *timer, char command)
 {
 	// Actions - only execute upon state entry
-	if (currentState != previousState)
+	if (*prevState != *nextState)
 	{
-		previousState = currentState;
+		*prevState = *nextState;
 
-		// LED on
-		setLED(true);
+		// Cue on
+		Serial.println("State B.");
+
+		// LED A off
+		setLED_A(false);
+
+		// LED B on
+		setLED_B(true);
 
 		// Start timer
-		timer = millis(); 
+		*timer = millis(); 
 	}
 
 	// Transitions
 	// Serial input ('QUIT' signal) -> WAIT_FOR_GO
-	if (MessageParsed.command == 'Q')
+	if (command == 'A')
 	{
-		return WAIT_FOR_GO;
+		*nextState = STATE_A;
+		return;
 	}
 	// Lever released -> LEVER_RELEASED
-	if (millis() - timer >= TIMEOUT_CUE_ON)
+	if (millis() - *timer >= TIMEOUT_CUE_ON)
 	{
-		return WAIT_FOR_GO;
+		*nextState = STATE_A;
+		return;
 	}
 	// Otherwise stay in the same state
-	return CUE_ON;
+	*nextState = STATE_B;
+	return;
 }
 
 
 /*****************************************************
 	Hardware controls
 *****************************************************/
-void setLight(bool turnOn)
+void setLED_A(bool turnOn)
 {
 	if (turnOn)
 	{
-		digitalWrite(PIN_LIGHT, HIGH);
+		digitalWrite(PIN_LED_A, HIGH);
 	}
 	else
 	{
-		digitalWrite(PIN_LIGHT, LOW);
+		digitalWrite(PIN_LED_A, LOW);
 	}
 }
 
-void setLED(bool turnOn)
+void setLED_B(bool turnOn)
 {
 	if (turnOn)
 	{
-		digitalWrite(PIN_LED, HIGH);
+		digitalWrite(PIN_LED_B, HIGH);
 	}
 	else
 	{
-		digitalWrite(PIN_LED, LOW);
+		digitalWrite(PIN_LED_B, LOW);
 	}
 }
 
@@ -200,12 +198,20 @@ void sendMessage(char c, int val)
 	Serial.println(message);
 }
 
-MessageAsStruct parseMessage(String message)
+char getCommand(String message)
 {
 	message.trim(); // Remove leading and trailing white space
 
 	// Parse command string
-	char command = message[0]; // The command is the first char of a message
+	char command = message[0];
+	return command;	
+}
+
+int* getArguments(String message)
+{
+	message.trim(); // Remove leading and trailing white space
+
+	// Remove command (first character) from string
 	String parameters = message.substring(1);
 	parameters.trim();
 
@@ -228,11 +234,6 @@ MessageAsStruct parseMessage(String message)
 	}
 	int arg2 = intString.toInt();
 
-	// Return everything as a struct
-	MessageAsStruct parsed;
-	parsed.command 	= command;
-	parsed.arg1 	= arg1;
-	parsed.arg2 	= arg2;
-
-	return parsed;
+	int arrArguments[] = {arg1, arg2};
+	return arrArguments;
 }
