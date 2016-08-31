@@ -66,6 +66,7 @@ void setup()
 {
 	// Init pins
 	pinMode(PIN_LED, OUTPUT);
+	pinMode(PIN_LIGHT, OUTPUT);
 	pinMode(PIN_SPEAKER, OUTPUT);
 	pinMode(PIN_LEVER, INPUT_PULLUP);
 

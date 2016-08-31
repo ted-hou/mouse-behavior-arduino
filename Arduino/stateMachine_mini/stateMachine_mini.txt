@@ -1,0 +1,14 @@
+- [x] **WAIT_FOR_GO**
+	- [x] Action 
+		- [x] Light on
+	- [x] Transitions
+		- [x] Serial input ('GO' signal) -> **READY**
+
+- [x] **CUE ON**
+	- [x] Action
+		- [x] Light off
+		- [x] LED on
+		- [x] Start timer
+	- [x] Transitions
+		- [x] Serial input ('QUIT' signal) -> **QUIT**
+		- [x] Timeout -> **WAIT_FOR_GO**
