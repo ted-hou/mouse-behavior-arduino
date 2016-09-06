@@ -1,7 +1,7 @@
 /*****************************************************
 	Arduino code for lever task
 *****************************************************/
-bool DEBUG = false; // Set to false to disable debug messages
+bool DEBUG = true; // Set to false to disable debug messages
 
 /*****************************************************
 	Global stuff
@@ -31,9 +31,9 @@ enum State
 // Sound cue types
 enum SoundType
 {
-	TONE_REWARD,		// Correct tone
-	TONE_ABORT,			// Error tone
-	TONE_CUE 			// 'Start counting the interval' cue
+	TONE_REWARD = 4186,		// Correct tone: C8
+	TONE_ABORT	= 131,		// Error tone: C3
+	TONE_CUE	= 1047		// 'Start counting the interval' cue: C6
 };
 
 // Parameters that can be updated by host
@@ -54,7 +54,7 @@ int params[NUM_PARAMS] = {0};
 
 // GVARs - values that need to be carried to the next loop, AND read/written in function scope
 static unsigned long timer 				= 0;		// Timer
-static unsigned long leverPressDuration = 0;
+static long leverPressDuration 			= 0;		// Lever press duration in ms. Return -1 if not pressed, -2 if released before cue light comes on.
 static State state 						= _INIT;	// This variable (current state) get passed into a state function, which determines what the next state should be, and updates it to the next state.
 static State prevState 					= _INIT;	// Remembers the previous state from the last loop (actions should only be executed when you enter a state for the first time, comparing currentState vs prevState helps us keep track of that).
 static char command 					= ' ';		// Command char received from host, resets on each loop
@@ -231,6 +231,7 @@ void ready()
 	if (millis() - timer >= params[TIMEOUT_READY])
 	{
 		if (DEBUG) {sendString("Time out waiting for lever. Aborting.");}
+		leverPressDuration = -1;	// Return -1 if lever was never pressed
 		state = ABORT_TRIAL;
 		return;
 	}
@@ -266,6 +267,7 @@ void random_wait()
 	if (!getLeverState())
 	{
 		if (DEBUG) {sendString("Lever released during random wait.");}
+		leverPressDuration = -2;	// Return -2 if lever released during random wait
 		state = ABORT_TRIAL;
 		return;
 	}
@@ -365,6 +367,9 @@ void reward()
 
 		// Give reward
 		giveReward(params[REWARD_SIZE]);
+
+		// Reward tone
+		playSound(TONE_REWARD);
 	}
 
 	// Transitions
@@ -391,9 +396,6 @@ void abort_trial()
 
 		// Error tone
 		playSound(TONE_ABORT);
-
-		// Set lever press duration to 0
-		leverPressDuration = 0;
 	}
 
 	// Transitions
@@ -433,6 +435,7 @@ void intertrial()
 
 		// Serial output - upload trial results to host ('I' for Interval)
 		sendCommandAndArgument('I', leverPressDuration);
+		leverPressDuration = 0; // Reset output
 
 		// Start timer
 		timer = millis();
@@ -514,16 +517,22 @@ void playSound(SoundType soundType)
 	if (soundType == TONE_REWARD)
 	{
 		// Play correct tone
+		noTone(PIN_SPEAKER);
+		tone(PIN_SPEAKER, soundType, 200);
 		return;
 	}
 	if (soundType == TONE_ABORT)
 	{
 		// Play incorrect tone
+		noTone(PIN_SPEAKER);
+		tone(PIN_SPEAKER, soundType, 200);
 		return;
 	}
 	if (soundType == TONE_CUE)
 	{
 		// Play start interval tone
+		noTone(PIN_SPEAKER);
+		tone(PIN_SPEAKER, soundType, 200);
 		return;
 	}
 }
@@ -531,7 +540,6 @@ void playSound(SoundType soundType)
 void giveReward(int size)
 {
 	// Give some reward
-
 	if (DEBUG) {sendString("Nom nom nom. " + String(size) + ".");}
 }
 
@@ -593,4 +601,84 @@ void getArguments(String message, int *arguments)
 		parameters.remove(0,1);
 	}
 	arguments[1] = intString.toInt();
+}
+
+
+
+/*
+Tone generator
+v1  use timer, and toggle any digital pin in ISR
+   funky duration from arduino version
+   TODO use FindMckDivisor?
+   timer selected will preclude using associated pins for PWM etc.
+	could also do timer/pwm hardware toggle where caller controls duration
+*/
+
+
+// timers TC0 TC1 TC2   channels 0-2 ids 0-2  3-5  6-8     AB 0 1
+// use TC1 channel 0 
+#define TONE_TIMER TC1
+#define TONE_CHNL 0
+#define TONE_IRQ TC3_IRQn
+
+// TIMER_CLOCK4   84MHz/128 with 16 bit counter give 10 Hz to 656KHz
+//  piano 27Hz to 4KHz
+
+static uint8_t pinEnabled[PINS_COUNT];
+static uint8_t TCChanEnabled = 0;
+static boolean pin_state = false ;
+static Tc *chTC = TONE_TIMER;
+static uint32_t chNo = TONE_CHNL;
+
+volatile static int32_t toggle_count;
+static uint32_t tone_pin;
+
+// frequency (in hertz) and duration (in milliseconds).
+
+void tone(uint32_t ulPin, uint32_t frequency, int32_t duration)
+{
+		const uint32_t rc = VARIANT_MCK / 256 / frequency; 
+		tone_pin = ulPin;
+		toggle_count = 0;  // strange  wipe out previous duration
+		if (duration > 0 ) toggle_count = 2 * frequency * duration / 1000;
+		 else toggle_count = -1;
+
+		if (!TCChanEnabled) {
+			pmc_set_writeprotect(false);
+			pmc_enable_periph_clk((uint32_t)TONE_IRQ);
+			TC_Configure(chTC, chNo,
+				TC_CMR_TCCLKS_TIMER_CLOCK4 |
+				TC_CMR_WAVE |         // Waveform mode
+				TC_CMR_WAVSEL_UP_RC ); // Counter running up and reset when equals to RC
+	
+			chTC->TC_CHANNEL[chNo].TC_IER=TC_IER_CPCS;  // RC compare interrupt
+			chTC->TC_CHANNEL[chNo].TC_IDR=~TC_IER_CPCS;
+			 NVIC_EnableIRQ(TONE_IRQ);
+						 TCChanEnabled = 1;
+		}
+		if (!pinEnabled[ulPin]) {
+			pinMode(ulPin, OUTPUT);
+			pinEnabled[ulPin] = 1;
+		}
+		TC_Stop(chTC, chNo);
+				TC_SetRC(chTC, chNo, rc);    // set frequency
+		TC_Start(chTC, chNo);
+}
+
+void noTone(uint32_t ulPin)
+{
+	TC_Stop(chTC, chNo);  // stop timer
+	digitalWrite(ulPin,LOW);  // no signal on pin
+}
+
+// timer ISR  TC1 ch 0
+void TC3_Handler ( void ) {
+	TC_GetStatus(TC1, 0);
+	if (toggle_count != 0){
+		// toggle pin  TODO  better
+		digitalWrite(tone_pin,pin_state= !pin_state);
+		if (toggle_count > 0) toggle_count--;
+	} else {
+		noTone(tone_pin);
+	}
 }
