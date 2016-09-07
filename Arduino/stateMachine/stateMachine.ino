@@ -1,6 +1,18 @@
-/*****************************************************
-	Arduino code for lever task
-*****************************************************/
+/*********************************************************************
+	Arduino state machine code for lever task
+	 - Everything is done in the main loop()
+	 - Incoming messages
+	 	- Receive one byte on each loop
+	 	- Parsed when end of message character ('#') received
+	 - State machine
+	 	- States are written as individual functions
+	 	- The main loop calls the appropriate state function
+	 	depending on current state.
+	 	- A state function consists of two parts
+	 	 - Action: executed once when first entering this state.
+	 	 - Transitions: evaluated on each loop and determines
+	 	 what the next state should be.
+*********************************************************************/
 
 /*****************************************************
 	Global stuff
