@@ -220,6 +220,14 @@ void wait_for_go()
 		state = READY;
 		return;
 	}
+	// Received new param from host: format "P _paramID _newValue" ('P' for Parameters)
+	if (command == 'P')
+	{
+		params[arguments[0]] = arguments[1];	// Update parameter. Serial input "P 0 1000" changes the 1st parameter to 1000.
+		if (params[_DEBUG]) {sendString("Parameter " + String(arguments[0]) + " changed to " + String(arguments[1]));} 
+		state = WAIT_FOR_GO;
+		return;
+	}
 	// Otherwise stay in the same state
 	state = WAIT_FOR_GO;
 }
