@@ -1,7 +1,6 @@
 /*****************************************************
 	Arduino code for lever task
 *****************************************************/
-bool DEBUG = true; // Set to false to disable debug messages
 
 /*****************************************************
 	Global stuff
@@ -40,6 +39,7 @@ enum SoundType
 // Storing everything in array params[]. Using enum ParamName as array indices so it's easier to add/remove parameters. 
 enum ParamName
 {
+	_DEBUG,				// (Private) 1 to enable debug messages. 0 to disable. Default 0.
 	TIMEOUT_READY,
 	RANDOM_WAIT_MIN,
 	RANDOM_WAIT_MAX,
@@ -47,10 +47,10 @@ enum ParamName
 	INTERVAL_MAX,
 	REWARD_SIZE,
 	ITI,
-	NUM_PARAMS			// Used to count how many parameters there are so we can initialize the param array with the correct size. Insert additional parameter names before this.
+	_NUM_PARAMS			// (Private) Used to count how many parameters there are so we can initialize the param array with the correct size. Insert additional parameter names before this.
 };
 
-int params[NUM_PARAMS] = {0};
+int params[_NUM_PARAMS] = {0};
 
 // GVARs - values that need to be carried to the next loop, AND read/written in function scope
 static unsigned long timer 				= 0;		// Timer
@@ -59,6 +59,10 @@ static State state 						= _INIT;	// This variable (current state) get passed in
 static State prevState 					= _INIT;	// Remembers the previous state from the last loop (actions should only be executed when you enter a state for the first time, comparing currentState vs prevState helps us keep track of that).
 static char command 					= ' ';		// Command char received from host, resets on each loop
 static int arguments[2] 				= {0};		// Two integers received from host , resets on each loop
+
+// Debug: measure tick-rate (per ms)
+static unsigned long debugTimer = 0;
+static unsigned long ticks = 0;
 
 /*****************************************************
 	Main
@@ -72,6 +76,7 @@ void setup()
 	pinMode(PIN_LEVER, INPUT_PULLUP);	// Lever (`INPUT_PULLUP` means it'll be `LOW` when pressed, and `HIGH` when released)
 
 	// Initialize parameters
+	params[_DEBUG] 			= 0;		// 1 to enable debug messages, 0 to disable
 	params[TIMEOUT_READY] 	= 20000;	// Timeout: subject does not press the lever to initiate trial
 	params[RANDOM_WAIT_MIN] = 1000;		// Min random wait interval
 	params[RANDOM_WAIT_MAX] = 2000;		// Max random wait interval
@@ -89,10 +94,31 @@ void setup()
 	Serial.begin(115200);
 	// Tell PC that we're running by sending 'S' message
 	Serial.println("S");
+
+	// Tick rate
+	debugTimer = millis();
 }
 
 void loop()
 {
+	// Measure tick rate if debug mode enabled
+	if (millis() - debugTimer == 1000)
+	{
+		if (params[_DEBUG]) {sendString("Tick rate: " + String(ticks) + " ticks per second.");}
+		ticks = 0;
+		debugTimer = millis();
+	}
+	else if (millis() - debugTimer > 1000)
+	{
+		if (params[_DEBUG]) {sendString("Tick rate: Woah where did that millisecond go?");}
+		ticks = 0;
+		debugTimer = millis();
+	}
+	else if (millis() - debugTimer < 1000)
+	{
+		ticks = ticks + 1;
+	}
+
 	// 1) Read from USB, if available. String is read byte by byte.
 	static String usbMessage 	= ""; 		// Initialize usbMessage to empty string, only happens once on first loop
 	command = ' ';
@@ -109,7 +135,7 @@ void loop()
 			// Parse the string, and updates `command`, and `arguments`
 			command = getCommand(usbMessage);
 			getArguments(usbMessage, arguments);
-			if (DEBUG) {"Roger. " + command + String(arguments[0]) + String(arguments[1]);}
+			if (params[_DEBUG]) {"Roger. " + command + String(arguments[0]) + String(arguments[1]);}
 			// Clear message buffer
 			usbMessage = ""; 
 		}
@@ -175,13 +201,16 @@ void wait_for_go()
 		prevState = state;
 
 		// Debug message - state entry
-		if (DEBUG) {sendString("Idle.");}
+		if (params[_DEBUG]) {sendString("Idle.");}
 
 		// Illumination LED off
-		setIllumLED(true);
+		setIllumLED(false);
 
 		// Cue LED off
 		setCueLED(false);
+
+		// Kill tone
+		noTone(PIN_SPEAKER);
 	}
 
 	// Transitions
@@ -204,7 +233,7 @@ void ready()
 		prevState = state;
 
 		// Debug message - state entry
-		if (DEBUG) {sendString("Ready. Press and hold lever.");}
+		if (params[_DEBUG]) {sendString("Ready. Press and hold lever.");}
 
 		// Illumination LED on
 		setIllumLED(true);
@@ -223,14 +252,14 @@ void ready()
 	// Lever pressed -> RANDOM_WAIT
 	if (getLeverState())
 	{
-		if (DEBUG) {sendString("Lever pressed. Keep holding please.");}
+		if (params[_DEBUG]) {sendString("Lever pressed. Keep holding please.");}
 		state = RANDOM_WAIT;
 		return;
 	}
 	// Timeout w/o pressing the lever-> ABORT_TRIAL
 	if (millis() - timer >= params[TIMEOUT_READY])
 	{
-		if (DEBUG) {sendString("Time out waiting for lever. Aborting.");}
+		if (params[_DEBUG]) {sendString("Time out waiting for lever. Aborting.");}
 		leverPressDuration = -1;	// Return -1 if lever was never pressed
 		state = ABORT_TRIAL;
 		return;
@@ -253,7 +282,7 @@ void random_wait()
 		timer = millis();
 
 		// Debug message - state entry
-		if (DEBUG) {sendString("Random wait: " + String(waitInterval) + " ms");}
+		if (params[_DEBUG]) {sendString("Random wait: " + String(waitInterval) + " ms");}
 	}
 
 	// Transitions
@@ -266,7 +295,7 @@ void random_wait()
 	// Lever released -> ABORT_TRIAL
 	if (!getLeverState())
 	{
-		if (DEBUG) {sendString("Lever released during random wait.");}
+		if (params[_DEBUG]) {sendString("Lever released during random wait.");}
 		leverPressDuration = -2;	// Return -2 if lever released during random wait
 		state = ABORT_TRIAL;
 		return;
@@ -274,7 +303,7 @@ void random_wait()
 	// Random wait complete-> CUE_ON
 	if (millis() - timer >= waitInterval)
 	{
-		if (DEBUG) {sendString("Random wait complete.");}
+		if (params[_DEBUG]) {sendString("Random wait complete.");}
 		state = CUE_ON;
 		return;
 	}
@@ -290,7 +319,7 @@ void cue_on()
 		prevState = state;
 
 		// Debug message - state entry
-		if (DEBUG) {sendString("Cue on. Hold for " + String(params[INTERVAL_MIN]) + " - " + String(params[INTERVAL_MAX]) + " ms");}
+		if (params[_DEBUG]) {sendString("Cue on. Hold for " + String(params[INTERVAL_MIN]) + " - " + String(params[INTERVAL_MAX]) + " ms");}
 
 		// Cue LED ON
 		setCueLED(true);
@@ -330,7 +359,7 @@ void lever_released()
 		leverPressDuration = millis() - timer;
 
 		// Debug message - state entry
-		if (DEBUG) {sendString("Lever released. Held for " + String(leverPressDuration) + " ms.");}
+		if (params[_DEBUG]) {sendString("Lever released. Held for " + String(leverPressDuration) + " ms.");}
 	}
 
 	// Transitions
@@ -363,7 +392,7 @@ void reward()
 		prevState = state;
 
 		// Debug message - state entry
-		if (DEBUG) {sendString("Reward.");}
+		if (params[_DEBUG]) {sendString("Reward.");}
 
 		// Give reward
 		giveReward(params[REWARD_SIZE]);
@@ -392,7 +421,7 @@ void abort_trial()
 		prevState = state;
 
 		// Debug message - state entry
-		if (DEBUG) {sendString("Trial aborted.");}
+		if (params[_DEBUG]) {sendString("Trial aborted.");}
 
 		// Error tone
 		playSound(TONE_ABORT);
@@ -421,7 +450,7 @@ void intertrial()
 		prevState = state;
 
 		// Debug message - state entry
-		if (DEBUG) {sendString("Intertrial.");}
+		if (params[_DEBUG]) {sendString("Intertrial.");}
 
 		// Illum LED OFF
 		setIllumLED(false);
@@ -453,7 +482,7 @@ void intertrial()
 	{
 		isParamsUpdateStarted = true;			// Let loop know we've started transmitting parameters. Don't start next trial until we've finished.
 		params[arguments[0]] = arguments[1];	// Update parameter. Serial input "P 0 1000" changes the 1st parameter to 1000.
-		if (DEBUG) {sendString("Parameter " + String(arguments[0]) + " changed to " + String(arguments[1]));} 
+		if (params[_DEBUG]) {sendString("Parameter " + String(arguments[0]) + " changed to " + String(arguments[1]));} 
 		state = INTERTRIAL;
 		return;
 	}
@@ -540,7 +569,7 @@ void playSound(SoundType soundType)
 void giveReward(int size)
 {
 	// Give some reward
-	if (DEBUG) {sendString("Nom nom nom. " + String(size) + ".");}
+	if (params[_DEBUG]) {sendString("Nom nom nom. " + String(size) + ".");}
 }
 
 /*****************************************************
@@ -653,7 +682,7 @@ void tone(uint32_t ulPin, uint32_t frequency, int32_t duration)
 	
 			chTC->TC_CHANNEL[chNo].TC_IER=TC_IER_CPCS;  // RC compare interrupt
 			chTC->TC_CHANNEL[chNo].TC_IDR=~TC_IER_CPCS;
-			 NVIC_EnableIRQ(TONE_IRQ);
+			NVIC_EnableIRQ(TONE_IRQ);
 						 TCChanEnabled = 1;
 		}
 		if (!pinEnabled[ulPin]) {
@@ -661,7 +690,7 @@ void tone(uint32_t ulPin, uint32_t frequency, int32_t duration)
 			pinEnabled[ulPin] = 1;
 		}
 		TC_Stop(chTC, chNo);
-				TC_SetRC(chTC, chNo, rc);    // set frequency
+		TC_SetRC(chTC, chNo, rc);    // set frequency
 		TC_Start(chTC, chNo);
 }
 
