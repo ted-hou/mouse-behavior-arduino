@@ -22,9 +22,11 @@
 #define PIN_LED_ILLUM 	34	// DIGITAL OUT
 #define PIN_LED_CUE 	35	// DIGITAL OUT
 #define PIN_SPEAKER		2	// PWM OUT
-#define PIN_LEVER 		53	// DIGITAL IN
+#define PIN_LEVER 		36	// DIGITAL IN
 
-// Enums
+/*****************************************************
+	Enums
+*****************************************************/
 // All the states
 enum State
 {
@@ -47,24 +49,54 @@ enum SoundType
 	TONE_CUE	= 1047		// 'Start counting the interval' cue: C6
 };
 
-// Parameters that can be updated by host
-// Storing everything in array params[]. Using enum ParamName as array indices so it's easier to add/remove parameters. 
-enum ParamName
+/*****************************************************
+	Parameters that can be updated by host
+*****************************************************/
+// Storing everything in array params[]. Using enum ParamID as array indices so it's easier to add/remove parameters. 
+enum ParamID
 {
 	_DEBUG,				// (Private) 1 to enable debug messages. 0 to disable. Default 0.
-	TIMEOUT_READY,
-	RANDOM_WAIT_MIN,
-	RANDOM_WAIT_MAX,
-	INTERVAL_MIN,
-	INTERVAL_MAX,
-	REWARD_SIZE,
-	ITI,
-	_NUM_PARAMS			// (Private) Used to count how many parameters there are so we can initialize the param array with the correct size. Insert additional parameter names before this.
+	INTERVAL_MIN,		// Target interval length - min reward threshold (ms).
+	INTERVAL_MAX,		// Target interval length - max reward threshold (ms).
+	REWARD_DURATION,	// Reward size (ms).
+	TIMEOUT_READY,		// Timeout (ms) - abort trial if subject refuses to press lever
+	RANDOM_WAIT_MIN,	// Random wait interval (ms) - min
+	RANDOM_WAIT_MAX,	// Random wait interval (ms) - max
+	ITI,				// Intertrial interval length (ms)
+	_NUM_PARAMS			// (Private) Used to count how many parameters there are so we can initialize the param array with the correct size. Insert additional parameters before this.
 };
 
-int params[_NUM_PARAMS] = {0};
+// Store parameter names as strings
+static const char *paramName[] = 
+{
+	"_DEBUG",
+	"INTERVAL_MIN",
+	"INTERVAL_MAX",
+	"REWARD_DURATION",
+	"TIMEOUT_READY",
+	"RANDOM_WAIT_MIN",
+	"RANDOM_WAIT_MAX",
+	"ITI",
+	"_NUM_PARAMS"
+};
 
-// GVARs - values that need to be carried to the next loop, AND read/written in function scope
+// Initialize parameters
+int params[_NUM_PARAMS] = 
+{
+	0,			// _DEBUG
+	1250,		// INTERVAL_MIN
+	1750,		// INTERVAL_MAX
+	100,		// REWARD_DURATION
+	20000,		// TIMEOUT_READY
+	1000,		// RANDOM_WAIT_MIN
+	2000,		// RANDOM_WAIT_MAX
+	5000		// ITI
+};
+
+/*****************************************************
+	Global variables 
+*****************************************************/
+// Variables declared here can be carried to the next loop, AND read/written in function scope as well as main scope
 static unsigned long timer 				= 0;		// Timer
 static long leverPressDuration 			= 0;		// Lever press duration in ms. Return -1 if not pressed, -2 if released before cue light comes on.
 static State state 						= _INIT;	// This variable (current state) get passed into a state function, which determines what the next state should be, and updates it to the next state.
@@ -86,16 +118,6 @@ void setup()
 	pinMode(PIN_LED_CUE, OUTPUT);		// LED for 'start' cue
 	pinMode(PIN_SPEAKER, OUTPUT);		// Speaker for cue/correct/error tone
 	pinMode(PIN_LEVER, INPUT_PULLUP);	// Lever (`INPUT_PULLUP` means it'll be `LOW` when pressed, and `HIGH` when released)
-
-	// Initialize parameters
-	params[_DEBUG] 			= 0;		// 1 to enable debug messages, 0 to disable
-	params[TIMEOUT_READY] 	= 20000;	// Timeout: subject does not press the lever to initiate trial
-	params[RANDOM_WAIT_MIN] = 1000;		// Min random wait interval
-	params[RANDOM_WAIT_MAX] = 2000;		// Max random wait interval
-	params[INTERVAL_MIN] 	= 1250;		// Min lever hold duration to qualify for reward
-	params[INTERVAL_MAX] 	= 1750;		// Max lever hold duration to qualify for reward
-	params[REWARD_SIZE] 	= 100;		// Solenoid ON duration. Determines juice/water reward size. Need calibratio
-	params[ITI] 			= 5000;		// Intertrial interval duration.
 
 	// Illum LED off
 	setIllumLED(false);
@@ -212,7 +234,8 @@ void wait_for_go()
 	{
 		prevState = state;
 
-		// Debug message - state entry
+		// Send a message to host upon state entry
+		sendString("$" + String(state));
 		if (params[_DEBUG]) {sendString("Idle.");}
 
 		// Illumination LED off
@@ -223,6 +246,9 @@ void wait_for_go()
 
 		// Kill tone
 		noTone(PIN_SPEAKER);
+
+		// Kill reward
+		setReward(false);
 	}
 
 	// Transitions
@@ -252,7 +278,8 @@ void ready()
 	{
 		prevState = state;
 
-		// Debug message - state entry
+		// Send a message to host upon state entry
+		sendString("$" + String(state));
 		if (params[_DEBUG]) {sendString("Ready. Press and hold lever.");}
 
 		// Illumination LED on
@@ -301,7 +328,8 @@ void random_wait()
 		waitInterval = random(params[RANDOM_WAIT_MIN], params[RANDOM_WAIT_MAX]);
 		timer = millis();
 
-		// Debug message - state entry
+		// Send a message to host upon state entry
+		sendString("$" + String(state));
 		if (params[_DEBUG]) {sendString("Random wait: " + String(waitInterval) + " ms");}
 	}
 
@@ -338,7 +366,8 @@ void cue_on()
 	{
 		prevState = state;
 
-		// Debug message - state entry
+		// Send a message to host upon state entry
+		sendString("$" + String(state));
 		if (params[_DEBUG]) {sendString("Cue on. Hold for " + String(params[INTERVAL_MIN]) + " - " + String(params[INTERVAL_MAX]) + " ms");}
 
 		// Cue LED ON
@@ -378,7 +407,8 @@ void lever_released()
 		// Calculate lever press duration
 		leverPressDuration = millis() - timer;
 
-		// Debug message - state entry
+		// Send a message to host upon state entry
+		sendString("$" + String(state));
 		if (params[_DEBUG]) {sendString("Lever released. Held for " + String(leverPressDuration) + " ms.");}
 	}
 
@@ -406,19 +436,25 @@ void lever_released()
 /*** REWARD ***/
 void reward()
 {
+	static bool isRewardDelievered;	// Set to true when reward delivery is complete
+
 	// Actions - only execute once on state entry
 	if (state != prevState)
 	{
 		prevState = state;
 
-		// Debug message - state entry
-		if (params[_DEBUG]) {sendString("Reward.");}
+		// Send a message to host upon state entry
+		sendString("$" + String(state));
 
 		// Give reward
-		giveReward(params[REWARD_SIZE]);
+		isRewardDelievered = false;
+		setReward(true);
 
 		// Reward tone
 		playSound(TONE_REWARD);
+
+		// Start timer
+		timer = millis();
 	}
 
 	// Transitions
@@ -428,8 +464,14 @@ void reward()
 		state = WAIT_FOR_GO;
 		return;
 	}
-	// Always -> INTERTRIAL
-	state = INTERTRIAL;
+	// Reward duration complete
+	if (millis() - timer >= params[REWARD_DURATION])
+	{
+		setReward(false);
+		state = INTERTRIAL;
+		return;
+	}
+	state = REWARD;
 }
 
 /*** ABORT_TRIAL ***/
@@ -440,7 +482,8 @@ void abort_trial()
 	{
 		prevState = state;
 
-		// Debug message - state entry
+		// Send a message to host upon state entry
+		sendString("$" + String(state));
 		if (params[_DEBUG]) {sendString("Trial aborted.");}
 
 		// Error tone
@@ -469,7 +512,8 @@ void intertrial()
 	{
 		prevState = state;
 
-		// Debug message - state entry
+		// Send a message to host upon state entry
+		sendString("$" + String(state));
 		if (params[_DEBUG]) {sendString("Intertrial.");}
 
 		// Illum LED OFF
@@ -482,8 +526,8 @@ void intertrial()
 		isParamsUpdateStarted = false;
 		isParamsUpdateDone = false;
 
-		// Serial output - upload trial results to host ('I' for Interval)
-		sendCommandAndArgument('I', leverPressDuration);
+		// Serial output - upload trial results to host ('!' so host knows this is important)
+		sendString("!" + String(leverPressDuration));
 		leverPressDuration = 0; // Reset output
 
 		// Start timer
@@ -586,24 +630,21 @@ void playSound(SoundType soundType)
 	}
 }
 
-void giveReward(int size)
+void setReward(bool turnOn)
 {
-	// Give some reward
-	if (params[_DEBUG]) {sendString("Nom nom nom. " + String(size) + ".");}
+	if (turnOn)
+	{
+		if (params[_DEBUG]) {sendString("Nom nom nom.");}
+	}
+	else
+	{
+		if (params[_DEBUG]) {sendString("Where'd my juice go?");}
+	}
 }
 
 /*****************************************************
 	Serial comms
 *****************************************************/
-// Send a single char command + int argument pair over the USB port
-void sendCommandAndArgument(char c, int val) 
-{
-	String message = String(c);
-	message += " ";
-	message += val;
-	Serial.println(message);
-}
-
 // Send a string message to host 
 void sendString(String message)
 {
