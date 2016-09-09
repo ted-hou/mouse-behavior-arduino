@@ -31,7 +31,7 @@
 enum State
 {
 	_INIT,					// (Private) Initial state used on first loop. So the `state == prevState` check (). 
-	WAIT_FOR_GO,			// Idle state. Wait for go signal from host.
+	IDLE,					// Idle state. Wait for go signal from host.
 	READY,					// Ready, wait for lever press & hold
 	RANDOM_WAIT,			// Wait a random amount of time before starting a trial.
 	CUE_ON,					// Cue to start counting
@@ -186,11 +186,11 @@ void loop()
 	{
 		case _INIT:
 		{
-			wait_for_go();
+			idle();
 		} break;
-		case WAIT_FOR_GO:
+		case IDLE:
 		{
-			wait_for_go();
+			idle();
 		} break;
 		case READY:
 		{
@@ -226,8 +226,8 @@ void loop()
 /*****************************************************
 	States for the State Machine
 *****************************************************/
-/*** WAIT_FOR_GO ***/
-void wait_for_go()
+/*** IDLE ***/
+void idle()
 {
 	// Actions - only execute once on state entry
 	if (state != prevState)
@@ -263,11 +263,11 @@ void wait_for_go()
 	{
 		params[arguments[0]] = arguments[1];	// Update parameter. Serial input "P 0 1000" changes the 1st parameter to 1000.
 		if (params[_DEBUG]) {sendString("Parameter " + String(arguments[0]) + " changed to " + String(arguments[1]));} 
-		state = WAIT_FOR_GO;
+		state = IDLE;
 		return;
 	}
 	// Otherwise stay in the same state
-	state = WAIT_FOR_GO;
+	state = IDLE;
 }
 
 /*** READY ***/
@@ -290,10 +290,10 @@ void ready()
 	}
 
 	// Transitions
-	// Serial input (QUIT signal) -> WAIT_FOR_GO
+	// Serial input (QUIT signal) -> IDLE
 	if (command == 'Q')
 	{
-		state = WAIT_FOR_GO;
+		state = IDLE;
 		return;
 	}
 	// Lever pressed -> RANDOM_WAIT
@@ -334,10 +334,10 @@ void random_wait()
 	}
 
 	// Transitions
-	// Serial input (QUIT signal) -> WAIT_FOR_GO
+	// Serial input (QUIT signal) -> IDLE
 	if (command == 'Q')
 	{
-		state = WAIT_FOR_GO;
+		state = IDLE;
 		return;
 	}
 	// Lever released -> ABORT_TRIAL
@@ -381,10 +381,10 @@ void cue_on()
 	}
 
 	// Transitions
-	// Serial input (QUIT signal) -> WAIT_FOR_GO
+	// Serial input (QUIT signal) -> IDLE
 	if (command == 'Q')
 	{
-		state = WAIT_FOR_GO;
+		state = IDLE;
 		return;
 	}
 	// Lever released -> LEVER_RELEASED
@@ -413,10 +413,10 @@ void lever_released()
 	}
 
 	// Transitions
-	// Serial input (QUIT signal) -> WAIT_FOR_GO
+	// Serial input (QUIT signal) -> IDLE
 	if (command == 'Q')
 	{
-		state = WAIT_FOR_GO;
+		state = IDLE;
 		return;
 	}
 	// Interval correct -> REWARD
@@ -458,10 +458,10 @@ void reward()
 	}
 
 	// Transitions
-	// Serial input (QUIT signal) -> WAIT_FOR_GO
+	// Serial input (QUIT signal) -> IDLE
 	if (command == 'Q')
 	{
-		state = WAIT_FOR_GO;
+		state = IDLE;
 		return;
 	}
 	// Reward duration complete
@@ -491,10 +491,10 @@ void abort_trial()
 	}
 
 	// Transitions
-	// Serial input (QUIT signal) -> WAIT_FOR_GO
+	// Serial input (QUIT signal) -> IDLE
 	if (command == 'Q')
 	{
-		state = WAIT_FOR_GO;
+		state = IDLE;
 		return;
 	}
 	// Always -> INTERTRIAL
@@ -535,10 +535,10 @@ void intertrial()
 	}
 
 	// Transitions
-	// Serial input (QUIT signal) -> WAIT_FOR_GO
+	// Serial input (QUIT signal) -> IDLE
 	if (command == 'Q')
 	{
-		state = WAIT_FOR_GO;
+		state = IDLE;
 		return;
 	}
 	// Received new param from host: format "P _paramID _newValue" ('P' for Parameters)
