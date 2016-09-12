@@ -30,7 +30,7 @@
 // All the states
 enum State
 {
-	_INIT,					// (Private) Initial state used on first loop. So the `state == prevState` check (). 
+	_INIT,					// (Private) Initial state used on first loop. 
 	IDLE,					// Idle state. Wait for go signal from host.
 	READY,					// Ready, wait for lever press & hold
 	RANDOM_WAIT,			// Wait a random amount of time before starting a trial.
@@ -38,8 +38,27 @@ enum State
 	LEVER_RELEASED,			// Triggered when lever is released
 	REWARD,					// Give reward.
 	ABORT_TRIAL,			// Go to this state when something's wrong. Goes to intertrial so we can upload error info to host.
-	INTERTRIAL				// Intertrial interval. Upload data and recieve new params.
+	INTERTRIAL,				// Intertrial interval. Upload data and recieve new params.
+	_NUM_STATES				// (Private) Used to count number of states
 };
+
+// State names stored as strings, will be sent to host
+// Names cannot contain spaces!!!
+static const char *stateNames[] = 
+{
+	"_INIT",
+	"IDLE",
+	"READY",
+	"RANDOM_WAIT",
+	"CUE_ON",
+	"LEVER_RELEASED",
+	"REWARD",
+	"ABORT_TRIAL",
+	"INTERTRIAL"
+};
+
+// Define which states allow param update
+static const int stateCanUpdateParams[] = {0,1,0,0,0,0,0,0,1};
 
 // Sound cue types
 enum SoundType
@@ -66,8 +85,9 @@ enum ParamID
 	_NUM_PARAMS			// (Private) Used to count how many parameters there are so we can initialize the param array with the correct size. Insert additional parameters before this.
 };
 
-// Store parameter names as strings
-static const char *paramName[] = 
+// Store parameter names as strings, will be sent to host
+// Names cannot contain spaces!!!
+static const char *paramNames[] = 
 {
 	"_DEBUG",
 	"INTERVAL_MIN",
@@ -76,8 +96,7 @@ static const char *paramName[] =
 	"TIMEOUT_READY",
 	"RANDOM_WAIT_MIN",
 	"RANDOM_WAIT_MAX",
-	"ITI",
-	"_NUM_PARAMS"
+	"ITI"
 };
 
 // Initialize parameters
@@ -127,7 +146,8 @@ void setup()
 	// Set up USB communication at 115200 baud 
 	Serial.begin(115200);
 	// Tell PC that we're running by sending 'S' message
-	Serial.println("S");
+	hostInit();
+	sendMessage("S");
 
 	// Tick rate
 	debugTimer = millis();
@@ -138,13 +158,13 @@ void loop()
 	// Measure tick rate if debug mode enabled
 	if (millis() - debugTimer == 1000)
 	{
-		if (params[_DEBUG]) {sendString("Tick rate: " + String(ticks) + " ticks per second.");}
+		if (params[_DEBUG]) {sendMessage("Tick rate: " + String(ticks) + " ticks per second.");}
 		ticks = 0;
 		debugTimer = millis();
 	}
 	else if (millis() - debugTimer > 1000)
 	{
-		if (params[_DEBUG]) {sendString("Tick rate: Woah where did that millisecond go?");}
+		if (params[_DEBUG]) {sendMessage("Tick rate: Woah where did that millisecond go?");}
 		ticks = 0;
 		debugTimer = millis();
 	}
@@ -235,8 +255,8 @@ void idle()
 		prevState = state;
 
 		// Send a message to host upon state entry
-		sendString("$" + String(state));
-		if (params[_DEBUG]) {sendString("Idle.");}
+		sendMessage("$" + String(state));
+		if (params[_DEBUG]) {sendMessage("Idle.");}
 
 		// Illumination LED off
 		setIllumLED(false);
@@ -262,7 +282,7 @@ void idle()
 	if (command == 'P')
 	{
 		params[arguments[0]] = arguments[1];	// Update parameter. Serial input "P 0 1000" changes the 1st parameter to 1000.
-		if (params[_DEBUG]) {sendString("Parameter " + String(arguments[0]) + " changed to " + String(arguments[1]));} 
+		if (params[_DEBUG]) {sendMessage("Parameter " + String(arguments[0]) + " changed to " + String(arguments[1]));} 
 		state = IDLE;
 		return;
 	}
@@ -279,8 +299,8 @@ void ready()
 		prevState = state;
 
 		// Send a message to host upon state entry
-		sendString("$" + String(state));
-		if (params[_DEBUG]) {sendString("Ready. Press and hold lever.");}
+		sendMessage("$" + String(state));
+		if (params[_DEBUG]) {sendMessage("Ready. Press and hold lever.");}
 
 		// Illumination LED on
 		setIllumLED(true);
@@ -299,14 +319,14 @@ void ready()
 	// Lever pressed -> RANDOM_WAIT
 	if (getLeverState())
 	{
-		if (params[_DEBUG]) {sendString("Lever pressed. Keep holding please.");}
+		if (params[_DEBUG]) {sendMessage("Lever pressed. Keep holding please.");}
 		state = RANDOM_WAIT;
 		return;
 	}
 	// Timeout w/o pressing the lever-> ABORT_TRIAL
 	if (millis() - timer >= params[TIMEOUT_READY])
 	{
-		if (params[_DEBUG]) {sendString("Time out waiting for lever. Aborting.");}
+		if (params[_DEBUG]) {sendMessage("Time out waiting for lever. Aborting.");}
 		leverPressDuration = -1;	// Return -1 if lever was never pressed
 		state = ABORT_TRIAL;
 		return;
@@ -329,8 +349,8 @@ void random_wait()
 		timer = millis();
 
 		// Send a message to host upon state entry
-		sendString("$" + String(state));
-		if (params[_DEBUG]) {sendString("Random wait: " + String(waitInterval) + " ms");}
+		sendMessage("$" + String(state));
+		if (params[_DEBUG]) {sendMessage("Random wait: " + String(waitInterval) + " ms");}
 	}
 
 	// Transitions
@@ -343,7 +363,7 @@ void random_wait()
 	// Lever released -> ABORT_TRIAL
 	if (!getLeverState())
 	{
-		if (params[_DEBUG]) {sendString("Lever released during random wait.");}
+		if (params[_DEBUG]) {sendMessage("Lever released during random wait.");}
 		leverPressDuration = -2;	// Return -2 if lever released during random wait
 		state = ABORT_TRIAL;
 		return;
@@ -351,7 +371,7 @@ void random_wait()
 	// Random wait complete-> CUE_ON
 	if (millis() - timer >= waitInterval)
 	{
-		if (params[_DEBUG]) {sendString("Random wait complete.");}
+		if (params[_DEBUG]) {sendMessage("Random wait complete.");}
 		state = CUE_ON;
 		return;
 	}
@@ -367,8 +387,8 @@ void cue_on()
 		prevState = state;
 
 		// Send a message to host upon state entry
-		sendString("$" + String(state));
-		if (params[_DEBUG]) {sendString("Cue on. Hold for " + String(params[INTERVAL_MIN]) + " - " + String(params[INTERVAL_MAX]) + " ms");}
+		sendMessage("$" + String(state));
+		if (params[_DEBUG]) {sendMessage("Cue on. Hold for " + String(params[INTERVAL_MIN]) + " - " + String(params[INTERVAL_MAX]) + " ms");}
 
 		// Cue LED ON
 		setCueLED(true);
@@ -408,8 +428,8 @@ void lever_released()
 		leverPressDuration = millis() - timer;
 
 		// Send a message to host upon state entry
-		sendString("$" + String(state));
-		if (params[_DEBUG]) {sendString("Lever released. Held for " + String(leverPressDuration) + " ms.");}
+		sendMessage("$" + String(state));
+		if (params[_DEBUG]) {sendMessage("Lever released. Held for " + String(leverPressDuration) + " ms.");}
 	}
 
 	// Transitions
@@ -444,7 +464,7 @@ void reward()
 		prevState = state;
 
 		// Send a message to host upon state entry
-		sendString("$" + String(state));
+		sendMessage("$" + String(state));
 
 		// Give reward
 		isRewardDelievered = false;
@@ -483,8 +503,8 @@ void abort_trial()
 		prevState = state;
 
 		// Send a message to host upon state entry
-		sendString("$" + String(state));
-		if (params[_DEBUG]) {sendString("Trial aborted.");}
+		sendMessage("$" + String(state));
+		if (params[_DEBUG]) {sendMessage("Trial aborted.");}
 
 		// Error tone
 		playSound(TONE_ABORT);
@@ -513,8 +533,8 @@ void intertrial()
 		prevState = state;
 
 		// Send a message to host upon state entry
-		sendString("$" + String(state));
-		if (params[_DEBUG]) {sendString("Intertrial.");}
+		sendMessage("$" + String(state));
+		if (params[_DEBUG]) {sendMessage("Intertrial.");}
 
 		// Illum LED OFF
 		setIllumLED(false);
@@ -527,7 +547,7 @@ void intertrial()
 		isParamsUpdateDone = false;
 
 		// Serial output - upload trial results to host ('!' so host knows this is important)
-		sendString("!" + String(leverPressDuration));
+		sendMessage("!" + String(leverPressDuration));
 		leverPressDuration = 0; // Reset output
 
 		// Start timer
@@ -546,7 +566,7 @@ void intertrial()
 	{
 		isParamsUpdateStarted = true;			// Let loop know we've started transmitting parameters. Don't start next trial until we've finished.
 		params[arguments[0]] = arguments[1];	// Update parameter. Serial input "P 0 1000" changes the 1st parameter to 1000.
-		if (params[_DEBUG]) {sendString("Parameter " + String(arguments[0]) + " changed to " + String(arguments[1]));} 
+		if (params[_DEBUG]) {sendMessage("Parameter " + String(arguments[0]) + " changed to " + String(arguments[1]));} 
 		state = INTERTRIAL;
 		return;
 	}
@@ -634,11 +654,11 @@ void setReward(bool turnOn)
 {
 	if (turnOn)
 	{
-		if (params[_DEBUG]) {sendString("Nom nom nom.");}
+		if (params[_DEBUG]) {sendMessage("Nom nom nom.");}
 	}
 	else
 	{
-		if (params[_DEBUG]) {sendString("Where'd my juice go?");}
+		if (params[_DEBUG]) {sendMessage("Where'd my juice go?");}
 	}
 }
 
@@ -646,7 +666,7 @@ void setReward(bool turnOn)
 	Serial comms
 *****************************************************/
 // Send a string message to host 
-void sendString(String message)
+void sendMessage(String message)
 {
 	Serial.println(message);
 }
@@ -693,8 +713,26 @@ void getArguments(String message, int *arguments)
 	arguments[1] = intString.toInt();
 }
 
+// Send names of states, names/values of parameters to host
+void hostInit()
+{
+	// Send state names and which states allow parameter update
+	for (int iState = 0; iState < _NUM_STATES; iState++)
+	{
+	    sendMessage("@ " + String(iState) + " " + stateNames[iState] + " " + String(stateCanUpdateParams[iState]));
+	}
+	// Send param names and default values
+	for (int iParam = 0; iParam < _NUM_PARAMS; iParam++)
+	{
+	    sendMessage("# " + String(iParam) + " " + paramNames[iParam] + " " + String(params[iParam]));
+	}
+}
 
 
+
+/*****************************************************
+	Tone generator for Due
+*****************************************************/
 /*
 Tone generator
 v1  use timer, and toggle any digital pin in ISR
