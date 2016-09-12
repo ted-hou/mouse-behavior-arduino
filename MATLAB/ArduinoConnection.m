@@ -206,7 +206,7 @@ classdef ArduinoConnection < handle
 		end
 
 		% Interrupt current trial and return to IDLE
-		function Stop(obj)
+		function Quit(obj)
 			obj.SendMessage('Q');
 		end
 
