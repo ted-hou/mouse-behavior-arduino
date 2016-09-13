@@ -15,8 +15,8 @@
 		- '* 0 ERROR_LEVER_NOT_PRESSED' tells MATLAB error code -1 means ERROR_LEVER_NOT_PRESSED
 		- '* 1 ERROR_EARLY_RELEASE' tells MATLAB error code -2 means ERROR_EARLY_RELEASE
 	 	- "$0" tells MATLAB we've entered the first state
-	 	- "$5 1000" tells MATLAB we've entered the 6th state, and the trial result is 1000.
-	 	- "$5 -1" tells MATLAB we've entered the 6th state, and the trial result is error code -1.
+	 	- "$5 0 1000" tells MATLAB we've entered the 6th state and the time is 1000.
+	 	- "$5 1 0" tells MATLAB we've entered the 6th state, and the trial result is error code -1.
 		- "Any random collection of words" sends a string to MATLAB to print. Used for debugging.
 	 - State machine
 	 	- States are written as individual functions
@@ -75,20 +75,26 @@ static const char *stateNames[] =
 static const int stateCanUpdateParams[] = {0,1,0,0,0,0,0,0,1};
 
 /*****************************************************
-	Error codes
+	Result codes
 *****************************************************/
-enum ErrorCode
+enum ResultCode
 {
-	ERROR_LEVER_NOT_PRESSED = -1,	// The little dude refused to press the lever.
-	ERROR_EARLY_RELEASE = -2,		// The little dude released the lever too early (before cue)
-	_NUM_ERROR_CODE = 2				// (Private) Used to count how many error codes there are. Don't make this negative
+	CODE_CORRECT,				// Correct. The little dude held the lever for an appropriate amount of time
+	CODE_EARLY_RELEASE,			// The little dude released the lever early
+	CODE_LATE_RELEASE,			// The little dude released the lever late
+	CODE_LEVER_NOT_PRESSED,		// The little dude refused to press the lever.
+	CODE_PRE_CUE_RELEASE,		// The little dude released the lever too early (before cue)
+	_NUM_RESULT_CODES			// (Private) Used to count how many codes there are.
 };
 
 // We'll error code translations to MATLAB at startup
-static const char *errorCodeNames[] =
+static const char *resultCodeNames[] =
 {
-	"ERROR_LEVER_NOT_PRESSED",
-	"ERROR_EARLY_RELEASE"
+	"CODE_CORRECT",
+	"CODE_EARLY_RELEASE",
+	"CODE_LATE_RELEASE",
+	"CODE_LEVER_NOT_PRESSED",
+	"CODE_PRE_CUE_RELEASE"
 };
 
 /*****************************************************
@@ -150,7 +156,8 @@ int params[_NUM_PARAMS] =
 *****************************************************/
 // Variables declared here can be carried to the next loop, AND read/written in function scope as well as main scope
 static unsigned long timer 				= 0;		// Timer
-static long leverPressDuration 			= 0;		// Lever press duration in ms. Return -1 if not pressed, -2 if released before cue light comes on.
+static long leverPressDuration 			= 0;		// Lever press duration in ms. 0 if not applicable
+static long resultCode 					= 0;		// Result code, see "enum ResultCode" for details.
 static State state 						= _INIT;	// This variable (current state) get passed into a state function, which determines what the next state should be, and updates it to the next state.
 static State prevState 					= _INIT;	// Remembers the previous state from the last loop (actions should only be executed when you enter a state for the first time, comparing currentState vs prevState helps us keep track of that).
 static char command 					= ' ';		// Command char received from host, resets on each loop
@@ -360,7 +367,7 @@ void ready()
 	if (millis() - timer >= params[TIMEOUT_READY])
 	{
 		if (params[_DEBUG]) {sendMessage("Time out waiting for lever. Aborting.");}
-		leverPressDuration = ERROR_LEVER_NOT_PRESSED;	// Return -1 if lever was never pressed
+		leverPressDuration = CODE_LEVER_NOT_PRESSED;	// Return -1 if lever was never pressed
 		state = ABORT_TRIAL;
 		return;
 	}
@@ -397,7 +404,8 @@ void random_wait()
 	if (!getLeverState())
 	{
 		if (params[_DEBUG]) {sendMessage("Lever released during random wait.");}
-		leverPressDuration = ERROR_EARLY_RELEASE;	// Return -2 if lever released during random wait
+		leverPressDuration = 0;
+		resultCode = CODE_PRE_CUE_RELEASE;
 		state = ABORT_TRIAL;
 		return;
 	}
@@ -475,13 +483,22 @@ void lever_released()
 	// Interval correct -> REWARD
 	if (leverPressDuration >= params[INTERVAL_MIN] && leverPressDuration <= params[INTERVAL_MAX])
 	{
+		resultCode = CODE_CORRECT;
 		state = REWARD;
 		return;
 	}
-	// Interval incorrect -> ABORT_TRIAL
-	else
+	// Interval too short -> ABORT_TRIAL
+	else if (leverPressDuration < params[INTERVAL_MIN])
 	{
+		resultCode = CODE_EARLY_RELEASE;
 		state = ABORT_TRIAL;
+		return;
+	}
+	// Interval too long -> ABORT_TRIAL
+	else if (leverPressDuration > params[INTERVAL_MAX])
+	{
+	 	resultCode = CODE_LATE_RELEASE;
+	 	state = ABORT_TRIAL;
 		return;
 	}
 }
@@ -566,7 +583,7 @@ void intertrial()
 		prevState = state;
 
 		// Send a message to host upon state entry, for this state we append leverPressDuration or error code to end of message
-		sendMessage("$" + String(state) + " " + String(leverPressDuration));
+		sendMessage("$" + String(state) + " " + String(resultCode) + " " + String(leverPressDuration));
 		if (params[_DEBUG]) {sendMessage("Intertrial.");}
 
 		// Reset output
@@ -759,9 +776,9 @@ void hostInit()
 	    sendMessage("# " + String(iParam) + " " + paramNames[iParam] + " " + String(params[iParam]));
 	}
 	// Send error code interpretations. MATLAB will interpret {0, 1, 2} as {-1, -2, -3}.
-	for (int iErrorCode = 0; iErrorCode < _NUM_ERROR_CODE; iErrorCode++)
+	for (int iCode = 0; iCode < _NUM_RESULT_CODES; iCode++)
 	{
-	    sendMessage("* " + String(iErrorCode) + " " + errorCodeNames[iErrorCode]);
+	    sendMessage("* " + String(iCode) + " " + resultCodeNames[iCode]);
 	}
 }
 
