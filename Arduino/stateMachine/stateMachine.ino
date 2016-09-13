@@ -90,11 +90,11 @@ enum ResultCode
 // We'll error code translations to MATLAB at startup
 static const char *resultCodeNames[] =
 {
-	"CODE_CORRECT",
-	"CODE_EARLY_RELEASE",
-	"CODE_LATE_RELEASE",
-	"CODE_LEVER_NOT_PRESSED",
-	"CODE_PRE_CUE_RELEASE"
+	"CORRECT",
+	"EARLY_RELEASE",
+	"LATE_RELEASE",
+	"LEVER_NOT_PRESSED",
+	"PRE_CUE_RELEASE"
 };
 
 /*****************************************************
