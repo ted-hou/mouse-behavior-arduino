@@ -1,5 +1,10 @@
 /*********************************************************************
   Arduino state machine code for lever task
+
+  By Lingfeng Hou (lingfenghou@g.harvard.edu)
+    Created: 9/13/16
+    Last Updated: 9/13/16 - Allison Hamilos (ahamilos@g.harvard.edu)
+
    - Everything is done in the main loop()
    - Incoming messages
     - Receive one byte on each loop
@@ -15,8 +20,8 @@
     - '* 0 ERROR_LEVER_NOT_PRESSED' tells MATLAB error code -1 means ERROR_LEVER_NOT_PRESSED
     - '* 1 ERROR_EARLY_RELEASE' tells MATLAB error code -2 means ERROR_EARLY_RELEASE
     - "$0" tells MATLAB we've entered the first state
-    - "$5 1000" tells MATLAB we've entered the 6th state, and the trial result is 1000.
-    - "$5 -1" tells MATLAB we've entered the 6th state, and the trial result is error code -1.
+    - "$5 0 1000" tells MATLAB we've entered the 6th state and the time is 1000.
+    - "$5 1 0" tells MATLAB we've entered the 6th state, and the trial result is error code -1.
     - "Any random collection of words" sends a string to MATLAB to print. Used for debugging.
    - State machine
     - States are written as individual functions
@@ -35,7 +40,7 @@
 // Arduino Pin-Outs
 
   // Digital OUT
-#define PIN_LED_ILLUM     34  // Feedback LED Pin
+#define PIN_LED_ILLUM     34  // House Lamp Pin
 #define PIN_LED_CUE       35  // Cue LED Pin
 
   // PWM OUT
@@ -82,20 +87,26 @@ static const char *stateNames[] =
 static const int stateCanUpdateParams[] = {0,1,0,0,0,0,0,0,1}; // Defined to allow Parameter upload from host during IDLE_STATE and INTERTRIAL
 
 /*****************************************************
-  Error codes
+  Result codes
 *****************************************************/
-enum ErrorCode
+enum ResultCode
 {
-  ERROR_LEVER_NOT_PRESSED = -1,     // No Press
-  ERROR_EARLY_RELEASE     = -2,     // Early Release
-  _NUM_ERROR_CODE         = 2       // (Private) Used to count how many error codes there are. Don't make this negative
+  CODE_CORRECT,                              // Correct
+  CODE_EARLY_RELEASE,                        // Early Release
+  CODE_LATE_RELEASE,                         // Late Release
+  CODE_LEVER_NOT_PRESSED,                    // No Press
+  CODE_PRE_CUE_RELEASE,                      // Lever Break
+  _NUM_RESULT_CODES                          // (Private) Used to count how many codes there are.
 };
 
-// We'll error code translations to MATLAB at startup
-static const char *errorCodeNames[] =
+// We'll send result code translations to MATLAB at startup
+static const char *resultCodeNames[] =
 {
-  "ERROR_LEVER_NOT_PRESSED",
-  "ERROR_EARLY_RELEASE"
+  "CORRECT",
+  "EARLY_RELEASE",
+  "LATE_RELEASE",
+  "LEVER_NOT_PRESSED",
+  "PRE_CUE_RELEASE"
 };
 
 /*****************************************************
@@ -160,78 +171,95 @@ int params[_NUM_PARAMS] =
 *****************************************************/
 // Variables declared here can be carried to the next loop, AND read/written in function scope as well as main scope
 static unsigned long timer          = 0;        // Timer
-static long leverPressDuration      = 0;        // Lever press duration in ms. Return -1 if not pressed, -2 if released before cue light comes on.
+static long leverPressDuration      = 0;        // Lever press duration in ms. 0 if not applicable
+static long resultCode              = 0;        // Result code number, see "enum ResultCode" for details.
 static State state                  = _INIT;    // This variable (current state) get passed into a state function, which determines what the next state should be, and updates it to the next state.
 static State prevState              = _INIT;    // Remembers the previous state from the last loop (actions should only be executed when you enter a state for the first time, comparing currentState vs prevState helps us keep track of that).
 static char command                 = ' ';      // Command char received from host, resets on each loop
 static int arguments[2]             = {0};      // Two integers received from host , resets on each loop
 
 // Debug: measure tick-rate (per ms)
-static unsigned long debugTimer     = 0;
-static unsigned long ticks          = 0;
+static unsigned long debugTimer     = 0;        // Debugging timer
+static unsigned long ticks          = 0;        // # of loops/sec in the debugger
 
 /*****************************************************
-  Main
+  INITIALIZATION LOOP
 *****************************************************/
 void setup()
 {
-  // Init pins
-  pinMode(PIN_LED_ILLUM, OUTPUT);   // LED for illumination
-  pinMode(PIN_LED_CUE, OUTPUT);   // LED for 'start' cue
-  pinMode(PIN_SPEAKER, OUTPUT);   // Speaker for cue/correct/error tone
-  pinMode(PIN_LEVER, INPUT_PULLUP); // Lever (`INPUT_PULLUP` means it'll be `LOW` when pressed, and `HIGH` when released)
+  //--------------------I/O initialization------------------//
+  // OUTPUTS
+  pinMode(PIN_LED_ILLUM, OUTPUT);             // LED for illumination
+  pinMode(PIN_LED_CUE, OUTPUT);               // LED for 'start' cue
+  pinMode(PIN_SPEAKER, OUTPUT);               // Speaker for cue/correct/error tone
+  // INPUTS
+  pinMode(PIN_LEVER, INPUT_PULLUP);           // Lever (`INPUT_PULLUP` means it'll be `LOW` when pressed, and `HIGH` when released)
+  //--------------------------------------------------------//
 
-  // Illum LED off
-  setIllumLED(false);
-  // Cue LED off
-  setCueLED(false);
 
+  //--------------Set ititial outputs to OFF----------------//
+  setIllumLED(false);                          // Illum LED off
+  setCueLED(false);                            // Cue LED off
+
+
+
+  //------------------------Serial Comms--------------------//
   // Set up USB communication at 115200 baud 
   Serial.begin(115200);
   // Tell PC that we're running by sending '~' message
-  hostInit();
-  sendMessage("~");
+  hostInit();                                 // Sends all parameters, states and error codes to Matlab (LF Function)
+  sendMessage("~");                           // Tells PC that Arduino is on (Send Message is a LF Function)
 
+
+  //-----------------------DEBUG Timing---------------------//
   // Tick rate
-  debugTimer = millis();
+  debugTimer = millis();                      // Start DEBUG timer clock
 }
+
+
+
+
+/*****************************************************
+  MAIN LOOP
+*****************************************************/
 
 void loop()
 {
-  // Measure tick rate if debug mode enabled
-  if (millis() - debugTimer == 1000)
-  {
-    if (params[_DEBUG]) {sendMessage("Tick rate: " + String(ticks) + " ticks per second.");}
+  //----------------------DEBUG MODE------------------------//
+  //* Debug mode will count the number of loop cycles/1000 ms to determine the reliability of arduino clock *//
+  if (millis() - debugTimer == 1000)  {       // If 1000 ms since last tick readout...
+    if (params[_DEBUG]) {                           // If DEBUG mode is on
+      sendMessage("Tick rate: " + String(ticks) + " ticks per second.");  // Sends message to Matlab host
+    }
+    ticks = 0;                                      // reset ticks to 0
+    debugTimer = millis();                          // reset debug clock
+  }
+  else if (millis() - debugTimer > 1000)  {   // If MORE than 1000 ms have passed, it means we lost a ms on the last loop
+    if (params[_DEBUG]) {
+      sendMessage("Tick rate: Woah where did that millisecond go?");
+    }
     ticks = 0;
     debugTimer = millis();
   }
-  else if (millis() - debugTimer > 1000)
-  {
-    if (params[_DEBUG]) {sendMessage("Tick rate: Woah where did that millisecond go?");}
-    ticks = 0;
-    debugTimer = millis();
-  }
-  else if (millis() - debugTimer < 1000)
-  {
+  else if (millis() - debugTimer < 1000)  {   // If LESS than 1000 ms have passed, acculumate a loop tick
     ticks = ticks + 1;
   }
 
-  // 1) Read from USB, if available. String is read byte by byte.
-  static String usbMessage  = "";     // Initialize usbMessage to empty string, only happens once on first loop
-  command = ' ';
-  arguments[0] = 0;
-  arguments[1] = 0;
 
-  if (Serial.available() > 0) 
-  {
-    // Read next char if available
-    char inByte = Serial.read();
+
+  // 1) Check USB for MESSAGE from HOST, if available. String is read byte by byte. (Each character is a byte, so reads e/a character)
+  static String usbMessage  = "";             // Initialize usbMessage to empty string, only happens once on first loop (thanks to static!)
+  command = ' ';                              // Initialize command to a SPACE
+  arguments[0] = 0;                           // Initialize 1st integer argument
+  arguments[1] = 0;                           // Initialize 2nd integer argument
+
+  if (Serial.available() > 0)  {              // If there's something in the SERIAL INPUT BUFFER (i.e., if another character from host is waiting in the queue to be read)
+    char inByte = Serial.read();                  // Read next character
     // The pound sign ('#') indicates a complete message
-    if (inByte == '#') 
-    {
+    if (inByte == '#')  {                         // If # received, terminate the message
       // Parse the string, and updates `command`, and `arguments`
-      command = getCommand(usbMessage);
-      getArguments(usbMessage, arguments);
+      command = getCommand(usbMessage);               // getCommand pulls out the character from the message for the command         
+      getArguments(usbMessage, arguments);            // getArguments pulls out the integer values from the usbMessage
       if (params[_DEBUG]) {"Roger. " + command + String(arguments[0]) + String(arguments[1]);}
       // Clear message buffer
       usbMessage = ""; 
@@ -239,11 +267,11 @@ void loop()
     else
     {
       // append character to message buffer
-      usbMessage = usbMessage + inByte;
+      usbMessage = usbMessage + inByte;       // Appends the next character from the queue to the usbMessage string
     }
   }
 
-  // 2) update state machine
+    // 2) update state machine
   // Depending on what state we're in , call the appropriate state function, which will evaluate the transition conditions, and update `state` to what the next state should be
   switch (state)
   {
@@ -370,7 +398,7 @@ void ready()
   if (millis() - timer >= params[TIMEOUT_READY])
   {
     if (params[_DEBUG]) {sendMessage("Time out waiting for lever. Aborting.");}
-    leverPressDuration = ERROR_LEVER_NOT_PRESSED; // Return -1 if lever was never pressed
+    leverPressDuration = CODE_LEVER_NOT_PRESSED;  // Return -1 if lever was never pressed
     state = ABORT_TRIAL;
     return;
   }
@@ -407,7 +435,8 @@ void random_wait()
   if (!getLeverState())
   {
     if (params[_DEBUG]) {sendMessage("Lever released during random wait.");}
-    leverPressDuration = ERROR_EARLY_RELEASE; // Return -2 if lever released during random wait
+    leverPressDuration = 0;
+    resultCode = CODE_PRE_CUE_RELEASE;
     state = ABORT_TRIAL;
     return;
   }
@@ -485,12 +514,21 @@ void lever_released()
   // Interval correct -> REWARD
   if (leverPressDuration >= params[INTERVAL_MIN] && leverPressDuration <= params[INTERVAL_MAX])
   {
+    resultCode = CODE_CORRECT;
     state = REWARD;
     return;
   }
-  // Interval incorrect -> ABORT_TRIAL
-  else
+  // Interval too short -> ABORT_TRIAL
+  else if (leverPressDuration < params[INTERVAL_MIN])
   {
+    resultCode = CODE_EARLY_RELEASE;
+    state = ABORT_TRIAL;
+    return;
+  }
+  // Interval too long -> ABORT_TRIAL
+  else if (leverPressDuration > params[INTERVAL_MAX])
+  {
+    resultCode = CODE_LATE_RELEASE;
     state = ABORT_TRIAL;
     return;
   }
@@ -576,7 +614,7 @@ void intertrial()
     prevState = state;
 
     // Send a message to host upon state entry, for this state we append leverPressDuration or error code to end of message
-    sendMessage("$" + String(state) + " " + String(leverPressDuration));
+    sendMessage("$" + String(state) + " " + String(resultCode) + " " + String(leverPressDuration));
     if (params[_DEBUG]) {sendMessage("Intertrial.");}
 
     // Reset output
@@ -769,9 +807,9 @@ void hostInit()
       sendMessage("# " + String(iParam) + " " + paramNames[iParam] + " " + String(params[iParam]));
   }
   // Send error code interpretations. MATLAB will interpret {0, 1, 2} as {-1, -2, -3}.
-  for (int iErrorCode = 0; iErrorCode < _NUM_ERROR_CODE; iErrorCode++)
+  for (int iCode = 0; iCode < _NUM_RESULT_CODES; iCode++)
   {
-      sendMessage("* " + String(iErrorCode) + " " + errorCodeNames[iErrorCode]);
+      sendMessage("* " + String(iCode) + " " + resultCodeNames[iCode]);
   }
 }
 
