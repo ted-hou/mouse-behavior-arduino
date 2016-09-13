@@ -12,8 +12,7 @@ classdef ArduinoConnection < handle
 		ParamNames = {};
 		ParamValues = [];
 		ParamUpdateQueue = [];
-		ErrorCodeNames = {};
-		ErrorCodeValues = [];
+		ResultCodeNames = {};
 		Trials
 		EventHandlers
 	end
@@ -129,15 +128,12 @@ classdef ArduinoConnection < handle
 					% If result received, store the results in a new Trial structure
 					if length(subStrings) > 1
 						iTrial = length(obj.Trials) + 1;
-						obj.Trials(iTrial).Result = str2num(subStrings{2});
+						resultCode = str2num(subStrings{2}) + 1;
+						obj.Trials(iTrial).Code = obj.ResultCodeNames{resultCode};
+						obj.Trials(iTrial).Result = str2num(subStrings{3});
 						obj.Trials(iTrial).Parameters = obj.ParamValues;
 
-						% Print out trial results
-						if obj.Trials(iTrial).Result >= 0
-							fprintf('Lever hold duration: %d ms\n', obj.Trials(iTrial).Result)
-						else
-							fprintf('Error code: %d (%s)\n', obj.Trials(iTrial).Result, obj.ErrorCodeNames{obj.ErrorCodeValues == obj.Trials(iTrial).Result})
-						end
+						fprintf('Result: %d ms (%s)\n', obj.Trials(iTrial).Result, obj.Trials(iTrial).Code)
 					end
 
 					% Trigger StateChanged Event
@@ -162,10 +158,9 @@ classdef ArduinoConnection < handle
 					% Arduino sent error code interpretations - "# 0 ERROR_LEVER_NOT_PRESSED" means error code -1
 					subStrings = strsplit(strtrim(value), ' ');
 					% Convert zero-based indices (Arduino) to one-based indices (MATLAB)
-					errorCodeId = str2num(subStrings{1}) + 1;
+					codeId = str2num(subStrings{1}) + 1;
 					% Register parameter name and value
-					obj.ErrorCodeNames{errorCodeId} = subStrings{2};
-					obj.ErrorCodeValues(errorCodeId) = (-1)*errorCodeId;
+					obj.ResultCodeNames{codeId} = subStrings{2};
 				case '~'
 					fprintf('\nUp and running.\n')
 				otherwise
@@ -327,6 +322,5 @@ classdef ArduinoConnection < handle
 				end
 			end
 		end
-	end
-
+    end
 end
