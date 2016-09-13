@@ -11,13 +11,15 @@ classdef ArduinoConnection < handle
 		StateCanUpdateParams = logical([]);
 		ParamNames = {};
 		ParamValues = [];
-		TrialResults = [];
+		ParamUpdateQueue = [];
+		ErrorCodeNames = {};
+		ErrorCodeValues = [];
+		Trials
 		EventHandlers
 	end
 
 	events
 		StateChanged
-		CanUpdateParams
 	end
 
 	methods
@@ -32,7 +34,7 @@ classdef ArduinoConnection < handle
 			end
 
 			% Define the serial port object.
-			fprintf('Starting serial on port: %s\n', arduinoPortName);
+			fprintf('Starting serial on port: %s\n', arduinoPortName)
 			serialPort = serial(arduinoPortName);
 			
 			% Set the baud rate
@@ -46,16 +48,15 @@ classdef ArduinoConnection < handle
 
 			% Open the serial port for reading and writing.
 			obj.SerialConnection = serialPort;
-			fopen(serialPort);
+			fopen(serialPort)
 
 			% wait for Arduino startup
-			% (we expect the Arduino to write 'S' to the Serial port upon starting up)
+			% (we expect the Arduino to write '~' to the Serial port upon starting up)
 			fprintf('Waiting for Arduino startup')
 			while (~obj.Connected)
-				fprintf('.');
-				pause(0.5);
+				fprintf('.')
+				pause(0.5)
 			end
-			fprintf('\n')
 
 			% Add event handler to detect state changes
 			obj.EventHandlers.StateChanged = addlistener(obj, 'StateChanged', @obj.OnStateChanged);
@@ -70,15 +71,15 @@ classdef ArduinoConnection < handle
 				case 4
 					stringToSend = sprintf('%s %d %d', messageChar, arg1, arg2);
 			end
-			obj.SendString(stringToSend);
+			obj.SendString(stringToSend)
 		end
 
 		function SendString(obj, stringToWrite)
-			fprintf(obj.SerialConnection,'%s#',stringToWrite, 'sync');
+			fprintf(obj.SerialConnection,'%s#',stringToWrite, 'sync')
 
 			% DEBUGING
 			if obj.DebugMode
-				disp(['To Arduino: "', stringToSend, '"' ]);
+				disp(['To Arduino: "', stringToSend, '"' ])
 			end
 		end
 
@@ -95,7 +96,7 @@ classdef ArduinoConnection < handle
 					if (~obj.Connected)
 						obj.Connected = true;
 					end
-					obj.OnMessageReceived;
+					obj.OnMessageReceived()
 					obj.ArduinoMessageString = '';
 					return % process at most one message per function call to minimize time of call
 
@@ -118,24 +119,29 @@ classdef ArduinoConnection < handle
 			end
 
 			switch command
-				case '!'
-					% Arduino sent a trial result to be printed/stored
-					value = str2num(value);
-					obj.TrialResults = [obj.TrialResults; value];
-					if value >= 0
-						fprintf('Lever hold duration: %d\n', value)
-					elseif value == -1
-						fprintf('TRIAL ABORTED (Timeout) - The little dude refused to press the lever.\n')
-					elseif value == -2
-						fprintf('TRIAL ABORTED (Early release) - The little dude released the lever before cue.\n')
-					end
 				case '$'
-					% New state entered
-					% Convert zero-based indices (Arduino) to one-based indices (MATLAB)
-					obj.State = str2num(value) + 1;
+					% New state entered - "$1" we've entered the second state. "$5 100" we've enetered the 6th state, and trial result is 100 (negative numbers used as error codes).
+					subStrings = strsplit(strtrim(value), ' ');
+
+					% Convert zero-based state indices (Arduino) to one-based indices (MATLAB)
+					obj.State = str2num(subStrings{1}) + 1;
+
+					% If result received, store the results in a new Trial structure
+					if length(subStrings) > 1
+						iTrial = length(obj.Trials) + 1;
+						obj.Trials(iTrial).Result = str2num(subStrings{2});
+						obj.Trials(iTrial).Parameters = obj.ParamValues;
+
+						% Print out trial results
+						if obj.Trials(iTrial).Result >= 0
+							fprintf('Lever hold duration: %d ms\n', obj.Trials(iTrial).Result)
+						else
+							fprintf('Error code: %d (%s)\n', obj.Trials(iTrial).Result, obj.ErrorCodeNames{obj.ErrorCodeValues == obj.Trials(iTrial).Result})
+						end
+					end
 
 					% Trigger StateChanged Event
-					notify(obj, 'StateChanged');
+					notify(obj, 'StateChanged')
 				case '@'
 					% Arduino sent the name of a state - "@ 1 IDLE"
 					subStrings = strsplit(strtrim(value), ' ');
@@ -152,6 +158,16 @@ classdef ArduinoConnection < handle
 					% Register parameter name and value
 					obj.ParamNames{paramId} = subStrings{2};
 					obj.ParamValues(paramId) = str2num(subStrings{3});
+				case '*'
+					% Arduino sent error code interpretations - "# 0 ERROR_LEVER_NOT_PRESSED" means error code -1
+					subStrings = strsplit(strtrim(value), ' ');
+					% Convert zero-based indices (Arduino) to one-based indices (MATLAB)
+					errorCodeId = str2num(subStrings{1}) + 1;
+					% Register parameter name and value
+					obj.ErrorCodeNames{errorCodeId} = subStrings{2};
+					obj.ErrorCodeValues(errorCodeId) = (-1)*errorCodeId;
+				case '~'
+					fprintf('\nUp and running.\n')
 				otherwise
 					% Arduino sent a message
 					fprintf('%s\n', messageString)
@@ -160,58 +176,68 @@ classdef ArduinoConnection < handle
 
 		% Called each time a state changes
 		function OnStateChanged(obj, ~, ~)
+			% If new state allows parameter update, execute the update queue
 			if obj.StateCanUpdateParams(obj.State)
-				notify(obj, 'CanUpdateParams');
+				obj.UpdateParams_Execute()
 			end
 		end
 
-		% Update a single parameter, either by index or name
+		% Update a single parameter by index
 		function SetParam(obj, paramId, value)
-			% If input is parameter name, convert it to parameter id
-			if ischar(paramId)
-				paramId = find(strcmp(obj.ParamNames, 'paramId'));
-				if isempty(paramId)
-					warning('Parameter was not updated - name not recognized.')
-					return
-				end
-			end
-			% Convert zero-based indices (Arduino) to one-based indices (MATLAB)
+			% Update parameter value in MATLAB
+			obj.ParamValues(paramId) = value;
+            % Convert zero-based indices (Arduino) to one-based indices (MATLAB)
 			paramId = paramId - 1;
-
-			% Send new parameter via serial comms
-			obj.SendMessage(sprintf('P %d %d', paramId, value));
+			% Send new parameter to arduino via serial comms ("P id newValue")
+			obj.SendMessage(sprintf('P %d %d', paramId, value))
 		end
 
-		% Upload new parameters to Arduino. If current state does not allow update, wait for state change
-		function UpdateParams(obj, ~, ~)
-			% Update all parameters if the current state allows it. 
-			if obj.StateCanUpdateParams(obj.State)
-				% Remove event handler if it exists
-				if isfield(obj.EventHandlers, 'UpdateParams')
-					delete(obj.EventHandlers.UpdateParams);
-				end
-				for iParam = 1:length(obj.ParamValues)
-					obj.SetParam(iParam, obj.ParamValues(iParam));
-				end
-				obj.SendMessage('O');
-			% If current state does not allow param update, use an event handler to do it when we enter an appropriate state
+		% Add parameter update arguments to queue
+		function UpdateParams_AddToQueue(obj, paramId, value)
+			% If parameter queue is empty, add as a new item
+			if isempty(obj.ParamUpdateQueue)
+				obj.ParamUpdateQueue = [obj.ParamUpdateQueue; paramId, value];
 			else
-				obj.EventHandlers.UpdateParams = addlistener(obj, 'CanUpdateParams', @obj.UpdateParams);
+				posInQueue = find(obj.ParamUpdateQueue(:, 1) == paramId);
+				% If parameter not in queue, add as new item
+				if isempty(posInQueue)
+					obj.ParamUpdateQueue = [obj.ParamUpdateQueue; paramId, value];
+				% If parameter already in queue, replace existing item in queue
+				else
+					obj.ParamUpdateQueue(posInQueue, 2) = value;
+				end
+			end
+		end
+
+		% Update parameters and clear queue, do nothing if queue is empty
+		function UpdateParams_Execute(obj)
+			% Only execute non-empty queues when current state allows param update
+			if obj.StateCanUpdateParams(obj.State) & ~isempty(obj.ParamUpdateQueue) 
+				for iQueue = 1:size(obj.ParamUpdateQueue, 1)
+					paramId = obj.ParamUpdateQueue(iQueue, 1);
+					value = obj.ParamUpdateQueue(iQueue, 2);
+					obj.SetParam(paramId, value)
+				end
+				% Clear the queue 
+				obj.ParamUpdateQueue = [];
+				% Send 'O' to tell arduino we're done updating parameters
+				obj.SendMessage('O')
+				fprintf('Parameters updated.\n')
 			end
 		end
 
 		% Break arduino from IDLE state and begin experiment
 		function Start(obj)
-			obj.SendMessage('G');
+			obj.SendMessage('G')
 		end
 
 		% Interrupt current trial and return to IDLE
-		function Quit(obj)
-			obj.SendMessage('Q');
+		function Stop(obj)
+			obj.SendMessage('Q')
 		end
 
 		% Terminate connection with arduino
-		function Terminate(obj)
+		function Close(obj)
 			fclose(obj.SerialConnection)
 		end
 	end

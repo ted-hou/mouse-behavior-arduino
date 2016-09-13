@@ -4,6 +4,20 @@
 	 - Incoming messages
 	 	- Receive one byte on each loop
 	 	- Parsed when end of message character ('#') received
+	 	- "P 0 100#" tells Arduino to change the 1st parameter to 100. This will hold Arduino in INTERTRIAL state until we tell it to continue.
+		- "O#" tells Arduino we're done updating parameters, you may start the next trial.
+		- "G#" tells Arduino to break out of IDLE and begin trials
+		- "Q#" tells Arduino abort whatever it's doing to go to IDLE state
+	 - Outgoing messages
+	 	- "~" tells MATLAB we're up and running.
+	 	- "@ 1 IDLE" tells MATLAB that the second state is called "IDLE".
+	 	- "# 1 INTERVAL_MIN 1250" tells MATLAB that the second parameter is called "INTERVAL_MIN", and the default value is 1250.
+		- '* 0 ERROR_LEVER_NOT_PRESSED' tells MATLAB error code -1 means ERROR_LEVER_NOT_PRESSED
+		- '* 1 ERROR_EARLY_RELEASE' tells MATLAB error code -2 means ERROR_EARLY_RELEASE
+	 	- "$0" tells MATLAB we've entered the first state
+	 	- "$5 1000" tells MATLAB we've entered the 6th state, and the trial result is 1000.
+	 	- "$5 -1" tells MATLAB we've entered the 6th state, and the trial result is error code -1.
+		- "Any random collection of words" sends a string to MATLAB to print. Used for debugging.
 	 - State machine
 	 	- States are written as individual functions
 	 	- The main loop calls the appropriate state function
@@ -31,7 +45,7 @@
 enum State
 {
 	_INIT,					// (Private) Initial state used on first loop. 
-	IDLE,					// Idle state. Wait for go signal from host.
+	IDLE_STATE,				// Idle state. Wait for go signal from host.
 	READY,					// Ready, wait for lever press & hold
 	RANDOM_WAIT,			// Wait a random amount of time before starting a trial.
 	CUE_ON,					// Cue to start counting
@@ -47,7 +61,7 @@ enum State
 static const char *stateNames[] = 
 {
 	"_INIT",
-	"IDLE",
+	"IDLE_STATE",
 	"READY",
 	"RANDOM_WAIT",
 	"CUE_ON",
@@ -60,7 +74,26 @@ static const char *stateNames[] =
 // Define which states allow param update
 static const int stateCanUpdateParams[] = {0,1,0,0,0,0,0,0,1};
 
-// Sound cue types
+/*****************************************************
+	Error codes
+*****************************************************/
+enum ErrorCode
+{
+	ERROR_LEVER_NOT_PRESSED = -1,	// The little dude refused to press the lever.
+	ERROR_EARLY_RELEASE = -2,		// The little dude released the lever too early (before cue)
+	_NUM_ERROR_CODE = 2				// (Private) Used to count how many error codes there are. Don't make this negative
+};
+
+// We'll error code translations to MATLAB at startup
+static const char *errorCodeNames[] =
+{
+	"ERROR_LEVER_NOT_PRESSED",
+	"ERROR_EARLY_RELEASE"
+};
+
+/*****************************************************
+	Audio cue frequencies
+*****************************************************/
 enum SoundType
 {
 	TONE_REWARD = 4186,		// Correct tone: C8
@@ -145,9 +178,9 @@ void setup()
 
 	// Set up USB communication at 115200 baud 
 	Serial.begin(115200);
-	// Tell PC that we're running by sending 'S' message
+	// Tell PC that we're running by sending '~' message
 	hostInit();
-	sendMessage("S");
+	sendMessage("~");
 
 	// Tick rate
 	debugTimer = millis();
@@ -206,11 +239,11 @@ void loop()
 	{
 		case _INIT:
 		{
-			idle();
+			idle_state();
 		} break;
-		case IDLE:
+		case IDLE_STATE:
 		{
-			idle();
+			idle_state();
 		} break;
 		case READY:
 		{
@@ -246,8 +279,8 @@ void loop()
 /*****************************************************
 	States for the State Machine
 *****************************************************/
-/*** IDLE ***/
-void idle()
+/*** IDLE_STATE ***/
+void idle_state()
 {
 	// Actions - only execute once on state entry
 	if (state != prevState)
@@ -283,11 +316,11 @@ void idle()
 	{
 		params[arguments[0]] = arguments[1];	// Update parameter. Serial input "P 0 1000" changes the 1st parameter to 1000.
 		if (params[_DEBUG]) {sendMessage("Parameter " + String(arguments[0]) + " changed to " + String(arguments[1]));} 
-		state = IDLE;
+		state = IDLE_STATE;
 		return;
 	}
 	// Otherwise stay in the same state
-	state = IDLE;
+	state = IDLE_STATE;
 }
 
 /*** READY ***/
@@ -310,10 +343,10 @@ void ready()
 	}
 
 	// Transitions
-	// Serial input (QUIT signal) -> IDLE
+	// Serial input (QUIT signal) -> IDLE_STATE
 	if (command == 'Q')
 	{
-		state = IDLE;
+		state = IDLE_STATE;
 		return;
 	}
 	// Lever pressed -> RANDOM_WAIT
@@ -327,7 +360,7 @@ void ready()
 	if (millis() - timer >= params[TIMEOUT_READY])
 	{
 		if (params[_DEBUG]) {sendMessage("Time out waiting for lever. Aborting.");}
-		leverPressDuration = -1;	// Return -1 if lever was never pressed
+		leverPressDuration = ERROR_LEVER_NOT_PRESSED;	// Return -1 if lever was never pressed
 		state = ABORT_TRIAL;
 		return;
 	}
@@ -354,17 +387,17 @@ void random_wait()
 	}
 
 	// Transitions
-	// Serial input (QUIT signal) -> IDLE
+	// Serial input (QUIT signal) -> IDLE_STATE
 	if (command == 'Q')
 	{
-		state = IDLE;
+		state = IDLE_STATE;
 		return;
 	}
 	// Lever released -> ABORT_TRIAL
 	if (!getLeverState())
 	{
 		if (params[_DEBUG]) {sendMessage("Lever released during random wait.");}
-		leverPressDuration = -2;	// Return -2 if lever released during random wait
+		leverPressDuration = ERROR_EARLY_RELEASE;	// Return -2 if lever released during random wait
 		state = ABORT_TRIAL;
 		return;
 	}
@@ -401,10 +434,10 @@ void cue_on()
 	}
 
 	// Transitions
-	// Serial input (QUIT signal) -> IDLE
+	// Serial input (QUIT signal) -> IDLE_STATE
 	if (command == 'Q')
 	{
-		state = IDLE;
+		state = IDLE_STATE;
 		return;
 	}
 	// Lever released -> LEVER_RELEASED
@@ -433,10 +466,10 @@ void lever_released()
 	}
 
 	// Transitions
-	// Serial input (QUIT signal) -> IDLE
+	// Serial input (QUIT signal) -> IDLE_STATE
 	if (command == 'Q')
 	{
-		state = IDLE;
+		state = IDLE_STATE;
 		return;
 	}
 	// Interval correct -> REWARD
@@ -478,10 +511,10 @@ void reward()
 	}
 
 	// Transitions
-	// Serial input (QUIT signal) -> IDLE
+	// Serial input (QUIT signal) -> IDLE_STATE
 	if (command == 'Q')
 	{
-		state = IDLE;
+		state = IDLE_STATE;
 		return;
 	}
 	// Reward duration complete
@@ -511,10 +544,10 @@ void abort_trial()
 	}
 
 	// Transitions
-	// Serial input (QUIT signal) -> IDLE
+	// Serial input (QUIT signal) -> IDLE_STATE
 	if (command == 'Q')
 	{
-		state = IDLE;
+		state = IDLE_STATE;
 		return;
 	}
 	// Always -> INTERTRIAL
@@ -532,9 +565,12 @@ void intertrial()
 	{
 		prevState = state;
 
-		// Send a message to host upon state entry
-		sendMessage("$" + String(state));
+		// Send a message to host upon state entry, for this state we append leverPressDuration or error code to end of message
+		sendMessage("$" + String(state) + " " + String(leverPressDuration));
 		if (params[_DEBUG]) {sendMessage("Intertrial.");}
+
+		// Reset output
+		leverPressDuration = 0;
 
 		// Illum LED OFF
 		setIllumLED(false);
@@ -546,19 +582,15 @@ void intertrial()
 		isParamsUpdateStarted = false;
 		isParamsUpdateDone = false;
 
-		// Serial output - upload trial results to host ('!' so host knows this is important)
-		sendMessage("!" + String(leverPressDuration));
-		leverPressDuration = 0; // Reset output
-
 		// Start timer
 		timer = millis();
 	}
 
 	// Transitions
-	// Serial input (QUIT signal) -> IDLE
+	// Serial input (QUIT signal) -> IDLE_STATE
 	if (command == 'Q')
 	{
-		state = IDLE;
+		state = IDLE_STATE;
 		return;
 	}
 	// Received new param from host: format "P _paramID _newValue" ('P' for Parameters)
@@ -725,6 +757,11 @@ void hostInit()
 	for (int iParam = 0; iParam < _NUM_PARAMS; iParam++)
 	{
 	    sendMessage("# " + String(iParam) + " " + paramNames[iParam] + " " + String(params[iParam]));
+	}
+	// Send error code interpretations. MATLAB will interpret {0, 1, 2} as {-1, -2, -3}.
+	for (int iErrorCode = 0; iErrorCode < _NUM_ERROR_CODE; iErrorCode++)
+	{
+	    sendMessage("* " + String(iErrorCode) + " " + errorCodeNames[iErrorCode]);
 	}
 }
 
