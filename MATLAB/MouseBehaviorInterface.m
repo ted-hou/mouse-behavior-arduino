@@ -12,6 +12,7 @@ classdef MouseBehaviorInterface < handle
 
 			% Create the frame
 			obj.Rsc.Figure = figure('Position',[100 100 400 200]);
+			obj.Rsc.Figure.CloseRequestFcn = {@MouseBehaviorInterface.ArduinoClose, obj.Arduino};
 
 			% Create a uitable for parameters
 			obj.Rsc.TableParams = uitable...
@@ -88,7 +89,7 @@ classdef MouseBehaviorInterface < handle
 				'String', 'Close',...
 				'TooltipString', 'Terminate serial connection with Arduino and close the GUI.',...
 				'Position', ctrlPos,...
-				'Callback', {@MouseBehaviorInterface.ArduinoClose, obj.Arduino, obj.Rsc.Figure}...
+				'Callback', {@MouseBehaviorInterface.ArduinoClose, obj.Arduino}...
 			);
 		end
 	end
@@ -111,10 +112,19 @@ classdef MouseBehaviorInterface < handle
 			arduino.Stop()
             fprintf('Stopped.\n')
 		end
-		function ArduinoClose(~, ~, arduino, figureHandle)
-			arduino.Close()
-			close(figureHandle)
-            fprintf('Connection closed.\n')
+		function ArduinoClose(~, ~, arduino)
+			selection = questdlg('Closing this window will terminate connection with Arduino. Proceed?',...
+		      'Close Window',...
+		      'Yes','No','Yes');
+
+			switch selection
+				case 'Yes'
+					arduino.Close()
+					delete(gcf)
+		            fprintf('Connection closed.\n')
+				case 'No'
+					return
+			end
 		end
 	end
 end
