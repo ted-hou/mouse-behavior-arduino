@@ -214,7 +214,8 @@ void setup()
   //-----------------------DEBUG Timing---------------------//
   // Tick rate
   debugTimer = millis();                      // Start DEBUG timer clock
-}
+
+} // End Initialization Loop -----------------------------------------------------------------------------------------------------
 
 
 
@@ -222,7 +223,6 @@ void setup()
 /*****************************************************
   MAIN LOOP
 *****************************************************/
-
 void loop()
 {
   //----------------------DEBUG MODE------------------------//
@@ -236,17 +236,21 @@ void loop()
   }
   else if (millis() - debugTimer > 1000)  {   // If MORE than 1000 ms have passed, it means we lost a ms on the last loop
     if (params[_DEBUG]) {
-      sendMessage("Tick rate: Woah where did that millisecond go?");
+      sendMessage("Tick rate: A ms was lost on last loop cycle...Clock Speed Error?");
     }
-    ticks = 0;
-    debugTimer = millis();
+    ticks = 0;                                      // reset ticks to 0
+    debugTimer = millis();                          // reset debug clock
   }
   else if (millis() - debugTimer < 1000)  {   // If LESS than 1000 ms have passed, acculumate a loop tick
-    ticks = ticks + 1;
+    ticks = ticks + 1;                              // Add a tick to the measurement
   }
+  //----------------------end DEBUG MODE------------------------//
 
 
 
+  /*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    Step 1: Read USB MESSAGE from HOST (if available)
+  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
   // 1) Check USB for MESSAGE from HOST, if available. String is read byte by byte. (Each character is a byte, so reads e/a character)
   static String usbMessage  = "";             // Initialize usbMessage to empty string, only happens once on first loop (thanks to static!)
   command = ' ';                              // Initialize command to a SPACE
@@ -255,284 +259,363 @@ void loop()
 
   if (Serial.available() > 0)  {              // If there's something in the SERIAL INPUT BUFFER (i.e., if another character from host is waiting in the queue to be read)
     char inByte = Serial.read();                  // Read next character
-    // The pound sign ('#') indicates a complete message
+    
+    // The pound sign ('#') indicates a complete message!------------------------
     if (inByte == '#')  {                         // If # received, terminate the message
       // Parse the string, and updates `command`, and `arguments`
       command = getCommand(usbMessage);               // getCommand pulls out the character from the message for the command         
       getArguments(usbMessage, arguments);            // getArguments pulls out the integer values from the usbMessage
-      if (params[_DEBUG]) {"Roger. " + command + String(arguments[0]) + String(arguments[1]);}
-      // Clear message buffer
-      usbMessage = ""; 
+      usbMessage = "";                                // Clear message buffer (resets to prepare for next message)
+      
+      if (params[_DEBUG]) {
+        sendMessage("Parameter Updated: " + command + String(arguments[0]) + String(arguments[1]));
+      }
     }
-    else
-    {
+    else {
       // append character to message buffer
       usbMessage = usbMessage + inByte;       // Appends the next character from the queue to the usbMessage string
     }
   }
 
-    // 2) update state machine
+  /*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    Step 2: Update the State Machine
+  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
   // Depending on what state we're in , call the appropriate state function, which will evaluate the transition conditions, and update `state` to what the next state should be
-  switch (state)
-  {
+  switch (state) {
     case _INIT:
-    {
       idle_state();
-    } break;
+      break;
+
     case IDLE_STATE:
-    {
       idle_state();
-    } break;
+      break;
+    
     case READY:
-    {
       ready();
-    } break;
-    case RANDOM_WAIT:
-    {
+      break;
+    
+    case RANDOM_WAIT:    
       random_wait();
-    } break;
-    case CUE_ON:
-    {
+      break;
+    
+    case CUE_ON:         
       cue_on();
-    } break;
-    case LEVER_RELEASED:
-    {
+      break;
+    
+    case LEVER_RELEASED: 
       lever_released();
-    } break;
+      break;
+    
     case REWARD:
-    {
       reward();
-    } break;
+      break;
+    
     case ABORT_TRIAL:
-    {
       abort_trial();
-    } break;
+      break;
+    
     case INTERTRIAL:
-    {
       intertrial();
-    } break;
-  }
-}
+      break;
+  } // End switch statement--------------------------
+
+} // End main loop-------------------------------------------------------------------------------------------------------------
+
+
+
+
+
+
+
+
 
 /*****************************************************
   States for the State Machine
 *****************************************************/
-/*** IDLE_STATE ***/
-void idle_state()
-{
-  // Actions - only execute once on state entry
-  if (state != prevState)
-  {
-    prevState = state;
+/* New states are initialized by the ACTION LIST
+   In the main loop after state runs, Arduino checks for new parameters and 
 
-    // Send a message to host upon state entry
-    sendMessage("$" + String(state));
-    if (params[_DEBUG]) {sendMessage("Idle.");}
 
-    // Illumination LED off
-    setIllumLED(false);
+/*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  IDLE STATE - awaiting start cue from Matlab HOST
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
+void idle_state() {
+  /*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    ACTION LIST -- initialize the new state
+  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
+  if (state != prevState) {                       // If ENTERTING IDLE_STATE:
+    prevState = state;                                // Assign prevState to idle state
+    sendMessage("$" + String(state));                 // Send a message to host upon state entry -- $1 (Idle State)
+    setIllumLED(false);                               // Kill House Lamp
+    setCueLED(false);                                 // Kill Cue LED
+    noTone(PIN_SPEAKER);                              // Kill tone
+    setReward(false);                                 // Kill reward
 
-    // Cue LED off
-    setCueLED(false);
-
-    // Kill tone
-    noTone(PIN_SPEAKER);
-
-    // Kill reward
-    setReward(false);
+    //------------------------DEBUG MODE--------------------------//
+    if (params[_DEBUG]) {
+      sendMessage("Idle.");
+    }  
+    //----------------------end DEBUG MODE------------------------//
   }
 
-  // Transitions
-  // Serial input (GO signal) -> READY
-  if (command == 'G')
-  {
-    state = READY;
-    return;
+  /*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    TRANSITION LIST -- checks conditions, moves to next state
+  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
+  
+  if (command == 'G') {                           // If Received GO signal from HOST ---transition to---> READY
+    state = READY;                                    // State set to READY
+    return;                                           // Exit function
   }
-  // Received new param from host: format "P _paramID _newValue" ('P' for Parameters)
-  if (command == 'P')
-  {
-    params[arguments[0]] = arguments[1];  // Update parameter. Serial input "P 0 1000" changes the 1st parameter to 1000.
-    if (params[_DEBUG]) {sendMessage("Parameter " + String(arguments[0]) + " changed to " + String(arguments[1]));} 
-    state = IDLE_STATE;
-    return;
+
+  
+  if (command == 'P') {                           // Received new param from host: format "P _paramID _newValue" ('P' for Parameters)
+    //----------------------DEBUG MODE------------------------// 
+    if (params[_DEBUG]) {sendMessage("Parameter " + String(arguments[0]) + " changed to " + String(arguments[1]));
+    } 
+    //-------------------end DEBUG MODE--- -------------------//
+
+    params[arguments[0]] = arguments[1];              // Update parameter. Serial input "P 0 1000" changes the 1st parameter to 1000.
+    state = IDLE_STATE;                               // State returns to IDLE_STATE
+    return;                                           // Exit function
   }
-  // Otherwise stay in the same state
-  state = IDLE_STATE;
+
+  state = IDLE_STATE;                             // Return to IDLE_STATE
+} // End IDLE_STATE ------------------------------------------------------------------------------------------------------------------------------------------
+
+
+
+
+
+
+
+
+/*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  READY - Trial started. House Lamp ON, Awaiting lever press
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
+void ready() {
+  /*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    ACTION LIST -- initialize the new state
+  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
+  if (state != prevState) {                       // If ENTERTING READY STATE:
+    prevState = state;                                // Assign prevState to READY state
+    sendMessage("$" + String(state));                 // Send a message to host upon state entry -- $2 (Ready State)
+    setIllumLED(true);                                // House Lamp ON
+    timer = millis();                                 // Start timer clock
+
+    //------------------------DEBUG MODE--------------------------//
+    if (params[_DEBUG]) {
+      sendMessage("Ready. Awaiting lever press and hold.");
+    }
+    //----------------------end DEBUG MODE------------------------//
+  }
+
+
+  /*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    TRANSITION LIST -- checks conditions, moves to next state
+  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
+  if (command == 'Q')  {                          // HOST: "QUIT" -> IDLE_STATE
+    state = IDLE_STATE;                                 // Set IDLE_STATE
+    return;                                             // Exit Function
+  }
+
+
+  
+  if (getLeverState()) {                          // MOUSE: "Lever pressed" -> RANDOM_WAIT
+    //------------------------DEBUG MODE--------------------------//
+    if (params[_DEBUG]) {
+      sendMessage("Lever pressed. Moving to random delay state.");
+    }
+    //----------------------end DEBUG MODE------------------------//
+
+    state = RANDOM_WAIT;                                // Set RANDOM_WAIT state
+    return;                                             // Exit Fx
+  }
+
+
+  
+  if (millis() - timer >= params[TIMEOUT_READY]) { // TIMEOUT: "No press" -> ABORT_TRIAL
+    //------------------------DEBUG MODE--------------------------//
+    if (params[_DEBUG]) {
+      sendMessage("Ran out of time to press lever. Aborting trial.");
+    }
+    //----------------------end DEBUG MODE------------------------//
+
+    leverPressDuration = 0;                        // Duration pressed = 0 -- all this stored in ITI
+    resultCode = CODE_LEVER_NOT_PRESSED;           // Return 3 if lever was never pressed
+    state = ABORT_TRIAL;                           // Move to ABORT_TRIAL state
+    return;                                        // Exit Fx
+  }
+
+
+  state = READY;                                   // No Command --> Cycle back to READY
 }
 
-/*** READY ***/
-void ready()
-{
-  // Actions - only execute once on state entry
-  if (state != prevState)
-  {
-    prevState = state;
 
-    // Send a message to host upon state entry
-    sendMessage("$" + String(state));
-    if (params[_DEBUG]) {sendMessage("Ready. Press and hold lever.");}
 
-    // Illumination LED on
-    setIllumLED(true);
 
-    // Start timer
-    timer = millis();
+
+/*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  RANDOM_WAIT - Lever pressed, rand delay before cue
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
+void random_wait() {
+  /*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    ACTION LIST -- initialize the new state
+  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
+  static unsigned long waitInterval;               // Initialize waitInterval var
+  if (state != prevState) {                        // If ENTERTING RANDOM_WAIT:
+    prevState = state;                                // Assign prevState to RANDOM_WAIT state
+    sendMessage("$" + String(state));                 // Send a message to host upon state entry -- $3 (random_wait State)
+
+    waitInterval = random(params[RANDOM_WAIT_MIN], params[RANDOM_WAIT_MAX]);     // Choose random delay time
+    timer = millis();                                                            // Start timer
+    //---------------------- DEBUG MODE --------------------------//
+    if (params[_DEBUG]) {
+      sendMessage("Random delay before cue: " + String(waitInterval) + " ms");
+    }
+    //----------------------end DEBUG MODE------------------------//
   }
 
-  // Transitions
-  // Serial input (QUIT signal) -> IDLE_STATE
-  if (command == 'Q')
-  {
-    state = IDLE_STATE;
-    return;
+
+
+  /*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    TRANSITION LIST -- checks conditions, moves to next state
+  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
+  if (command == 'Q')  {                          // HOST: "QUIT" -> IDLE_STATE
+    state = IDLE_STATE;                                 // Set IDLE_STATE
+    return;                                             // Exit Function
   }
-  // Lever pressed -> RANDOM_WAIT
-  if (getLeverState())
-  {
-    if (params[_DEBUG]) {sendMessage("Lever pressed. Keep holding please.");}
-    state = RANDOM_WAIT;
-    return;
+
+
+  if (!getLeverState())  {                        // MOUSE: "Lever released early" -> ABORT_TRIAL
+    //------------------------DEBUG MODE--------------------------//    
+    if (params[_DEBUG]) {
+      sendMessage("Lever released during pre-cue delay.");
+    }
+    //----------------------end DEBUG MODE------------------------//
+    leverPressDuration = 0;                       // Duration pressed = 0 -- all this stored in ITI
+    resultCode = CODE_PRE_CUE_RELEASE;            // Return 1 b/c lever was released early
+    state = ABORT_TRIAL;                          // Move to ABORT_TRIAL state
+    return;                                       // Exit Fx
   }
-  // Timeout w/o pressing the lever-> ABORT_TRIAL
-  if (millis() - timer >= params[TIMEOUT_READY])
-  {
-    if (params[_DEBUG]) {sendMessage("Time out waiting for lever. Aborting.");}
-    leverPressDuration = CODE_LEVER_NOT_PRESSED;  // Return -1 if lever was never pressed
-    state = ABORT_TRIAL;
-    return;
+
+
+  if (millis() - timer >= waitInterval) {         // RANDOM_WAIT elapsed -> CUE_ON
+    //------------------------DEBUG MODE--------------------------//  
+    if (params[_DEBUG]) {
+      sendMessage("Pre-cue delay successfully completed.");
+    }
+    //----------------------end DEBUG MODE------------------------//
+    state = CUE_ON;                               // Move to CUE_ON state
+    return;                                       // Exit Fx
   }
-  state = READY;
+
+
+  state = RANDOM_WAIT;                            // No Command --> Cycle back to RANDOM_WAIT
 }
 
-/*** RANDOM_WAIT ***/
-void random_wait()
-{
-  static unsigned long waitInterval;
 
-  // Actions - only execute once on state entry
-  if (state != prevState)
-  {
-    prevState = state;
 
-    // Randomize interval length and start timer
-    waitInterval = random(params[RANDOM_WAIT_MIN], params[RANDOM_WAIT_MAX]);
-    timer = millis();
 
-    // Send a message to host upon state entry
-    sendMessage("$" + String(state));
-    if (params[_DEBUG]) {sendMessage("Random wait: " + String(waitInterval) + " ms");}
+/*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  CUE_ON - Cue presentation (LED + Tone)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
+void cue_on() {
+  /*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    ACTION LIST -- initialize the new state
+  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
+  if (state != prevState) {                        // If ENTERTING CUE_ON:
+    prevState = state;                                // Assign prevState to CUE_ON state
+    sendMessage("$" + String(state));                 // Send a message to host upon state entry -- $4 (cue_on State)
+    setCueLED(true);                                  // Cue LED ON
+    playSound(TONE_CUE);                              // Cue tone ON
+    timer = millis();                                 // Start timer
+
+    //------------------------DEBUG MODE--------------------------//  
+    if (params[_DEBUG]) {
+      sendMessage("Cue on. Maintain Press for " + String(params[INTERVAL_MIN]) + " - " + String(params[INTERVAL_MAX]) + " ms");
+    } 
+    //----------------------end DEBUG MODE------------------------//
   }
 
-  // Transitions
-  // Serial input (QUIT signal) -> IDLE_STATE
-  if (command == 'Q')
-  {
-    state = IDLE_STATE;
-    return;
+  /*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    TRANSITION LIST -- checks conditions, moves to next state
+  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
+  if (command == 'Q')  {                          // HOST: "QUIT" -> IDLE_STATE
+    state = IDLE_STATE;                                 // Set IDLE_STATE
+    return;                                             // Exit Function
   }
-  // Lever released -> ABORT_TRIAL
-  if (!getLeverState())
-  {
-    if (params[_DEBUG]) {sendMessage("Lever released during random wait.");}
-    leverPressDuration = 0;
-    resultCode = CODE_PRE_CUE_RELEASE;
-    state = ABORT_TRIAL;
-    return;
+
+
+  if (!getLeverState())  {                        // MOUSE: "Lever released" -> LEVER_RELEASED
+    state = LEVER_RELEASED;                             // Set LEVER_RELEASED
+    return;                                             // Exit Fx
   }
-  // Random wait complete-> CUE_ON
-  if (millis() - timer >= waitInterval)
-  {
-    if (params[_DEBUG]) {sendMessage("Random wait complete.");}
-    state = CUE_ON;
-    return;
-  }
-  state = RANDOM_WAIT;
+
+
+  state = CUE_ON;                                 // No Command --> Cycle back to CUE_ON
 }
 
-/*** CUE_ON ***/
-void cue_on()
-{
-  // Actions - only execute once on state entry
-  if (state != prevState)
-  {
-    prevState = state;
 
-    // Send a message to host upon state entry
-    sendMessage("$" + String(state));
-    if (params[_DEBUG]) {sendMessage("Cue on. Hold for " + String(params[INTERVAL_MIN]) + " - " + String(params[INTERVAL_MAX]) + " ms");}
 
-    // Cue LED ON
-    setCueLED(true);
 
-    // Cue tone - start counting
-    playSound(TONE_CUE);
 
-    // Start timer
-    timer = millis();
+/*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  LEVER_RELEASED - Check if released in correct time and assign result code
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
+void lever_released() {
+  /*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    ACTION LIST -- initialize the new state
+  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
+ if (state != prevState) {                        // If ENTERTING LEVER_RELEASED:
+    prevState = state;                                // Assign prevState to LEVER_RELEASED state
+    sendMessage("$" + String(state));                 // Send a message to host upon state entry -- $5 (lever_released State)
+    leverPressDuration = millis() - timer;            // Calculate press duration
+    //------------------------DEBUG MODE--------------------------//  
+    if (params[_DEBUG]) {
+      sendMessage("Lever released. Held for " + String(leverPressDuration) + " ms after cue.");
+    }
+    //----------------------end DEBUG MODE------------------------//
   }
 
-  // Transitions
-  // Serial input (QUIT signal) -> IDLE_STATE
-  if (command == 'Q')
-  {
-    state = IDLE_STATE;
-    return;
+
+
+  /*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    TRANSITION LIST -- checks conditions, moves to next state
+  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
+  if (leverPressDuration >= params[INTERVAL_MIN] && leverPressDuration <= params[INTERVAL_MAX]) {   // Correct -> REWARD
+    // leverPressDuration recorded before entering this state - stored in ITI
+    resultCode = CODE_CORRECT;                    // Return 0 b/c correct
+    state = REWARD;                               // Move to REWARD state
   }
-  // Lever released -> LEVER_RELEASED
-  if (!getLeverState())
-  {
-    state = LEVER_RELEASED;
-    return;
+  
+  else if (leverPressDuration < params[INTERVAL_MIN]) {                                             // Early Release -> ABORT_TRIAL
+    // leverPressDuration recorded before entering this state - stored in ITI
+    resultCode = CODE_EARLY_RELEASE;              // Return 1 b/c early release
+    state = ABORT_TRIAL;                          // Move to ABORT state
   }
-  state = CUE_ON;
+
+  else if (leverPressDuration > params[INTERVAL_MAX]) {                                             // Late Release -> ABORT_TRIAL
+    // leverPressDuration recorded before entering this state - stored in ITI
+    resultCode = CODE_LATE_RELEASE;               // Return 2 b/c late release
+    state = ABORT_TRIAL;                          // Move to ABORT state
+  }
+
+  if (command == 'Q')  {                                                                            // HOST: "QUIT" -> IDLE_STATE
+    state = IDLE_STATE;                                 // Set IDLE_STATE
+  }
+
+
 }
 
-/*** LEVER_RELEASED ***/
-void lever_released()
-{
-  // Actions - only execute once on state entry
-  if (state != prevState)
-  {
-    prevState = state;
 
-    // Calculate lever press duration
-    leverPressDuration = millis() - timer;
 
-    // Send a message to host upon state entry
-    sendMessage("$" + String(state));
-    if (params[_DEBUG]) {sendMessage("Lever released. Held for " + String(leverPressDuration) + " ms.");}
-  }
 
-  // Transitions
-  // Serial input (QUIT signal) -> IDLE_STATE
-  if (command == 'Q')
-  {
-    state = IDLE_STATE;
-    return;
-  }
-  // Interval correct -> REWARD
-  if (leverPressDuration >= params[INTERVAL_MIN] && leverPressDuration <= params[INTERVAL_MAX])
-  {
-    resultCode = CODE_CORRECT;
-    state = REWARD;
-    return;
-  }
-  // Interval too short -> ABORT_TRIAL
-  else if (leverPressDuration < params[INTERVAL_MIN])
-  {
-    resultCode = CODE_EARLY_RELEASE;
-    state = ABORT_TRIAL;
-    return;
-  }
-  // Interval too long -> ABORT_TRIAL
-  else if (leverPressDuration > params[INTERVAL_MAX])
-  {
-    resultCode = CODE_LATE_RELEASE;
-    state = ABORT_TRIAL;
-    return;
-  }
-}
+
+
+
+
+
+
 
 /*** REWARD ***/
 void reward()
