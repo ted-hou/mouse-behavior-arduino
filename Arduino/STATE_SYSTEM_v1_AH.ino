@@ -1,9 +1,10 @@
 /*********************************************************************
   Arduino state machine code for lever task
-
-  By Lingfeng Hou (lingfenghou@g.harvard.edu)
-    Created: 9/13/16
-    Last Updated: 9/13/16 - Allison Hamilos (ahamilos@g.harvard.edu)
+  
+  Matlab Serial Communication Interface by Ofer
+  State System architecture by Lingfeng Hou (lingfenghou@g.harvard.edu)
+    Created:      9/13/16
+    Last Updated: 9/15/16 - Allison Hamilos (ahamilos@g.harvard.edu)
 
    - Everything is done in the main loop()
    - Incoming messages
@@ -22,6 +23,7 @@
     - "$0" tells MATLAB we've entered the first state
     - "$5 0 1000" tells MATLAB we've entered the 6th state and the time is 1000.
     - "$5 1 0" tells MATLAB we've entered the 6th state, and the trial result is error code -1.
+    - "+3 EVENT_1" -> uploads the event marker names to matlab
     - "&2 5548" &=event code, 2 is the event code, 5548 is the timestamp of code. Matlab will put into 2xn array
     - "Any random collection of words" sends a string to MATLAB to print. Used for debugging.
    - State machine
@@ -39,16 +41,18 @@
 *****************************************************/
 
 // Arduino Pin-Outs
+  /* PINOUT MODE: MEGA */
 
   // Digital OUT
-#define PIN_LED_ILLUM     34  // House Lamp Pin
-#define PIN_LED_CUE       35  // Cue LED Pin
+#define PIN_LED_ILLUM     34  // House Lamp Pin         (DUE = 34)  (MEGA = 34)  (UNO = 5?)  (TEENSY = 6?)
+#define PIN_LED_CUE       28  // Cue LED Pin            (DUE = 35)  (MEGA = 52)  (UNO =  4)  (TEENSY = 4)
+#define PIN_REWARD        52  // Reward Pin                         (MEGA = 52)  (UNO =  7)  (TEENSY = 7)
 
   // PWM OUT
-#define PIN_SPEAKER        2  // Speaker Pin
+#define PIN_SPEAKER        8  // Speaker Pin            (DUE =  2)  (MEGA =  8)  (UNO =  9)  (TEENSY = 5)
 
   // Digital IN
-#define PIN_LEVER         36  // Lever Pin
+#define PIN_LEVER          2  // Lever Pin              (DUE = 36)  (MEGA =  2)  (UNO =  2)  (TEENSY = 2)
 
 
 /*****************************************************
@@ -92,7 +96,10 @@ static const int _stateCanUpdateParams[] = {0,1,0,0,0,0,0,0,1}; // Defined to al
   Event Markers
 *****************************************************/
 enum EventMarkers
-/* You may define as many event markers as you like */
+/* You may define as many event markers as you like.
+    Assign event markers to any IN/OUT event
+    Times and trials will be defined by global time, 
+    which can be parsed later to validate time measurements */
 {
   EVENT_1,
   EVENT_2,
@@ -135,7 +142,7 @@ static const char *_resultCodeNames[] =
 /*****************************************************
   Audio cue frequencies
 *****************************************************/
-enum SoundType
+enum SoundEventFrequencyEnum
 {
   TONE_REWARD = 4186,             // Correct tone: C8
   TONE_ABORT  = 131,              // Error tone: C3
@@ -157,6 +164,7 @@ enum ParamID
   RANDOM_WAIT_MIN,                // Minimum random pre-trial interval (ms)
   RANDOM_WAIT_MAX,                // Maximum random pre-trial interval (ms)
   ITI,                            // Intertrial interval length (ms)
+  CUE_DURATION,                   // Duration of cue tone and LED flash (ms)
   _NUM_PARAMS                     // (Private) Used to count how many parameters there are so we can initialize the param array with the correct size. Insert additional parameters before this.
 }; //**** BE SURE TO ADD NEW PARAMS TO THE NAMES LIST BELOW!*****//
 
@@ -172,7 +180,8 @@ static const char *_paramNames[] =
   "TIMEOUT_READY",
   "RANDOM_WAIT_MIN",
   "RANDOM_WAIT_MAX",
-  "ITI"
+  "ITI",
+  "CUE_DURATION"
 }; //**** BE SURE TO INIT NEW PARAM VALUES BELOW!*****//
 
 // Initialize parameters
@@ -186,7 +195,8 @@ int _params[_NUM_PARAMS] =
   20000,                          // TIMEOUT_READY
   1000,                           // RANDOM_WAIT_MIN
   2000,                           // RANDOM_WAIT_MAX
-  5000                            // ITI
+  5000,                           // ITI
+  200                             // CUE_DURATION (ms)
 };
 
 /*****************************************************
@@ -703,7 +713,7 @@ void abort_trial() {
   _state = INTERTRIAL;                               // (always) Proceed immediately to ITI
 
   /* PLACEHOLDER: Future version should make ever trial the same duration, this should be executed here */
-}
+} // End ABORT TRIAL STATE ---------------------------------------------------------------------------------------------------------------------
 
 
 
@@ -742,34 +752,37 @@ void intertrial() {
   }
   
 
+  //------------------------DEBUG MODE--------------------------//  
+  if (_params[_DEBUG]) {
+      sendMessage("Parameter " + String(_arguments[0]) + " changed to " + String(_arguments[1]));
+  } 
+  //----------------------end DEBUG MODE------------------------//
 
+  
   if (_command == 'P') {                          // Received new param from host: format "P _paramID _newValue" ('P' for Parameters)
     isParamsUpdateStarted = true;                   // Mark transmission start. Don't start next trial until we've finished.
     _params[_arguments[0]] = _arguments[1];         // Update parameter. Serial input "P 0 1000" changes the 1st parameter to 1000.
-
-
-
-
-    if (_params[_DEBUG]) {sendMessage("Parameter " + String(_arguments[0]) + " changed to " + String(_arguments[1]));} 
-    _state = INTERTRIAL;
-    return;
+    _state = INTERTRIAL;                            // Return -> ITI
+    return;                                         // Exit Fx
   }
-  // Param transmission complete: host sends 'O' for Over.
-  if (_command == 'O') 
-  {
-    isParamsUpdateDone = true;
-    _state = INTERTRIAL;
-    return;
-  };
-  // End when ITI ends. If param update initiated, should also wait for update completion signal ('O' for Over).
-  if (millis() - _timer >= _params[ITI] && (isParamsUpdateDone || !isParamsUpdateStarted))
-  {
-    _state = READY;
-    return;
+  
+
+
+  if (_command == 'O') {                          // HOST transmission complete: HOST sends 'O' for Over.
+    isParamsUpdateDone = true;                      // Mark transmission complete.
+    _state = INTERTRIAL;                            // Return -> ITI
+    return;                                         // Exit Fx
   }
-  // Otherwise stay in same _state
-  _state = INTERTRIAL;
-}
+
+
+  
+  if (millis() - _timer >= _params[ITI] && (isParamsUpdateDone || !isParamsUpdateStarted))  { // End when ITI ends. If param update initiated, should also wait for update completion signal from HOST ('O' for Over).
+    _state = READY;                                 // Move -> READY state
+    return;                                         // Exit Fx
+  }
+
+  _state = INTERTRIAL;                            // No Command -> Cycle back to ITI
+} // End Get Arguments---------------------------------------------------------------------------------------------------------------------
 
 
 
@@ -777,238 +790,260 @@ void intertrial() {
 
 
 /*****************************************************
-  Hardware controls
+  HARDWARE CONTROLS
 *****************************************************/
-void setIllumLED(bool turnOn)
-{
-  if (turnOn)
-  {
+
+/*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  Set House Lamp (ON/OFF)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
+void setIllumLED(bool turnOn) {
+  if (turnOn) {
     digitalWrite(PIN_LED_ILLUM, HIGH);
   }
-  else
-  {
+  else {
     digitalWrite(PIN_LED_ILLUM, LOW);
   }
-}
+} // end Set House Lamp---------------------------------------------------------------------------------------------------------------------
 
-void setCueLED(bool turnOn)
-{
-  if (turnOn)
-  {
+/*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  Set Cue LED (ON/OFF)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
+void setCueLED(bool turnOn) {
+  if (turnOn) {
     digitalWrite(PIN_LED_CUE, HIGH);
   }
-  else
-  {
+  else {
     digitalWrite(PIN_LED_CUE, LOW);
   }
-}
+} // end Set Cue LED---------------------------------------------------------------------------------------------------------------------
 
-bool getLeverState()
-{
-  if (digitalRead(PIN_LEVER) == HIGH)
-  {
+/*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  GET LEVER STATE (True/False - Boolean)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
+bool getLeverState() {
+  if (digitalRead(PIN_LEVER) == HIGH) {
     return false;
   }
-  else
-  {
+  else {
     return true;
   }
-}
+} // end Get Lever State---------------------------------------------------------------------------------------------------------------------
 
-void playSound(SoundType soundType)
-{
-  if (soundType == TONE_REWARD)
-  {
-    // Play correct tone
-    noTone(PIN_SPEAKER);
-    tone(PIN_SPEAKER, soundType, 200);
-    return;
+/*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  PLAY SOUND (Choose event from Enum list and input the frequency for that event)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
+void playSound(SoundEventFrequencyEnum soundEventFrequency) {
+  if (soundEventFrequency == TONE_REWARD) {       // MOUSE: Reward Tone
+    noTone(PIN_SPEAKER);                              // Turn off current sound (if any)
+    tone(PIN_SPEAKER, soundEventFrequency, 200);      // Play Reward Tone (200 ms)
+    return;                                           // Exit Fx
   }
-  if (soundType == TONE_ABORT)
-  {
-    // Play incorrect tone
-    noTone(PIN_SPEAKER);
-    tone(PIN_SPEAKER, soundType, 200);
-    return;
+  if (soundEventFrequency == TONE_ABORT) {        // MOUSE: Abort Tone
+    noTone(PIN_SPEAKER);                              // Turn off current sound (if any)
+    tone(PIN_SPEAKER, soundEventFrequency, 200);      // Play Reward Tone (200 ms)
+    return;                                           // Exit Fx
   }
-  if (soundType == TONE_CUE)
-  {
-    // Play start interval tone
-    noTone(PIN_SPEAKER);
-    tone(PIN_SPEAKER, soundType, 200);
-    return;
+  if (soundEventFrequency == TONE_CUE) {          // MOUSE: Cue Tone
+    noTone(PIN_SPEAKER);                              // Turn off current sound (if any)
+    tone(PIN_SPEAKER, soundEventFrequency, _params[CUE_DURATION]); // Play Cue Tone (default 200 ms)
+    return;                                           // Exit Fx
   }
-}
+} // end Play Sound---------------------------------------------------------------------------------------------------------------------
 
-void setReward(bool turnOn)
-{
-  if (turnOn)
-  {
-    if (_params[_DEBUG]) {sendMessage("Nom nom nom.");}
+/*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  SET REWARD (Deliver or turn off reward)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
+void setReward(bool turnOn) {
+  if (turnOn)                                                       
+  {                                                                 // MOUSE: Deliver Reward = TRUE
+    digitalWrite(PIN_REWARD, HIGH);                                    // Reward Pin HIGH
+    //------------------------DEBUG MODE--------------------------//  
+    if (_params[_DEBUG]) {sendMessage("Dispensing Reward");}
+    //----------------------end DEBUG MODE------------------------//
   }
   else
-  {
-    if (_params[_DEBUG]) {sendMessage("Where'd my juice go?");}
+  {                                                                 // MOUSE: Stop Reward
+    digitalWrite(PIN_REWARD, LOW);                                     // Reward Pin LOW
+    //------------------------DEBUG MODE--------------------------// 
+    if (_params[_DEBUG]) {sendMessage("Terminating Reward");}
+    //----------------------end DEBUG MODE------------------------//
   }
-}
+} // end Set Reward---------------------------------------------------------------------------------------------------------------------
+
+
+
+
+
+
+
 
 /*****************************************************
-  Serial comms
+  SERIAL COMMUNICATION TO HOST
 *****************************************************/
-// Send a string message to host 
-void sendMessage(String message)
+
+/*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  SEND MESSAGE to HOST
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
+void sendMessage(String message)   // Capital (String) because is defining message as an object of type String from arduino library
 {
   Serial.println(message);
-}
+} // end Send Message---------------------------------------------------------------------------------------------------------------------
 
-// Get _command (single character) received from host
+/*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  GET COMMAND FROM HOST (single character)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
 char getCommand(String message)
 {
-  message.trim(); // Remove leading and trailing white space
+  message.trim();                 // Remove leading and trailing white space
+  return message[0];              // Parse message string for 1st character (the command)
+} // end Get Command---------------------------------------------------------------------------------------------------------------------
 
-  // Parse _command string
-  return message[0];
-}
-
-// Get _arguments (2 element array)
-void getArguments(String message, int *_arguments)
+/*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  GET ARGUMENTS (of the command) from HOST (2 int array)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
+void getArguments(String message, int *_arguments)  // * to initialize array of strings(?)
 {
-  _arguments[0] = 0;
-  _arguments[1] = 0;
+  _arguments[0] = 0;              // Init Arg 0 to 0 (reset)
+  _arguments[1] = 0;              // Init Arg 1 to 0 (reset)
 
-  message.trim(); // Remove leading and trailing white space
+  message.trim();                 // Remove leading and trailing white space from MESSAGE
 
-  // Remove command (first character) from string
-  String parameters = message;
-  parameters.remove(0,1);
-  parameters.trim();
+  //----Remove command (first character) from string:-----//
+  String parameters = message;    // The remaining part of message is now "parameters"
+  parameters.remove(0,1);         // Remove the command character and # (e.g., "P#")
+  parameters.trim();              // Remove any spaces before next char
 
-  // Parse first (optional) integer argument
-  String intString = "";
+  //----Parse first (optional) integer argument-----------//
+  String intString = "";          // init intString as a String object. intString concatenates the arguments as a string
   while ((parameters.length() > 0) && (isDigit(parameters[0]))) 
-  {
-    intString += parameters[0];
-    parameters.remove(0,1);
+  {                               // while the first argument in parameters has digits left in it unparced...
+    intString += parameters[0];       // concatenate the next digit to intString
+    parameters.remove(0,1);           // delete the added digit from "parameters"
   }
-  _arguments[0] = intString.toInt();
+  _arguments[0] = intString.toInt();  // transform the intString into integer and assign to first argument (Arg 0)
 
-  // Parse second (optional) integer argument  
-  parameters.trim();
-  intString = "";
+
+  //----Parse second (optional) integer argument----------//
+  parameters.trim();              // trim the space off of parameters
+  intString = "";                 // reinitialize intString
   while ((parameters.length() > 0) && (isDigit(parameters[0]))) 
-  {
-    intString += parameters[0];
-    parameters.remove(0,1);
+  {                               // while the second argument in parameters has digits left in it unparced...
+    intString += parameters[0];       // concatenate the next digit to intString
+    parameters.remove(0,1);           // delete the added digit from "parameters"
   }
-  _arguments[1] = intString.toInt();
-}
+  _arguments[1] = intString.toInt();  // transform the intString into integer and assign to second argument (Arg 1)
+} // end Get Arguments---------------------------------------------------------------------------------------------------------------------
 
-// Send names of states, names/values of parameters to host
+
+/*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  INIT HOST (send States, Names/Value of Parameters to HOST)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
 void hostInit()
 {
-  // Send state names and which states allow parameter update
+  //------Send state names and which states allow parameter update-------//
   for (int iState = 0; iState < _NUM_STATES; iState++)
-  {
+  {// For each state, send "@ (number of state) (state name) (0/1 can update params)"
       sendMessage("@ " + String(iState) + " " + _stateNames[iState] + " " + String(_stateCanUpdateParams[iState]));
   }
 
-  // Send event marker code interpretations.
+  //-------Send event marker codes---------------------------------------//
+  /* Note: "&" reserved for uploading new event marker and timestamp. "+" is reserved for initially sending event marker names */
   for (int iCode = 0; iCode < _NUM_OF_EVENT_MARKERS; iCode++)
-  {
-      sendMessage("& " + String(iCode) + " " + _eventMarkerNames[iCode]); // Matlab adds 1 to each code # to index from 1-n rather than 0-n
+  {// For each state, send "+ (number of event marker) (event marker name)"
+      sendMessage("+ " + String(iCode) + " " + _eventMarkerNames[iCode]); // Matlab adds 1 to each code # to index from 1-n rather than 0-n
   }
 
-  // Send param names and default values
+  //-------Send param names and default values---------------------------//
   for (int iParam = 0; iParam < _NUM_PARAMS; iParam++)
-  {
+  {// For each param, send "# (number of param) (param names) (param init value)"
       sendMessage("# " + String(iParam) + " " + _paramNames[iParam] + " " + String(_params[iParam]));
   }
-  // Send error code interpretations.
+  //--------Send result code interpretations.-----------------------------//
   for (int iCode = 0; iCode < _NUM_RESULT_CODES; iCode++)
-  {
+  {// For each result code, send "* (number of result code) (result code name)"
       sendMessage("* " + String(iCode) + " " + _resultCodeNames[iCode]);
   }
 }
 
 
 
-/*****************************************************
-  Tone generator for Due
-*****************************************************/
-/*
-Tone generator
-v1  use timer, and toggle any digital pin in ISR
-   funky duration from arduino version
-   TODO use FindMckDivisor?
-   timer selected will preclude using associated pins for PWM etc.
-  could also do timer/pwm hardware toggle where caller controls duration
-*/
+// /*****************************************************
+//   Tone generator for Due -- not used in other Arduino modes
+// *****************************************************/
+// /*
+// Tone generator
+// v1  use timer, and toggle any digital pin in ISR
+//    funky duration from arduino version
+//    TODO use FindMckDivisor?
+//    timer selected will preclude using associated pins for PWM etc.
+//   could also do timer/pwm hardware toggle where caller controls duration
+// */
 
 
-// timers TC0 TC1 TC2   channels 0-2 ids 0-2  3-5  6-8     AB 0 1
-// use TC1 channel 0 
-#define TONE_TIMER TC1
-#define TONE_CHNL 0
-#define TONE_IRQ TC3_IRQn
+// // timers TC0 TC1 TC2   channels 0-2 ids 0-2  3-5  6-8     AB 0 1
+// // use TC1 channel 0 
+// #define TONE_TIMER TC1
+// #define TONE_CHNL 0
+// #define TONE_IRQ TC3_IRQn
 
-// TIMER_CLOCK4   84MHz/128 with 16 bit counter give 10 Hz to 656KHz
-//  piano 27Hz to 4KHz
+// // TIMER_CLOCK4   84MHz/128 with 16 bit counter give 10 Hz to 656KHz
+// //  piano 27Hz to 4KHz
 
-static uint8_t pinEnabled[PINS_COUNT];
-static uint8_t TCChanEnabled = 0;
-static boolean pin_state = false ;
-static Tc *chTC = TONE_TIMER;
-static uint32_t chNo = TONE_CHNL;
+// static uint8_t pinEnabled[PINS_COUNT];
+// static uint8_t TCChanEnabled = 0;
+// static boolean pin_state = false ;
+// static Tc *chTC = TONE_TIMER;
+// static uint32_t chNo = TONE_CHNL;
 
-volatile static int32_t toggle_count;
-static uint32_t tone_pin;
+// volatile static int32_t toggle_count;
+// static uint32_t tone_pin;
 
-// frequency (in hertz) and duration (in milliseconds).
+// // frequency (in hertz) and duration (in milliseconds).
 
-void tone(uint32_t ulPin, uint32_t frequency, int32_t duration)
-{
-    const uint32_t rc = VARIANT_MCK / 256 / frequency; 
-    tone_pin = ulPin;
-    toggle_count = 0;  // strange  wipe out previous duration
-    if (duration > 0 ) toggle_count = 2 * frequency * duration / 1000;
-     else toggle_count = -1;
+// void tone(uint32_t ulPin, uint32_t frequency, int32_t duration)
+// {
+//     const uint32_t rc = VARIANT_MCK / 256 / frequency; 
+//     tone_pin = ulPin;
+//     toggle_count = 0;  // strange  wipe out previous duration
+//     if (duration > 0 ) toggle_count = 2 * frequency * duration / 1000;
+//      else toggle_count = -1;
 
-    if (!TCChanEnabled) {
-      pmc_set_writeprotect(false);
-      pmc_enable_periph_clk((uint32_t)TONE_IRQ);
-      TC_Configure(chTC, chNo,
-        TC_CMR_TCCLKS_TIMER_CLOCK4 |
-        TC_CMR_WAVE |         // Waveform mode
-        TC_CMR_WAVSEL_UP_RC ); // Counter running up and reset when equals to RC
+//     if (!TCChanEnabled) {
+//       pmc_set_writeprotect(false);
+//       pmc_enable_periph_clk((uint32_t)TONE_IRQ);
+//       TC_Configure(chTC, chNo,
+//         TC_CMR_TCCLKS_TIMER_CLOCK4 |
+//         TC_CMR_WAVE |         // Waveform mode
+//         TC_CMR_WAVSEL_UP_RC ); // Counter running up and reset when equals to RC
   
-      chTC->TC_CHANNEL[chNo].TC_IER=TC_IER_CPCS;  // RC compare interrupt
-      chTC->TC_CHANNEL[chNo].TC_IDR=~TC_IER_CPCS;
-      NVIC_EnableIRQ(TONE_IRQ);
-             TCChanEnabled = 1;
-    }
-    if (!pinEnabled[ulPin]) {
-      pinMode(ulPin, OUTPUT);
-      pinEnabled[ulPin] = 1;
-    }
-    TC_Stop(chTC, chNo);
-    TC_SetRC(chTC, chNo, rc);    // set frequency
-    TC_Start(chTC, chNo);
-}
+//       chTC->TC_CHANNEL[chNo].TC_IER=TC_IER_CPCS;  // RC compare interrupt
+//       chTC->TC_CHANNEL[chNo].TC_IDR=~TC_IER_CPCS;
+//       NVIC_EnableIRQ(TONE_IRQ);
+//              TCChanEnabled = 1;
+//     }
+//     if (!pinEnabled[ulPin]) {
+//       pinMode(ulPin, OUTPUT);
+//       pinEnabled[ulPin] = 1;
+//     }
+//     TC_Stop(chTC, chNo);
+//     TC_SetRC(chTC, chNo, rc);    // set frequency
+//     TC_Start(chTC, chNo);
+// }
 
-void noTone(uint32_t ulPin)
-{
-  TC_Stop(chTC, chNo);  // stop timer
-  digitalWrite(ulPin,LOW);  // no signal on pin
-}
+// void noTone(uint32_t ulPin)
+// {
+//   TC_Stop(chTC, chNo);  // stop timer
+//   digitalWrite(ulPin,LOW);  // no signal on pin
+// }
 
-// timer ISR  TC1 ch 0
-void TC3_Handler ( void ) {
-  TC_GetStatus(TC1, 0);
-  if (toggle_count != 0){
-    // toggle pin  TODO  better
-    digitalWrite(tone_pin,pin_state= !pin_state);
-    if (toggle_count > 0) toggle_count--;
-  } else {
-    noTone(tone_pin);
-  }
-}
+// // timer ISR  TC1 ch 0
+// void TC3_Handler ( void ) {
+//   TC_GetStatus(TC1, 0);
+//   if (toggle_count != 0){
+//     // toggle pin  TODO  better
+//     digitalWrite(tone_pin,pin_state= !pin_state);
+//     if (toggle_count > 0) toggle_count--;
+//   } else {
+//     noTone(tone_pin);
+//   }
+// }
