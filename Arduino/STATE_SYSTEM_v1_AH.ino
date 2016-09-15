@@ -281,7 +281,7 @@ void loop()
     Step 2: Update the State Machine
   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
   // Depending on what _state we're in , call the appropriate _state function, which will evaluate the transition conditions, and update `_state` to what the next _state should be
-  switch (state) {
+  switch (_state) {
     case _INIT:
       idle_state();
       break;
