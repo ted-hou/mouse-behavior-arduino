@@ -1,20 +1,25 @@
 %% ArduinoConnection: serial port connection to an Arduino
 classdef ArduinoConnection < handle
-
 	properties
-		DebugMode = false;
-		Connected = false;
-		SerialConnection = [];
-		ArduinoMessageString = '';
-		State = [];
-		StateNames = {};
-		StateCanUpdateParams = logical([]);
-		ParamNames = {};
-		ParamValues = [];
-		ParamUpdateQueue = [];
-		ResultCodeNames = {};
-		Trials
-		EventHandlers
+		DebugMode = false
+		Connected = false
+		SerialConnection = []
+		ArduinoMessageString = ''
+		State = []
+		StateNames = {}
+		StateCanUpdateParams = logical([])
+		ParamNames = {}
+		ParamValues = []
+		ParamUpdateQueue = []
+		ResultCodeNames = {}
+		EventMarkers = []
+		EventMarkerNames = {}
+		Trials = struct([])
+		Listeners
+	end
+
+	properties (SetObservable)
+		TrialsCompleted = 0
 	end
 
 	events
@@ -58,7 +63,7 @@ classdef ArduinoConnection < handle
 			end
 
 			% Add event handler to detect state changes
-			obj.EventHandlers.StateChanged = addlistener(obj, 'StateChanged', @obj.OnStateChanged);
+			obj.Listeners.StateChanged = addlistener(obj, 'StateChanged', @obj.OnStateChanged);
 		end
 
 		function SendMessage(obj, messageChar, arg1, arg2)
@@ -127,13 +132,13 @@ classdef ArduinoConnection < handle
 
 					% If result received, store the results in a new Trial structure
 					if length(subStrings) > 1
-						iTrial = length(obj.Trials) + 1;
+						obj.TrialsCompleted = obj.TrialsCompleted + 1;
 						resultCode = str2num(subStrings{2}) + 1;
-						obj.Trials(iTrial).Code = obj.ResultCodeNames{resultCode};
-						obj.Trials(iTrial).Result = str2num(subStrings{3});
-						obj.Trials(iTrial).Parameters = obj.ParamValues;
+						obj.Trials(obj.TrialsCompleted).Code = obj.ResultCodeNames{resultCode};
+						obj.Trials(obj.TrialsCompleted).Result = str2num(subStrings{3});
+						obj.Trials(obj.TrialsCompleted).Parameters = obj.ParamValues;
 
-						fprintf('Result: %d ms (%s)\n', obj.Trials(iTrial).Result, obj.Trials(iTrial).Code)
+						fprintf('Result: %d ms (%s)\n', obj.Trials(obj.TrialsCompleted).Result, obj.Trials(obj.TrialsCompleted).Code)
 					end
 
 					% Trigger StateChanged Event
@@ -146,6 +151,19 @@ classdef ArduinoConnection < handle
 					% Register state name and whether this states allows param update
 					obj.StateNames{stateId} = subStrings{2};
 					obj.StateCanUpdateParams(stateId) = logical(str2num(subStrings{3}));
+				case '&'
+					% Arduino sent an event code and its timestamp - "& 0 100"
+					subStrings = strsplit(strtrim(value), ' ');
+					eventCode = str2num(subStrings{1}) + 1; % Convert zero-based indices (Arduino) to one-based indices (MATLAB)
+					timeStamp = str2num(subStrings{2});
+					obj.EventMarkers = [obj.EventMarkers; eventCode, timeStamp];
+				case '+'
+					% Arduino sent the name of an event marker - "+ 0 TRIAL_START"
+					subStrings = strsplit(strtrim(value), ' ');
+					% Convert zero-based indices (Arduino) to one-based indices (MATLAB)
+					eventMarkerId = str2num(subStrings{1}) + 1;
+					% Register event marker names so MATLAB KNOWs WHAT IS GOING ON WHEN SHIT GOES DOWN
+					obj.EventMarkerNames{eventMarkerId} = subStrings{2};
 				case '#'
 					% Arduino sent the name and default value of a parameter - "# 1 INTERVAL_MIN 1250"
 					subStrings = strsplit(strtrim(value), ' ');
