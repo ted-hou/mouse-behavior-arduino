@@ -11,13 +11,13 @@ classdef MouseBehaviorInterface < handle
 			obj.Arduino = ArduinoConnection;
 
 			% Creata Experiment Control window with all the knobs and buttons you need to set up an experiment. 
-			obj.CreateWindow_ExperimentControl()
+			obj.CreateDialog_ExperimentControl()
 
 			% Create Monitor window with all thr trial results and plots and stuff so the Grad Student is ON TOP OF THE SITUATION AT ALL TIMES.
-			obj.CreateWindow_Monitor()
+			obj.CreateDialog_Monitor()
 		end
 
-		function CreateWindow_ExperimentControl(obj)
+		function CreateDialog_ExperimentControl(obj)
 			% Size and position of controls
 			buttonWidth = 50; % Width of buttons
 			buttonHeight = 20; % Height of 
@@ -109,86 +109,139 @@ classdef MouseBehaviorInterface < handle
 			dlg.Visible = 'on';
 		end
 
-		function CreateWindow_Monitor(obj)
-			% Size and position of controls
+		function CreateDialog_Monitor(obj)
+			dlgWidth = 800;
 			dlgHeight = 400;
-			dlgWidth = 200;
-			dlgMarginTop = 10;
-			buttonWidth = 50; % Width of buttons
-			textHeight = 40; % Height of a line of text
-			ctrlSpacing = 10; % Spacing between ui elements
 
 			% Create the dialog
 			dlg = dialog(...
 				'Name', 'Monitor',...
 				'WindowStyle', 'normal',...
-				'Position', [0, 0, dlgWidth, dlgHeight],...
+				'Position', [100, 100, dlgWidth, dlgHeight],...
+				'Units', 'pixels',...
 				'Resize', 'on',...
 				'Visible', 'off'... % Hide until all controls created
 			);
 			% Store the dialog handle
 			obj.Rsc.Monitor = dlg;
 
-			% Close serial port when you close the window
-			dlg.CloseRequestFcn = {@MouseBehaviorInterface.ArduinoClose, obj.Arduino};
+			% Size and position of controls
+			dlg.UserData.DlgMargin = 20;
+			dlg.UserData.LeftPanelWidthRatio = 0.3;
+			dlg.UserData.PanelSpacing = 20;
+			dlg.UserData.PanelMargin = 20;
+			dlg.UserData.BarHeight = 75;
+			dlg.UserData.TextHeight = 30;
+			u = dlg.UserData;
+
+			% % Close serial port when you close the window
+			% dlg.CloseRequestFcn = {@MouseBehaviorInterface.ArduinoClose, obj.Arduino};
 
 			%----------------------------------------------------
-			% Text: Number of trials completed
+			% Left panel
 			%----------------------------------------------------
-			text_trialCount = uicontrol(...
+			leftPanel = uipanel(...
 				'Parent', dlg,...
+				'Title', 'Experiment Summary',...
+				'Units', 'pixels'...
+			);
+			dlg.UserData.Ctrl.LeftPanel = leftPanel;
+
+			% Text: Number of trials completed
+			trialCountText = uicontrol(...
+				'Parent', leftPanel,...
 				'Style', 'text',...
 				'String', 'Trials completed: 0',...
 				'TooltipString', 'Number of trials completed in this session.',...
-				'Position', [0, dlgHeight - dlgMarginTop - textHeight, dlgWidth, textHeight],...
-				'FontSize', 14 ...
+				'HorizontalAlignment', 'left',...
+				'Units', 'pixels',...
+				'FontSize', 13 ...
 			);
-			obj.Rsc.Ctrl.Text_TrialCount = text_trialCount;
+			dlg.UserData.Ctrl.TrialCountText = trialCountText;
 
-			% Update session summary everytime a new trial's results are registered by Arduino
-			obj.Arduino.Listeners.TrialRegistered = addlistener(obj.Arduino, 'TrialsCompleted', 'PostSet', @obj.OnTrialRegistered);
+			%----------------------------------------------------
+			% Right panel
+			%----------------------------------------------------
+			rightPanel = uipanel(...
+				'Parent', dlg,...
+				'Title', 'Plot Options',...
+				'Units', 'pixels'...
+			);
+			dlg.UserData.Ctrl.RightPanel = rightPanel;
+
+
 
 			%----------------------------------------------------
 			% Stacked bar chart for trial results
 			%----------------------------------------------------
+			ax = axes(...
+				'Parent', dlg,...
+				'Units', 'pixels',...
+				'XTickLabel', [],...
+				'YTickLabel', [],...
+				'XTick', [],...
+				'YTick', [],...
+				'Box', 'on'...
+			);
+			obj.Rsc.Monitor.UserData.Ctrl.Ax = ax;
 
-			% Resize dialog so it fits all controls
-			% dlg.Position(3) = table_params.Position(3) + buttonWidth + 4*ctrlSpacing;
-			% dlg.Position(4) = table_params.Position(4) + 3*ctrlSpacing;
+			% Update session summary everytime a new trial's results are registered by Arduino
+			obj.Arduino.Listeners.TrialRegistered = addlistener(obj.Arduino, 'TrialsCompleted', 'PostSet', @obj.OnTrialRegistered);
+
+			% Stretch barchart When dialog window is resized
+			dlg.SizeChangedFcn = @MouseBehaviorInterface.OnMonitorDialogResized; 
 
 			% Unhide dialog now that all controls have been created
 			dlg.Visible = 'on';
 		end
 
-		function OnTrialRegistered(obj, ~, evnt)
-			iTrial = evnt.AffectedObject.TrialsCompleted;
-			% When a new trial is finished and registered, update the "Trials Completed" counter.
-			obj.Rsc.Ctrl.Text_TrialCount.String = sprintf('Trials completed: %d', iTrial);
+
+		function OnTrialRegistered(obj, ~, ~)
+		% Executed when a new trial is completed
+			% Count how many trials have been completed
+			iTrial = obj.Arduino.TrialsCompleted;
+
+			% Update the "Trials Completed" counter.
+			t = obj.Rsc.Monitor.UserData.Ctrl.TrialCountText;
+			t.String = sprintf('Trials completed: %d', iTrial);
+
+			% When a new trial is completed
+			ax = obj.Rsc.Monitor.UserData.Ctrl.Ax;
+			% Get a list of currently recorded result codes
+			resultCodes = reshape([obj.Arduino.Trials.Code], [], 1);
+			resultCodeNames = obj.Arduino.ResultCodeNames;
+			allResultCodes = 1:length(resultCodeNames);
+			resultCodeCounts = histcounts(resultCodes, allResultCodes);
+
+			bars = MouseBehaviorInterface.StackedBar(ax, resultCodeCounts, resultCodeNames);			
 		end		
 	end
 
 	methods (Static)
+		%----------------------------------------------------
+		% Commmunicating with Arduino
+		%----------------------------------------------------
 		function OnParamChanged(~, evnt, arduino)
 			% evnt (event data contains infomation on which elements were changed to what)
 			changedParam = evnt.Indices(1);
 			newValue = evnt.NewData;
 			
-            % Add new parameter to update queue
-            arduino.UpdateParams_AddToQueue(changedParam, newValue)
-            % Attempt to execute update queue now, if current state does not allow param update, the queue will be executed when we enter an appropriate state
+			% Add new parameter to update queue
+			arduino.UpdateParams_AddToQueue(changedParam, newValue)
+			% Attempt to execute update queue now, if current state does not allow param update, the queue will be executed when we enter an appropriate state
 			arduino.UpdateParams_Execute()
 		end
 		function ArduinoStart(~, ~, arduino)
 			arduino.Start()
-            fprintf('Started.\n')
+			fprintf('Started.\n')
 		end
 		function ArduinoStop(~, ~, arduino)
 			arduino.Stop()
-            fprintf('Stopped.\n')
+			fprintf('Stopped.\n')
 		end
 		function ArduinoClose(~, ~, arduino)
 			selection = questdlg(...
-				'Closing this window will terminate connection with Arduino. Proceed?',...
+				'Close all windows and terminate connection with Arduino?',...
 				'Close Window',...
 				'Yes','No','Yes'...
 			);
@@ -196,28 +249,73 @@ classdef MouseBehaviorInterface < handle
 				case 'Yes'
 					arduino.Close()
 					delete(gcf)
-		            fprintf('Connection closed.\n')
+					close all
+					fprintf('Connection closed.\n')
 				case 'No'
 					return
 			end
 		end
 
 		%----------------------------------------------------
-		% Plots
+		% Dialog Resize callbacks
+		%----------------------------------------------------	
+		function OnMonitorDialogResized(~, ~)
+			% Retrieve dialog object and axes to resize
+			dlg = gcbo;
+			ax = dlg.UserData.Ctrl.Ax;
+			leftPanel = dlg.UserData.Ctrl.LeftPanel;
+			rightPanel = dlg.UserData.Ctrl.RightPanel;
+			trialCountText = dlg.UserData.Ctrl.TrialCountText;
+
+			u = dlg.UserData;
+			
+			% Bar plot axes should have constant height.
+			ax.Position = [...
+				u.DlgMargin,...
+				u.DlgMargin,...
+				dlg.Position(3) - 2*u.DlgMargin,...
+				u.BarHeight...
+			];
+
+			% Left and right panels extends in width and height to fill dialog.
+			leftPanel.Position = [...
+				u.DlgMargin,...
+				u.DlgMargin + u.BarHeight + u.PanelSpacing,...
+				max([0, u.LeftPanelWidthRatio*(dlg.Position(3) - 2*u.DlgMargin - u.PanelSpacing)]),...
+				max([0, dlg.Position(4) - 2*u.DlgMargin - u.PanelSpacing - u.BarHeight])...
+			];				
+			rightPanel.Position = [...
+				u.DlgMargin + leftPanel.Position(3) + u.PanelSpacing,...
+				u.DlgMargin + u.BarHeight + u.PanelSpacing,...
+				max([1, (1 - u.LeftPanelWidthRatio)*(dlg.Position(3) - 2*u.DlgMargin - u.PanelSpacing)]),...
+				leftPanel.Position(4)...
+			];
+
+			% Trial count text should stay on top left of leftPanel
+			trialCountText.Position = [...
+				u.PanelMargin,...
+				leftPanel.Position(4) - u.PanelMargin - 1.2*u.TextHeight,...
+				max([0, leftPanel.Position(3) - 2*u.PanelMargin]),...
+				u.TextHeight...
+			];
+		end
+
 		%----------------------------------------------------
-		function [ax, bars] = StackedBar(data, names, colors)
+		% Plot - Stacked Bar
+		%----------------------------------------------------
+		function bars = StackedBar(ax, data, names, colors)
 			% Default params
-			if nargin < 3
+			if nargin < 4
 				colors = {[.2, .8, .2], [1 .2 .2], [.9 .2 .2], [.8 .2 .2], [.7 .2 .2]};
 			end
 
 			% Create a stacked horizontal bar plot
-			bars = barh([data; nan(size(data))], 'stack');
-			ax = gca;
+			data = reshape(data, 1, []);
+			bars = barh(ax, [data; nan(size(data))], 'stack');
 			
 			% Remove whitespace and axis ticks
-			xlim([0, sum(data)])
-			ylim([1 - 0.5*bars(1).BarWidth, 1 + 0.5*bars(1).BarWidth])
+			ax.XLim = [0, sum(data)];
+			ax.YLim = [1 - 0.5*bars(1).BarWidth, 1 + 0.5*bars(1).BarWidth];
 			ax.XTickLabel = [];
 			ax.YTickLabel = [];
 
@@ -231,17 +329,29 @@ classdef MouseBehaviorInterface < handle
 				labelShort = sprintf('''%d''', iData);
 				center = (edges(iData) + edges(iData + 1))/2;
 
-				t = text(center, 1, labelLong, 'HorizontalAlignment', 'center', 'VerticalAlignment', 'middle');
+				t = text(ax, center, 1, labelLong,...
+					'HorizontalAlignment', 'center',...
+					'VerticalAlignment', 'middle',...
+					'Interpreter', 'none'...
+				);
 				bars(iData).UserData.tLong = t;
 
 				% Hide parts of the label if it's wider than the bar
 				if (t.Extent(3) > data(iData))
 					t.Visible = 'off';
-					t = text(center, 1, labelMed, 'HorizontalAlignment', 'center', 'VerticalAlignment', 'middle');
+					t = text(ax, center, 1, labelMed,...
+						'HorizontalAlignment', 'center',...
+						'VerticalAlignment', 'middle',...
+						'Interpreter', 'none'...
+					);
 					bars(iData).UserData.tMed = t;
 					if (t.Extent(3) > data(iData))
 						t.Visible = 'off';
-						t = text(center, 1, labelShort, 'HorizontalAlignment', 'center', 'VerticalAlignment', 'middle');
+						t = text(ax, center, 1, labelShort,...
+							'HorizontalAlignment', 'center',...
+							'VerticalAlignment', 'middle',...
+							'Interpreter', 'none'...
+						);
 						bars(iData).UserData.tShort = t;
 						if (t.Extent(3) > data(iData))
 							t.Visible = 'off';
@@ -266,8 +376,6 @@ classdef MouseBehaviorInterface < handle
 					bars(iData).FaceColor = [r .2 .2];
 				end
 			end
-
-			% Figure resize listener
 		end
 
 		function OnStackedBarSingleClick(h, ~)
@@ -295,5 +403,49 @@ classdef MouseBehaviorInterface < handle
 				uistack(tLong, 'top') % Bring to top
 			end
 		end
+
+		%----------------------------------------------------
+		% Plot - Histogram of events for all trials
+		%----------------------------------------------------
+		function h = Hist(zeroTimes, eventTimes, firstInTrial, nBins)
+			if nargin < 4
+				nBins = 10;
+			end
+			if nargin < 3
+				firstInTrial = true;
+			end
+
+			zeroTimes = reshape(zeroTimes, [], 1);
+			eventTimes = reshape(eventTimes, [], 1);
+
+			% Divide into trials
+			if eventTimes(end) > zeroTimes(end)
+				edges = [zeroTimes, eventTimes(end)];
+			else
+				edges = zeroTimes;
+			end
+			[~, ~, bins] = histcounts(eventTimes, edges); % bins tells us which trial does each event belong to
+
+			% Extract either first event each trial or all events in trial
+			if firstInTrial
+				[~, ia, ~] = unique(bins);  % ia tells us which events are first in trial
+				eventTimes = eventTimes(ia);
+				zeroTimes = edges(bins(ia));
+			else
+				zeroTimes = edges(bins);
+			end
+
+			% Calculate event time in trial
+			eventTimesInTrial = eventTimes - zeroTimes;
+
+			h = figure;
+			hist(eventTimesZeroed, nBins);
+		end
+
+		%----------------------------------------------------
+		% Plot - Raster plot events for each trial
+		%----------------------------------------------------
+
+
 	end
 end

@@ -132,13 +132,15 @@ classdef ArduinoConnection < handle
 
 					% If result received, store the results in a new Trial structure
 					if length(subStrings) > 1
-						obj.TrialsCompleted = obj.TrialsCompleted + 1;
+						iTrial = obj.TrialsCompleted + 1;
 						resultCode = str2num(subStrings{2}) + 1;
-						obj.Trials(obj.TrialsCompleted).Code = obj.ResultCodeNames{resultCode};
-						obj.Trials(obj.TrialsCompleted).Result = str2num(subStrings{3});
-						obj.Trials(obj.TrialsCompleted).Parameters = obj.ParamValues;
+						obj.Trials(iTrial).Code = resultCode;
+						obj.Trials(iTrial).CodeName = obj.ResultCodeNames{resultCode};
+						obj.Trials(iTrial).Result = str2num(subStrings{3});
+						obj.Trials(iTrial).Parameters = obj.ParamValues;
+						obj.TrialsCompleted = iTrial;
 
-						fprintf('Result: %d ms (%s)\n', obj.Trials(obj.TrialsCompleted).Result, obj.Trials(obj.TrialsCompleted).Code)
+						fprintf('Result: %d ms (%d - %s)\n', obj.Trials(obj.TrialsCompleted).Result, obj.Trials(obj.TrialsCompleted).Code, obj.Trials(obj.TrialsCompleted).CodeName)
 					end
 
 					% Trigger StateChanged Event
