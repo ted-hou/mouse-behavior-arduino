@@ -1087,6 +1087,9 @@
         // Send event marker (trial end) to HOST with timestamp relative to trial start
         sendMessage("&" + String(EVENT_TRIAL_END) + " " + String(millis() - _trialTimer));
         _state = INTERTRIAL;                                      // Move to ITI
+        if (!_late_lick_detected) {                    // If this is first lick in post window
+            sendMessage("`" + String(CODE_NO_LICK));              // Send result code (Correct) to Matlab HOST 
+        }
         return;                                                   // Exit Fx
       }  
 
@@ -1108,6 +1111,7 @@
         playSound(TONE_REWARD);                             // Start reward tone    
         // Send event marker (reward) to HOST with timestamp relative to trial start
         sendMessage("&" + String(EVENT_REWARD) + " " + String(_reward_timer - _trialTimer));
+        sendMessage("`" + String(CODE_CORRECT));            // Send result code (Correct) to Matlab HOST      
         _prevState = _state;                                // Assign _prevState to REWARD _state
         sendMessage("$" + String(_state));                  // Send HOST $6 (reward State)  
         //------------------------DEBUG MODE--------------------------//  
