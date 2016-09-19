@@ -334,6 +334,7 @@
     static unsigned long _abort_timer = 0;           // Tracks time in abort state
     static unsigned long _ITI_timer = 0;             // Tracks time in ITI state
     static unsigned long _preCueDelay = 0;           // Initialize _preCueDelay var
+    static bool _reward_dispensed_complete = false;  // init tracker of reward dispensal
 
     //------Debug Mode: measure tick-rate (per ms)------------//
     static unsigned long _debugTimer     = 0;        // Debugging _single_loop_timer
@@ -578,7 +579,7 @@
       
       //------------------------DEBUG MODE--------------------------//
         if (_params[_DEBUG]) {
-          sendMessage("Trial Started. Random Pre-Cue Delay in Progress...(" + String(_preCueDelay) + "ms)");
+          sendMessage("Trial Started. Random Pre-Cue Delay in Progress...(" + String(_preCueDelay) + "ms delay)");
         }
       //----------------------end DEBUG MODE------------------------//
     }
@@ -594,7 +595,8 @@
         sendMessage("&" + String(EVENT_LICK) + " " + String(_lick_time));
         _lick_state = true;                            // Halts lick detection
         //------------------------DEBUG MODE--------------------------//
-          if (_params[_DEBUG]) {sendMessage("Pre-cue lick detected, tallying lick @ " + String(_lick_time) + "ms");}
+          int neg_lick_time = _lick_time - _preCueDelay;
+          if (_params[_DEBUG]) {sendMessage("Pre-cue lick detected, tallying lick @ " + String(neg_lick_time) + "ms wrt Cue ON");}
         //----------------------end DEBUG MODE------------------------//
       }
     }
@@ -649,6 +651,8 @@
       //----------------------end DEBUG MODE------------------------//
       if (getLickState()) {                            // MOUSE: "Licked"
         if (!_lick_state) {                              // If new lick
+
+
           //======================ENFORCED NO LICK=========================//
           if (_params[ENFORCE_NO_LICK] == 1) {
             _lick_time = millis() - _trialTimer;           // Records _lick_time relative to trial start
@@ -659,7 +663,7 @@
             _lick_state = true;                            // Halt lick detection
             //------------------------DEBUG MODE--------------------------//
               if (_params[_DEBUG]) {
-                sendMessage("Early lick detected @ " + String(_lick_time-_cue_on_time) + "ms wrt Cue Onset. Aborting Trial.");
+                sendMessage("Early lick detected @ " + String(millis()-_cue_on_time) + "ms wrt Cue Onset. Aborting Trial.");
               }
             //----------------------end DEBUG MODE------------------------//
             if (_command == 'Q')  {                          // HOST: "QUIT" -> IDLE_STATE
@@ -676,7 +680,7 @@
             _lick_state = true;                            // Halts lick detection
             //------------------------DEBUG MODE--------------------------//
               if (_params[_DEBUG]) {
-                sendMessage("New pre-window lick detected, tallying lick @ " + String(_lick_time - _cue_on_time) + "ms wrt cue onset. No lick NOT enforced, continuing...");
+                sendMessage("New pre-window lick detected, tallying lick @ " + String(millis() - _cue_on_time) + "ms wrt cue onset. No lick NOT enforced, continuing...");
               }
              //----------------------end DEBUG MODE------------------------//
             if (_command == 'Q')  {                        // HOST: "QUIT" -> IDLE_STATE
@@ -708,7 +712,7 @@
     if (!_pre_window_elapsed && current_time >= _params[INTERVAL_MIN]) { // If prewindow elapsed, break to response window
       // Send event marker (target time) to HOST with timestamp relative to trial start
       _pre_window_elapsed = true;                    // Indicate prewindow elapsed
-      _state = RESPONSE_WINDOW;                            // Move -> REWARD (Pavlovian only)
+      _state = RESPONSE_WINDOW;                            // Move -> RESPONSE_WINDOW
       //------------------------DEBUG MODE--------------------------//  
       if (_params[_DEBUG]) {
         sendMessage("Prewindow successfully elapsed at " + String(current_time) +"ms wrt cue onset.");
@@ -730,7 +734,7 @@
           _lick_state = true;                            // Halt lick detection
           //------------------------DEBUG MODE--------------------------//
             if (_params[_DEBUG]) {
-              sendMessage("Early pre-window lick detected @ " + String(_lick_time) + "ms. Aborting Trial because No lick IS enforced.");
+              sendMessage("Early pre-window lick detected @ " + String(millis()-_cue_on_time) + "ms. Aborting Trial because No lick IS enforced.");
             }
           //----------------------end DEBUG MODE------------------------//
           if (_command == 'Q')  {                          // HOST: "QUIT" -> IDLE_STATE
@@ -748,7 +752,7 @@
           _state = PRE_WINDOW;                           // Returns to Pre-window
           //------------------------DEBUG MODE--------------------------//
             if (_params[_DEBUG]) {
-              sendMessage("New pre-window lick detected, tallying lick @ " + String(_lick_time - _cue_on_time) + "ms wrt cue onset. No lick NOT enforced, continuing...");
+              sendMessage("New pre-window lick detected, tallying lick @ " + String(millis() - _cue_on_time) + "ms wrt cue onset. No lick NOT enforced, continuing...");
             }
            //----------------------end DEBUG MODE------------------------//
           if (_command == 'Q')  {                          // HOST: "QUIT" -> IDLE_STATE
@@ -787,7 +791,7 @@
     RESPONSE_WINDOW - Rewards first lick
   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
   void response_window() {
-    //==================== PAVLOVIAN ===================//
+    //(((((((((((((((((((((((((((((((((((((( -------- PAVLOVIAN --------- ))))))))))))))))))))))))))))))))))))))==================== PAVLOVIAN ===================)))))))))))))))))))//
       if (_params[PAVLOVIAN] == 1 && _params[OPERANT] == 0) {
         /*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
           ACTION LIST -- initialize the new state
@@ -800,7 +804,7 @@
             sendMessage("&" + String(EVENT_WINDOW_OPEN) + " " + String(_response_window_timer - _cue_on_time)); // relative to cue onset
             //------------------------DEBUG MODE--------------------------//  
             if (_params[_DEBUG]) {
-              sendMessage("Entered response window at " + String(_response_window_timer) +"ms, awaiting lick.");
+              sendMessage("Entered response window at " + String(_response_window_timer - _cue_on_time) +"ms, awaiting lick.");
             }
             //----------------------end DEBUG MODE------------------------//
             if (getLickState()) {                            // MOUSE: "Licked" -> Stay in RESPONSE_WINDOW
@@ -890,7 +894,9 @@
             return;                                         // Exit Fx
           }
       }
-    //==================== OPERANT =====================//
+    
+
+    //(((((((((((((((((((((((((((((((((((((( -------- OPERANT  --------- ))))))))))))))))))))))))))))))))))))))=====================//
       else if (_params[OPERANT] == 1 && _params[PAVLOVIAN] == 0)  {
         /*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
           ACTION LIST -- initialize the new state
@@ -903,7 +909,7 @@
             sendMessage("&" + String(EVENT_WINDOW_OPEN) + " " + String(_response_window_timer - _trialTimer));
             //------------------------DEBUG MODE--------------------------//  
             if (_params[_DEBUG]) {
-              sendMessage("Entered response window at " + String(_response_window_timer) +"ms, awaiting lick.");
+              sendMessage("Entered response window at " + String(_response_window_timer - _cue_on_time) +"ms wrt cue on, awaiting lick.");
             }
             //----------------------end DEBUG MODE------------------------//
             if (getLickState()) {                            // MOUSE: "Licked" -> REWARD
@@ -917,7 +923,7 @@
                 _state = REWARD;                               // Move -> REWARD
                 //------------------------DEBUG MODE--------------------------//
                   if (_params[_DEBUG]) {
-                    sendMessage("CORRECT lick detected, tallying lick @ " + String(_lick_time) + "ms");
+                    sendMessage("CORRECT lick detected, tallying lick @ " + String(millis()-_cue_on_time) + "ms wrt Cue ON.");
                   }
                 //----------------------end DEBUG MODE------------------------//
                 return;                                        // Exit Fx
@@ -945,7 +951,7 @@
               _state = REWARD;                               // Move -> REWARD
               //------------------------DEBUG MODE--------------------------//
               if (_params[_DEBUG]) {
-                sendMessage("CORRECT lick detected, tallying lick @ " + String(_lick_time) + "ms");
+                sendMessage("CORRECT lick detected, tallying lick @ " + String(millis()-_cue_on_time) + "ms wrt Cue ON.");
               }
               //----------------------end DEBUG MODE------------------------//
               if (_command == 'Q')  {                         // HOST: "QUIT" -> IDLE_STATE
@@ -966,14 +972,14 @@
             return;                                              // Exit Fx
           }
 
-          unsigned long current_time = millis()-_trialTimer;
+          unsigned long current_time = millis()-_cue_on_time; // WRT cue onset
           if (!_reached_target && current_time >= _params[TARGET]) { // If now is target time...record but stay in state (Operant only)
             // Send event marker (target time) to HOST with timestamp relative to trial start
             sendMessage("&" + String(EVENT_TARGET_TIME) + " " + String(current_time));
             _reached_target = true;                        // Indicate target reached
             //------------------------DEBUG MODE--------------------------//  
             if (_params[_DEBUG]) {
-              sendMessage("Reached Target Time at " + String(current_time) +"ms.");
+              sendMessage("Reached Target Time at " + String(current_time) +"ms wrt Cue ON.");
             }
             //----------------------end DEBUG MODE------------------------//
           }
@@ -985,14 +991,16 @@
             sendMessage("&" + String(EVENT_WINDOW_CLOSED) + " " + String(current_time));
             //------------------------DEBUG MODE--------------------------//  
             if (_params[_DEBUG]) {
-              sendMessage("Reward window closed at " + String(current_time) +"ms.");
+              sendMessage("Reward window closed at " + String(current_time) +"ms wrt Cue ON.");
             }
             //----------------------end DEBUG MODE------------------------//
             _state = POST_WINDOW;                           // Move -> POST_WINDOW
             return;                                         // Exit Fx
           }
       }
-    //==================== TASK CONDITIONS ERROR =====================//
+
+
+    //((((((((((((((((((((((((==================== TASK CONDITIONS ERROR =====================)))))))))))))))))))))//
       else {
         playSound(TONE_ABORT);
         sendMessage("ERROR - Task must be either Pavlovian or Operant. Fix Parameters and Restart");
@@ -1025,7 +1033,7 @@
             _lick_state = true;                            // Halts lick detection
             _late_lick_detected = true;                    // Don't send Result Code on next lick
             //------------------------DEBUG MODE--------------------------//
-            if (_params[_DEBUG]) {sendMessage("Late lick detected, tallying lick @ " + String(_lick_time) + "ms");}
+            if (_params[_DEBUG]) {sendMessage("Late lick detected, tallying lick @ " + String(millis()-_cue_on_time) + "ms wrt Cue ON.");}
             //----------------------end DEBUG MODE------------------------//
             return;                                        // Exit Fx
           }
@@ -1051,7 +1059,7 @@
             _late_lick_detected  = true;                   // Don't send Result Code on next lick
           }
           //------------------------DEBUG MODE--------------------------//
-          if (_params[_DEBUG]) {sendMessage("Late lick detected, tallying lick @ " + String(_lick_time) + "ms");}
+          if (_params[_DEBUG]) {sendMessage("Late lick detected, tallying lick @ " + String(millis()-_cue_on_time) + "ms wrt Cue ON.");}
           //----------------------end DEBUG MODE------------------------//
           return;                                        // Exit Fx
         }
@@ -1126,6 +1134,17 @@
    /*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
       TRANSITION LIST -- checks conditions, moves to next state
     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
+      if (millis() - _reward_timer >= _params[REWARD_DURATION] && !_reward_dispensed_complete) { // Reward duration elapsed...terminate reward
+        setReward(false);                                   // Stop delivery
+        _reward_dispensed_complete = true;                  // track completion
+        //------------------------DEBUG MODE--------------------------//
+          if (_params[_DEBUG]) {
+            sendMessage("Reward terminated at " + String(millis() - _reward_timer) + "ms wrt reward initiation.");
+          }
+        //----------------------end DEBUG MODE------------------------//
+      }
+
+
       if (getLickState()) {                            // MOUSE: "Licked"
         if (!_lick_state) {                              // If a new lick initiated
           _lick_time = millis() - _trialTimer;           // Records _lick_time relative to trial start
@@ -1159,9 +1178,7 @@
       }
 
       
-      if (millis() - _reward_timer >= _params[REWARD_DURATION]) { // Reward duration elapsed...terminate reward
-        setReward(false);                                   // Stop delivery
-      }
+
 
       if (millis() - _trialTimer - _preCueDelay >= _params[TRIAL_DURATION]) {  // TRIAL END -> ITI
         // Send event marker (trial end) to HOST with timestamp relative to trial start
@@ -1289,6 +1306,7 @@
         _pre_window_elapsed = false;                  // Reset pre_window time tracker
         _reached_target = false;                      // Reset target time tracker
         _late_lick_detected = false;                  // Reset late lick detector
+        _reward_dispensed_complete = false;           // Reset tracker of reward dispensal
 
         //=================== INIT HOST COMMUNICATION=================//
         isParamsUpdateStarted = false;                      // Initialize HOST param message monitor Start
@@ -1422,14 +1440,14 @@
     {                                                                 // MOUSE: Deliver Reward = TRUE
       digitalWrite(PIN_REWARD, HIGH);                                    // Reward Pin HIGH
       //------------------------DEBUG MODE--------------------------//  
-        if (_params[_DEBUG]) {sendMessage("Dispensing Reward");}
+        // if (_params[_DEBUG]) {sendMessage("Dispensing Reward");}
       //----------------------end DEBUG MODE------------------------//
     }
     else
     {                                                                 // MOUSE: Stop Reward
       digitalWrite(PIN_REWARD, LOW);                                     // Reward Pin LOW
       //------------------------DEBUG MODE--------------------------// 
-        if (_params[_DEBUG]) {sendMessage("Terminating Reward");}
+        // if (_params[_DEBUG]) {sendMessage("Terminating Reward");}
       //----------------------end DEBUG MODE------------------------//
     }
   } // end Set Reward---------------------------------------------------------------------------------------------------------------------
