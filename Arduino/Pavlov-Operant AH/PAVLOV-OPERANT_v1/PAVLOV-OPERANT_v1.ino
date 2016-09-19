@@ -125,7 +125,7 @@
 
     // Digital OUT
     #define PIN_HOUSE_LAMP    34  // House Lamp Pin         (DUE = 34)  (MEGA = 34)  (UNO = 5?)  (TEENSY = 6?)
-    #define PIN_LED_CUE       28  // Cue LED Pin            (DUE = 35)  (MEGA = 52)  (UNO =  4)  (TEENSY = 4)
+    #define PIN_LED_CUE       28  // Cue LED Pin            (DUE = 35)  (MEGA = 28)  (UNO =  4)  (TEENSY = 4)
     #define PIN_REWARD        52  // Reward Pin                         (MEGA = 52)  (UNO =  7)  (TEENSY = 7)
 
     // PWM OUT
@@ -143,7 +143,7 @@
     {
       _INIT,                // (Private) Initial state used on first loop. 
       IDLE_STATE,           // Idle state. Wait for go signal from host.
-      TRIAL_INIT,           // House lamp OFF, random delay before cue presentation
+      INIT_TRIAL,           // House lamp OFF, random delay before cue presentation
       PRE_WINDOW,           // (+/-) Enforced no lick before response window opens
       RESPONSE_WINDOW,      // First lick in this interval rewarded (operant). Reward delivered at target time (pavlov)
       POST_WINDOW,          // Check for late licks
@@ -159,7 +159,7 @@
     {
       "_INIT",
       "IDLE_STATE",
-      "TRIAL_INIT",
+      "INIT_TRIAL",
       "PRE_WINDOW",
       "RESPONSE_WINDOW",
       "POST_WINDOW",
@@ -454,8 +454,8 @@
         idle_state();
         break;
       
-      case TRIAL_INIT:
-        trial_init();
+      case INIT_TRIAL:
+        init_trial();
         break;
       
       case PRE_WINDOW:    
@@ -557,6 +557,7 @@
     /*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
       ACTION LIST -- initialize the new state
     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
+    static unsigned long preCueDelay;                   // Initialize preCueDelay var
     if (_state != _prevState) {                       // If ENTERTING READY STATE:
       //-----------------INIT TRIAL CLOCKS and OUTPUTS--------------//
       _trialTimer = millis();                             // Start _trialTimer
@@ -571,7 +572,6 @@
       sendMessage("&" + String(EVENT_HOUSE_LAMP_OFF) + String(millis() - _trialTimer));
       
       _random_delay_timer = millis();                     // Start _random_delay_timer
-      static unsigned long preCueDelay;                   // Initialize preCueDelay var
       preCueDelay = random(_params[RANDOM_DELAY_MIN], _params[RANDOM_DELAY_MAX]);     // Choose random delay time
       
       //------------------------DEBUG MODE--------------------------//
@@ -662,7 +662,7 @@
             if (_command == 'Q')  {                          // HOST: "QUIT" -> IDLE_STATE
               _state = IDLE_STATE;                               // Set IDLE_STATE
             }
-            return                                               // Exit Fx -> ABORT OR IDLE
+            return;                                              // Exit Fx -> ABORT OR IDLE
           }
         
           //=======================NON-ENFORCED============================//
@@ -692,7 +692,7 @@
     /*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
       TRANSITION LIST -- checks conditions, moves to next state
     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
-    if (_cue_on_time >= _params[CUE_DURATION] && setCueLED()) {// Time to turn off Cue
+    if (_cue_on_time >= _params[CUE_DURATION]) {// Time to turn off Cue
       setCueLED(false);                                   // Turn Cue LED OFF
     }
 
@@ -714,7 +714,7 @@
           if (_command == 'Q')  {                          // HOST: "QUIT" -> IDLE_STATE
             _state = IDLE_STATE;                               // Set IDLE_STATE
           }
-          return                                               // Exit Fx -> ABORT OR IDLE
+          return;                                              // Exit Fx -> ABORT OR IDLE
         }
       
         //=======================NON-ENFORCED============================//
@@ -757,7 +757,7 @@
   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
   void response_window() {
     //==================== PAVLOVIAN ===================//
-      if (_params[PAVLOVIAN] = 1 && _params[OPERANT] = 0) {
+      if (_params[PAVLOVIAN] == 1 && _params[OPERANT] == 0) {
         /*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
           ACTION LIST -- initialize the new state
         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
@@ -779,7 +779,7 @@
                 // Send a event marker (lick) to HOST with timestamp relative to trial start
                 sendMessage("&" + String(EVENT_LICK) + String(_lick_time));
                 // Send a event marker (correct lick) to HOST with timestamp relative to trial start
-                sendMessage("&" + String(EVENT_CORRECT_LICK) + String(_lick_time))
+                sendMessage("&" + String(EVENT_CORRECT_LICK) + String(_lick_time));
                 _lick_state = true;                            // Halts lick detection
                 // Cycle back to Response Window state in Pavlovian Mode //
                 //------------------------DEBUG MODE--------------------------//
@@ -787,7 +787,7 @@
                     sendMessage("CORRECT lick detected, tallying lick @ " + String(_lick_time) + "ms");
                   }
                 //----------------------end DEBUG MODE------------------------//
-                return                                         // Exit Fx
+                return;                                        // Exit Fx
               
               }
             }
@@ -807,7 +807,7 @@
               // Send a event marker (lick) to HOST with timestamp relative to trial start
               sendMessage("&" + String(EVENT_LICK) + String(_lick_time));
               // Send a event marker (correct lick) to HOST with timestamp relative to trial start
-              sendMessage("&" + String(EVENT_CORRECT_LICK) + String(_lick_time))
+              sendMessage("&" + String(EVENT_CORRECT_LICK) + String(_lick_time));
               _lick_state = true;                            // Halts lick detection
               // Cycle back to Response Window state in Pavlovian Mode //
               //------------------------DEBUG MODE--------------------------//
@@ -819,7 +819,7 @@
                 _state = IDLE_STATE;                            // Set IDLE_STATE
                 return;                                         // Exit Function
               }        
-              return                                         // Exit Fx
+              return;                                        // Exit Fx
             }
           }
           if (!getLickState()) {                           // MOUSE: "No lick"
@@ -830,7 +830,7 @@
 
           if (_command == 'Q')  {                          // HOST: "QUIT" -> IDLE_STATE
             _state = IDLE_STATE;                                 // Set IDLE_STATE
-            return                                               // Exit Fx
+            return;                                              // Exit Fx
           }
 
           unsigned long current_time = millis()-_trialTimer;
@@ -846,7 +846,7 @@
             //----------------------end DEBUG MODE------------------------//
           }
 
-          if (current_time >= _params[INTERVAL_MAX]) {      // Window Closed -> _IDLE **** NEVER SHOULD HAPPEN FOR PAVLOVIAN!
+          if (current_time >= _params[INTERVAL_MAX]) {      // Window Closed -> IDLE_STATE **** NEVER SHOULD HAPPEN FOR PAVLOVIAN!
             setHouseLamp(true);                               // House Lamp ON (to indicate error)
             playSound(TONE_ALERT);
             // Send event marker (window closed) to HOST with timestamp relative to trial start
@@ -856,12 +856,12 @@
               sendMessage("PAVLOVIAN ERROR: Reward window closed at " + String(current_time) +"ms.");
             }
             //----------------------end DEBUG MODE------------------------//
-            _state = _IDLE;                                 // Move -> _IDLE (Pavlovian Only) - post_window for operant
-            return                                          // Exit Fx
+            _state = IDLE_STATE;                            // Move -> IDLE_STATE (Pavlovian Only) - post_window for operant
+            return;                                         // Exit Fx
           }
       }
     //==================== OPERANT =====================//
-      else if (_params[OPERANT] = 1 && _params[PAVLOVIAN] = 0)  {
+      else if (_params[OPERANT] == 1 && _params[PAVLOVIAN] == 0)  {
         /*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
           ACTION LIST -- initialize the new state
         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
@@ -883,7 +883,7 @@
                 // Send a event marker (lick) to HOST with timestamp relative to trial start
                 sendMessage("&" + String(EVENT_LICK) + String(_lick_time));
                 // Send a event marker (correct lick) to HOST with timestamp relative to trial start
-                sendMessage("&" + String(EVENT_CORRECT_LICK) + String(_lick_time))
+                sendMessage("&" + String(EVENT_CORRECT_LICK) + String(_lick_time));
                 _lick_state = true;                            // Halts lick detection
                 _state = REWARD;                               // Move -> REWARD
                 //------------------------DEBUG MODE--------------------------//
@@ -891,7 +891,7 @@
                     sendMessage("CORRECT lick detected, tallying lick @ " + String(_lick_time) + "ms");
                   }
                 //----------------------end DEBUG MODE------------------------//
-                return                                         // Exit Fx
+                return;                                        // Exit Fx
               
               }
             }
@@ -911,7 +911,7 @@
               // Send a event marker (lick) to HOST with timestamp relative to trial start
               sendMessage("&" + String(EVENT_LICK) + String(_lick_time));
               // Send a event marker (correct lick) to HOST with timestamp relative to trial start
-              sendMessage("&" + String(EVENT_CORRECT_LICK) + String(_lick_time))
+              sendMessage("&" + String(EVENT_CORRECT_LICK) + String(_lick_time));
               _lick_state = true;                            // Halts lick detection
               _state = REWARD;                               // Move -> REWARD
               //------------------------DEBUG MODE--------------------------//
@@ -923,7 +923,7 @@
                 _state = IDLE_STATE;                            // Set IDLE_STATE
                 return;                                         // Exit Function
               }        
-              return                                         // Exit Fx
+              return;                                        // Exit Fx
             }
           }
           if (!getLickState()) {                            // MOUSE: "No lick"
@@ -934,7 +934,7 @@
 
           if (_command == 'Q')  {                           // HOST: "QUIT" -> IDLE_STATE
             _state = IDLE_STATE;                                 // Set IDLE_STATE
-            return                                               // Exit Fx
+            return;                                              // Exit Fx
           }
 
           unsigned long current_time = millis()-_trialTimer;
@@ -960,20 +960,15 @@
             }
             //----------------------end DEBUG MODE------------------------//
             _state = POST_WINDOW;                           // Move -> POST_WINDOW
-            return                                          // Exit Fx
+            return;                                         // Exit Fx
           }
       }
     //==================== TASK CONDITIONS ERROR =====================//
       else {
         playSound(TONE_ABORT);
-        sendMessage("ERROR - Task must be either Pavlovian or Operant. Fix Parameters and Restart")
+        sendMessage("ERROR - Task must be either Pavlovian or Operant. Fix Parameters and Restart");
         _state = IDLE_STATE;
       }
-
-
-
-
-
   } // End RESPONSE_WINDOW STATE ------------------------------------------------------------------------------------------------------------------------------------------
 
 
@@ -1004,7 +999,7 @@
             //------------------------DEBUG MODE--------------------------//
             if (_params[_DEBUG]) {sendMessage("Late lick detected, tallying lick @ " + String(_lick_time) + "ms");}
             //----------------------end DEBUG MODE------------------------//
-            return                                         // Exit Fx
+            return;                                        // Exit Fx
           }
         }
         if (!getLickState()) {                           // MOUSE: "No lick"
@@ -1030,13 +1025,13 @@
           //------------------------DEBUG MODE--------------------------//
           if (_params[_DEBUG]) {sendMessage("Late lick detected, tallying lick @ " + String(_lick_time) + "ms");}
           //----------------------end DEBUG MODE------------------------//
-          return                                         // Exit Fx
+          return;                                        // Exit Fx
         }
       }
 
       if (_command == 'Q')  {                          // HOST: "QUIT" -> IDLE_STATE
         _state = IDLE_STATE;                             // Set IDLE_STATE
-        return                                           // Exit Fx
+        return;                                          // Exit Fx
       }
 
       if (!getLickState()) {                           // MOUSE: "No lick"
@@ -1049,7 +1044,7 @@
         // Send event marker (trial end) to HOST with timestamp relative to trial start
         sendMessage("&" + String(EVENT_TRIAL_END) + String(millis() - _trialTimer));
         _state = INTERTRIAL;                                      // Move to ITI
-        return                                                    // Exit Fx
+        return;                                                   // Exit Fx
       }  
 
       _state = POST_WINDOW;                             // No Command: Cycle -> POST_WINDOW
@@ -1090,7 +1085,7 @@
               _state = IDLE_STATE;                                 // Set IDLE_STATE
               return;                                              // Exit Function
             }
-            return                                         // Exit Fx
+            return;                                        // Exit Fx
           }
         }
         if (!getLickState()) {                           // MOUSE: "No lick"
@@ -1118,7 +1113,7 @@
             _state = IDLE_STATE;                                 // Set IDLE_STATE
             return;                                              // Exit Function
           }
-          return                                         // Exit Fx
+          return;                                        // Exit Fx
         }
       }
 
@@ -1144,7 +1139,7 @@
         // Send event marker (trial end) to HOST with timestamp relative to trial start
         sendMessage("&" + String(EVENT_TRIAL_END) + String(millis() - _trialTimer));
         _state = INTERTRIAL;                                // Move to ITI
-        return                                              // Exit Fx
+        return;                                             // Exit Fx
       }
 
       _state = REWARD;                                  // No Command --> Cycle back to REWARD
@@ -1173,7 +1168,7 @@
         if (_params[_DEBUG]) {sendMessage("Incorrect: Trial aborted.");}
         //----------------------end DEBUG MODE------------------------//
 
-        if (_cue_on_time >= _params[CUE_DURATION] && setCueLED()) {// Time to turn off Cue if it's still on
+        if (_cue_on_time >= _params[CUE_DURATION]) {     // Time to turn off Cue if it's still on
           setCueLED(false);                                   // Turn Cue LED OFF
         }
         
@@ -1188,7 +1183,7 @@
                 sendMessage("Lick detected, tallying lick @ " + String(_lick_time) + "ms");
               }
             //----------------------end DEBUG MODE------------------------//
-            return                                         // Exit Fx
+            return;                                         // Exit Fx
           }
         }
         if (!getLickState()) {                           // MOUSE: "No lick"
@@ -1214,7 +1209,7 @@
             _state = IDLE_STATE;                              // Set IDLE_STATE
             return;                                           // Exit Function -> IDLE
           }
-          return                                            // Exit Fx: Cycle => ABORT
+          return;                                           // Exit Fx: Cycle => ABORT
         }
       }
 
@@ -1235,7 +1230,7 @@
         // Send event marker (trial end) to HOST with timestamp relative to trial start
         sendMessage("&" + String(EVENT_TRIAL_END) + String(millis() - _trialTimer));
         _state = INTERTRIAL;                                      // Move to ITI
-        return                                                    // Exit Fx
+        return;                                                   // Exit Fx
       }
 
 
@@ -1255,8 +1250,8 @@
       static bool isParamsUpdateDone;                 // Set to true upon receiving confirmation signal from HOST ("Over")
       if (_state != _prevState) {                     // If ENTERTING ITI:
         _ITI_timer = millis();                           // Start ITI timer
-        if (!setHouseLamp()) {setHouseLamp(true);}       // House Lamp ON (if not already)
-        if (setCueLED()) {setCueLED(false);}             // Cue LED OFF
+        setHouseLamp(true);                              // House Lamp ON (if not already)
+        setCueLED(false);                                // Cue LED OFF
         _prevState = _state;                             // Assign _prevState to ITI _state
         sendMessage("$" + String(_state));               // Send HOST $7 (ITI State)
         // Send event marker (ITI) to HOST with timestamp relative to trial start
@@ -1302,7 +1297,7 @@
 
 
       if (millis() - _single_loop_timer >= _params[ITI] && (isParamsUpdateDone || !isParamsUpdateStarted))  { // End when ITI ends. If param update initiated, should also wait for update completion signal from HOST ('O' for Over).
-        _state = READY;                                 // Move -> READY state
+        _state = INIT_TRIAL;                                 // Move -> READY state
         return;                                         // Exit Fx
       }
 
@@ -1380,7 +1375,7 @@
     }
     if (soundEventFrequency == TONE_ALERT) {        // SYSTEM: INTERNAL ERROR
       noTone(PIN_SPEAKER);                              // Turn off current sound (if any)
-      tone(PIN_SPEAKER, soundEventFrequency, 2000]);    // Play Alert Tone (default 2000 ms)
+      tone(PIN_SPEAKER, soundEventFrequency, 2000);    // Play Alert Tone (default 2000 ms)
       return;                                           // Exit Fx
     }
   } // end Play Sound---------------------------------------------------------------------------------------------------------------------
