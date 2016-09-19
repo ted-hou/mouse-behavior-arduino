@@ -124,24 +124,9 @@ classdef ArduinoConnection < handle
 
 			switch command
 				case '$'
-					% New state entered - "$1" we've entered the second state. "$5 100" we've enetered the 6th state, and trial result is 100 (negative numbers used as error codes).
-					subStrings = strsplit(strtrim(value), ' ');
-
+					% New state entered - "$1" we've entered the second state.
 					% Convert zero-based state indices (Arduino) to one-based indices (MATLAB)
-					obj.State = str2num(subStrings{1}) + 1;
-
-					% If result received, store the results in a new Trial structure
-					if length(subStrings) > 1
-						iTrial = obj.TrialsCompleted + 1;
-						resultCode = str2num(subStrings{2}) + 1;
-						obj.Trials(iTrial).Code = resultCode;
-						obj.Trials(iTrial).CodeName = obj.ResultCodeNames{resultCode};
-						obj.Trials(iTrial).Result = str2num(subStrings{3});
-						obj.Trials(iTrial).Parameters = obj.ParamValues;
-						obj.TrialsCompleted = iTrial;
-
-						fprintf('Result: %d ms (%d - %s)\n', obj.Trials(obj.TrialsCompleted).Result, obj.Trials(obj.TrialsCompleted).Code, obj.Trials(obj.TrialsCompleted).CodeName)
-					end
+					obj.State = str2num(strtrim(value)) + 1;
 
 					% Trigger StateChanged Event
 					notify(obj, 'StateChanged')
@@ -174,6 +159,15 @@ classdef ArduinoConnection < handle
 					% Register parameter name and value
 					obj.ParamNames{paramId} = subStrings{2};
 					obj.ParamValues(paramId) = str2num(subStrings{3});
+				case '`'
+					% Result code returned, this is only expected once per trial
+					% Store the results in as a new trial
+					iTrial = obj.TrialsCompleted + 1;
+					resultCode = strtrim(value) + 1; % Convert to one-based index
+					obj.Trials(iTrial).Code = resultCode;
+					obj.Trials(iTrial).CodeName = obj.ResultCodeNames{resultCode};
+					obj.Trials(iTrial).Parameters = obj.ParamValues;
+					obj.TrialsCompleted = iTrial;
 				case '*'
 					% Arduino sent error code interpretations - "# 0 ERROR_LEVER_NOT_PRESSED" means error code -1
 					subStrings = strsplit(strtrim(value), ' ');

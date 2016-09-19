@@ -407,45 +407,117 @@ classdef MouseBehaviorInterface < handle
 		%----------------------------------------------------
 		% Plot - Histogram of events for all trials
 		%----------------------------------------------------
-		function h = Hist(zeroTimes, eventTimes, firstInTrial, nBins)
-			if nargin < 4
-				nBins = 10;
-			end
-			if nargin < 3
-				firstInTrial = true;
-			end
+		% function ax = Hist(ax, data, eventCodeZero, eventCodeOfInterest, firstInTrial, nBins)
+		% 	% First column in data is eventCode, second column is timestamp (since trial start)
+		% 	if isempty(ax)
+		% 		figure
+		% 		ax = gca;
+		% 	end
+		% 	if nargin < 3
+		% 		eventCodeZero = 1;
+		% 	end
+		% 	if nargin < 4
+		% 		eventCodeOfInterest = 2;
+		% 	end
+		% 	if nargin < 5
+		% 		firstInTrial = true;
+		% 	end
+		% 	if nargin < 6
+		% 		nBins = 10;
+		% 	end
 
-			zeroTimes = reshape(zeroTimes, [], 1);
-			eventTimes = reshape(eventTimes, [], 1);
+		% 	MouseBehaviorInterface.Hist_Execute(ax, data, eventCodeZero, eventCodeOfInterest, firstInTrial, nBins)
+		% end
+		% function Hist_Execute(ax, data, eventCodeZero, eventCodeOfInterest, firstInTrial, nBins)
+		% 	% Separate eventsOfInterest into trials, divided by eventsZero
+		% 	eventsZero = find(data(:, 1) == eventCodeZero);
+		% 	eventsOfInterest = find(data(:, 1) == eventCodeOfInterest);
 
-			% Divide into trials
-			if eventTimes(end) > zeroTimes(end)
-				edges = [zeroTimes; eventTimes(end)];
-			else
-				edges = zeroTimes;
-			end
-			[~, ~, bins] = histcounts(eventTimes, edges); % bins tells us which trial does each event belong to
+		% 	% If events did not occur at all, do not plot
+		% 	if (isempty(eventsZero) || isempty(eventsOfInterest))
+		% 		return
+		% 	end
 
-			% Extract either first event each trial or all events in trial
-			if firstInTrial
-				[~, ia, ~] = unique(bins);  % ia tells us which events are first in trial
-				eventTimes = eventTimes(ia);
-				zeroTimes = edges(bins(ia));
-			else
-				zeroTimes = edges(bins);
-			end
+		% 	if eventsOfInterest(end) > eventsZero(end)
+		% 		edges = [eventsZero; eventsOfInterest(end)];
+		% 	else
+		% 		edges = eventsZero;
+		% 	end
+		% 	[~, ~, trials] = histcounts(eventsOfInterest, edges); % bins tells us which trials events belong to
 
-			% Calculate event time in trial
-			eventTimesInTrial = eventTimes - zeroTimes;
+		% 	% Only keep first event in trial if we want to
+		% 	if firstInTrial
+		% 		[~, firsts, ~] = unique(bins);
+		% 		eventsOfInterest = eventsOfInterest(firsts);
+		% 	end
 
-			h = figure;
-			hist(eventTimesInTrial, nBins);
-		end
+		% 	% Plot histogram of selected event times
+		% 	hist(ax, data(eventsOfInterest, 2), nBins);
+		% end
 
 		%----------------------------------------------------
 		% Plot - Raster plot events for each trial
 		%----------------------------------------------------
+		% function ax = Raster(ax, arduino, eventCodeZero, eventCodeOfInterest, nBins)
+		% 	% First column in data is eventCode, second column is timestamp (since trial start)
+		% 	if isempty(ax)
+		% 		figure
+		% 		ax = gca;
+		% 	end
+		% 	if nargin < 3
+		% 		eventCodeZero = 1;
+		% 	end
+		% 	if nargin < 4
+		% 		eventCodeOfInterest = 2;
+		% 	end
+		% 	if nargin < 5
+		% 		firstInTrial = true;
+		% 	end
+		% 	if nargin < 6
+		% 		nBins = 10;
+		% 	end
 
+		% 	% Store plot settings into axes object
+		% 	ax.UserData.Arduino = arduino;
+		% 	ax.UserData.EventCodeZero = eventCodeZero;
+		% 	ax.UserData.EventCodeOfInterest = eventCodeOfInterest;
+		% 	ax.UserData.FirstInTrial = firstInTrial;
+		% 	ax.UserData.NBins = nBins;
 
+		% 	% Plot it for the first time
+		% 	MouseBehaviorInterface.Raster_Execute(ax)
+
+		% 	% Plot again everytime an event of interest occurs
+		% 	ax.UserData.Listener = addlistener(arduino, 'EventMarkers', 'PostSet', @MouseBehaviorInterface.Raster_Execute);
+		% end
+		% function Raster_Execute(src, evnt)
+		% 	data = arduino.EventMarkers;
+			
+		% 	% Separate eventsOfInterest into trials, divided by eventsZero
+		% 	eventsZero = find(data(:, 1) == eventCodeZero);
+		% 	eventsOfInterest = find(data(:, 1) == eventCodeOfInterest);
+
+		% 	% If events did not occur at all, do not plot
+		% 	if (isempty(eventsZero) || isempty(eventsOfInterest))
+		% 		return
+		% 	end
+
+		% 	if eventsOfInterest(end) > eventsZero(end)
+		% 		edges = [eventsZero; eventsOfInterest(end)];
+		% 	else
+		% 		edges = eventsZero;
+		% 	end
+		% 	[~, ~, trials] = histcounts(eventsOfInterest, edges); % bins tells us which trials events belong to
+		% 	eventTimesOfInterest = data(eventsOfInterest, 2);
+
+		% 	% Plot histogram of selected event times
+		% 	scatter(ax, eventTimesOfInterest, trials, 'k.');
+		% 	ax.XLim = [0, max(eventTimesOfInterest) + 10];
+		% 	ax.YLim = [0, max(trials) + 1];
+		% 	ax.YTick = 1:max(trials);
+		% 	ax.YTickLabel = 1:max(trials);
+		% 	ax.XLabel.String = 'Time (ms)';
+		% 	ax.YLabel.String = 'Trial';
+		% end
 	end
 end
