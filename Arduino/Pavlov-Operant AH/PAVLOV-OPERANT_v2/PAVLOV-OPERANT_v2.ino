@@ -324,6 +324,9 @@
     static char _command                 = ' ';      // Command char received from host, resets on each loop
     static int _arguments[2]             = {0};      // Two integers received from host , resets on each loop
     static bool _lick_state              = false;    // True when lick detected, False when no lick
+    static bool _pre_window_elapsed      = false;    // Track if pre_window time has elapsed
+    static bool _reached_target          = false;    // Track if target time reached
+    static bool _late_lick_detected      = false;    // Track if late lick detected
     static unsigned long _lick_time      = 0;        // Tracks most recent lick time
     static unsigned long _cue_on_time    = 0;        // Tracks time cue has been displayed for
     static unsigned long _response_window_timer = 0; // Tracks time in response window state
@@ -632,7 +635,6 @@
     /*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
       ACTION LIST -- initialize the new state
     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
-    static bool pre_window_elapsed = false;          // Track if pre_window time has elapsed
     static unsigned long pre_window_duration = _params[INTERVAL_MIN]; // Prewindow duration wrt cue onset
     if (_state != _prevState) {                      // If ENTERTING PRE_WINDOW:
       setCueLED(true);                                 // Cue LED ON
@@ -703,9 +705,9 @@
 
 
     unsigned long current_time = millis()-_cue_on_time; //****Changed to be wrt cue onset (not total trial time)
-    if (!pre_window_elapsed && current_time >= _params[INTERVAL_MIN]) { // If prewindow elapsed, break to response window
+    if (!_pre_window_elapsed && current_time >= _params[INTERVAL_MIN]) { // If prewindow elapsed, break to response window
       // Send event marker (target time) to HOST with timestamp relative to trial start
-      pre_window_elapsed = true;                     // Indicate prewindow elapsed
+      _pre_window_elapsed = true;                    // Indicate prewindow elapsed
       _state = RESPONSE_WINDOW;                            // Move -> REWARD (Pavlovian only)
       //------------------------DEBUG MODE--------------------------//  
       if (_params[_DEBUG]) {
@@ -790,7 +792,6 @@
         /*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
           ACTION LIST -- initialize the new state
         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
-          static bool reached_target = false;                // Tracks whether target time reached yet
           if (_state != _prevState) {                        // If ENTERTING RESPONSE_WINDOW:
             _response_window_timer = millis();                  // Start _response_window_timer
             _prevState = _state;                                // Assign _prevState to RESPONSE_WINDOW state
@@ -863,10 +864,10 @@
           }
 
           unsigned long current_time = millis()-_cue_on_time; //****Changed to be wrt cue onset (not total trial time)
-          if (!reached_target && current_time >= _params[TARGET]) { // TARGET -> REWARD
+          if (!_reached_target && current_time >= _params[TARGET]) { // TARGET -> REWARD
             // Send event marker (target time) to HOST with timestamp relative to trial start
             sendMessage("&" + String(EVENT_TARGET_TIME) + " " + String(current_time));
-            reached_target = true;                         // Indicate target reached
+            _reached_target = true;                        // Indicate target reached
             _state = REWARD;                               // Move -> REWARD (Pavlovian only)
             //------------------------DEBUG MODE--------------------------//  
             if (_params[_DEBUG]) {
@@ -894,7 +895,6 @@
         /*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
           ACTION LIST -- initialize the new state
         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
-          static bool reached_target = false;                // Tracks whether target time reached yet
           if (_state != _prevState) {                        // If ENTERTING RESPONSE_WINDOW:
             _response_window_timer = millis();                  // Start _response_window_timer
             _prevState = _state;                                // Assign _prevState to RESPONSE_WINDOW state
@@ -967,10 +967,10 @@
           }
 
           unsigned long current_time = millis()-_trialTimer;
-          if (!reached_target && current_time >= _params[TARGET]) { // If now is target time...record but stay in state (Operant only)
+          if (!_reached_target && current_time >= _params[TARGET]) { // If now is target time...record but stay in state (Operant only)
             // Send event marker (target time) to HOST with timestamp relative to trial start
             sendMessage("&" + String(EVENT_TARGET_TIME) + " " + String(current_time));
-            reached_target = true;                         // Indicate target reached
+            _reached_target = true;                        // Indicate target reached
             //------------------------DEBUG MODE--------------------------//  
             if (_params[_DEBUG]) {
               sendMessage("Reached Target Time at " + String(current_time) +"ms.");
@@ -1010,7 +1010,6 @@
     /*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
       ACTION LIST -- initialize the new state
     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
-      static bool late_lick_detected = false;            // Initialize late lick detector
       if (_state != _prevState) {                        // If ENTERTING POST_WINDOW:  
         _prevState = _state;                                // Assign _prevState to POST_WINDOW state
         sendMessage("$" + String(_state));                  // Send HOST $4 (post_window State)
@@ -1024,7 +1023,7 @@
             sendMessage("&" + String(EVENT_LICK) + " " + String(_lick_time));
             sendMessage("`" + String(CODE_LATE_LICK));    // Send result code (Late Lick) to Matlab HOST      
             _lick_state = true;                            // Halts lick detection
-            late_lick_detected = true;                     // Don't send Result Code on next lick
+            _late_lick_detected = true;                    // Don't send Result Code on next lick
             //------------------------DEBUG MODE--------------------------//
             if (_params[_DEBUG]) {sendMessage("Late lick detected, tallying lick @ " + String(_lick_time) + "ms");}
             //----------------------end DEBUG MODE------------------------//
@@ -1047,9 +1046,9 @@
           // Send a event marker (lick) to HOST with timestamp relative to trial start
           sendMessage("&" + String(EVENT_LICK) + " " + String(_lick_time));    
           _lick_state = true;                            // Halts lick detection
-          if (!late_lick_detected) {                     // If this is first lick in post window
+          if (!_late_lick_detected) {                    // If this is first lick in post window
             sendMessage("`" + String(CODE_LATE_LICK));     // Send result code (Late Lick) to Matlab HOST
-            late_lick_detected  = true;                    // Don't send Result Code on next lick
+            _late_lick_detected  = true;                   // Don't send Result Code on next lick
           }
           //------------------------DEBUG MODE--------------------------//
           if (_params[_DEBUG]) {sendMessage("Late lick detected, tallying lick @ " + String(_lick_time) + "ms");}
@@ -1287,9 +1286,9 @@
         sendMessage("&" + String(EVENT_ITI) + " " + String(_ITI_timer - _trialTimer));
         
         // Reset state variables
-        pre_window_elapsed = false;                   // Reset pre_window time tracker
-        reached_target = false;                       // Reset target time tracker
-        late_lick_detected = false;                   // Reset late lick detector
+        _pre_window_elapsed = false;                  // Reset pre_window time tracker
+        _reached_target = false;                      // Reset target time tracker
+        _late_lick_detected = false;                  // Reset late lick detector
 
         //=================== INIT HOST COMMUNICATION=================//
         isParamsUpdateStarted = false;                      // Initialize HOST param message monitor Start
