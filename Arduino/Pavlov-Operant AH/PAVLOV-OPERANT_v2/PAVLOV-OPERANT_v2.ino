@@ -294,7 +294,7 @@
     // Initialize parameters
     int _params[_NUM_PARAMS] = 
     {
-      0,                              // _DEBUG
+      1,                              // _DEBUG
       1,                              // PAVLOVIAN
       0,                              // OPERANT
       0,                              // ENFORCE_NO_LICK
@@ -700,6 +700,22 @@
       setCueLED(false);                                   // Turn Cue LED OFF
     }
 
+
+
+    unsigned long current_time = millis()-_cue_on_time; //****Changed to be wrt cue onset (not total trial time)
+    if (!pre_window_elapsed && current_time >= _params[INTERVAL_MIN]) { // If prewindow elapsed, break to response window
+      // Send event marker (target time) to HOST with timestamp relative to trial start
+      pre_window_elapsed = true;                     // Indicate prewindow elapsed
+      _state = RESPONSE_WINDOW;                            // Move -> REWARD (Pavlovian only)
+      //------------------------DEBUG MODE--------------------------//  
+      if (_params[_DEBUG]) {
+        sendMessage("Prewindow successfully elapsed at " + String(current_time) +"ms wrt cue onset.");
+      }
+      //----------------------end DEBUG MODE------------------------//
+      return;                                        // Break to RESPONSE_WINDOW
+    }
+
+
     if (getLickState()) {                            // MOUSE: "Licked"
       if (!_lick_state) {                              // If new lick
         //======================ENFORCED NO LICK=========================//
@@ -755,18 +771,6 @@
     }
 
 
-    unsigned long current_time = millis()-_cue_on_time; //****Changed to be wrt cue onset (not total trial time)
-    if (!pre_window_elapsed && current_time >= _params[INTERVAL_MIN]) { // If prewindow elapsed, break to response window
-      // Send event marker (target time) to HOST with timestamp relative to trial start
-      pre_window_elapsed = true;                     // Indicate prewindow elapsed
-      _state = RESPONSE_WINDOW;                            // Move -> REWARD (Pavlovian only)
-      //------------------------DEBUG MODE--------------------------//  
-      if (_params[_DEBUG]) {
-        sendMessage("Prewindow successfully elapsed at " + String(current_time) +"ms wrt cue onset.");
-      }
-      //----------------------end DEBUG MODE------------------------//
-      return;                                        // Break to RESPONSE_WINDOW
-    }
 
 
 
@@ -792,7 +796,7 @@
             _prevState = _state;                                // Assign _prevState to RESPONSE_WINDOW state
             sendMessage("$" + String(_state));                  // Send a message to host upon _state entry -- $4 (response_window State)
             // Send event marker (window open) to HOST with timestamp relative to trial start
-            sendMessage("&" + String(EVENT_WINDOW_OPEN) + " " + String(_response_window_timer - _cue_on_time) + " relative to cue onset.");
+            sendMessage("&" + String(EVENT_WINDOW_OPEN) + " " + String(_response_window_timer - _cue_on_time)); // relative to cue onset
             //------------------------DEBUG MODE--------------------------//  
             if (_params[_DEBUG]) {
               sendMessage("Entered response window at " + String(_response_window_timer) +"ms, awaiting lick.");
@@ -1282,6 +1286,11 @@
         // Send event marker (ITI) to HOST with timestamp relative to trial start
         sendMessage("&" + String(EVENT_ITI) + " " + String(_ITI_timer - _trialTimer));
         
+        // Reset state variables
+        pre_window_elapsed = false;                   // Reset pre_window time tracker
+        reached_target = false;                       // Reset target time tracker
+        late_lick_detected = false;                   // Reset late lick detector
+
         //=================== INIT HOST COMMUNICATION=================//
         isParamsUpdateStarted = false;                      // Initialize HOST param message monitor Start
         isParamsUpdateDone = false;                         // Initialize HOST param message monitor End  
