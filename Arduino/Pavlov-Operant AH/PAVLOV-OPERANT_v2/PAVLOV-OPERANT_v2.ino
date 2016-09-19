@@ -326,7 +326,6 @@
     static bool _lick_state              = false;    // True when lick detected, False when no lick
     static unsigned long _lick_time      = 0;        // Tracks most recent lick time
     static unsigned long _cue_on_time    = 0;        // Tracks time cue has been displayed for
-    static unsigned long _pre_window_timer = 0;      // Tracks time in pre_window state
     static unsigned long _response_window_timer = 0; // Tracks time in response window state
     static unsigned long _reward_timer = 0;          // Tracks time in reward state
     static unsigned long _abort_timer = 0;           // Tracks time in abort state
@@ -633,13 +632,14 @@
     /*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
       ACTION LIST -- initialize the new state
     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
+    static bool pre_window_elapsed = false;          // Track if pre_window time has elapsed
+    static unsigned long pre_window_duration = _params[INTERVAL_MIN]; // Prewindow duration wrt cue onset
     if (_state != _prevState) {                      // If ENTERTING PRE_WINDOW:
       setCueLED(true);                                 // Cue LED ON
       playSound(TONE_CUE);                             // Cue tone ON
       _cue_on_time = millis();                         // Start Cue ON timer
-      _pre_window_timer = millis();                    // Start _pre_window_timer
       // Send event marker (cue_on) to HOST with timestamp relative to trial start
-      sendMessage("&" + String(EVENT_CUE_ON) + " " + String(_pre_window_timer - _trialTimer));
+      sendMessage("&" + String(EVENT_CUE_ON) + " " + String(_cue_on_time - _trialTimer));
       _prevState = _state;                                // Assign _prevState to PRE_WINDOW state
       sendMessage("$" + String(_state));                  // Send HOST $3 (pre_window State)
       //------------------------DEBUG MODE--------------------------//  
@@ -648,7 +648,7 @@
       if (getLickState()) {                            // MOUSE: "Licked"
         if (!_lick_state) {                              // If new lick
           //======================ENFORCED NO LICK=========================//
-          if (_params[ENFORCE_NO_LICK] = 1) {
+          if (_params[ENFORCE_NO_LICK] == 1) {
             _lick_time = millis() - _trialTimer;           // Records _lick_time relative to trial start
             // Send a event marker (lick) to HOST with timestamp relative to trial start
             sendMessage("&" + String(EVENT_LICK) + " " + String(_lick_time));
@@ -686,6 +686,9 @@
       if (!getLickState()) {                           // MOUSE: "No lick"
         if (_lick_state) {                               // If lick just ended                            
           _lick_state = false;                           // Resets lick detector
+      //------------------------DEBUG MODE--------------------------//  
+        if (_params[_DEBUG]) {sendMessage("Lick state reset (not licked anymore) ");} 
+      //----------------------end DEBUG MODE------------------------//
         }
       }
     }
@@ -700,7 +703,7 @@
     if (getLickState()) {                            // MOUSE: "Licked"
       if (!_lick_state) {                              // If new lick
         //======================ENFORCED NO LICK=========================//
-        if (_params[ENFORCE_NO_LICK] = 1) {
+        if (_params[ENFORCE_NO_LICK] == 1) {
           _lick_time = millis() - _trialTimer;           // Records _lick_time relative to trial start
           // Send a event marker (lick) to HOST with timestamp relative to trial start
           sendMessage("&" + String(EVENT_LICK) + " " + String(_lick_time));
@@ -745,8 +748,28 @@
     if (!getLickState()) {                           // MOUSE: "No lick"
       if (_lick_state) {                               // If lick just ended                            
         _lick_state = false;                           // Resets lick detector
+      //------------------------DEBUG MODE--------------------------//  
+        if (_params[_DEBUG]) {sendMessage("Lick state reset (not licked anymore) ");} 
+      //----------------------end DEBUG MODE------------------------//
       }
     }
+
+
+    unsigned long current_time = millis()-_cue_on_time; //****Changed to be wrt cue onset (not total trial time)
+    if (!pre_window_elapsed && current_time >= _params[INTERVAL_MIN]) { // If prewindow elapsed, break to response window
+      // Send event marker (target time) to HOST with timestamp relative to trial start
+      pre_window_elapsed = true;                     // Indicate prewindow elapsed
+      _state = RESPONSE_WINDOW;                            // Move -> REWARD (Pavlovian only)
+      //------------------------DEBUG MODE--------------------------//  
+      if (_params[_DEBUG]) {
+        sendMessage("Prewindow successfully elapsed at " + String(current_time) +"ms wrt cue onset.");
+      }
+      //----------------------end DEBUG MODE------------------------//
+      return;                                        // Break to RESPONSE_WINDOW
+    }
+
+
+
 
     _state = PRE_WINDOW;                             // No Command --> Cycle back to PRE_WINDOW
   } // End PRE_WINDOW STATE ------------------------------------------------------------------------------------------------------------------------------------------
@@ -835,7 +858,7 @@
             return;                                              // Exit Fx
           }
 
-          unsigned long current_time = millis()-_pre_window_timer; //****Changed to be wrt cue onset (not total trial time)
+          unsigned long current_time = millis()-_cue_on_time; //****Changed to be wrt cue onset (not total trial time)
           if (!reached_target && current_time >= _params[TARGET]) { // TARGET -> REWARD
             // Send event marker (target time) to HOST with timestamp relative to trial start
             sendMessage("&" + String(EVENT_TARGET_TIME) + " " + String(current_time));
