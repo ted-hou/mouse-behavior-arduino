@@ -163,7 +163,7 @@ classdef ArduinoConnection < handle
 					% Result code returned, this is only expected once per trial
 					% Store the results in as a new trial
 					iTrial = obj.TrialsCompleted + 1;
-					resultCode = strtrim(value) + 1; % Convert to one-based index
+					resultCode = str2num(strtrim(value)) + 1; % Convert to one-based index
 					obj.Trials(iTrial).Code = resultCode;
 					obj.Trials(iTrial).CodeName = obj.ResultCodeNames{resultCode};
 					obj.Trials(iTrial).Parameters = obj.ParamValues;
