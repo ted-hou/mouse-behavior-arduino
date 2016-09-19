@@ -420,7 +420,7 @@ classdef MouseBehaviorInterface < handle
 
 			% Divide into trials
 			if eventTimes(end) > zeroTimes(end)
-				edges = [zeroTimes, eventTimes(end)];
+				edges = [zeroTimes; eventTimes(end)];
 			else
 				edges = zeroTimes;
 			end
@@ -439,7 +439,7 @@ classdef MouseBehaviorInterface < handle
 			eventTimesInTrial = eventTimes - zeroTimes;
 
 			h = figure;
-			hist(eventTimesZeroed, nBins);
+			hist(eventTimesInTrial, nBins);
 		end
 
 		%----------------------------------------------------
