@@ -592,7 +592,7 @@
         sendMessage("&" + String(EVENT_LICK) + " " + String(_lick_time));
         _lick_state = true;                            // Halts lick detection
         //------------------------DEBUG MODE--------------------------//
-          if (_params[_DEBUG]) {sendMessage("New lick detected, tallying lick @ " + String(_lick_time) + "ms");}
+          if (_params[_DEBUG]) {sendMessage("Pre-cue lick detected, tallying lick @ " + String(_lick_time) + "ms");}
         //----------------------end DEBUG MODE------------------------//
       }
     }
@@ -636,6 +636,7 @@
     if (_state != _prevState) {                      // If ENTERTING PRE_WINDOW:
       setCueLED(true);                                 // Cue LED ON
       playSound(TONE_CUE);                             // Cue tone ON
+      _cue_on_time = millis();                         // Start Cue ON timer
       _pre_window_timer = millis();                    // Start _pre_window_timer
       // Send event marker (cue_on) to HOST with timestamp relative to trial start
       sendMessage("&" + String(EVENT_CUE_ON) + " " + String(_pre_window_timer - _trialTimer));
@@ -656,7 +657,7 @@
             _lick_state = true;                            // Halt lick detection
             //------------------------DEBUG MODE--------------------------//
               if (_params[_DEBUG]) {
-                sendMessage("Early lick detected @ " + String(_lick_time) + "ms. Aborting Trial.");
+                sendMessage("Early lick detected @ " + String(_lick_time-_cue_on_time) + "ms wrt Cue Onset. Aborting Trial.");
               }
             //----------------------end DEBUG MODE------------------------//
             if (_command == 'Q')  {                          // HOST: "QUIT" -> IDLE_STATE
@@ -673,7 +674,7 @@
             _lick_state = true;                            // Halts lick detection
             //------------------------DEBUG MODE--------------------------//
               if (_params[_DEBUG]) {
-                sendMessage("New lick detected, tallying lick @ " + String(_lick_time) + "ms");
+                sendMessage("New pre-window lick detected, tallying lick @ " + String(_lick_time - _cue_on_time) + "ms wrt cue onset. No lick NOT enforced, continuing...");
               }
              //----------------------end DEBUG MODE------------------------//
             if (_command == 'Q')  {                        // HOST: "QUIT" -> IDLE_STATE
@@ -708,7 +709,7 @@
           _lick_state = true;                            // Halt lick detection
           //------------------------DEBUG MODE--------------------------//
             if (_params[_DEBUG]) {
-              sendMessage("Early lick detected @ " + String(_lick_time) + "ms. Aborting Trial.");
+              sendMessage("Early pre-window lick detected @ " + String(_lick_time) + "ms. Aborting Trial because No lick IS enforced.");
             }
           //----------------------end DEBUG MODE------------------------//
           if (_command == 'Q')  {                          // HOST: "QUIT" -> IDLE_STATE
@@ -723,9 +724,10 @@
           // Send a event marker (lick) to HOST with timestamp relative to trial start
           sendMessage("&" + String(EVENT_LICK) + " " + String(_lick_time));
           _lick_state = true;                            // Halts lick detection
+          _state = PRE_WINDOW;                           // Returns to Pre-window
           //------------------------DEBUG MODE--------------------------//
             if (_params[_DEBUG]) {
-              sendMessage("New lick detected, tallying lick @ " + String(_lick_time) + "ms");
+              sendMessage("New pre-window lick detected, tallying lick @ " + String(_lick_time - _cue_on_time) + "ms wrt cue onset. No lick NOT enforced, continuing...");
             }
            //----------------------end DEBUG MODE------------------------//
           if (_command == 'Q')  {                          // HOST: "QUIT" -> IDLE_STATE
@@ -767,7 +769,7 @@
             _prevState = _state;                                // Assign _prevState to RESPONSE_WINDOW state
             sendMessage("$" + String(_state));                  // Send a message to host upon _state entry -- $4 (response_window State)
             // Send event marker (window open) to HOST with timestamp relative to trial start
-            sendMessage("&" + String(EVENT_WINDOW_OPEN) + " " + String(_response_window_timer - _trialTimer));
+            sendMessage("&" + String(EVENT_WINDOW_OPEN) + " " + String(_response_window_timer - _cue_on_time) + " relative to cue onset.");
             //------------------------DEBUG MODE--------------------------//  
             if (_params[_DEBUG]) {
               sendMessage("Entered response window at " + String(_response_window_timer) +"ms, awaiting lick.");
@@ -833,7 +835,7 @@
             return;                                              // Exit Fx
           }
 
-          unsigned long current_time = millis()-_trialTimer;
+          unsigned long current_time = millis()-_pre_window_timer; //****Changed to be wrt cue onset (not total trial time)
           if (!reached_target && current_time >= _params[TARGET]) { // TARGET -> REWARD
             // Send event marker (target time) to HOST with timestamp relative to trial start
             sendMessage("&" + String(EVENT_TARGET_TIME) + " " + String(current_time));
@@ -1040,7 +1042,7 @@
         }
       }  
 
-      if (millis() - _trialTimer - _preCueDelay >= _params[TRIAL_DURATION]) {  // TRIAL END -> ITI
+      if (millis() - _cue_on_time >= _params[TRIAL_DURATION]) {  // TRIAL END -> ITI
         // Send event marker (trial end) to HOST with timestamp relative to trial start
         sendMessage("&" + String(EVENT_TRIAL_END) + " " + String(millis() - _trialTimer));
         _state = INTERTRIAL;                                      // Move to ITI
@@ -1275,16 +1277,17 @@
         return;                                              // Exit Function
       }
       
-      //------------------------DEBUG MODE--------------------------//  
-        if (_params[_DEBUG]) {
-            sendMessage("Parameter " + String(_arguments[0]) + " changed to " + String(_arguments[1]));
-        } 
-      //----------------------end DEBUG MODE------------------------//
+
 
       if (_command == 'P') {                          // Received new param from HOST: format "P _paramID _newValue" ('P' for Parameters)
         isParamsUpdateStarted = true;                   // Mark transmission start. Don't start next trial until we've finished.
         _params[_arguments[0]] = _arguments[1];         // Update parameter. Serial input "P 0 1000" changes the 1st parameter to 1000.
         _state = INTERTRIAL;                            // Return -> ITI
+      //------------------------DEBUG MODE--------------------------//  
+        if (_params[_DEBUG]) {
+            sendMessage("Parameter " + String(_arguments[0]) + " changed to " + String(_arguments[1]));
+        } 
+      //----------------------end DEBUG MODE------------------------//
         return;                                         // Exit Fx
       }
       
@@ -1296,7 +1299,7 @@
       }
 
 
-      if (millis() - _single_loop_timer >= _params[ITI] && (isParamsUpdateDone || !isParamsUpdateStarted))  { // End when ITI ends. If param update initiated, should also wait for update completion signal from HOST ('O' for Over).
+      if (millis() - _ITI_timer >= _params[ITI] && (isParamsUpdateDone || !isParamsUpdateStarted))  { // End when ITI ends. If param update initiated, should also wait for update completion signal from HOST ('O' for Over).
         _state = INIT_TRIAL;                                 // Move -> READY state
         return;                                         // Exit Fx
       }
