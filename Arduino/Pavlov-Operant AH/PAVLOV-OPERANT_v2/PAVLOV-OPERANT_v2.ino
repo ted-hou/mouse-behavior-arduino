@@ -520,6 +520,11 @@
       setCueLED(false);                                 // Kill Cue LED
       noTone(PIN_SPEAKER);                              // Kill tone
       setReward(false);                                 // Kill reward
+      // Reset state variables
+      _pre_window_elapsed = false;                  // Reset pre_window time tracker
+      _reached_target = false;                      // Reset target time tracker
+      _late_lick_detected = false;                  // Reset late lick detector
+      _reward_dispensed_complete = false;           // Reset tracker of reward dispensal
 
       //------------------------DEBUG MODE--------------------------//
       if (_params[_DEBUG]) {
@@ -702,6 +707,11 @@
     /*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
       TRANSITION LIST -- checks conditions, moves to next state
     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
+    if (_command == 'Q')  {                          // HOST: "QUIT" -> IDLE_STATE
+      _state = IDLE_STATE;                                 // Set IDLE_STATE
+      return;                                              // Exit Function
+    }
+
     if (_cue_on_time >= _params[CUE_DURATION]) {// Time to turn off Cue
       setCueLED(false);                                   // Turn Cue LED OFF
     }
@@ -762,10 +772,7 @@
         }
       }
 
-    if (_command == 'Q')  {                          // HOST: "QUIT" -> IDLE_STATE
-      _state = IDLE_STATE;                                 // Set IDLE_STATE
-      return;                                              // Exit Function
-    }
+
 
     if (!getLickState()) {                           // MOUSE: "No lick"
       if (_lick_state) {                               // If lick just ended                            
