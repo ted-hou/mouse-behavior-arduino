@@ -12,13 +12,13 @@ classdef ArduinoConnection < handle
 		ParamValues = []
 		ParamUpdateQueue = []
 		ResultCodeNames = {}
-		EventMarkers = []
 		EventMarkerNames = {}
 		Trials = struct([])
 		Listeners
 	end
 
 	properties (SetObservable)
+		EventMarkers = []
 		TrialsCompleted = 0
 	end
 
