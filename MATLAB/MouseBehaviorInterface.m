@@ -250,16 +250,13 @@ classdef MouseBehaviorInterface < handle
 			ax.UserData.Listener = addlistener(obj.Arduino, 'TrialsCompleted', 'PostSet', @(src, evnt) obj.Raster_Execute(src, evnt, figId));
 			f.CloseRequestFcn = {@MouseBehaviorInterface.OnLooseFigureClosed, ax.UserData.Listener};
 		end
-		function Raster_Execute(obj, ~, evnt, figId)
+		function Raster_Execute(obj, ~, ~, figId)
 			data 				= obj.Arduino.EventMarkers;
 			ax 					= obj.Rsc.LooseFigures(figId).Ax;
 			eventCodeOfInterest = ax.UserData.EventCodeOfInterest;
-			if (obj.Arduino.EventMarkers(end, 1) ~= eventCodeOfInterest && ~isempty(evnt))
-				return
-			end
 			eventCodeZero 		= ax.UserData.EventCodeZero;
 			nBins 				= ax.UserData.NBins;
-			
+
 			% Separate eventsOfInterest into trials, divided by eventsZero
 			eventsZero 			= find(data(:, 1) == eventCodeZero);
 			eventsOfInterest 	= find(data(:, 1) == eventCodeOfInterest);
