@@ -27,11 +27,11 @@ classdef ArduinoConnection < handle
 	end
 
 	methods
-		function obj = ArduinoConnection(port)
+		function obj = ArduinoConnection()
 			obj.ArduinoMessageString = '';
 			serialPort = [];
 			% arduinoPortName = obj.findFirstArduinoPort();
-			arduinoPortName = port;
+			arduinoPortName = 'COM4';
 			if isempty(arduinoPortName)
 				disp('Can''t find serial port with Arduino')
 				return

@@ -9,9 +9,9 @@ classdef MouseBehaviorInterface < handle
 	% Methods
 	%----------------------------------------------------
 	methods
-		function obj = MouseBehaviorInterface(port)
+		function obj = MouseBehaviorInterface()
 			% Establish arduino connection
-			obj.Arduino = ArduinoConnection(port);
+			obj.Arduino = ArduinoConnection;
 
 			% Creata Experiment Control window with all the knobs and buttons you need to set up an experiment. 
 			obj.CreateDialog_ExperimentControl()
