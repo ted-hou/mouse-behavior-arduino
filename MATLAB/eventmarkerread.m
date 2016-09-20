@@ -64,14 +64,15 @@ end
 %     end
 % end
 % 
-logicalByTrial = zeros(17, 5000);
-
+logicalByTrial = zeros(nTrials, 7000);
+% start time will always be at 2000, so you can get the random delay before
+% start. so, add 2000 to all times. Then change axis after
 
 for x = 1:nTrials % for each trial
     % extract the array from the cell array
     currentTrialTimes = timesByTrial{x};
     for y = 1:length(currentTrialTimes)
-        logicalByTrial(x, currentTrialTimes(y)) = 1;
+        logicalByTrial(x, currentTrialTimes(y)+2000) = 1;
     end
 end
 
@@ -88,7 +89,16 @@ MarkerFormat.LineWidth = 1.5;
 figure
 plotSpikeRaster(logicalByTrial,'PlotType','scatter', 'MarkerFormat', MarkerFormat);
 xlabel('Time (ms)');
-ylabel('Trial #')
+ylabel('Trial #');
+ax = gca;
+ax.XTick = 0:500:10000;
+ax.XTickLabel = -2000:500:8000;
+hold on
+plot([3500, 3500], [0,nTrials], 'r-');
+ylim([0, nTrials]);
+plot([3250, 3250], [0,nTrials], 'k-');
+plot([3750, 3750], [0,nTrials], 'k-');
+plot([5000, 5000], [0,nTrials], 'k-');
 
 
 
