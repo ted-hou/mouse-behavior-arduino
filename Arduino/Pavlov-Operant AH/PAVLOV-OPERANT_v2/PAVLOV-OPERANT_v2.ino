@@ -825,7 +825,7 @@
                 // Cycle back to Response Window state in Pavlovian Mode //
                 //------------------------DEBUG MODE--------------------------//
                   if (_params[_DEBUG]) {
-                    sendMessage("CORRECT lick detected, tallying lick @ " + String(_lick_time) + "ms");
+                    sendMessage("CORRECT lick detected, tallying lick @ " + String(millis()-_cue_on_time) + "ms");
                   }
                 //----------------------end DEBUG MODE------------------------//
                 return;                                        // Exit Fx
