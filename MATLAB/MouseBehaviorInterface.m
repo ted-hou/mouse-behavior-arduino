@@ -257,6 +257,11 @@ classdef MouseBehaviorInterface < handle
 			eventCodeZero 		= ax.UserData.EventCodeZero;
 			nBins 				= ax.UserData.NBins;
 
+			% If events did not occur at all, do not plot
+			if (isempty(data))
+				return
+			end
+
 			% Separate eventsOfInterest into trials, divided by eventsZero
 			eventsZero 			= find(data(:, 1) == eventCodeZero);
 			eventsOfInterest 	= find(data(:, 1) == eventCodeOfInterest);
@@ -273,6 +278,9 @@ classdef MouseBehaviorInterface < handle
 			end
 			% Get timestamps for events of interests
 			[~, ~, trials] 			= histcounts(eventsOfInterest, edges); % bins tells us which trials events belong to
+			if isempty(trials)
+				return
+			end
 			eventTimesOfInterest 	= data(eventsOfInterest, 2);
 
 			% Get timestamps for zero events
@@ -288,18 +296,24 @@ classdef MouseBehaviorInterface < handle
 				'MarkerFaceColor', [0 .7 .7],...
 				'LineWidth', 1.5);
 			ax.XLim 			= [min(eventTimesOfInterest) - 100, max(eventTimesOfInterest) + 100];
-			ax.YLim 			= [max([0, min(trials) - 1]), max(trials) + 1];
+			ax.YLim 			= [max([0, min(trials) - 1]), obj.Arduino.TrialsCompleted + 1];
 			ax.YDir				= 'reverse';
 			ax.XLabel.String 	= 'Time (ms)';
 			ax.YLabel.String 	= 'Trial';
 
 			% Set ytick labels
-			tickInterval 	= ceil(max(trials)/5);
-			ticks 			= 1:tickInterval:max(trials);
+			tickInterval 	= max([1, round(ceil(obj.Arduino.TrialsCompleted/10)/5)*5]);
+			ticks 			= tickInterval:tickInterval:obj.Arduino.TrialsCompleted;
+			if (tickInterval > 1)
+				ticks = [1, ticks];
+			end
+			if (obj.Arduino.TrialsCompleted) > ticks(end)
+				ticks = [ticks, obj.Arduino.TrialsCompleted];
+			end
 			ax.YTick 		= ticks;
 			ax.YTickLabel 	= ticks;
 
-
+			% Store plot options cause for some reason it's lost unless we do this.
 			ax.UserData.EventCodeZero 		= eventCodeZero;
 			ax.UserData.EventCodeOfInterest = eventCodeOfInterest;
 			ax.UserData.NBins 				= nBins;		
