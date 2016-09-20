@@ -6,7 +6,7 @@
   State System Architecture             - Lingfeng Hou (lingfenghou@g.harvard.edu)
 
   Created       9/16/16 - ahamilos
-  Last Modified 9/19/16 - ahamilos
+  Last Modified 9/20/16 - ahamilos
   
   (prior version: LFH Arduino STATE_MACHINE_v1_AH)
   ------------------------------------------------------------------
@@ -596,12 +596,12 @@
     if (getLickState()) {                            // MOUSE: "Licked"
       if (!_lick_state) {                              // If a new lick initiated
         _lick_time = millis() - _trialTimer;           // Records _lick_time relative to trial start
-        int neg_lick_time = _lick_time - _preCueDelay;
+        int _neg_lick_time = _lick_time - _preCueDelay;
         // Send a event marker (lick) to HOST with timestamp relative to CUE ONSET
         sendMessage("&" + String(EVENT_LICK) + " " + String(_neg_lick_time));
         _lick_state = true;                            // Halts lick detection
         //------------------------DEBUG MODE--------------------------//
-          if (_params[_DEBUG]) {sendMessage("Pre-cue lick detected, tallying lick @ " + String(neg_lick_time) + "ms wrt Cue ON");}
+          if (_params[_DEBUG]) {sendMessage("Pre-cue lick detected, tallying lick @ " + String(_neg_lick_time) + "ms wrt Cue ON");}
         //----------------------end DEBUG MODE------------------------//
       }
     }
@@ -1340,16 +1340,72 @@
         //------------------------DEBUG MODE--------------------------//  
           if (_params[_DEBUG]) {sendMessage("Intertrial.");}
         //----------------------end DEBUG MODE------------------------//
+
+
+        if (getLickState()) {                               // MOUSE: "Licked"
+          if (!_lick_state) {                                 // If a new lick initiated
+            //_lick_time = millis() - _trialTimer;           // Records _lick_time relative to trial start
+            _lick_time = millis() - _cue_on_time;          // Records lick wrt CUE ON
+            // Send a event marker (lick) to HOST with timestamp relative to CUE ON
+            sendMessage("&" + String(EVENT_LICK) + " " + String(_lick_time));
+            _lick_state = true;                               // Halts lick detection
+            //------------------------DEBUG MODE--------------------------//
+              if (_params[_DEBUG]) {sendMessage("Lick detected, tallying lick @ " + String(_lick_time) + "ms");}
+            //----------------------end DEBUG MODE------------------------//
+            if (_command == 'Q')  {                           // HOST: "QUIT" -> IDLE_STATE
+              _state = IDLE_STATE;                              // Set IDLE_STATE
+              return;                                           // Exit Function -> IDLE
+            }
+            return;                                           // Exit Fx: Cycle => ABORT
+          }
+        }
+
+        if (_command == 'Q')  {                             // HOST: "QUIT" -> IDLE_STATE
+          _state = IDLE_STATE;                                 // Set IDLE_STATE
+          return;                                              // Exit Function
+        }
+
+
+        if (!getLickState()) {                              // MOUSE: "No lick"
+          if (_lick_state) {                               // If lick just ended                            
+            _lick_state = false;                           // Resets lick detector
+          }
+        } 
       }
 
 
     /*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
       TRANSITION LIST -- checks conditions, moves to next state
     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
-      if (_command == 'Q')  {                         // HOST: "QUIT" -> IDLE_STATE
+      if (getLickState()) {                               // MOUSE: "Licked"
+        if (!_lick_state) {                                 // If a new lick initiated
+          //_lick_time = millis() - _trialTimer;           // Records _lick_time relative to trial start
+          _lick_time = millis() - _cue_on_time;          // Records lick wrt CUE ON
+          // Send a event marker (lick) to HOST with timestamp relative to CUE ON
+          sendMessage("&" + String(EVENT_LICK) + " " + String(_lick_time));
+          _lick_state = true;                               // Halts lick detection
+          //------------------------DEBUG MODE--------------------------//
+            if (_params[_DEBUG]) {sendMessage("Lick detected, tallying lick @ " + String(_lick_time) + "ms");}
+          //----------------------end DEBUG MODE------------------------//
+          if (_command == 'Q')  {                           // HOST: "QUIT" -> IDLE_STATE
+            _state = IDLE_STATE;                              // Set IDLE_STATE
+            return;                                           // Exit Function -> IDLE
+          }
+          return;                                           // Exit Fx: Cycle => ABORT
+        }
+      }
+
+      if (_command == 'Q')  {                             // HOST: "QUIT" -> IDLE_STATE
         _state = IDLE_STATE;                                 // Set IDLE_STATE
         return;                                              // Exit Function
       }
+
+
+      if (!getLickState()) {                              // MOUSE: "No lick"
+        if (_lick_state) {                               // If lick just ended                            
+          _lick_state = false;                           // Resets lick detector
+        }
+      } 
       
 
 
