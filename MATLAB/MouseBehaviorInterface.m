@@ -5,6 +5,9 @@ classdef MouseBehaviorInterface < handle
 		Rsc
 	end
 
+	%----------------------------------------------------
+	% Methods
+	%----------------------------------------------------
 	methods
 		function obj = MouseBehaviorInterface()
 			% Establish arduino connection
@@ -169,8 +172,6 @@ classdef MouseBehaviorInterface < handle
 			);
 			dlg.UserData.Ctrl.RightPanel = rightPanel;
 
-
-
 			%----------------------------------------------------
 			% Stacked bar chart for trial results
 			%----------------------------------------------------
@@ -246,7 +247,7 @@ classdef MouseBehaviorInterface < handle
 			obj.Raster_Execute([], [], figId);
 
 			% Plot again everytime an event of interest occurs
-			ax.UserData.Listener = addlistener(obj.Arduino, 'EventMarkers', 'PostSet', @(src, evnt) obj.Raster_Execute(src, evnt, figId));
+			ax.UserData.Listener = addlistener(obj.Arduino, 'TrialsCompleted', 'PostSet', @(src, evnt) obj.Raster_Execute(src, evnt, figId));
 			f.CloseRequestFcn = {@MouseBehaviorInterface.OnLooseFigureClosed, ax.UserData.Listener};
 		end
 		function Raster_Execute(obj, ~, evnt, figId)
@@ -274,23 +275,38 @@ classdef MouseBehaviorInterface < handle
 			else
 				edges = eventsZero;
 			end
-			[~, ~, trials] = histcounts(eventsOfInterest, edges); % bins tells us which trials events belong to
-			eventTimesOfInterest = data(eventsOfInterest, 2);
+			% Get timestamps for events of interests
+			[~, ~, trials] 			= histcounts(eventsOfInterest, edges); % bins tells us which trials events belong to
+			eventTimesOfInterest 	= data(eventsOfInterest, 2);
+
+			% Get timestamps for zero events
+			eventTimesZero 			= data(eventsZero(trials), 2);
+			
+			% Substract two sets of timestamps to get relative times 
+			eventTimesOfInterest 	= eventTimesOfInterest - eventTimesZero;
 
 			% Plot histogram of selected event times
-			scatter(ax, eventTimesOfInterest, trials, 'k.');
-			ax.XLim = [0, max(eventTimesOfInterest) + 100];
-			ax.YLim = [0, max(trials) + 1];
-			ax.YTick = 1:max(trials);
-			ax.YTickLabel = 1:max(trials);
-			ax.XLabel.String = 'Time (ms)';
-			ax.YLabel.String = 'Trial';
+			plot(ax, eventTimesOfInterest, fliplr(trials), '.k',...
+				'MarkerSize', 10,...
+				'MarkerEdgeColor', [0 .5 .5],...
+				'MarkerFaceColor', [0 .7 .7],...
+				'LineWidth', 1.5);
+			ax.XLim 						= [min(eventTimesOfInterest) - 100, max(eventTimesOfInterest) + 100];
+			ax.YLim 						= [max([0, min(trials) - 1]), max(trials) + 1];
+			tickInterval 					= ceil(log(max(trials)));
+			ax.YTick 						= 1:max(trials);
+			ax.YTickLabel 					= max(trials):-1:1;
+			ax.XLabel.String 				= 'Time (ms)';
+			ax.YLabel.String 				= 'Trial';
 			ax.UserData.EventCodeZero 		= eventCodeZero;
 			ax.UserData.EventCodeOfInterest = eventCodeOfInterest;
 			ax.UserData.NBins 				= nBins;		
-		end		
+		end
 	end
 
+	%----------------------------------------------------
+	% Staic methods
+	%----------------------------------------------------
 	methods (Static)
 		%----------------------------------------------------
 		% Commmunicating with Arduino
@@ -372,6 +388,14 @@ classdef MouseBehaviorInterface < handle
 				max([0, leftPanel.Position(3) - 2*u.PanelMargin]),...
 				u.TextHeight...
 			];
+		end
+
+		%----------------------------------------------------
+		% Loose figure closed callback
+		%----------------------------------------------------
+		function OnLooseFigureClosed(src, evnt, lh)
+			delete(lh)
+			delete(src)
 		end
 
 		%----------------------------------------------------
@@ -476,61 +500,6 @@ classdef MouseBehaviorInterface < handle
 				tLong.EdgeColor = 'k';
 				uistack(tLong, 'top') % Bring to top
 			end
-		end
-
-		function OnLooseFigureClosed(src, evnt, lh)
-			delete(lh)
-			delete(src)
-		end
-		%----------------------------------------------------
-		% Plot - Histogram of events for all trials
-		%----------------------------------------------------
-		function ax = Hist(ax, data, eventCodeZero, eventCodeOfInterest, firstInTrial, nBins)
-			% First column in data is eventCode, second column is timestamp (since trial start)
-			if isempty(ax)
-				figure
-				ax = gca;
-			end
-			if nargin < 3
-				eventCodeZero = 1;
-			end
-			if nargin < 4
-				eventCodeOfInterest = 2;
-			end
-			if nargin < 5
-				firstInTrial = true;
-			end
-			if nargin < 6
-				nBins = 10;
-			end
-
-			MouseBehaviorInterface.Hist_Execute(ax, data, eventCodeZero, eventCodeOfInterest, firstInTrial, nBins)
-		end
-		function Hist_Execute(ax, data, eventCodeZero, eventCodeOfInterest, firstInTrial, nBins)
-			% Separate eventsOfInterest into trials, divided by eventsZero
-			eventsZero = find(data(:, 1) == eventCodeZero);
-			eventsOfInterest = find(data(:, 1) == eventCodeOfInterest);
-
-			% If events did not occur at all, do not plot
-			if (isempty(eventsZero) || isempty(eventsOfInterest))
-				return
-			end
-
-			if eventsOfInterest(end) > eventsZero(end)
-				edges = [eventsZero; eventsOfInterest(end)];
-			else
-				edges = eventsZero;
-			end
-			[~, ~, trials] = histcounts(eventsOfInterest, edges); % bins tells us which trials events belong to
-
-			% Only keep first event in trial if we want to
-			if firstInTrial
-				[~, firsts, ~] = unique(bins);
-				eventsOfInterest = eventsOfInterest(firsts);
-			end
-
-			% Plot histogram of selected event times
-			hist(ax, data(eventsOfInterest, 2), nBins);
 		end
 	end
 end
