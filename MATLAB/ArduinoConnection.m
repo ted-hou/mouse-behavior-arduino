@@ -27,11 +27,11 @@ classdef ArduinoConnection < handle
 	end
 
 	methods
-		function obj = ArduinoConnection()
+		function obj = ArduinoConnection(port)
 			obj.ArduinoMessageString = '';
 			serialPort = [];
-			arduinoPortName = obj.findFirstArduinoPort();
-
+			% arduinoPortName = obj.findFirstArduinoPort();
+			arduinoPortName = port;
 			if isempty(arduinoPortName)
 				disp('Can''t find serial port with Arduino')
 				return
@@ -58,6 +58,7 @@ classdef ArduinoConnection < handle
 			% (we expect the Arduino to write '~' to the Serial port upon starting up)
 			fprintf('Waiting for Arduino startup')
 			while (~obj.Connected)
+				obj.SendMessage('R')
 				fprintf('.')
 				pause(0.5)
 			end
@@ -245,6 +246,11 @@ classdef ArduinoConnection < handle
 			obj.SendMessage('Q')
 		end
 
+		% Trigger a soft restart on arduino
+		function Reset(obj)
+			obj.SendMessage('R')
+		end
+
 		% Terminate connection with arduino
 		function Close(obj)
 			fclose(obj.SerialConnection)
@@ -335,6 +341,8 @@ classdef ArduinoConnection < handle
 					end
 				end
 			end
+
+			port = 'COM4';
 		end
     end
 end

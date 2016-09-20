@@ -341,19 +341,123 @@
     static unsigned long _ticks          = 0;        // # of loops/sec in the debugger
 
 
-
-
-
-
-
-
-
-
-
 /*****************************************************
   INITIALIZATION LOOP
 *****************************************************/
   void setup()
+  {
+  } // End Initialization Loop -----------------------------------------------------------------------------------------------------
+
+
+/*****************************************************
+  MAIN LOOP
+*****************************************************/
+  void loop()
+  {
+    // Initialization
+    mySetup();
+
+    // Main loop (R# resets it)
+    while (true)
+    {
+      // //----------------------DEBUG MODE------------------------//
+      // //* Debug mode will count the number of loop cycles/1000 ms to determine the reliability of arduino clock *//
+      // if (millis() - _debugTimer == 1000)  {       // If 1000 ms since last tick readout...
+      //   if (_params[_DEBUG]) {                           // If DEBUG mode is on
+      //     sendMessage("Tick rate: " + String(_ticks) + " ticks per second.");  // Sends message to Matlab host
+      //   }
+      //   _ticks = 0;                                      // reset _ticks to 0
+      //   _debugTimer = millis();                          // reset debug clock
+      // }
+      // else if (millis() - _debugTimer > 1000)  {   // If MORE than 1000 ms have passed, it means we lost a ms on the last loop
+      //   if (_params[_DEBUG]) {
+      //     sendMessage("Tick rate: A ms was lost on last loop cycle...Clock Speed Error?");
+      //   }
+      //   _ticks = 0;                                      // reset _ticks to 0
+      //   _debugTimer = millis();                          // reset debug clock
+      // }
+      // else if (millis() - _debugTimer < 1000)  {   // If LESS than 1000 ms have passed, acculumate a loop tick
+      //   _ticks = _ticks + 1;                              // Add a tick to the measurement
+      // }
+      // //----------------------end DEBUG MODE------------------------//
+
+
+
+      /*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        Step 1: Read USB MESSAGE from HOST (if available)
+      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
+      // 1) Check USB for MESSAGE from HOST, if available. String is read byte by byte. (Each character is a byte, so reads e/a character)
+      static String usbMessage  = "";             // Initialize usbMessage to empty string, only happens once on first loop (thanks to static!)
+      _command = ' ';                              // Initialize _command to a SPACE
+      _arguments[0] = 0;                           // Initialize 1st integer argument
+      _arguments[1] = 0;                           // Initialize 2nd integer argument
+
+      if (Serial.available() > 0)  {              // If there's something in the SERIAL INPUT BUFFER (i.e., if another character from host is waiting in the queue to be read)
+        char inByte = Serial.read();                  // Read next character
+        
+        // The pound sign ('#') indicates a complete message!------------------------
+        if (inByte == '#')  {                         // If # received, terminate the message
+          // Parse the string, and updates `_command`, and `_arguments`
+          _command = getCommand(usbMessage);               // getCommand pulls out the character from the message for the _command         
+          getArguments(usbMessage, _arguments);            // getArguments pulls out the integer values from the usbMessage
+          usbMessage = "";                                // Clear message buffer (resets to prepare for next message)
+          if (_command == 'R') {
+            break;
+          }
+        }
+        else {
+          // append character to message buffer
+          usbMessage = usbMessage + inByte;       // Appends the next character from the queue to the usbMessage string
+        }
+      }
+
+      /*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        Step 2: Update the State Machine
+      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
+      // Depending on what _state we're in , call the appropriate _state function, which will evaluate the transition conditions, and update `_state` to what the next _state should be
+      switch (_state) {
+        case _INIT:
+          idle_state();
+          break;
+
+        case IDLE_STATE:
+          idle_state();
+          break;
+        
+        case INIT_TRIAL:
+          init_trial();
+          break;
+        
+        case PRE_WINDOW:    
+          pre_window();
+          break;
+        
+        case RESPONSE_WINDOW:         
+          response_window();
+          break;
+        
+        case POST_WINDOW:         
+          post_window();
+          break;
+
+        case REWARD: 
+          reward();
+          break;
+        
+        case ABORT_TRIAL:
+          abort_trial();
+          break;
+        
+        case INTERTRIAL:
+          intertrial();
+          break;
+      } // End switch statement--------------------------
+    }
+  } // End main loop-------------------------------------------------------------------------------------------------------------
+
+
+
+  void mySetup()
   {
     //--------------------I/O initialization------------------//
     // OUTPUTS
@@ -372,123 +476,42 @@
 
 
     //------------------------Serial Comms--------------------//
-      Serial.begin(115200);                       // Set up USB communication at 115200 baud 
+    Serial.begin(115200);                       // Set up USB communication at 115200 baud 
     // Tell PC that we're running by sending '~' message:
     hostInit();                                 // Sends all parameters, states and error codes to Matlab (LF Function)
-    sendMessage("~");                           // Tells PC that Arduino is on (Send Message is a LF Function)
+    // sendMessage("~");                           // Tells PC that Arduino is on (Send Message is a LF Function)
 
 
     //-----------------------Global Clocks---------------------//
     // Tick rate
     _debugTimer = millis();                      // Start DEBUG _single_loop_timer clock
 
-  } // End Initialization Loop -----------------------------------------------------------------------------------------------------
-
-
-
-
-
-/*****************************************************
-  MAIN LOOP
-*****************************************************/
-  void loop()
-  {
-    // //----------------------DEBUG MODE------------------------//
-    // //* Debug mode will count the number of loop cycles/1000 ms to determine the reliability of arduino clock *//
-    // if (millis() - _debugTimer == 1000)  {       // If 1000 ms since last tick readout...
-    //   if (_params[_DEBUG]) {                           // If DEBUG mode is on
-    //     sendMessage("Tick rate: " + String(_ticks) + " ticks per second.");  // Sends message to Matlab host
-    //   }
-    //   _ticks = 0;                                      // reset _ticks to 0
-    //   _debugTimer = millis();                          // reset debug clock
-    // }
-    // else if (millis() - _debugTimer > 1000)  {   // If MORE than 1000 ms have passed, it means we lost a ms on the last loop
-    //   if (_params[_DEBUG]) {
-    //     sendMessage("Tick rate: A ms was lost on last loop cycle...Clock Speed Error?");
-    //   }
-    //   _ticks = 0;                                      // reset _ticks to 0
-    //   _debugTimer = millis();                          // reset debug clock
-    // }
-    // else if (millis() - _debugTimer < 1000)  {   // If LESS than 1000 ms have passed, acculumate a loop tick
-    //   _ticks = _ticks + 1;                              // Add a tick to the measurement
-    // }
-    // //----------------------end DEBUG MODE------------------------//
-
-
-
-    /*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-      Step 1: Read USB MESSAGE from HOST (if available)
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
-    // 1) Check USB for MESSAGE from HOST, if available. String is read byte by byte. (Each character is a byte, so reads e/a character)
-    static String usbMessage  = "";             // Initialize usbMessage to empty string, only happens once on first loop (thanks to static!)
-    _command = ' ';                              // Initialize _command to a SPACE
-    _arguments[0] = 0;                           // Initialize 1st integer argument
-    _arguments[1] = 0;                           // Initialize 2nd integer argument
-
-    if (Serial.available() > 0)  {              // If there's something in the SERIAL INPUT BUFFER (i.e., if another character from host is waiting in the queue to be read)
-      char inByte = Serial.read();                  // Read next character
-      
-      // The pound sign ('#') indicates a complete message!------------------------
-      if (inByte == '#')  {                         // If # received, terminate the message
-        // Parse the string, and updates `_command`, and `_arguments`
-        _command = getCommand(usbMessage);               // getCommand pulls out the character from the message for the _command         
-        getArguments(usbMessage, _arguments);            // getArguments pulls out the integer values from the usbMessage
-        usbMessage = "";                                // Clear message buffer (resets to prepare for next message)
-        
-        if (_params[_DEBUG]) {
-          sendMessage("Parameter Updated: " + _command + String(_arguments[0]) + String(_arguments[1]));
-        }
-      }
-      else {
-        // append character to message buffer
-        usbMessage = usbMessage + inByte;       // Appends the next character from the queue to the usbMessage string
-      }
-    }
-
-    /*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-      Step 2: Update the State Machine
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
-    // Depending on what _state we're in , call the appropriate _state function, which will evaluate the transition conditions, and update `_state` to what the next _state should be
-    switch (_state) {
-      case _INIT:
-        idle_state();
-        break;
-
-      case IDLE_STATE:
-        idle_state();
-        break;
-      
-      case INIT_TRIAL:
-        init_trial();
-        break;
-      
-      case PRE_WINDOW:    
-        pre_window();
-        break;
-      
-      case RESPONSE_WINDOW:         
-        response_window();
-        break;
-      
-      case POST_WINDOW:         
-        post_window();
-        break;
-
-      case REWARD: 
-        reward();
-        break;
-      
-      case ABORT_TRIAL:
-        abort_trial();
-        break;
-      
-      case INTERTRIAL:
-        intertrial();
-        break;
-    } // End switch statement--------------------------
-
-  } // End main loop-------------------------------------------------------------------------------------------------------------
-
+    //---------------------------Reset a bunch of variables---------------------------//
+    _eventMarkerTimer = 0;
+    _trialTimer = 0;
+    _resultCode = 0; 
+    _random_delay_timer = 0;    // Random delay timer
+    _single_loop_timer = 0;     // Timer
+    _state                  = _INIT;    // This variable (current _state) get passed into a _state function, which determines what the next _state should be, and updates it to the next _state.
+    _prevState              = _INIT;    // Remembers the previous _state from the last loop (actions should only be executed when you enter a _state for the first time, comparing currentState vs _prevState helps us keep track of that).
+    _command                 = ' ';      // Command char received from host, resets on each loop
+    _arguments[0]             = 0;      // Two integers received from host , resets on each loop
+    _arguments[1]             = 0;      // Two integers received from host , resets on each loop
+    _lick_state              = false;    // True when lick detected, False when no lick
+    _pre_window_elapsed      = false;    // Track if pre_window time has elapsed
+    _reached_target          = false;    // Track if target time reached
+    _late_lick_detected      = false;    // Track if late lick detected
+    _lick_time      = 0;        // Tracks most recent lick time
+    _cue_on_time    = 0;        // Tracks time cue has been displayed for
+    _response_window_timer = 0; // Tracks time in response window state
+    _reward_timer = 0;          // Tracks time in reward state
+    _abort_timer = 0;           // Tracks time in abort state
+    _ITI_timer = 0;             // Tracks time in ITI state
+    _preCueDelay = 0;           // Initialize _preCueDelay var
+    _reward_dispensed_complete = false;  // init tracker of reward dispensal
+    _debugTimer     = 0;        // Debugging _single_loop_timer
+    _ticks          = 0;        // # of loops/sec in the debugger
+  }
 
 
 
