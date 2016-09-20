@@ -1,7 +1,7 @@
 %% Draft for LF State Machine Interface Raster Plot
 
 % a = ans.Arduino.EventMarkers;
-
+a = b.Arduino.EventMarkers;
 dimensions = size(a);
 
 eventMarkers = a(1:dimensions(1), 1);
