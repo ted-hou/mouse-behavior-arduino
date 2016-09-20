@@ -257,7 +257,6 @@ classdef MouseBehaviorInterface < handle
 			if (obj.Arduino.EventMarkers(end, 1) ~= eventCodeOfInterest && ~isempty(evnt))
 				return
 			end
-			disp(length(data))
 			eventCodeZero 		= ax.UserData.EventCodeZero;
 			nBins 				= ax.UserData.NBins;
 			
@@ -286,18 +285,24 @@ classdef MouseBehaviorInterface < handle
 			eventTimesOfInterest 	= eventTimesOfInterest - eventTimesZero;
 
 			% Plot histogram of selected event times
-			plot(ax, eventTimesOfInterest, fliplr(trials), '.k',...
+			plot(ax, eventTimesOfInterest, trials, '.k',...
 				'MarkerSize', 10,...
 				'MarkerEdgeColor', [0 .5 .5],...
 				'MarkerFaceColor', [0 .7 .7],...
 				'LineWidth', 1.5);
-			ax.XLim 						= [min(eventTimesOfInterest) - 100, max(eventTimesOfInterest) + 100];
-			ax.YLim 						= [max([0, min(trials) - 1]), max(trials) + 1];
-			tickInterval 					= ceil(log(max(trials)));
-			ax.YTick 						= 1:max(trials);
-			ax.YTickLabel 					= max(trials):-1:1;
-			ax.XLabel.String 				= 'Time (ms)';
-			ax.YLabel.String 				= 'Trial';
+			ax.XLim 			= [min(eventTimesOfInterest) - 100, max(eventTimesOfInterest) + 100];
+			ax.YLim 			= [max([0, min(trials) - 1]), max(trials) + 1];
+			ax.YDir				= 'reverse';
+			ax.XLabel.String 	= 'Time (ms)';
+			ax.YLabel.String 	= 'Trial';
+
+			% Set ytick labels
+			tickInterval 	= ceil(max(trials)/5)
+			ticks 			= 1:tickInterval:max(trials);
+			ax.YTick 		= ticks;
+			ax.YTickLabel 	= ticks;
+
+
 			ax.UserData.EventCodeZero 		= eventCodeZero;
 			ax.UserData.EventCodeOfInterest = eventCodeOfInterest;
 			ax.UserData.NBins 				= nBins;		
