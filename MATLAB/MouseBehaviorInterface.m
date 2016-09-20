@@ -297,7 +297,7 @@ classdef MouseBehaviorInterface < handle
 			ax.YLabel.String 	= 'Trial';
 
 			% Set ytick labels
-			tickInterval 	= ceil(max(trials)/5)
+			tickInterval 	= ceil(max(trials)/5);
 			ticks 			= 1:tickInterval:max(trials);
 			ax.YTick 		= ticks;
 			ax.YTickLabel 	= ticks;
