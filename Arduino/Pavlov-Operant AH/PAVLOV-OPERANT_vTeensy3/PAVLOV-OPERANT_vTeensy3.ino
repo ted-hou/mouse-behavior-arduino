@@ -166,7 +166,7 @@
     #define PIN_SPEAKER        5  // Speaker Pin            (DUE =  2)  (MEGA =  8)  (UNO =  9)  (TEENSY = 5)
 
     // Digital IN
-    #define PIN_LICK           2  // Lick Pin               (DUE = 36)  (MEGA =  2)  (UNO =  2)  (TEENSY = 2)
+    #define PIN_LICK           0  // Lick Pin               (DUE = 36)  (MEGA =  2)  (UNO =  2)  (TEENSY = 2)
 
 
   /*****************************************************
@@ -380,6 +380,20 @@
 *****************************************************/
   void setup()
   {
+    //--------------------I/O initialization------------------//
+    // OUTPUTS
+    pinMode(PIN_HOUSE_LAMP, OUTPUT);            // LED for illumination (trial cue)
+    pinMode(PIN_LED_CUE, OUTPUT);               // LED for 'start' cue
+    pinMode(PIN_SPEAKER, OUTPUT);               // Speaker for cue/correct/error tone
+    // INPUTS
+    pinMode(PIN_LICK, INPUT);                   // Lick detector
+    //--------------------------------------------------------//
+
+
+
+    //------------------------Serial Comms--------------------//
+    Serial.begin(115200);                       // Set up USB communication at 115200 baud 
+
   } // End Initialization Loop -----------------------------------------------------------------------------------------------------
 
 
@@ -493,28 +507,10 @@
 
   void mySetup()
   {
-    //--------------------I/O initialization------------------//
-    // OUTPUTS
-    pinMode(PIN_HOUSE_LAMP, OUTPUT);            // LED for illumination (trial cue)
-    pinMode(PIN_LED_CUE, OUTPUT);               // LED for 'start' cue
-    pinMode(PIN_SPEAKER, OUTPUT);               // Speaker for cue/correct/error tone
-    // INPUTS
-    pinMode(PIN_LICK, INPUT);                   // Lick detector
-    //--------------------------------------------------------//
-
 
     //--------------Set ititial OUTPUTS----------------//
     setHouseLamp(true);                          // House Lamp ON
     setCueLED(false);                            // Cue LED OFF
-
-
-
-    //------------------------Serial Comms--------------------//
-    Serial.begin(115200);                       // Set up USB communication at 115200 baud 
-    // Tell PC that we're running by sending '~' message:
-    hostInit();                                 // Sends all parameters, states and error codes to Matlab (LF Function)
-    // sendMessage("~");                           // Tells PC that Arduino is on (Send Message is a LF Function)
-
 
     //-----------------------Global Clocks---------------------//
     // Tick rate
@@ -545,6 +541,12 @@
     _reward_dispensed_complete = false;  // init tracker of reward dispensal
     _debugTimer     = 0;        // Debugging _single_loop_timer
     _ticks          = 0;        // # of loops/sec in the debugger
+
+
+    // Tell PC that we're running by sending '~' message:
+    hostInit();                                 // Sends all parameters, states and error codes to Matlab (LF Function)
+    // sendMessage("~");                           // Tells PC that Arduino is on (Send Message is a LF Function)
+    
   }
 
 

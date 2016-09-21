@@ -124,12 +124,12 @@
   *****************************************************/
 
     // Digital OUT
-    #define PIN_HOUSE_LAMP    34  // House Lamp Pin         (DUE = 34)  (MEGA = 34)  (UNO = 5?)  (TEENSY = 6?)
-    #define PIN_LED_CUE       28  // Cue LED Pin            (DUE = 35)  (MEGA = 28)  (UNO =  4)  (TEENSY = 4)
-    #define PIN_REWARD        52  // Reward Pin                         (MEGA = 52)  (UNO =  7)  (TEENSY = 7)
+    #define PIN_HOUSE_LAMP    6  // House Lamp Pin         (DUE = 34)  (MEGA = 34)  (UNO = 5?)  (TEENSY = 6?)
+    #define PIN_LED_CUE       4  // Cue LED Pin            (DUE = 35)  (MEGA = 28)  (UNO =  4)  (TEENSY = 4)
+    #define PIN_REWARD        7  // Reward Pin                         (MEGA = 52)  (UNO =  7)  (TEENSY = 7)
 
     // PWM OUT
-    #define PIN_SPEAKER        8  // Speaker Pin            (DUE =  2)  (MEGA =  8)  (UNO =  9)  (TEENSY = 5)
+    #define PIN_SPEAKER        5  // Speaker Pin            (DUE =  2)  (MEGA =  8)  (UNO =  9)  (TEENSY = 5)
 
     // Digital IN
     #define PIN_LICK           2  // Lick Pin               (DUE = 36)  (MEGA =  2)  (UNO =  2)  (TEENSY = 2)
@@ -361,7 +361,7 @@
     pinMode(PIN_LED_CUE, OUTPUT);               // LED for 'start' cue
     pinMode(PIN_SPEAKER, OUTPUT);               // Speaker for cue/correct/error tone
     // INPUTS
-    pinMode(PIN_LICK, INPUT);                   // Lick detector
+    pinMode(PIN_LICK, INPUT_PULLUP);                   // Lick detector
     //--------------------------------------------------------//
 
 
@@ -1479,7 +1479,7 @@
     GET LEVER STATE (True/False - Boolean)
   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
   bool getLickState() {
-    if (digitalRead(PIN_LICK) == HIGH) {
+    if (digitalRead(PIN_LICK) == LOW) {
       return true;
     }
     else {
@@ -1644,14 +1644,14 @@
 /*****************************************************
   Tone generator for Due -- not used in other Arduino modes
 *****************************************************/
-  // /*
-  // Tone generator
-  // v1  use timer, and toggle any digital pin in ISR
-  //    funky duration from arduino version
-  //    TODO use FindMckDivisor?
-  //    timer selected will preclude using associated pins for PWM etc.
-  //   could also do timer/pwm hardware toggle where caller controls duration
-  // */
+  /*
+  Tone generator
+  v1  use timer, and toggle any digital pin in ISR
+     funky duration from arduino version
+     TODO use FindMckDivisor?
+     timer selected will preclude using associated pins for PWM etc.
+    could also do timer/pwm hardware toggle where caller controls duration
+  */
 
 
   // // timers TC0 TC1 TC2   channels 0-2 ids 0-2  3-5  6-8     AB 0 1
