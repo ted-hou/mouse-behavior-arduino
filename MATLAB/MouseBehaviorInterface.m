@@ -236,6 +236,25 @@ classdef MouseBehaviorInterface < handle
 			);
 			dlg.UserData.Ctrl.Edit_FigureName = edit_figureName;
 
+			text_paramsToPlot = uicontrol(...
+				'Parent', rightPanel,...
+				'Style', 'text',...
+				'String', 'Show parameters in plot:',...
+				'HorizontalAlignment', 'left'...
+			);
+			dlg.UserData.Ctrl.Text_ParamsToPlot = text_paramsToPlot;
+
+			numParams = length(obj.Arduino.ParamNames);
+			table_paramsToPlot = uitable(...
+				'Parent', rightPanel,...
+				'Data', [obj.Arduino.ParamNames', repmat({false}, [numParams, 1]), repmat({'black'}, [numParams, 1]), repmat({'-'}, [numParams, 1])],...
+				'RowName', {},...
+				'ColumnName', {'Parameter', 'Plot', 'Color', 'Style'},...
+				'ColumnFormat', {'char', 'logical', {'black', 'red', 'blue', 'green'}, {'-', '--', '.', '-.'}},...
+				'ColumnEditable', [false, true, true, true]...
+			);
+			dlg.UserData.Ctrl.Table_ParamsToPlot = table_paramsToPlot;
+
 			button_plot = uicontrol(...
 				'Parent', rightPanel,...
 				'Style', 'pushbutton',...
@@ -297,27 +316,33 @@ classdef MouseBehaviorInterface < handle
 			popup_eventZero = dlg.UserData.Ctrl.Popup_EventZero;
 			popup_eventOfInterest = dlg.UserData.Ctrl.Popup_EventOfInterest;
 			edit_figureName = dlg.UserData.Ctrl.Edit_FigureName;
+			table_paramsToPlot = dlg.UserData.Ctrl.Table_ParamsToPlot;
+			paramPlotOptions = table_paramsToPlot.Data;
 
-			disp(popup_eventZero.Value)
-			disp(popup_eventOfInterest.Value)
-
-
-			obj.Raster(popup_eventZero.Value, popup_eventOfInterest.Value)
+			obj.Raster(popup_eventZero.Value, popup_eventOfInterest.Value, edit_figureName.String, paramPlotOptions)
 		end
-		function Raster(obj, eventCodeZero, eventCodeOfInterest, nBins)
+		function Raster(obj, eventCodeZero, eventCodeOfInterest, figName, paramPlotOptions, nBins)
 			% First column in data is eventCode, second column is timestamp (since trial start)
 			if nargin < 4
+				figName = ''
+			end
+			if nargin < 5
+				paramPlotOptions = struct([]);
+			end
+			if nargin < 6
 				nBins = 10;
 			end
 
 			% Create axes object
-			f = figure();
+			f = figure('Name', figName, 'NumberTitle', 'off');
 			ax = gca;
 
 			% Store plot settings into axes object
 			ax.UserData.EventCodeZero 		= eventCodeZero;
 			ax.UserData.EventCodeOfInterest = eventCodeOfInterest;
 			ax.UserData.NBins 				= nBins;
+			ax.UserData.FigName				= figName;
+			ax.UserData.ParamPlotOptions 	= paramPlotOptions;
 
 			% Store the axes object
 			if ~isfield(obj.Rsc, 'LooseFigures')
@@ -337,9 +362,12 @@ classdef MouseBehaviorInterface < handle
 		function Raster_Execute(obj, ~, ~, figId)
 			data 				= obj.Arduino.EventMarkers;
 			ax 					= obj.Rsc.LooseFigures(figId).Ax;
+
 			eventCodeOfInterest = ax.UserData.EventCodeOfInterest;
 			eventCodeZero 		= ax.UserData.EventCodeZero;
 			nBins 				= ax.UserData.NBins;
+			figName 			= ax.UserData.FigName;
+			paramPlotOptions	= ax.UserData.ParamPlotOptions;
 
 			% If events did not occur at all, do not plot
 			if (isempty(data))
@@ -362,13 +390,7 @@ classdef MouseBehaviorInterface < handle
 			end
 			% Get timestamps for events of interests
 			[~, ~, trials] = histcounts(eventsOfInterest, edges); % bins tells us which trials events belong to
-			% if (trials == 0)
-			% 	return
-			% end
-			% if (isempty(trials))
-			% 	return
-			% end
-			% eventsZero
+
 			eventTimesOfInterest 	= data(eventsOfInterest, 2);
 
 			% Get timestamps for zero events
@@ -382,7 +404,32 @@ classdef MouseBehaviorInterface < handle
 				'MarkerSize', 10,...
 				'MarkerEdgeColor', [0 .5 .5],...
 				'MarkerFaceColor', [0 .7 .7],...
-				'LineWidth', 1.5);
+				'LineWidth', 1.5,...
+				'DisplayName', obj.Arduino.EventMarkerNames{eventCodeOfInterest}...
+			)
+
+			% Plot parameters
+			% Filter out parameters the Grad Student does not want to plot
+			paramsToPlot = find([paramPlotOptions{:,2}]);
+
+			if ~isempty(paramsToPlot)
+				params = ctranspose(reshape([obj.Arduino.Trials.Parameters], [], length(obj.Arduino.Trials)));			
+				hold(ax, 'on')
+				for iParam = paramsToPlot
+					paramValues = params(:, iParam);
+					plot(ax, paramValues, 1:length(obj.Arduino.Trials),...
+						'DisplayName', paramPlotOptions{iParam, 1},...
+						'Color', paramPlotOptions{iParam, 3},...
+						'LineStyle', paramPlotOptions{iParam, 4},...
+						'LineWidth', 1.2 ...
+					);
+				end
+				hold(ax, 'off')
+			end
+			lgd = legend(ax, 'Location', 'northoutside');
+			lgd.Interpreter = 'none';
+			lgd.Orientation = 'horizontal';
+
 			ax.XLim 			= [min(eventTimesOfInterest) - 100, max(eventTimesOfInterest) + 100];
 			ax.YLim 			= [max([0, min(trials) - 1]), obj.Arduino.TrialsCompleted + 1];
 			ax.YDir				= 'reverse';
@@ -401,10 +448,14 @@ classdef MouseBehaviorInterface < handle
 			ax.YTick 		= ticks;
 			ax.YTickLabel 	= ticks;
 
+			title(ax, figName)
+
 			% Store plot options cause for some reason it's lost unless we do this.
 			ax.UserData.EventCodeZero 		= eventCodeZero;
 			ax.UserData.EventCodeOfInterest = eventCodeOfInterest;
-			ax.UserData.NBins 				= nBins;		
+			ax.UserData.NBins 				= nBins;
+			ax.UserData.FigName 			= figName;
+			ax.UserData.ParamPlotOptions 	= paramPlotOptions;
 		end
 	end
 
@@ -470,6 +521,8 @@ classdef MouseBehaviorInterface < handle
 			popup_eventOfInterest = dlg.UserData.Ctrl.Popup_EventOfInterest;
 			text_figureName = dlg.UserData.Ctrl.Text_FigureName;
 			edit_figureName = dlg.UserData.Ctrl.Edit_FigureName;
+			text_paramsToPlot = dlg.UserData.Ctrl.Text_ParamsToPlot;
+			table_paramsToPlot = dlg.UserData.Ctrl.Table_ParamsToPlot;
 			button_plot = dlg.UserData.Ctrl.Button_Plot;
 
 			u = dlg.UserData;
@@ -548,9 +601,25 @@ classdef MouseBehaviorInterface < handle
 				text_eventZero.Position(4)...
 			];
 
+			text_paramsToPlot.Position = [...
+				popup_eventZero.Position(1),...
+				popup_eventZero.Position(2) - u.PanelSpacing - text_eventZero.Position(4),...
+				2*plotOptionWidth + u.PanelMargin,...
+				text_eventZero.Position(4)...
+			];
+
+			table_paramsToPlot.Position = [...
+				popup_eventZero.Position(1),...
+				u.PanelMargin,...
+				text_paramsToPlot.Position(3),...
+				text_paramsToPlot.Position(2) - u.PanelMargin...
+			];
+			tableWidth = text_paramsToPlot.Position(3) - 16.5;
+			table_paramsToPlot.ColumnWidth = num2cell(tableWidth*[0.5, 0.5/3, 0.5/3, 0.5/3]);
+
 			button_plot.Position = [...
-				popup_eventOfInterest.Position(1),...
-				popup_eventOfInterest.Position(2) - 2*text_eventZero.Position(4) - u.PanelSpacing,...
+				edit_figureName.Position(1),...
+				table_paramsToPlot.Position(2) + 0.5*table_paramsToPlot.Position(4) - 0.5*text_eventZero.Position(4),...
 				plotOptionWidth,...
 				2*text_eventZero.Position(4)...
 			];
