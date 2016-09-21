@@ -368,9 +368,6 @@ classdef MouseBehaviorInterface < handle
 			% if (isempty(trials))
 			% 	return
 			% end
-			eventsOfInterest
-			edges
-			trials
 			% eventsZero
 			eventTimesOfInterest 	= data(eventsOfInterest, 2);
 
@@ -562,6 +559,7 @@ classdef MouseBehaviorInterface < handle
 		%----------------------------------------------------
 		% Loose figure closed callback
 		%----------------------------------------------------
+		% Stop updating figure when we close it
 		function OnLooseFigureClosed(src, evnt, lh)
 			delete(lh)
 			delete(src)
