@@ -288,7 +288,7 @@ classdef MouseBehaviorInterface < handle
 				'Data', [obj.Arduino.ParamNames', repmat({false}, [numParams, 1]), repmat({'black'}, [numParams, 1]), repmat({'-'}, [numParams, 1])],...
 				'RowName', {},...
 				'ColumnName', {'Parameter', 'Plot', 'Color', 'Style'},...
-				'ColumnFormat', {'char', 'logical', {'black', 'red', 'blue', 'green'}, {'-', '--', '.', '-.'}},...
+				'ColumnFormat', {'char', 'logical', {'black', 'red', 'blue', 'green'}, {'-', '--', ':', '-.'}},...
 				'ColumnEditable', [false, true, true, true]...
 			);
 			dlg.UserData.Ctrl.Table_ParamsToPlot = table_paramsToPlot;
@@ -343,7 +343,8 @@ classdef MouseBehaviorInterface < handle
 			allResultCodes = 1:(length(resultCodeNames) + 1);
 			resultCodeCounts = histcounts(resultCodes, allResultCodes);
 
-			bars = MouseBehaviorInterface.StackedBar(ax, resultCodeCounts, resultCodeNames);		
+			MouseBehaviorInterface.StackedBar(ax, resultCodeCounts, resultCodeNames);		
+			drawnow
 
 			obj.Arduino.SaveExperiment();	% (overwrites existing file)	
 		end
@@ -364,7 +365,7 @@ classdef MouseBehaviorInterface < handle
 		function Raster(obj, eventCodeZero, eventCodeOfInterest, figName, paramPlotOptions, nBins)
 			% First column in data is eventCode, second column is timestamp (since trial start)
 			if nargin < 4
-				figName = ''
+				figName = '';
 			end
 			if nargin < 5
 				paramPlotOptions = struct([]);
