@@ -9,7 +9,20 @@ classdef MouseBehaviorInterface < handle
 	% Methods
 	%----------------------------------------------------
 	methods
-		function obj = MouseBehaviorInterface(port)
+		function obj = MouseBehaviorInterface()
+			selection = questdlg(...
+				'Choose the device you are running.',...
+				'Choose device',...
+				'Arduino','Teensy','Arduino'...
+			);
+			switch selection
+				case 'Arduino'
+					port = [];
+				case 'Teensy'
+					port = inputdlg('Specify COM port:', 'USB Port', 1, {'COM1'});
+					port = port{1};
+			end
+
 			% Establish arduino connection
 			obj.Arduino = ArduinoConnection(port);
 
