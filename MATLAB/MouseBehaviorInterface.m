@@ -3,6 +3,7 @@ classdef MouseBehaviorInterface < handle
 	properties
 		Arduino
 		Rsc
+		ExperimentFileName			% Contains 'C://path/filename.mat'
 	end
 
 	%----------------------------------------------------
@@ -10,6 +11,45 @@ classdef MouseBehaviorInterface < handle
 	%----------------------------------------------------
 	methods
 		function obj = MouseBehaviorInterface()
+			
+		%~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+		%		Name Exp File (.mat) and pick directory
+		%~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+			initializeFileName = questdlg(...
+				'Start New Experiment?',...
+				'Initialize Experiment File',...
+				'Start New',...
+				'Open Saved',...
+				'Cancel',...
+				'Start New');
+			switch initializeFileName
+				case 'Start New'
+					[file, path] = uiputfile(['exp_name_',datestr(now, 'yyyy-mm-dd'),'.mat'],'Choose directory and Experiment File Name');
+					obj.ExperimentFileName = [path, file];
+					cd(path);
+					obj.SaveExperiment();
+					
+
+				case 'Open Saved'
+				 	dlg = questdlg(...
+				 		'This option not yet supported. Create new file now:',...
+				 		'Can''t Open saved',...
+				 		'Continue',...
+				 		'Continue');
+				 		
+
+				    [file, path] = uiputfile(['exp_name_',datestr(now, 'yyyy-mm-dd'),'.mat'],'Choose directory and Experiment File Name');
+				    obj.ExperimentFileName = [path, file];
+				    cd(path);
+				    obj.SaveExperiment();
+
+				case 'Cancel'
+					return
+			end
+				
+		%~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+		%		Select Microprocessor in Use
+		%~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 			selection = questdlg(...
 				'Choose the device you are running.',...
 				'Choose device',...
@@ -31,7 +71,44 @@ classdef MouseBehaviorInterface < handle
 
 			% Create Monitor window with all thr trial results and plots and stuff so the Grad Student is ON TOP OF THE SITUATION AT ALL TIMES.
 			obj.CreateDialog_Monitor()
+
+
 		end
+
+
+
+
+
+		%~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+		%			Save (overwrite) Exp File
+		%~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+		function SaveExperiment(obj)
+			% Save everything to the experimental file
+			save(obj.ExperimentFileName,'obj');	% (overwrites existing file)
+		end
+
+
+
+		%~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+		%	Save the current parameters as .mat
+		%~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+		function SaveParameters(obj)
+				% Save the current parameters to "experiment_name_lastparameters.mat" in the current directory
+				parameterNames = obj.Arduino.ParamNames; 		% store parameter names
+				parameterValues = obj.Arduino.ParamValues; 		% store parameter values
+				save(strcat(obj.ExperimentFileName, '_lastparameters'),'parameterNames', 'parameterValues');	% Saves both to current directory
+		end
+		%~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+		%	Load parameters from .mat
+		%~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+		function LoadParameters(obj)
+			load(strcat(obj.ExperimentFileName, '_lastparameters'));	% loads the last parameters file corresponding to the current exp
+			obj.Arduino.ParamNames = parameterNames; 		% store parameter names in object
+			obj.Arduino.ParamValues = parameterValues; 		% store parameter values in object
+		end
+
+
+
 
 		function CreateDialog_ExperimentControl(obj)
 			% Size and position of controls
