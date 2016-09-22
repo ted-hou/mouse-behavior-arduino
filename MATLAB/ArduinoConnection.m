@@ -15,6 +15,7 @@ classdef ArduinoConnection < handle
 		EventMarkerNames = {}
 		Trials = struct([])
 		Listeners
+		ExperimentFileName = ''			% Contains 'C://path/filename.mat'
 	end
 
 	properties (SetObservable)
@@ -71,6 +72,82 @@ classdef ArduinoConnection < handle
 			% Add event handler to detect state changes
 			obj.Listeners.StateChanged = addlistener(obj, 'StateChanged', @obj.OnStateChanged);
 		end
+
+
+		%~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+		%		Name Exp File (.mat) and pick directory
+		%~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+		function InitializeFileName(obj)
+			option = questdlg(...
+				'Start New Experiment?',...
+				'Initialize Experiment File',...
+				'Start New',...
+				'Open Saved',...
+				'Cancel',...
+				'Start New');
+			switch option
+				case 'Start New'
+					[file, path] = uiputfile(['exp_name_',datestr(now, 'yyyy-mm-dd'),'.mat'],'Choose directory and Experiment File Name');
+					obj.ExperimentFileName = [path, file];
+					cd(path);
+					obj.SaveExperiment();
+					obj.SaveParameters();
+					
+
+				case 'Open Saved'
+				 	dlg = questdlg(...
+				 		'This option not yet supported. Create new file now:',...
+				 		'Can''t Open saved',...
+				 		'Continue',...
+				 		'Continue');
+				 		
+
+				    [file, path] = uiputfile(['exp_name_',datestr(now, 'yyyy-mm-dd'),'.mat'],'Choose directory and Experiment File Name');
+				    obj.ExperimentFileName = [path, file];
+				    cd(path);
+				    obj.SaveExperiment();
+				    obj.SaveParameters();
+
+				case 'Cancel'
+					close(obj);
+					return
+			end
+		end
+
+		%~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+		%			Save (overwrite) Exp File
+		%~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+		function SaveExperiment(obj)
+			% Save everything to the experimental file
+			save(obj.ExperimentFileName,'obj');	% (overwrites existing file)
+		end
+
+		%~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+		%	Save the current parameters as .mat
+		%~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+		function SaveParameters(obj)
+				% Save the current parameters to "experiment_name_lastparameters.mat" in the current directory
+				parameterNames = obj.ParamNames; 		% store parameter names
+				parameterValues = obj.ParamValues; 		% store parameter values
+				% save('lastparameters','parameterNames', 'parameterValues');	% Saves both to current directory
+				filenameNoExt = strsplit(obj.ExperimentFileName,'.mat');
+				save(strcat(filenameNoExt{1}, '_lastparameters'),'parameterNames', 'parameterValues');	% Saves both to current directory
+		end
+		%~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+		%	Load parameters from .mat
+		%~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+		function LoadParameters(obj)
+			filenameNoExt = strsplit(obj.ExperimentFileName,'.mat');
+			load(strcat(filenameNoExt{1}, '_lastparameters'));	% loads the last parameters file corresponding to the current exp
+			% load(strcat('lastparameters'));	% loads the last parameters file corresponding to the current exp
+			obj.ParamNames = parameterNames; 		% store parameter names in object
+			obj.ParamValues = parameterValues; 		% store parameter values in object
+		end
+
+
+
+
+
 
 		function SendMessage(obj, messageChar, arg1, arg2)
 			switch nargin
@@ -235,6 +312,8 @@ classdef ArduinoConnection < handle
 				end
 				% Clear the queue 
 				obj.ParamUpdateQueue = [];
+				% Save the new parameters to file
+				obj.SaveParameters();
 				% Send 'O' to tell arduino we're done updating parameters
 				obj.SendMessage('O')
 				fprintf('Parameters updated.\n')
