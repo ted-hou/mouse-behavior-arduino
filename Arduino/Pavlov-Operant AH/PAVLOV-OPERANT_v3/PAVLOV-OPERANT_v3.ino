@@ -510,9 +510,7 @@
 
 
     // Tell PC that we're running by sending '~' message:
-    hostInit();                                 // Sends all parameters, states and error codes to Matlab (LF Function)
-    // sendMessage("~");                           // Tells PC that Arduino is on (Send Message is a LF Function)
-    
+    hostInit();                                 // Sends all parameters, states and error codes to Matlab (LF Function)    
   }
 
 
@@ -1654,6 +1652,7 @@
     {// For each result code, send "* (number of result code) (result code name)"
         sendMessage("* " + String(iCode) + " " + _resultCodeNames[iCode]);
     }
+    sendMessage("~");                           // Tells PC that Arduino is on (Send Message is a LF Function)
   }
 
 
