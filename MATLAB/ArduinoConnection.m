@@ -62,8 +62,8 @@ classdef ArduinoConnection < handle
 			% wait for Arduino startup
 			% (we expect the Arduino to write '~' to the Serial port upon starting up)
 			fprintf('Waiting for Arduino startup')
+			obj.SendMessage('R')
 			while (~obj.Connected)
-				obj.SendMessage('R')
 				fprintf('.')
 				pause(0.5)
 			end
