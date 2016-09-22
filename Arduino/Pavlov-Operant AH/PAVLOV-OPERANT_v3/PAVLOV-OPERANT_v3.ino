@@ -126,7 +126,7 @@
     // Digital OUT
     #define PIN_HOUSE_LAMP     34  // House Lamp Pin         (DUE = 34)  (MEGA = 34)  (UNO = 5?)  (TEENSY = 6?)
     #define PIN_LED_CUE        28  // Cue LED Pin            (DUE = 35)  (MEGA = 28)  (UNO =  4)  (TEENSY = 4)
-    #define PIN_REWARD         52  // Reward Pin                         (MEGA = 52)  (UNO =  7)  (TEENSY = 7)
+    #define PIN_REWARD         52  // Reward Pin             (DUE = 37) (MEGA = 52)  (UNO =  7)  (TEENSY = 7)
 
     // PWM OUT
     #define PIN_SPEAKER        8  // Speaker Pin            (DUE =  2)  (MEGA =  8)  (UNO =  9)  (TEENSY = 5)
