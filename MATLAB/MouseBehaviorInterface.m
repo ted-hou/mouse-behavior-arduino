@@ -8,13 +8,13 @@ classdef MouseBehaviorInterface < handle
 	end
 
 	%----------------------------------------------------
-	% Methods
+	%		Methods
 	%----------------------------------------------------
 	methods
 		function obj = MouseBehaviorInterface()
-		%~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+		%-----------------------------------------------
 		%		Select Microprocessor in Use
-		%~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+		%-----------------------------------------------
 			selection = questdlg(...
 				'Choose the device you are running.',...
 				'Choose device',...
@@ -31,9 +31,9 @@ classdef MouseBehaviorInterface < handle
 			% Establish arduino connection
 			obj.Arduino = ArduinoConnection(port);
 		
-		%~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+		%-----------------------------------------------
 		%		Initialize FileName and Directory
-		%~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+		%-----------------------------------------------
 			obj.Arduino.InitializeFileName();
 
 			% Creata Experiment Control window with all the knobs and buttons you need to set up an experiment. 
@@ -144,7 +144,7 @@ classdef MouseBehaviorInterface < handle
 				'Position', ctrlPos,...
 				'String', 'Load',...
 				'TooltipString', 'Load experiment parameters from a .mat file.',...
-				'Callback', {@MouseBehaviorInterface.LoadParameters, obj.Arduino, table_params, []}...
+				'Callback', {@MouseBehaviorInterface.LoadParameters, obj.Arduino, table_params}...
 			);
 
 			% Save parameters button
@@ -203,7 +203,7 @@ classdef MouseBehaviorInterface < handle
 			% dlg.CloseRequestFcn = {@MouseBehaviorInterface.ArduinoClose, obj.Arduino};
 
 			%----------------------------------------------------
-			% Left panel
+			%		Left panel
 			%----------------------------------------------------
 			leftPanel = uipanel(...
 				'Parent', dlg,...
@@ -225,7 +225,7 @@ classdef MouseBehaviorInterface < handle
 			dlg.UserData.Ctrl.TrialCountText = trialCountText;
 
 			%----------------------------------------------------
-			% Right panel
+			%		Right panel
 			%----------------------------------------------------
 			rightPanel = uipanel(...
 				'Parent', dlg,...
@@ -308,7 +308,7 @@ classdef MouseBehaviorInterface < handle
 			dlg.UserData.Ctrl.Button_Plot = button_plot;
 
 			%----------------------------------------------------
-			% Stacked bar chart for trial results
+			% 		Stacked bar chart for trial results
 			%----------------------------------------------------
 			ax = axes(...
 				'Parent', dlg,...
@@ -356,7 +356,7 @@ classdef MouseBehaviorInterface < handle
 		end
 
 		%----------------------------------------------------
-		% Plot - Raster plot events for each trial
+		%		Plot - Raster plot events for each trial
 		%----------------------------------------------------
 		function Raster_GUI(obj, ~, ~)
 			dlg = obj.Rsc.Monitor;
@@ -507,11 +507,11 @@ classdef MouseBehaviorInterface < handle
 	end
 
 	%----------------------------------------------------
-	% Staic methods
+	%		Static methods
 	%----------------------------------------------------
 	methods (Static)
 		%----------------------------------------------------
-		% Commmunicating with Arduino
+		%		Commmunicating with Arduino
 		%----------------------------------------------------
 		function OnParamChanged(~, evnt, arduino)
 			% evnt (event data contains infomation on which elements were changed to what)
@@ -551,83 +551,18 @@ classdef MouseBehaviorInterface < handle
 					return
 			end
 		end
-
-
-		%~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-		%	File I/O
-		%~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-		% Save parameters to parameter file
 		function SaveParameters(~, ~, arduino)
-			% Fetch params from object
-			parameterNames = arduino.ParamNames; 		% store parameter names
-			parameterValues = arduino.ParamValues; 		% store parameter values
-
-			% Prompt user to select save path
-			[filename, filepath] = uiputfile(['parameters_', datestr(now, 'yyyymmdd_HHMM'), '.mat'], 'Save current parameters to file');
-			% Exit if no file selected
-			if ~(ischar(filename) && ischar(filepath))
-				return
-			end
-			% Save to file
-			save([filepath, filename], 'parameterNames', 'parameterValues');
+			arduino.SaveParameters()
 		end
-
-		% Load parameters from parameter/experiment file
-		function LoadParameters(~, ~, arduino, table_params, errorMessage)
-			if nargin < 5
-				errorMessage = '';
+		function LoadParameters(~, ~, arduino, table_params)
+			if nargin < 4
+				table_params = [];
 			end
-			% Display errorMessage prompt if called for
-			if ~isempty(errorMessage)
-				selection = questdlg(...
-					errorMessage,...
-					'Error',...
-					'Yes','No','Yes'...
-				);
-				% Exit if the Grad Student says 'No'
-				if strcmp(selection, 'No')
-					return
-				end
-			end
-
-			[filename, filepath] = uigetfile('*.mat', 'Load parameters from file');
-			% Exit if no file selected
-			if ~(ischar(filename) && ischar(filepath))
-				return
-			end
-			% Load file
-			p = load([filepath, filename]);
-			% If loaded file does not contain parameters
-			if ~(isfield(p, 'parameterNames') && isfield(p, 'parameterValues'))
-				% Ask the Grad Student if he wants to selcet another file instead
-				MouseBehaviorInterface.LoadParameters([], [], arduino, table_params, 'The file you selected was not loaded because it does not contain experiment parameters. Select another file instead?')
-			else
-				% If loaded parameterNames contains a different number of parameters from arduino object
-				if (length(p.parameterNames) ~= length(arduino.ParamNames))
-					MouseBehaviorInterface.LoadParameters([], [], arduino, table_params, 'The file you selected was not loaded because parameter names do not match the ones used by Arduino. Select another file instead?')	
-				else
-					paramHasSameName = cellfun(@strcmp, p.parameterNames, arduino.ParamNames);
-					% If loaded parameterNames names are different from arduino object
-					if (sum(paramHasSameName) ~= length(paramHasSameName))			
-						MouseBehaviorInterface.LoadParameters([], [], arduino, table_params, 'The file you selected was not loaded because the number of parameters does not match the ones used by Arduino. Select another file instead?')
-					else
-						% If all checks pass, upload to Arduino
-						% Add all parameters to update queue
-						for iParam = 1:length(p.parameterNames)
-							arduino.UpdateParams_AddToQueue(iParam, p.parameterValues(iParam))
-						end
-						% Attempt to execute update queue now, if current state does not allow param update, the queue will be executed when we enter an appropriate state
-						arduino.UpdateParams_Execute()
-						% Update parameter display
-						table_params.Data = arduino.ParamValues';
-					end
-				end
-			end
+			arduino.LoadParameters(table_params, '')
 		end
-
 
 		%----------------------------------------------------
-		% Dialog Resize callbacks
+		%		Dialog Resize callbacks
 		%----------------------------------------------------	
 		function OnMonitorDialogResized(~, ~)
 			% Retrieve dialog object and axes to resize
@@ -747,7 +682,7 @@ classdef MouseBehaviorInterface < handle
 		end
 
 		%----------------------------------------------------
-		% Loose figure closed callback
+		%		Loose figure closed callback
 		%----------------------------------------------------
 		% Stop updating figure when we close it
 		function OnLooseFigureClosed(src, evnt, lh)
@@ -756,7 +691,7 @@ classdef MouseBehaviorInterface < handle
 		end
 
 		%----------------------------------------------------
-		% Plot - Stacked Bar
+		%		Plot - Stacked Bar
 		%----------------------------------------------------
 		function bars = StackedBar(ax, data, names, colors)
 			% Default params

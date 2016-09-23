@@ -36,8 +36,6 @@ classdef ArduinoConnection < handle
 				arduinoPortName = [];
 			end
 			
-			obj.ArduinoMessageString = '';
-			serialPort = [];
 			if isempty(arduinoPortName)
 				arduinoPortName = obj.findFirstArduinoPort();
 			end
@@ -61,7 +59,7 @@ classdef ArduinoConnection < handle
 
 			% Open the serial port for reading and writing.
 			obj.SerialConnection = serialPort;
-			fopen(serialPort)
+			fopen(serialPort);
 
 			% wait for Arduino startup
 			% (we expect the Arduino to write '~' to the Serial port upon starting up)
@@ -90,26 +88,22 @@ classdef ArduinoConnection < handle
 				'Start New');
 			switch option
 				case 'Start New'
-					[file, path] = uiputfile(['exp_name_',datestr(now, 'yyyy-mm-dd'),'.mat'],'Choose directory and Experiment File Name');
+					[file, path] = uiputfile(['exp_name_',datestr(now, 'yyyymmdd_HHMM'),'.mat'],'Choose directory and Experiment File Name');
 					obj.ExperimentFileName = [path, file];
 					cd(path);
 					obj.SaveExperiment();
-					% obj.SaveParameters();
 					
-
 				case 'Open Saved'
 				 	dlg = questdlg(...
 				 		'This option not yet supported. Create new file now:',...
 				 		'Can''t Open saved',...
 				 		'Continue',...
 				 		'Continue');
-				 		
 
-				    [file, path] = uiputfile(['exp_name_',datestr(now, 'yyyy-mm-dd'),'.mat'],'Choose directory and Experiment File Name');
+				    [file, path] = uiputfile(['exp_name_',datestr(now, 'yyyymmdd_HHMM'),'.mat'],'Choose directory and Experiment File Name');
 				    obj.ExperimentFileName = [path, file];
 				    cd(path);
 				    obj.SaveExperiment();
-				    % obj.SaveParameters();
 
 				case 'Cancel'
 					close(obj);
@@ -124,6 +118,85 @@ classdef ArduinoConnection < handle
 			% Save everything to the experimental file
 			save(obj.ExperimentFileName,'obj');	% (overwrites existing file)
 		end
+
+
+		%-----------------------------------------------~~
+		%		File I/O
+		%-----------------------------------------------~~
+		% Save parameters to parameter file
+		function SaveParameters(obj)
+			% Fetch params from object
+			parameterNames = obj.ParamNames; 		% store parameter names
+			parameterValues = obj.ParamValues; 		% store parameter values
+
+			% Prompt user to select save path
+			[filename, filepath] = uiputfile(['parameters_', datestr(now, 'yyyymmdd_HHMM'), '.mat'], 'Save current parameters to file');
+			% Exit if no file selected
+			if ~(ischar(filename) && ischar(filepath))
+				return
+			end
+			% Save to file
+			save([filepath, filename], 'parameterNames', 'parameterValues');
+		end
+
+		% Load parameters from parameter/experiment file
+		function LoadParameters(obj, table_params, errorMessage)
+			if nargin < 3
+				errorMessage = '';
+			end
+			if nargin < 2
+				table_params = [];
+			end
+			% Display errorMessage prompt if called for
+			if ~isempty(errorMessage)
+				selection = questdlg(...
+					errorMessage,...
+					'Error',...
+					'Yes','No','Yes'...
+				);
+				% Exit if the Grad Student says 'No'
+				if strcmp(selection, 'No')
+					return
+				end
+			end
+
+			[filename, filepath] = uigetfile('*.mat', 'Load parameters from file');
+			% Exit if no file selected
+			if ~(ischar(filename) && ischar(filepath))
+				return
+			end
+			% Load file
+			p = load([filepath, filename]);
+			% If loaded file does not contain parameters
+			if ~(isfield(p, 'parameterNames') && isfield(p, 'parameterValues'))
+				% Ask the Grad Student if he wants to selcet another file instead
+				obj.LoadParameters(table_params, 'The file you selected was not loaded because it does not contain experiment parameters. Select another file instead?')
+			else
+				% If loaded parameterNames contains a different number of parameters from arduino object
+				if (length(p.parameterNames) ~= length(obj.ParamNames))
+					obj.LoadParameters(table_params, 'The file you selected was not loaded because parameter names do not match the ones used by Arduino. Select another file instead?')	
+				else
+					paramHasSameName = cellfun(@strcmp, p.parameterNames, obj.ParamNames);
+					% If loaded parameterNames names are different from arduino object
+					if (sum(paramHasSameName) ~= length(paramHasSameName))			
+						obj.LoadParameters(table_params, 'The file you selected was not loaded because the number of parameters does not match the ones used by Arduino. Select another file instead?')
+					else
+						% If all checks pass, upload to Arduino
+						% Add all parameters to update queue
+						for iParam = 1:length(p.parameterNames)
+							obj.UpdateParams_AddToQueue(iParam, p.parameterValues(iParam))
+						end
+						% Attempt to execute update queue now, if current state does not allow param update, the queue will be executed when we enter an appropriate state
+						obj.UpdateParams_Execute()
+						% Update parameter display
+						if ~isempty(table_params)
+							table_params.Data = obj.ParamValues';
+						end
+					end
+				end
+			end
+		end
+
 
 		%~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 		%	Serial comms
