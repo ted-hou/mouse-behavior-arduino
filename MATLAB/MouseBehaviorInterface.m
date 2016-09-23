@@ -600,16 +600,16 @@ classdef MouseBehaviorInterface < handle
 			% If loaded file does not contain parameters
 			if ~(isfield(p, 'parameterNames') && isfield(p, 'parameterValues'))
 				% Ask the Grad Student if he wants to selcet another file instead
-				MouseBehaviorInterface.LoadParameters(arduino, 'The file you selected was not loaded because it does not contain experiment parameters. Select another file instead?')
+				MouseBehaviorInterface.LoadParameters([], [], arduino, table_params, 'The file you selected was not loaded because it does not contain experiment parameters. Select another file instead?')
 			else
 				% If loaded parameterNames contains a different number of parameters from arduino object
 				if (length(p.parameterNames) ~= length(arduino.ParamNames))
-					MouseBehaviorInterface.LoadParameters(arduino, 'The file you selected was not loaded because its parameters does not match the ones used by Arduino. Select another file instead?')	
+					MouseBehaviorInterface.LoadParameters([], [], arduino, table_params, 'The file you selected was not loaded because parameter names do not match the ones used by Arduino. Select another file instead?')	
 				else
 					paramHasSameName = cellfun(@strcmp, p.parameterNames, arduino.ParamNames);
 					% If loaded parameterNames names are different from arduino object
 					if (sum(paramHasSameName) ~= length(paramHasSameName))			
-						MouseBehaviorInterface.LoadParameters(arduino, 'The file you selected was not loaded because its parameters does not match the ones used by Arduino. Select another file instead?')
+						MouseBehaviorInterface.LoadParameters([], [], arduino, table_params, 'The file you selected was not loaded because the number of parameters does not match the ones used by Arduino. Select another file instead?')
 					else
 						% If all checks pass, upload to Arduino
 						% Add all parameters to update queue
