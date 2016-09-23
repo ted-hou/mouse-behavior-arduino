@@ -1,26 +1,29 @@
 %% ArduinoConnection: serial port connection to an Arduino
 classdef ArduinoConnection < handle
 	properties
-		DebugMode = false
-		Connected = false
-		SerialConnection = []
-		ArduinoMessageString = ''
-		State = []
 		StateNames = {}
 		StateCanUpdateParams = logical([])
 		ParamNames = {}
 		ParamValues = []
-		ParamUpdateQueue = []
 		ResultCodeNames = {}
 		EventMarkerNames = {}
 		Trials = struct([])
-		Listeners
 		ExperimentFileName = ''			% Contains 'C://path/filename.mat'
 	end
 
 	properties (SetObservable)
 		EventMarkers = []
 		TrialsCompleted = 0
+	end
+
+	properties (Transient)	% These properties will be discarded when saving to file
+		DebugMode = false
+		Connected = false
+		SerialConnection = []
+		ArduinoMessageString = ''
+		State = []
+		ParamUpdateQueue = []
+		Listeners
 	end
 
 	events
@@ -91,7 +94,7 @@ classdef ArduinoConnection < handle
 					obj.ExperimentFileName = [path, file];
 					cd(path);
 					obj.SaveExperiment();
-					obj.SaveParameters();
+					% obj.SaveParameters();
 					
 
 				case 'Open Saved'
@@ -106,7 +109,7 @@ classdef ArduinoConnection < handle
 				    obj.ExperimentFileName = [path, file];
 				    cd(path);
 				    obj.SaveExperiment();
-				    obj.SaveParameters();
+				    % obj.SaveParameters();
 
 				case 'Cancel'
 					close(obj);
@@ -123,32 +126,8 @@ classdef ArduinoConnection < handle
 		end
 
 		%~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-		%	Save the current parameters as .mat
-		%~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-		function SaveParameters(obj)
-				% Save the current parameters to "experiment_name_lastparameters.mat" in the current directory
-				parameterNames = obj.ParamNames; 		% store parameter names
-				parameterValues = obj.ParamValues; 		% store parameter values
-				% save('lastparameters','parameterNames', 'parameterValues');	% Saves both to current directory
-				filenameNoExt = strsplit(obj.ExperimentFileName,'.mat');
-				save(strcat(filenameNoExt{1}, '_lastparameters'),'parameterNames', 'parameterValues');	% Saves both to current directory
-		end
-		%~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-		%	Load parameters from .mat
-		%~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-		function LoadParameters(obj)
-			filenameNoExt = strsplit(obj.ExperimentFileName,'.mat');
-			load(strcat(filenameNoExt{1}, '_lastparameters'));	% loads the last parameters file corresponding to the current exp
-			% load(strcat('lastparameters'));	% loads the last parameters file corresponding to the current exp
-			obj.ParamNames = parameterNames; 		% store parameter names in object
-			obj.ParamValues = parameterValues; 		% store parameter values in object
-		end
-
-
-
-
-
-
+		%	Serial comms
+		%~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~		
 		function SendMessage(obj, messageChar, arg1, arg2)
 			switch nargin
 				case 2
@@ -312,8 +291,6 @@ classdef ArduinoConnection < handle
 				end
 				% Clear the queue 
 				obj.ParamUpdateQueue = [];
-				% Save the new parameters to file
-				obj.SaveParameters();
 				% Send 'O' to tell arduino we're done updating parameters
 				obj.SendMessage('O')
 				fprintf('Parameters updated.\n')

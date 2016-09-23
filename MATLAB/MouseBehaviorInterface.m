@@ -2,8 +2,9 @@
 classdef MouseBehaviorInterface < handle
 	properties
 		Arduino
+	end
+	properties (Transient)
 		Rsc
-		
 	end
 
 	%----------------------------------------------------
@@ -44,19 +45,6 @@ classdef MouseBehaviorInterface < handle
 
 		end
 
-
-
-
-
-
-
-
-
-
-
-
-
-
 		function CreateDialog_ExperimentControl(obj)
 			% Size and position of controls
 			buttonWidth = 50; % Width of buttons
@@ -86,6 +74,7 @@ classdef MouseBehaviorInterface < handle
 				'ColumnEditable', [true],...
 				'CellEditCallback', {@MouseBehaviorInterface.OnParamChanged, obj.Arduino}...
 			);
+			% dlg.UserData.Ctrl.Table_Params = table_params;
 
 			% Set width and height
 			table_params.Position(3:4) = table_params.Extent(3:4);
@@ -141,7 +130,7 @@ classdef MouseBehaviorInterface < handle
 				'Callback', {@MouseBehaviorInterface.ArduinoReset, obj.Arduino}...
 			);
 
-			% Terminate button - terminate connection w/ arduino and close GUI
+			% Load parameters button
 			ctrlPosBase = button_reset.Position;
 			ctrlPos = [...
 				ctrlPosBase(1),...
@@ -149,13 +138,30 @@ classdef MouseBehaviorInterface < handle
 				buttonWidth,...	
 				buttonHeight...
 			];
-			button_close = uicontrol(...
+			button_loadParams = uicontrol(...
 				'Parent', dlg,...
 				'Style', 'pushbutton',...
 				'Position', ctrlPos,...
-				'String', 'Close',...
-				'TooltipString', 'Terminate serial connection with Arduino and close the GUI.',...
-				'Callback', {@MouseBehaviorInterface.ArduinoClose, obj.Arduino}...
+				'String', 'Load',...
+				'TooltipString', 'Load experiment parameters from a .mat file.',...
+				'Callback', {@MouseBehaviorInterface.LoadParameters, obj.Arduino, table_params, []}...
+			);
+
+			% Save parameters button
+			ctrlPosBase = button_loadParams.Position;
+			ctrlPos = [...
+				ctrlPosBase(1),...
+				ctrlPosBase(2) - buttonHeight - ctrlSpacing,...
+				buttonWidth,...	
+				buttonHeight...
+			];
+			button_saveParams = uicontrol(...
+				'Parent', dlg,...
+				'Style', 'pushbutton',...
+				'Position', ctrlPos,...
+				'String', 'Save',...
+				'TooltipString', 'Save experiment parameters to a .mat file.',...
+				'Callback', {@MouseBehaviorInterface.SaveParameters, obj.Arduino}...
 			);
 
 			% Resize dialog so it fits all controls
@@ -545,6 +551,80 @@ classdef MouseBehaviorInterface < handle
 					return
 			end
 		end
+
+
+		%~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+		%	File I/O
+		%~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+		% Save parameters to parameter file
+		function SaveParameters(~, ~, arduino)
+			% Fetch params from object
+			parameterNames = arduino.ParamNames; 		% store parameter names
+			parameterValues = arduino.ParamValues; 		% store parameter values
+
+			% Prompt user to select save path
+			[filename, filepath] = uiputfile(['parameters_', datestr(now, 'yyyymmdd_HHMM'), '.mat'], 'Save current parameters to file');
+			% Exit if no file selected
+			if ~(ischar(filename) && ischar(filepath))
+				return
+			end
+			% Save to file
+			save([filepath, filename], 'parameterNames', 'parameterValues');
+		end
+
+		% Load parameters from parameter/experiment file
+		function LoadParameters(~, ~, arduino, table_params, errorMessage)
+			if nargin < 5
+				errorMessage = '';
+			end
+			% Display errorMessage prompt if called for
+			if ~isempty(errorMessage)
+				selection = questdlg(...
+					errorMessage,...
+					'Error',...
+					'Yes','No','Yes'...
+				);
+				% Exit if the Grad Student says 'No'
+				if strcmp(selection, 'No')
+					return
+				end
+			end
+
+			[filename, filepath] = uigetfile('*.mat', 'Load parameters from file');
+			% Exit if no file selected
+			if ~(ischar(filename) && ischar(filepath))
+				return
+			end
+			% Load file
+			p = load([filepath, filename]);
+			% If loaded file does not contain parameters
+			if ~(isfield(p, 'parameterNames') && isfield(p, 'parameterValues'))
+				% Ask the Grad Student if he wants to selcet another file instead
+				MouseBehaviorInterface.LoadParameters(arduino, 'The file you selected was not loaded because it does not contain experiment parameters. Select another file instead?')
+			else
+				% If loaded parameterNames contains a different number of parameters from arduino object
+				if (length(p.parameterNames) ~= length(arduino.ParamNames))
+					MouseBehaviorInterface.LoadParameters(arduino, 'The file you selected was not loaded because its parameters does not match the ones used by Arduino. Select another file instead?')	
+				else
+					paramHasSameName = cellfun(@strcmp, p.parameterNames, arduino.ParamNames);
+					% If loaded parameterNames names are different from arduino object
+					if (sum(paramHasSameName) ~= length(paramHasSameName))			
+						MouseBehaviorInterface.LoadParameters(arduino, 'The file you selected was not loaded because its parameters does not match the ones used by Arduino. Select another file instead?')
+					else
+						% If all checks pass, upload to Arduino
+						% Add all parameters to update queue
+						for iParam = 1:length(p.parameterNames)
+							arduino.UpdateParams_AddToQueue(iParam, p.parameterValues(iParam))
+						end
+						% Attempt to execute update queue now, if current state does not allow param update, the queue will be executed when we enter an appropriate state
+						arduino.UpdateParams_Execute()
+						% Update parameter display
+						table_params.Data = arduino.ParamValues';
+					end
+				end
+			end
+		end
+
 
 		%----------------------------------------------------
 		% Dialog Resize callbacks
