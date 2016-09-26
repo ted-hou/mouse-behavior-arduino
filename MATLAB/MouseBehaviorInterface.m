@@ -121,8 +121,8 @@ classdef MouseBehaviorInterface < handle
 			menu_file = uimenu(dlg, 'Label', '&File');
 			uimenu(menu_file, 'Label', 'Load Experiment ...');
 			uimenu(menu_file, 'Label', 'Save Experiment ...');
-			uimenu(menu_file, 'Label', 'Load Parameters ...', 'Separator', 'on', 'Callback', {@MouseBehaviorInterface.LoadParameters, obj.Arduino, table_params});
-			uimenu(menu_file, 'Label', 'Save Parameters ...', 'Callback', {@MouseBehaviorInterface.SaveParameters, obj.Arduino});
+			uimenu(menu_file, 'Label', 'Load Parameters ...', 'Separator', 'on', 'Callback', {@MouseBehaviorInterface.ArduinoLoadParameters, obj.Arduino, table_params});
+			uimenu(menu_file, 'Label', 'Save Parameters ...', 'Callback', {@MouseBehaviorInterface.ArduinoSaveParameters, obj.Arduino});
 			uimenu(menu_file, 'Label', 'Quit', 'Separator', 'on', 'Callback', {@MouseBehaviorInterface.ArduinoClose, obj.Arduino});
 
 			menu_arduino = uimenu(dlg, 'Label', '&Arduino');
@@ -522,10 +522,10 @@ classdef MouseBehaviorInterface < handle
 		function ArduinoReconnect(~, ~, arduino)
 			arduino.Reconnect()
 		end
-		function SaveParameters(~, ~, arduino)
+		function ArduinoSaveParameters(~, ~, arduino)
 			arduino.SaveParameters()
 		end
-		function LoadParameters(~, ~, arduino, table_params)
+		function ArduinoLoadParameters(~, ~, arduino, table_params)
 			if nargin < 4
 				table_params = [];
 			end
