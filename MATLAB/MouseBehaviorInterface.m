@@ -12,29 +12,8 @@ classdef MouseBehaviorInterface < handle
 	%----------------------------------------------------
 	methods
 		function obj = MouseBehaviorInterface()
-		%-----------------------------------------------
-		%		Select Microprocessor in Use
-		%-----------------------------------------------
-			selection = questdlg(...
-				'Choose the device you are running.',...
-				'Choose device',...
-				'Arduino','Teensy','Arduino'...
-			);
-			switch selection
-				case 'Arduino'
-					port = [];
-				case 'Teensy'
-					port = inputdlg('Specify COM port:', 'USB Port', 1, {'COM1'});
-					port = port{1};
-			end
-
 			% Establish arduino connection
-			obj.Arduino = ArduinoConnection(port);
-		
-		%-----------------------------------------------
-		%		Initialize FileName and Directory
-		%-----------------------------------------------
-			obj.Arduino.InitializeFileName();
+			obj.Arduino = ArduinoConnection();
 
 			% Creata Experiment Control window with all the knobs and buttons you need to set up an experiment. 
 			obj.CreateDialog_ExperimentControl()
@@ -130,44 +109,26 @@ classdef MouseBehaviorInterface < handle
 				'Callback', {@MouseBehaviorInterface.ArduinoReset, obj.Arduino}...
 			);
 
-			% Load parameters button
-			ctrlPosBase = button_reset.Position;
-			ctrlPos = [...
-				ctrlPosBase(1),...
-				ctrlPosBase(2) - buttonHeight - ctrlSpacing,...
-				buttonWidth,...	
-				buttonHeight...
-			];
-			button_loadParams = uicontrol(...
-				'Parent', dlg,...
-				'Style', 'pushbutton',...
-				'Position', ctrlPos,...
-				'String', 'Load',...
-				'TooltipString', 'Load experiment parameters from a .mat file.',...
-				'Callback', {@MouseBehaviorInterface.LoadParameters, obj.Arduino, table_params}...
-			);
-
-			% Save parameters button
-			ctrlPosBase = button_loadParams.Position;
-			ctrlPos = [...
-				ctrlPosBase(1),...
-				ctrlPosBase(2) - buttonHeight - ctrlSpacing,...
-				buttonWidth,...	
-				buttonHeight...
-			];
-			button_saveParams = uicontrol(...
-				'Parent', dlg,...
-				'Style', 'pushbutton',...
-				'Position', ctrlPos,...
-				'String', 'Save',...
-				'TooltipString', 'Save experiment parameters to a .mat file.',...
-				'Callback', {@MouseBehaviorInterface.SaveParameters, obj.Arduino}...
-			);
-
 			% Resize dialog so it fits all controls
 			dlg.Position(1:2) = [10, 50];
 			dlg.Position(3) = table_params.Position(3) + buttonWidth + 4*ctrlSpacing;
 			dlg.Position(4) = table_params.Position(4) + 3*ctrlSpacing;
+
+			% Menus
+			menu_file = uimenu(dlg, 'Label', '&File');
+			uimenu(menu_file, 'Label', 'Load Experiment ...');
+			uimenu(menu_file, 'Label', 'Save Experiment ...');
+			uimenu(menu_file, 'Label', 'Load Parameters ...', 'Separator', 'on', 'Callback', {@MouseBehaviorInterface.LoadParameters, obj.Arduino, table_params});
+			uimenu(menu_file, 'Label', 'Save Parameters ...', 'Callback', {@MouseBehaviorInterface.SaveParameters, obj.Arduino});
+			uimenu(menu_file, 'Label', 'Quit', 'Separator', 'on', 'Callback', {@MouseBehaviorInterface.ArduinoClose, obj.Arduino});
+
+			menu_arduino = uimenu(dlg, 'Label', '&Arduino');
+			uimenu(menu_arduino, 'Label', 'Start', 'Callback', {@MouseBehaviorInterface.ArduinoStart, obj.Arduino});
+			uimenu(menu_arduino, 'Label', 'Stop', 'Callback', {@MouseBehaviorInterface.ArduinoStop, obj.Arduino});
+			uimenu(menu_arduino, 'Label', 'Reset', 'Callback', {@MouseBehaviorInterface.ArduinoReset, obj.Arduino}, 'Separator', 'on');
+			uimenu(menu_arduino, 'Label', 'Reconnect', 'Callback', {@MouseBehaviorInterface.ArduinoReconnect, obj.Arduino});
+
+			menu_window = uimenu(dlg, 'Label', '&Window');
 
 			% Unhide dialog now that all controls have been created
 			dlg.Visible = 'on';
@@ -550,6 +511,9 @@ classdef MouseBehaviorInterface < handle
 				case 'No'
 					return
 			end
+		end
+		function ArduinoReconnect(~, ~, arduino)
+			arduino.Reconnect()
 		end
 		function SaveParameters(~, ~, arduino)
 			arduino.SaveParameters()

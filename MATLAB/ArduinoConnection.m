@@ -11,7 +11,7 @@ classdef ArduinoConnection < handle
 		ExperimentFileName = ''			% Contains 'C://path/filename.mat'
 	end
 
-	properties (SetObservable)
+	properties (SetObservable, AbortSet)
 		EventMarkers = []
 		TrialsCompleted = 0
 	end
@@ -31,11 +31,48 @@ classdef ArduinoConnection < handle
 	end
 
 	methods
-		function obj = ArduinoConnection(arduinoPortName)
-			if nargin < 1
-				arduinoPortName = [];
+		function obj = ArduinoConnection()
+			%-----------------------------------------------
+			%		Save/Open Experiment File
+			%-----------------------------------------------
+			option = questdlg(...
+				'Start New Experiment?',...
+				'Initialize Experiment File',...
+				'Start New',...
+				'Open Saved',...
+				'Cancel',...
+				'Start New');
+			switch option
+				case 'Start New'
+					[filename, filepath] = uiputfile(['exp_name_',datestr(now, 'yyyymmdd_HHMM'),'.mat'],'Choose directory and Experiment File Name');
+					obj.ExperimentFileName = [filepath, filename];
+					
+				case 'Open Saved'
+				    [filename, filepath] = uigetfile('*.mat', 'Select existing Experiment File');
+				    obj.ExperimentFileName = [filepath, filename];
+				    loadedFile = load(obj.ExperimentFileName);
+
+				case 'Cancel'
+					obj = [];
+					return
+			end			
+
+			%-----------------------------------------------
+			%		Find USB Port
+			%-----------------------------------------------
+			selection = questdlg(...
+				'Choose the device you are running.',...
+				'Choose device',...
+				'Arduino','Teensy','Arduino'...
+			);
+			switch selection
+				case 'Arduino'
+					arduinoPortName = [];
+				case 'Teensy'
+					arduinoPortName = inputdlg('Specify COM port:', 'USB Port', 1, {'COM1'});
+					arduinoPortName = arduinoPortName{1};
 			end
-			
+
 			if isempty(arduinoPortName)
 				arduinoPortName = obj.findFirstArduinoPort();
 			end
@@ -43,6 +80,10 @@ classdef ArduinoConnection < handle
 				disp('Can''t find serial port with Arduino')
 				return
 			end
+
+			%-----------------------------------------------
+			%		Start Serial Connection
+			%-----------------------------------------------
 
 			% Define the serial port object.
 			fprintf('Starting serial on port: %s\n', arduinoPortName)
@@ -72,43 +113,6 @@ classdef ArduinoConnection < handle
 
 			% Add event handler to detect state changes
 			obj.Listeners.StateChanged = addlistener(obj, 'StateChanged', @obj.OnStateChanged);
-		end
-
-
-		%~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-		%		Name Exp File (.mat) and pick directory
-		%~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-		function InitializeFileName(obj)
-			option = questdlg(...
-				'Start New Experiment?',...
-				'Initialize Experiment File',...
-				'Start New',...
-				'Open Saved',...
-				'Cancel',...
-				'Start New');
-			switch option
-				case 'Start New'
-					[file, path] = uiputfile(['exp_name_',datestr(now, 'yyyymmdd_HHMM'),'.mat'],'Choose directory and Experiment File Name');
-					obj.ExperimentFileName = [path, file];
-					cd(path);
-					obj.SaveExperiment();
-					
-				case 'Open Saved'
-				 	dlg = questdlg(...
-				 		'This option not yet supported. Create new file now:',...
-				 		'Can''t Open saved',...
-				 		'Continue',...
-				 		'Continue');
-
-				    [file, path] = uiputfile(['exp_name_',datestr(now, 'yyyymmdd_HHMM'),'.mat'],'Choose directory and Experiment File Name');
-				    obj.ExperimentFileName = [path, file];
-				    cd(path);
-				    obj.SaveExperiment();
-
-				case 'Cancel'
-					close(obj);
-					return
-			end
 		end
 
 		%~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -388,6 +392,12 @@ classdef ArduinoConnection < handle
 		% Terminate connection with arduino
 		function Close(obj)
 			fclose(obj.SerialConnection)
+		end
+
+		% Disconnect serial
+		function Reconnect(obj)
+			fclose(obj.SerialConnection)
+			fopen(obj.SerialConnection)
 		end
 	end
 
