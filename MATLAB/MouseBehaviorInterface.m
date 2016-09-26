@@ -119,15 +119,16 @@ classdef MouseBehaviorInterface < handle
 
 			% Menus
 			menu_file = uimenu(dlg, 'Label', '&File');
-			uimenu(menu_file, 'Label', 'Load Experiment ...');
-			uimenu(menu_file, 'Label', 'Save Experiment ...');
-			uimenu(menu_file, 'Label', 'Load Parameters ...', 'Separator', 'on', 'Callback', {@MouseBehaviorInterface.ArduinoLoadParameters, obj.Arduino, table_params});
-			uimenu(menu_file, 'Label', 'Save Parameters ...', 'Callback', {@MouseBehaviorInterface.ArduinoSaveParameters, obj.Arduino});
-			uimenu(menu_file, 'Label', 'Quit', 'Separator', 'on', 'Callback', {@MouseBehaviorInterface.ArduinoClose, obj.Arduino});
+			uimenu(menu_file, 'Label', 'Save Experiment ...', 'Callback', {@MouseBehaviorInterface.ArduinoSaveExperiment, obj.Arduino}, 'Accelerator', 's');
+			uimenu(menu_file, 'Label', 'Save Experiment As ...', 'Callback', {@MouseBehaviorInterface.ArduinoSaveAsExperiment, obj.Arduino});
+			uimenu(menu_file, 'Label', 'Load Experiment ...', 'Callback', {@MouseBehaviorInterface.ArduinoLoadExperiment, obj.Arduino}, 'Accelerator', 'l');
+			uimenu(menu_file, 'Label', 'Save Parameters ...', 'Callback', {@MouseBehaviorInterface.ArduinoSaveParameters, obj.Arduino}, 'Separator', 'on');
+			uimenu(menu_file, 'Label', 'Load Parameters ...', 'Callback', {@MouseBehaviorInterface.ArduinoLoadParameters, obj.Arduino, table_params});
+			uimenu(menu_file, 'Label', 'Quit', 'Callback', {@MouseBehaviorInterface.ArduinoClose, obj.Arduino}, 'Separator', 'on');
 
 			menu_arduino = uimenu(dlg, 'Label', '&Arduino');
 			uimenu(menu_arduino, 'Label', 'Start', 'Callback', {@MouseBehaviorInterface.ArduinoStart, obj.Arduino});
-			uimenu(menu_arduino, 'Label', 'Stop', 'Callback', {@MouseBehaviorInterface.ArduinoStop, obj.Arduino});
+			uimenu(menu_arduino, 'Label', 'Stop', 'Callback', {@MouseBehaviorInterface.ArduinoStop, obj.Arduino}, 'Accelerator', 'q');
 			uimenu(menu_arduino, 'Label', 'Reset', 'Callback', {@MouseBehaviorInterface.ArduinoReset, obj.Arduino}, 'Separator', 'on');
 			uimenu(menu_arduino, 'Label', 'Reconnect', 'Callback', {@MouseBehaviorInterface.ArduinoReconnect, obj.Arduino});
 
@@ -298,6 +299,11 @@ classdef MouseBehaviorInterface < handle
 
 		function OnTrialRegistered(obj, ~, ~)
 		% Executed when a new trial is completed
+			% Autosave if a savepath is defined
+			if (~isempty(obj.Arduino.ExperimentFileName) && obj.Arduino.AutosaveEnabled)
+				MouseBehaviorInterface.ArduinoSaveExperiment([], [], obj.Arduino);
+			end
+
 			% Count how many trials have been completed
 			iTrial = obj.Arduino.TrialsCompleted;
 
@@ -315,8 +321,6 @@ classdef MouseBehaviorInterface < handle
 
 			MouseBehaviorInterface.StackedBar(ax, resultCodeCounts, resultCodeNames);		
 			drawnow
-
-			obj.Arduino.SaveExperiment();	% (overwrites existing file)	
 		end
 
 		%----------------------------------------------------
@@ -531,10 +535,23 @@ classdef MouseBehaviorInterface < handle
 			end
 			arduino.LoadParameters(table_params, '')
 		end
+		function ArduinoSaveExperiment(~, ~, arduino)
+			if isempty(arduino.ExperimentFileName)
+				arduino.SaveAsExperiment()
+			else
+				arduino.SaveExperiment()
+			end
+		end
+		function ArduinoSaveAsExperiment(~, ~, arduino)
+			arduino.SaveAsExperiment()
+		end
+		function ArduinoLoadExperiment(~, ~, arduino)
+			arduino.LoadExperiment()
+		end
 
 		%----------------------------------------------------
 		%		Dialog Resize callbacks
-		%----------------------------------------------------	
+		%----------------------------------------------------
 		function OnMonitorDialogResized(~, ~)
 			% Retrieve dialog object and axes to resize
 			dlg = gcbo;

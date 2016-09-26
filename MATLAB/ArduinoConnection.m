@@ -5,6 +5,7 @@ classdef ArduinoConnection < handle
 		StateCanUpdateParams = logical([])
 		ParamNames = {}
 		ResultCodeNames = {}
+		EventMarkers = []
 		EventMarkerNames = {}
 		Trials = struct([])
 		ExperimentFileName = ''			% Contains 'C://path/filename.mat'
@@ -12,7 +13,6 @@ classdef ArduinoConnection < handle
 
 	properties (SetObservable, AbortSet)
 		ParamValues = []
-		EventMarkers = []
 		TrialsCompleted = 0
 	end
 
@@ -23,6 +23,7 @@ classdef ArduinoConnection < handle
 		ArduinoMessageString = ''
 		State = []
 		ParamUpdateQueue = []
+		AutosaveEnabled = false
 		Listeners
 	end
 
@@ -32,31 +33,6 @@ classdef ArduinoConnection < handle
 
 	methods
 		function obj = ArduinoConnection()
-			%-----------------------------------------------
-			%		Save/Open Experiment File
-			%-----------------------------------------------
-			option = questdlg(...
-				'Start New Experiment?',...
-				'Initialize Experiment File',...
-				'Start New',...
-				'Open Saved',...
-				'Cancel',...
-				'Start New');
-			switch option
-				case 'Start New'
-					[filename, filepath] = uiputfile(['exp_name_',datestr(now, 'yyyymmdd_HHMM'),'.mat'],'Choose directory and Experiment File Name');
-					obj.ExperimentFileName = [filepath, filename];
-					
-				case 'Open Saved'
-				    [filename, filepath] = uigetfile('*.mat', 'Select existing Experiment File');
-				    obj.ExperimentFileName = [filepath, filename];
-				    loadedFile = load(obj.ExperimentFileName);
-
-				case 'Cancel'
-					obj = [];
-					return
-			end			
-
 			%-----------------------------------------------
 			%		Find USB Port
 			%-----------------------------------------------
@@ -114,15 +90,6 @@ classdef ArduinoConnection < handle
 			% Add event handler to detect state changes
 			obj.Listeners.StateChanged = addlistener(obj, 'StateChanged', @obj.OnStateChanged);
 		end
-
-		%~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-		%			Save (overwrite) Exp File
-		%~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-		function SaveExperiment(obj)
-			% Save everything to the experimental file
-			save(obj.ExperimentFileName,'obj');	% (overwrites existing file)
-		end
-
 
 		%-----------------------------------------------~~
 		%		File I/O
@@ -201,6 +168,72 @@ classdef ArduinoConnection < handle
 			end
 		end
 
+		function SaveExperiment(obj)
+			% Save everything to the experimental file
+			save(obj.ExperimentFileName, 'obj');
+		end
+
+		function SaveAsExperiment(obj)
+			[filename, filepath] = uiputfile(['exp_name_',datestr(now, 'yyyymmdd_HHMM'),'.mat'],'Save Experiment As New File');
+			% Exit if no file selected
+			if ~(ischar(filename) && ischar(filepath))
+				return
+			end
+			obj.ExperimentFileName = [filepath, filename];
+			obj.SaveExperiment()
+			obj.AutosaveEnabled = true;
+		end
+
+		function LoadExperiment(obj, errorMessage)
+			if nargin < 2
+				errorMessage = '';
+			end
+			% Display errorMessage prompt if called for
+			if ~isempty(errorMessage)
+				selection = questdlg(...
+					errorMessage,...
+					'Error',...
+					'Yes','No','Yes'...
+				);
+				% Exit if the Grad Student says 'No'
+				if strcmp(selection, 'No')
+					return
+				end
+			end
+
+			[filename, filepath] = uigetfile('*.mat', 'Load previous experiment from file');
+			% Exit if no file selected
+			if ~(ischar(filename) && ischar(filepath))
+				return
+			end
+			% Load file
+			p = load([filepath, filename]);
+			% If loaded file does not contain parameters
+			if ~isfield(p, 'obj')
+				% Ask the Grad Student if he wants to select another file instead
+				obj.LoadExperiment('The file you selected was not loaded because it does not contain an ArduinoConnection object. Select another file instead?')
+			% If p.obj is not the correct class
+			elseif ~isa(p.obj, 'ArduinoConnection')
+				obj.LoadExperiment('The file you selected was not loaded because it does not contain an ArduinoConnection object. Select another file instead?')
+			else
+				% If all checks are good then do the deed
+				% Disable autosave first
+				autosave = obj.AutosaveEnabled;
+				obj.AutosaveEnabled = false;
+
+				% Load relevant experiment data
+				obj.EventMarkers 	= p.obj.EventMarkers;
+				obj.ParamValues 	= p.obj.ParamValues;
+				obj.Trials 			= p.obj.Trials;
+				obj.TrialsCompleted = p.obj.TrialsCompleted;
+
+				% Store the save path
+				obj.ExperimentFileName = [filepath, filename];
+
+				% Re-enable autosave if it was on
+				obj.AutosaveEnabled = autosave;
+			end
+		end
 
 		%~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 		%	Serial comms
