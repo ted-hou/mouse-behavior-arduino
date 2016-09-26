@@ -4,7 +4,6 @@ classdef ArduinoConnection < handle
 		StateNames = {}
 		StateCanUpdateParams = logical([])
 		ParamNames = {}
-		ParamValues = []
 		ResultCodeNames = {}
 		EventMarkerNames = {}
 		Trials = struct([])
@@ -12,6 +11,7 @@ classdef ArduinoConnection < handle
 	end
 
 	properties (SetObservable, AbortSet)
+		ParamValues = []
 		EventMarkers = []
 		TrialsCompleted = 0
 	end

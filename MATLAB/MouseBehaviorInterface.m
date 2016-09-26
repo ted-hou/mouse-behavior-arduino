@@ -51,9 +51,12 @@ classdef MouseBehaviorInterface < handle
 				'ColumnName', {'Value'},...
 				'ColumnFormat', {'long'},...
 				'ColumnEditable', [true],...
-				'CellEditCallback', {@MouseBehaviorInterface.OnParamChanged, obj.Arduino}...
+				'CellEditCallback', {@MouseBehaviorInterface.OnParamChangedViaGUI, obj.Arduino}...
 			);
-			% dlg.UserData.Ctrl.Table_Params = table_params;
+			dlg.UserData.Ctrl.Table_Params = table_params;
+
+			% Add listener for parameter change via non-GUI methods, in which case we'll update table_params
+			obj.Arduino.Listeners.ParamChanged = addlistener(obj.Arduino, 'ParamValues', 'PostSet', @obj.OnParamChanged);
 
 			% Set width and height
 			table_params.Position(3:4) = table_params.Extent(3:4);
@@ -465,6 +468,10 @@ classdef MouseBehaviorInterface < handle
 			ax.UserData.FigName 			= figName;
 			ax.UserData.ParamPlotOptions 	= paramPlotOptions;
 		end
+
+		function OnParamChanged(obj, ~, ~)
+			obj.Rsc.ExperimentControl.UserData.Ctrl.Table_Params.Data = obj.Arduino.ParamValues';
+		end
 	end
 
 	%----------------------------------------------------
@@ -474,7 +481,7 @@ classdef MouseBehaviorInterface < handle
 		%----------------------------------------------------
 		%		Commmunicating with Arduino
 		%----------------------------------------------------
-		function OnParamChanged(~, evnt, arduino)
+		function OnParamChangedViaGUI(~, evnt, arduino)
 			% evnt (event data contains infomation on which elements were changed to what)
 			changedParam = evnt.Indices(1);
 			newValue = evnt.NewData;
