@@ -495,7 +495,7 @@ classdef MouseBehaviorInterface < handle
 			paramsToPlot = find([paramPlotOptions{:,2}]);
 
 			if ~isempty(paramsToPlot)
-				params = ctranspose(reshape([obj.Arduino.Trials.Parameters], [], length(obj.Arduino.Trials)));			
+				params = ctranspose(reshape([obj.Arduino.Trials.Parameters], [], size(obj.Arduino.Trials, 2)));			
 				hold(ax, 'on')
 				for iParam = paramsToPlot
 					paramValues = params(:, iParam);
