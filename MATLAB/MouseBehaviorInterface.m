@@ -240,7 +240,7 @@ classdef MouseBehaviorInterface < handle
 			edit_figureName = uicontrol(...
 				'Parent', rightPanel,...
 				'Style', 'edit',...
-				'String', 'Raster Plot',...
+				'String', 'Plot',...
 				'HorizontalAlignment', 'left'...
 			);
 			dlg.UserData.Ctrl.Edit_FigureName = edit_figureName;
@@ -264,13 +264,21 @@ classdef MouseBehaviorInterface < handle
 			);
 			dlg.UserData.Ctrl.Table_ParamsToPlot = table_paramsToPlot;
 
-			button_plot = uicontrol(...
+			button_plot_raster = uicontrol(...
 				'Parent', rightPanel,...
 				'Style', 'pushbutton',...
-				'String', 'Plot',...
+				'String', 'Raster Plot',...
 				'Callback', @obj.Raster_GUI...
 			);
-			dlg.UserData.Ctrl.Button_Plot = button_plot;
+			dlg.UserData.Ctrl.Button_Plot_Raster = button_plot_raster;
+
+			button_plot_hist = uicontrol(...
+				'Parent', rightPanel,...
+				'Style', 'pushbutton',...
+				'String', 'Histogram',...
+				'Callback', @obj.Hist_GUI...
+			);
+			dlg.UserData.Ctrl.Button_Plot_Hist = button_plot_hist;
 
 			%----------------------------------------------------
 			% 		Stacked bar chart for trial results
@@ -336,16 +344,13 @@ classdef MouseBehaviorInterface < handle
 
 			obj.Raster(popup_eventZero.Value, popup_eventOfInterest.Value, edit_figureName.String, paramPlotOptions)
 		end
-		function Raster(obj, eventCodeZero, eventCodeOfInterest, figName, paramPlotOptions, nBins)
+		function Raster(obj, eventCodeZero, eventCodeOfInterest, figName, paramPlotOptions)
 			% First column in data is eventCode, second column is timestamp (since trial start)
 			if nargin < 4
 				figName = '';
 			end
 			if nargin < 5
 				paramPlotOptions = struct([]);
-			end
-			if nargin < 6
-				nBins = 10;
 			end
 
 			% Create axes object
@@ -355,7 +360,6 @@ classdef MouseBehaviorInterface < handle
 			% Store plot settings into axes object
 			ax.UserData.EventCodeZero 		= eventCodeZero;
 			ax.UserData.EventCodeOfInterest = eventCodeOfInterest;
-			ax.UserData.NBins 				= nBins;
 			ax.UserData.FigName				= figName;
 			ax.UserData.ParamPlotOptions 	= paramPlotOptions;
 
@@ -380,7 +384,6 @@ classdef MouseBehaviorInterface < handle
 
 			eventCodeOfInterest = ax.UserData.EventCodeOfInterest;
 			eventCodeZero 		= ax.UserData.EventCodeZero;
-			nBins 				= ax.UserData.NBins;
 			figName 			= ax.UserData.FigName;
 			paramPlotOptions	= ax.UserData.ParamPlotOptions;
 
@@ -468,9 +471,110 @@ classdef MouseBehaviorInterface < handle
 			% Store plot options cause for some reason it's lost unless we do this.
 			ax.UserData.EventCodeZero 		= eventCodeZero;
 			ax.UserData.EventCodeOfInterest = eventCodeOfInterest;
-			ax.UserData.NBins 				= nBins;
 			ax.UserData.FigName 			= figName;
 			ax.UserData.ParamPlotOptions 	= paramPlotOptions;
+		end
+
+		%----------------------------------------------------
+		%		Plot - Histogram of first licks/press duration
+		%----------------------------------------------------
+		function Hist_GUI(obj, ~, ~)
+			dlg = obj.Rsc.Monitor;
+			popup_eventZero = dlg.UserData.Ctrl.Popup_EventZero;
+			popup_eventOfInterest = dlg.UserData.Ctrl.Popup_EventOfInterest;
+			edit_figureName = dlg.UserData.Ctrl.Edit_FigureName;
+			table_paramsToPlot = dlg.UserData.Ctrl.Table_ParamsToPlot;
+			paramPlotOptions = table_paramsToPlot.Data;
+
+			obj.Hist(popup_eventZero.Value, popup_eventOfInterest.Value, edit_figureName.String, paramPlotOptions)
+		end
+		function Hist(obj, eventCodeZero, eventCodeOfInterest, figName, paramPlotOptions)
+			% First column in data is eventCode, second column is timestamp (since trial start)
+			if nargin < 4
+				figName = '';
+			end
+			if nargin < 5
+				paramPlotOptions = struct([]);
+			end
+
+			% Create axes object
+			f = figure('Name', figName, 'NumberTitle', 'off');
+			ax = gca;
+
+			% Store plot settings into axes object
+			ax.UserData.EventCodeZero 		= eventCodeZero;
+			ax.UserData.EventCodeOfInterest = eventCodeOfInterest;
+			ax.UserData.FigName				= figName;
+			ax.UserData.ParamPlotOptions 	= paramPlotOptions;
+
+			% Store the axes object
+			if ~isfield(obj.Rsc, 'LooseFigures')
+				figId = 1;
+			else
+				figId = length(obj.Rsc.LooseFigures) + 1;
+			end
+			obj.Rsc.LooseFigures(figId).Ax = ax;
+
+			% Plot it for the first time
+			obj.Hist_Execute([], [], figId);
+
+			% Plot again everytime an event of interest occurs
+			ax.UserData.Listener = addlistener(obj.Arduino, 'TrialsCompleted', 'PostSet', @(src, evnt) obj.Hist_Execute(src, evnt, figId));
+			f.CloseRequestFcn = {@MouseBehaviorInterface.OnLooseFigureClosed, ax.UserData.Listener};
+		end
+		function Hist_Execute(obj, ~, ~, figId)
+			data 				= obj.Arduino.EventMarkers;
+			ax 					= obj.Rsc.LooseFigures(figId).Ax;
+
+			eventCodeOfInterest = ax.UserData.EventCodeOfInterest;
+			eventCodeZero 		= ax.UserData.EventCodeZero;
+			figName 			= ax.UserData.FigName;
+
+			% If events did not occur at all, do not plot
+			if (isempty(data))
+				return
+			end
+
+			% Separate eventsOfInterest into trials, divided by eventsZero
+			eventsZero 			= find(data(:, 1) == eventCodeZero);
+			eventsOfInterest 	= find(data(:, 1) == eventCodeOfInterest);
+
+			% If events did not occur at all, do not plot
+			if (isempty(eventsZero) || isempty(eventsOfInterest))
+				return
+			end
+
+			if eventsOfInterest(end) > eventsZero(end)
+				edges = [eventsZero; eventsOfInterest(end)];
+			else
+				edges = eventsZero;
+			end
+			% Get timestamps for events of interests and zero events
+			[~, ~, trials] 	= histcounts(eventsOfInterest, edges); % bins tells us which trials events belong to
+			[C, ia, ~] 		= unique(trials);
+
+			eventsZero  		= eventsZero(C);
+			eventsOfInterest 	= eventsOfInterest(ia);
+
+			eventTimesOfInterest 	= data(eventsOfInterest, 2);
+			eventTimesZero 			= data(eventsZero, 2);
+			
+			% Substract two sets of timestamps to get relative times 
+			eventTimesOfInterest 	= eventTimesOfInterest - eventTimesZero;
+
+			% Plot histogram of selected event times
+			hist(ax, eventTimesOfInterest)
+
+			% ax.XLim 			= [min(eventTimesOfInterest) - 100, max(eventTimesOfInterest) + 100];
+			% ax.YLim 			= [max([0, min(trials) - 1]), obj.Arduino.TrialsCompleted + 1];
+			ax.XLabel.String 	= 'Time (ms)';
+			ax.YLabel.String 	= 'Occurance';
+			title(ax, figName)
+
+			% Store plot options cause for some reason it's lost unless we do this.
+			ax.UserData.EventCodeZero 		= eventCodeZero;
+			ax.UserData.EventCodeOfInterest = eventCodeOfInterest;
+			ax.UserData.FigName 			= figName;
 		end
 
 		function OnParamChanged(obj, ~, ~)
@@ -496,8 +600,23 @@ classdef MouseBehaviorInterface < handle
 			arduino.UpdateParams_Execute()
 		end
 		function ArduinoStart(~, ~, arduino)
+			if ((~arduino.AutosaveEnabled) || isempty(arduino.ExperimentFileName))
+				selection = questdlg(...
+					'Autosave is disabled. Start experiment anyway?',...
+					'Autosave',...
+					'Save', 'Start Anyway', 'Cancel' ,'Save'...
+				);
+				switch selection
+					case 'Save'
+						arduino.SaveAsExperiment()
+					case 'Start Anyway'
+						warning('Autosave not enabled. Starting experiment anyway.')
+					otherwise
+						return
+				end 
+			end
 			arduino.Start()
-			fprintf('Started.\n')
+			fprintf('Started.\n')			
 		end
 		function ArduinoStop(~, ~, arduino)
 			arduino.Stop()
@@ -567,7 +686,8 @@ classdef MouseBehaviorInterface < handle
 			edit_figureName = dlg.UserData.Ctrl.Edit_FigureName;
 			text_paramsToPlot = dlg.UserData.Ctrl.Text_ParamsToPlot;
 			table_paramsToPlot = dlg.UserData.Ctrl.Table_ParamsToPlot;
-			button_plot = dlg.UserData.Ctrl.Button_Plot;
+			button_plot_raster = dlg.UserData.Ctrl.Button_Plot_Raster;
+			button_plot_hist = dlg.UserData.Ctrl.Button_Plot_Hist;
 
 			u = dlg.UserData;
 			
@@ -661,9 +781,16 @@ classdef MouseBehaviorInterface < handle
 			tableWidth = text_paramsToPlot.Position(3) - 16.5;
 			table_paramsToPlot.ColumnWidth = num2cell(tableWidth*[0.5, 0.5/3, 0.5/3, 0.5/3]);
 
-			button_plot.Position = [...
+			button_plot_raster.Position = [...
 				edit_figureName.Position(1),...
-				table_paramsToPlot.Position(2) + 0.5*table_paramsToPlot.Position(4) - 0.5*text_eventZero.Position(4),...
+				table_paramsToPlot.Position(2) + 0.5*table_paramsToPlot.Position(4) + 1.5*text_eventZero.Position(4),...
+				plotOptionWidth,...
+				2*text_eventZero.Position(4)...
+			];
+
+			button_plot_hist.Position = [...
+				edit_figureName.Position(1),...
+				table_paramsToPlot.Position(2) + 0.5*table_paramsToPlot.Position(4) - 1.5*text_eventZero.Position(4),...
 				plotOptionWidth,...
 				2*text_eventZero.Position(4)...
 			];

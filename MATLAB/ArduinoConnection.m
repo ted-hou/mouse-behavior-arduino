@@ -6,6 +6,7 @@ classdef ArduinoConnection < handle
 		ParamNames = {}
 		ResultCodeNames = {}
 		EventMarkers = []
+		EventMarkersUntrimmed = []
 		EventMarkerNames = {}
 		Trials = struct([])
 		ExperimentFileName = ''			% Contains 'C://path/filename.mat'
@@ -19,11 +20,12 @@ classdef ArduinoConnection < handle
 	properties (Transient)	% These properties will be discarded when saving to file
 		DebugMode = false
 		Connected = false
+		AutosaveEnabled = false
 		SerialConnection = []
 		ArduinoMessageString = ''
 		State = []
 		ParamUpdateQueue = []
-		AutosaveEnabled = false
+		EventMarkersBuffer = []
 		Listeners
 	end
 
@@ -47,6 +49,8 @@ classdef ArduinoConnection < handle
 				case 'Teensy'
 					arduinoPortName = inputdlg('Specify COM port:', 'USB Port', 1, {'COM1'});
 					arduinoPortName = arduinoPortName{1};
+				case ''
+					error('Device type not defined.');
 			end
 
 			if isempty(arduinoPortName)
@@ -159,10 +163,6 @@ classdef ArduinoConnection < handle
 						end
 						% Attempt to execute update queue now, if current state does not allow param update, the queue will be executed when we enter an appropriate state
 						obj.UpdateParams_Execute()
-						% Update parameter display
-						if ~isempty(table_params)
-							table_params.Data = obj.ParamValues';
-						end
 					end
 				end
 			end
@@ -182,6 +182,7 @@ classdef ArduinoConnection < handle
 			obj.ExperimentFileName = [filepath, filename];
 			obj.SaveExperiment()
 			obj.AutosaveEnabled = true;
+			fprintf('Autosave enabled. Saving to %s after each trial.\n', obj.ExperimentFileName)
 		end
 
 		function LoadExperiment(obj, errorMessage)
@@ -218,20 +219,26 @@ classdef ArduinoConnection < handle
 			else
 				% If all checks are good then do the deed
 				% Disable autosave first
-				autosave = obj.AutosaveEnabled;
 				obj.AutosaveEnabled = false;
 
 				% Load relevant experiment data
-				obj.EventMarkers 	= p.obj.EventMarkers;
-				obj.ParamValues 	= p.obj.ParamValues;
-				obj.Trials 			= p.obj.Trials;
-				obj.TrialsCompleted = p.obj.TrialsCompleted;
+				obj.EventMarkers 			= p.obj.EventMarkers;
+				obj.EventMarkersUntrimmed 	= p.obj.EventMarkersUntrimmed;
+				obj.Trials 					= p.obj.Trials;
+				obj.TrialsCompleted 		= p.obj.TrialsCompleted;
+
+				% Add all parameters to update queue
+				for iParam = 1:length(p.obj.ParamValues)
+					obj.UpdateParams_AddToQueue(iParam, p.obj.ParamValues(iParam))
+				end
+				% Attempt to execute update queue now, if current state does not allow param update, the queue will be executed when we enter an appropriate state
+				obj.UpdateParams_Execute()
 
 				% Store the save path
 				obj.ExperimentFileName = [filepath, filename];
 
-				% Re-enable autosave if it was on
-				obj.AutosaveEnabled = autosave;
+				% Re-enable autosave
+				obj.AutosaveEnabled = true;
 			end
 		end
 
@@ -315,7 +322,8 @@ classdef ArduinoConnection < handle
 					subStrings = strsplit(strtrim(value), ' ');
 					eventCode = str2num(subStrings{1}) + 1; % Convert zero-based indices (Arduino) to one-based indices (MATLAB)
 					timeStamp = str2num(subStrings{2});
-					obj.EventMarkers = [obj.EventMarkers; eventCode, timeStamp];
+					obj.EventMarkersBuffer = [obj.EventMarkersBuffer; eventCode, timeStamp];
+					obj.EventMarkersUntrimmed = [obj.EventMarkersUntrimmed; eventCode, timeStamp];
 				case '+'
 					% Arduino sent the name of an event marker - "+ 0 TRIAL_START"
 					subStrings = strsplit(strtrim(value), ' ');
@@ -333,7 +341,12 @@ classdef ArduinoConnection < handle
 					obj.ParamValues(paramId) = str2num(subStrings{3});
 				case '`'
 					% Result code returned, this is only expected once per trial
-					% Store the results in as a new trial
+
+					% Move eventMarkers from this trial into permanent storage
+					obj.EventMarkers = [obj.EventMarkers; obj.EventMarkersBuffer];
+					obj.EventMarkersBuffer = []; % Clear buffer
+
+					% Store trial results in as a new trial
 					iTrial = obj.TrialsCompleted + 1;
 					resultCode = str2num(strtrim(value)) + 1; % Convert to one-based index
 					obj.Trials(iTrial).Code = resultCode;
@@ -415,6 +428,7 @@ classdef ArduinoConnection < handle
 		% Interrupt current trial and return to IDLE
 		function Stop(obj)
 			obj.SendMessage('Q')
+			obj.EventMarkersBuffer = [];
 		end
 
 		% Trigger a soft restart on arduino
@@ -464,7 +478,7 @@ classdef ArduinoConnection < handle
 				list = strread(list,'%s','delimiter',' ');
 				coms = 0;
 				for i = 1:numel(list)
-				  if strcmp(list{i}(1:3),'COM')
+					if strcmp(list{i}(1:3),'COM')
 						if ~iscell(coms)
 							coms = list(i);
 						else
