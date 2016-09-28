@@ -327,6 +327,7 @@
     static bool _pre_window_elapsed      = false;    // Track if pre_window time has elapsed
     static bool _reached_target          = false;    // Track if target time reached
     static bool _late_lick_detected      = false;    // Track if late lick detected
+    static unsigned long _exp_timer      = 0;        // Experiment timer, reset to millis() at every soft reset
     static unsigned long _lick_time      = 0;        // Tracks most recent lick time
     static unsigned long _cue_on_time    = 0;        // Tracks time cue has been displayed for
     static unsigned long _response_window_timer = 0; // Tracks time in response window state
@@ -497,6 +498,7 @@
     _pre_window_elapsed      = false;    // Track if pre_window time has elapsed
     _reached_target          = false;    // Track if target time reached
     _late_lick_detected      = false;    // Track if late lick detected
+    _exp_timer		= millis();	// Experiment timer, reset to millis() at every soft reset
     _lick_time      = 0;        // Tracks most recent lick time
     _cue_on_time    = 0;        // Tracks time cue has been displayed for
     _response_window_timer = 0; // Tracks time in response window state
@@ -592,15 +594,15 @@
     if (_state != _prevState) {                       // If ENTERTING READY STATE:
       //-----------------INIT TRIAL CLOCKS and OUTPUTS--------------//
       _trialTimer = millis();                             // Start _trialTimer
-      // Send event marker (trial_init) to HOST with timestamp relative to trial start (0)
-      sendMessage("&" + String(EVENT_TRIAL_INIT) + " " + String(millis() - _trialTimer));
+      // Send event marker (trial_init) to HOST with timestamp
+      sendMessage("&" + String(EVENT_TRIAL_INIT) + " " + String(millis() - _exp_timer));
 
       _prevState = _state;                                // Assign _prevState to READY _state
       sendMessage("$" + String(_state));                  // Send  HOST _state entry -- $2 (Ready State)
       
       setHouseLamp(false);                                // House Lamp OFF
-      // Send event marker (house_lamp_off) to HOST with timestamp relative to trial start
-      sendMessage("&" + String(EVENT_HOUSE_LAMP_OFF) + " " + String(millis() - _trialTimer));
+      // Send event marker (house_lamp_off) to HOST with timestamp
+      sendMessage("&" + String(EVENT_HOUSE_LAMP_OFF) + " " + String(millis() - _exp_timer));
       
       _random_delay_timer = millis();                     // Start _random_delay_timer
       _preCueDelay = random(_params[RANDOM_DELAY_MIN], _params[RANDOM_DELAY_MAX]);     // Choose random delay time
@@ -620,8 +622,8 @@
       if (!_lick_state) {                              // If a new lick initiated
         _lick_time = millis() - _trialTimer;           // Records _lick_time relative to trial start
         int _neg_lick_time = _lick_time - _preCueDelay;
-        // Send a event marker (lick) to HOST with timestamp relative to CUE ONSET
-        sendMessage("&" + String(EVENT_LICK) + " " + String(_neg_lick_time));
+        // Send a event marker (lick) to HOST with timestamp
+        sendMessage("&" + String(EVENT_LICK) + " " + String(millis() - _exp_timer));
         _lick_state = true;                            // Halts lick detection
         //------------------------DEBUG MODE--------------------------//
           if (_params[_DEBUG]) {sendMessage("Pre-cue lick detected, tallying lick @ " + String(_neg_lick_time) + "ms wrt Cue ON");}
@@ -670,8 +672,8 @@
       setCueLED(true);                                 // Cue LED ON
       playSound(TONE_CUE);                             // Cue tone ON
       _cue_on_time = millis();                         // Start Cue ON timer
-      // Send event marker (cue_on) to HOST with timestamp relative to trial start
-      sendMessage("&" + String(EVENT_CUE_ON) + " " + String(_cue_on_time - _trialTimer));
+      // Send event marker (cue_on) to HOST with timestamp
+      sendMessage("&" + String(EVENT_CUE_ON) + " " + String(millis() - _exp_timer));
       _prevState = _state;                                // Assign _prevState to PRE_WINDOW state
       sendMessage("$" + String(_state));                  // Send HOST $3 (pre_window State)
       //------------------------DEBUG MODE--------------------------//  
@@ -683,10 +685,9 @@
 
           //======================ENFORCED NO LICK=========================//
           if (_params[ENFORCE_NO_LICK] == 1) {
-            //_lick_time = millis() - _trialTimer;           // Records _lick_time relative to trial start
             _lick_time = millis() - _cue_on_time;          // Records lick wrt cue onset
-            // Send a event marker (lick) to HOST with timestamp relative to CUE ONSET
-            sendMessage("&" + String(EVENT_LICK) + " " + String(_lick_time));
+            // Send a event marker (lick) to HOST with timestamp
+            sendMessage("&" + String(EVENT_LICK) + " " + String(millis() - _exp_timer));
             sendMessage("`" + String(CODE_EARLY_LICK));    // Send result code (Early Lick) to Matlab HOST      
             _state = ABORT_TRIAL;                          // Move to ABORT state
             _lick_state = true;                            // Halt lick detection
@@ -703,10 +704,9 @@
         
           //=======================NON-ENFORCED============================//
           else
-            //_lick_time = millis() - _trialTimer;           // Records _lick_time relative to trial start
             _lick_time = millis() - _cue_on_time;          // Records lick wrt CUE ONSET
-            // Send a event marker (lick) to HOST with timestamp relative to CUE ONSET
-            sendMessage("&" + String(EVENT_LICK) + " " + String(_lick_time));
+            // Send a event marker (lick) to HOST with timestamp
+            sendMessage("&" + String(EVENT_LICK) + " " + String(millis() - _exp_timer));
             _lick_state = true;                            // Halts lick detection
             //------------------------DEBUG MODE--------------------------//
               if (_params[_DEBUG]) {
@@ -761,10 +761,9 @@
       if (!_lick_state) {                              // If new lick
         //======================ENFORCED NO LICK=========================//
         if (_params[ENFORCE_NO_LICK] == 1) {
-          //_lick_time = millis() - _trialTimer;           // Records _lick_time relative to trial start
           _lick_time = millis() - _cue_on_time;          // Records lick wrt CUE ON
-          // Send a event marker (lick) to HOST with timestamp relative to CUE ON
-          sendMessage("&" + String(EVENT_LICK) + " " + String(_lick_time));
+          // Send a event marker (lick) to HOST with timestamp
+          sendMessage("&" + String(EVENT_LICK) + " " + String(millis() - _exp_timer));
           sendMessage("`" + String(CODE_EARLY_LICK));    // Send result code (Early Lick) to Matlab HOST      
           _state = ABORT_TRIAL;                          // Move to ABORT state
           _lick_state = true;                            // Halt lick detection
@@ -781,10 +780,9 @@
       
         //=======================NON-ENFORCED============================//
         else
-          //_lick_time = millis() - _trialTimer;           // Records _lick_time relative to trial start
           _lick_time = millis() - _cue_on_time;          // Records lick wrt CUE ON
-          // Send a event marker (lick) to HOST with timestamp relative to CUE ON
-          sendMessage("&" + String(EVENT_LICK) + " " + String(_lick_time));
+          // Send a event marker (lick) to HOST with timestamp
+          sendMessage("&" + String(EVENT_LICK) + " " + String(millis() - _exp_timer));
           _lick_state = true;                            // Halts lick detection
           _state = PRE_WINDOW;                           // Returns to Pre-window
           //------------------------DEBUG MODE--------------------------//
@@ -834,8 +832,8 @@
             _response_window_timer = millis();                  // Start _response_window_timer
             _prevState = _state;                                // Assign _prevState to RESPONSE_WINDOW state
             sendMessage("$" + String(_state));                  // Send a message to host upon _state entry -- $4 (response_window State)
-            // Send event marker (window open) to HOST with timestamp relative to trial start
-            sendMessage("&" + String(EVENT_WINDOW_OPEN) + " " + String(_response_window_timer - _cue_on_time)); // relative to cue onset
+            // Send event marker (window open) to HOST with timestamp
+            sendMessage("&" + String(EVENT_WINDOW_OPEN) + " " + String(millis() - _exp_timer)); // relative to cue onset
             //------------------------DEBUG MODE--------------------------//  
             if (_params[_DEBUG]) {
               sendMessage("Entered response window at " + String(_response_window_timer - _cue_on_time) +"ms, awaiting lick.");
@@ -843,12 +841,11 @@
             //----------------------end DEBUG MODE------------------------//
             if (getLickState()) {                            // MOUSE: "Licked" -> Stay in RESPONSE_WINDOW
               if (!_lick_state) {                              // If a new lick initiated
-                //_lick_time = millis() - _trialTimer;           // Records _lick_time relative to trial start
                 _lick_time = millis() - _cue_on_time;          // Records lick wrt CUE ON
-                // Send a event marker (lick) to HOST with timestamp relative to CUE ON
-                sendMessage("&" + String(EVENT_LICK) + " " + String(_lick_time));
-                // Send a event marker (correct lick) to HOST with timestamp relative to trial start
-                sendMessage("&" + String(EVENT_CORRECT_LICK) + " " + String(_lick_time));
+                // Send a event marker (lick) to HOST with timestamp
+                sendMessage("&" + String(EVENT_LICK) + " " + String(millis() - _exp_timer));
+                // Send a event marker (correct lick) to HOST with timestamp
+                sendMessage("&" + String(EVENT_CORRECT_LICK) + " " + String(millis() - _exp_timer));
                 _lick_state = true;                            // Halts lick detection
                 // Cycle back to Response Window state in Pavlovian Mode //
                 //------------------------DEBUG MODE--------------------------//
@@ -872,12 +869,11 @@
         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
           if (getLickState()) {                            // MOUSE: "Licked" -> Stay in RESPONSE_WINDOW
             if (!_lick_state) {                              // If a new lick initiated
-              //_lick_time = millis() - _trialTimer;           // Records _lick_time relative to trial start
               _lick_time = millis() - _cue_on_time;          // Records lick wrt CUE ON
-              // Send a event marker (lick) to HOST with timestamp relative to CUE ON
-              sendMessage("&" + String(EVENT_LICK) + " " + String(_lick_time));
-              // Send a event marker (correct lick) to HOST with timestamp relative to CUE ON
-              sendMessage("&" + String(EVENT_CORRECT_LICK) + " " + String(_lick_time));
+              // Send a event marker (lick) to HOST with timestamp
+              sendMessage("&" + String(EVENT_LICK) + " " + String(millis() - _exp_timer));
+              // Send a event marker (correct lick) to HOST with timestamp
+              sendMessage("&" + String(EVENT_CORRECT_LICK) + " " + String(millis() - _exp_timer));
               _lick_state = true;                            // Halts lick detection
               // Cycle back to Response Window state in Pavlovian Mode //
               //------------------------DEBUG MODE--------------------------//
@@ -905,8 +901,8 @@
 
           unsigned long current_time = millis()-_cue_on_time; //****Changed to be wrt cue onset (not total trial time)
           if (!_reached_target && current_time >= _params[TARGET]) { // TARGET -> REWARD
-            // Send event marker (target time) to HOST with timestamp relative to trial start
-            sendMessage("&" + String(EVENT_TARGET_TIME) + " " + String(current_time));
+            // Send event marker (target time) to HOST with timestamp
+            sendMessage("&" + String(EVENT_TARGET_TIME) + " " + String(millis() - _exp_timer));
             _reached_target = true;                        // Indicate target reached
             _state = REWARD;                               // Move -> REWARD (Pavlovian only)
             //------------------------DEBUG MODE--------------------------//  
@@ -919,8 +915,8 @@
           if (current_time >= _params[INTERVAL_MAX]) {      // Window Closed -> IDLE_STATE **** NEVER SHOULD HAPPEN FOR PAVLOVIAN!
             setHouseLamp(true);                               // House Lamp ON (to indicate error)
             playSound(TONE_ALERT);
-            // Send event marker (window closed) to HOST with timestamp relative to trial start
-            sendMessage("&" + String(EVENT_WINDOW_CLOSED) + " " + String(current_time));
+            // Send event marker (window closed) to HOST with timestamp
+            sendMessage("&" + String(EVENT_WINDOW_CLOSED) + " " + String(millis() - _exp_timer));
             //------------------------DEBUG MODE--------------------------//  
             if (_params[_DEBUG]) {
               sendMessage("PAVLOVIAN ERROR: Reward window closed at " + String(current_time) +"ms.");
@@ -941,8 +937,8 @@
             _response_window_timer = millis();                  // Start _response_window_timer
             _prevState = _state;                                // Assign _prevState to RESPONSE_WINDOW state
             sendMessage("$" + String(_state));                  // Send a message to host upon _state entry -- $4 (response_window State)
-            // Send event marker (window open) to HOST with timestamp relative to trial start
-            sendMessage("&" + String(EVENT_WINDOW_OPEN) + " " + String(_response_window_timer - _trialTimer));
+            // Send event marker (window open) to HOST with timestamp
+            sendMessage("&" + String(EVENT_WINDOW_OPEN) + " " + String(millis() - _exp_timer));
             //------------------------DEBUG MODE--------------------------//  
             if (_params[_DEBUG]) {
               sendMessage("Entered response window at " + String(_response_window_timer - _cue_on_time) +"ms wrt cue on, awaiting lick.");
@@ -950,12 +946,11 @@
             //----------------------end DEBUG MODE------------------------//
             if (getLickState()) {                            // MOUSE: "Licked" -> REWARD
               if (!_lick_state) {                              // If a new lick initiated
-                //_lick_time = millis() - _trialTimer;           // Records _lick_time relative to trial start
                 _lick_time = millis() - _cue_on_time;          // Records lick wrt CUE ON
-                // Send a event marker (lick) to HOST with timestamp relative to CUE ON
-                sendMessage("&" + String(EVENT_LICK) + " " + String(_lick_time));
-                // Send a event marker (correct lick) to HOST with timestamp relative to trial start
-                sendMessage("&" + String(EVENT_CORRECT_LICK) + " " + String(_lick_time));
+                // Send a event marker (lick) to HOST with timestamp
+                sendMessage("&" + String(EVENT_LICK) + " " + String(millis() - _exp_timer));
+                // Send a event marker (correct lick) to HOST with timestamp
+                sendMessage("&" + String(EVENT_CORRECT_LICK) + " " + String(millis() - _exp_timer));
                 _lick_state = true;                            // Halts lick detection
                 _state = REWARD;                               // Move -> REWARD
                 //------------------------DEBUG MODE--------------------------//
@@ -979,12 +974,11 @@
         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
           if (getLickState()) {                             // MOUSE: "Licked" -> REWARD
             if (!_lick_state) {                              // If a new lick initiated
-              //_lick_time = millis() - _trialTimer;           // Records _lick_time relative to trial start
               _lick_time = millis() - _cue_on_time;          // Records lick wrt CUE ON
-              // Send a event marker (lick) to HOST with timestamp relative to CUE ON
-              sendMessage("&" + String(EVENT_LICK) + " " + String(_lick_time));
-              // Send a event marker (correct lick) to HOST with timestamp relative to trial start
-              sendMessage("&" + String(EVENT_CORRECT_LICK) + " " + String(_lick_time));
+              // Send a event marker (lick) to HOST with timestamp
+              sendMessage("&" + String(EVENT_LICK) + " " + String(millis() - _exp_timer));
+              // Send a event marker (correct lick) to HOST with timestamp
+              sendMessage("&" + String(EVENT_CORRECT_LICK) + " " + String(millis() - _exp_timer));
               _lick_state = true;                            // Halts lick detection
               _state = REWARD;                               // Move -> REWARD
               //------------------------DEBUG MODE--------------------------//
@@ -1012,8 +1006,8 @@
 
           unsigned long current_time = millis()-_cue_on_time; // WRT cue onset
           if (!_reached_target && current_time >= _params[TARGET]) { // If now is target time...record but stay in state (Operant only)
-            // Send event marker (target time) to HOST with timestamp relative to trial start
-            sendMessage("&" + String(EVENT_TARGET_TIME) + " " + String(current_time));
+            // Send event marker (target time) to HOST with timestamp
+            sendMessage("&" + String(EVENT_TARGET_TIME) + " " + String(millis() - _exp_timer));
             _reached_target = true;                        // Indicate target reached
             //------------------------DEBUG MODE--------------------------//  
             if (_params[_DEBUG]) {
@@ -1025,8 +1019,8 @@
           if (current_time >= _params[INTERVAL_MAX]) {      // Window Closed -> POST_WINDOW
             setHouseLamp(true);                               // House Lamp ON (to indicate error)
             playSound(TONE_ALERT);
-            // Send event marker (window closed) to HOST with timestamp relative to trial start
-            sendMessage("&" + String(EVENT_WINDOW_CLOSED) + " " + String(current_time));
+            // Send event marker (window closed) to HOST with timestamp
+            sendMessage("&" + String(EVENT_WINDOW_CLOSED) + " " + String(millis() - _exp_timer));
             //------------------------DEBUG MODE--------------------------//  
             if (_params[_DEBUG]) {
               sendMessage("Reward window closed at " + String(current_time) +"ms wrt Cue ON.");
@@ -1059,15 +1053,14 @@
       if (_state != _prevState) {                        // If ENTERTING POST_WINDOW:  
         _prevState = _state;                                // Assign _prevState to POST_WINDOW state
         sendMessage("$" + String(_state));                  // Send HOST $4 (post_window State)
-        // Send event marker (window closed) to HOST with timestamp relative to trial start
-        sendMessage("&" + String(EVENT_WINDOW_CLOSED) + " " + String(millis() - _trialTimer));
+        // Send event marker (window closed) to HOST with timestamp
+        sendMessage("&" + String(EVENT_WINDOW_CLOSED) + " " + String(millis() - _exp_timer));
         
         if (getLickState()) {                            // MOUSE: "Licked"
           if (!_lick_state) {                              // If a new lick initiated
-            //_lick_time = millis() - _trialTimer;           // Records _lick_time relative to trial start
             _lick_time = millis() - _cue_on_time;          // Records lick wrt CUE ON
-            // Send a event marker (lick) to HOST with timestamp relative to CUE ON
-            sendMessage("&" + String(EVENT_LICK) + " " + String(_lick_time));
+            // Send a event marker (lick) to HOST with timestamp
+            sendMessage("&" + String(EVENT_LICK) + " " + String(millis() - _exp_timer));
             sendMessage("`" + String(CODE_LATE_LICK));    // Send result code (Late Lick) to Matlab HOST      
             _lick_state = true;                            // Halts lick detection
             _late_lick_detected = true;                    // Don't send Result Code on next lick
@@ -1089,10 +1082,9 @@
     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
       if (getLickState()) {                            // MOUSE: "Licked"
         if (!_lick_state) {                              // If a new lick initiated
-          //_lick_time = millis() - _trialTimer;           // Records _lick_time relative to trial start
           _lick_time = millis() - _cue_on_time;          // Records lick wrt CUE ON
-          // Send a event marker (lick) to HOST with timestamp relative to CUE ON
-          sendMessage("&" + String(EVENT_LICK) + " " + String(_lick_time));    
+          // Send a event marker (lick) to HOST with timestamp
+          sendMessage("&" + String(EVENT_LICK) + " " + String(millis() - _exp_timer));    
           _lick_state = true;                            // Halts lick detection
           if (!_late_lick_detected) {                    // If this is first lick in post window
             sendMessage("`" + String(CODE_LATE_LICK));     // Send result code (Late Lick) to Matlab HOST
@@ -1117,8 +1109,8 @@
       }  
 
       if (millis() - _cue_on_time >= _params[TRIAL_DURATION]) {  // TRIAL END -> ITI
-        // Send event marker (trial end) to HOST with timestamp relative to trial start
-        sendMessage("&" + String(EVENT_TRIAL_END) + " " + String(millis() - _trialTimer));
+        // Send event marker (trial end) to HOST with timestamp
+        sendMessage("&" + String(EVENT_TRIAL_END) + " " + String(millis() - _exp_timer));
         _state = INTERTRIAL;                                      // Move to ITI
         if (!_late_lick_detected) {                    // If this is first lick in post window
             sendMessage("`" + String(CODE_NO_LICK));              // Send result code (Correct) to Matlab HOST 
@@ -1142,8 +1134,8 @@
         _reward_timer = millis();                        // Start _reward_timer
         setReward(true);                                    // Initiate reward delivery
         playSound(TONE_REWARD);                             // Start reward tone    
-        // Send event marker (reward) to HOST with timestamp relative to trial start
-        sendMessage("&" + String(EVENT_REWARD) + " " + String(_reward_timer - _trialTimer));
+        // Send event marker (reward) to HOST with timestamp
+        sendMessage("&" + String(EVENT_REWARD) + " " + String(millis() - _exp_timer));
         sendMessage("`" + String(CODE_CORRECT));            // Send result code (Correct) to Matlab HOST      
         _prevState = _state;                                // Assign _prevState to REWARD _state
         sendMessage("$" + String(_state));                  // Send HOST $6 (reward State)  
@@ -1152,10 +1144,9 @@
         //----------------------end DEBUG MODE------------------------//
         if (getLickState()) {                            // MOUSE: "Licked"
           if (!_lick_state) {                              // If a new lick initiated
-            //_lick_time = millis() - _trialTimer;           // Records _lick_time relative to trial start
             _lick_time = millis() - _cue_on_time;          // Records lick wrt CUE ON
-            // Send a event marker (lick) to HOST with timestamp relative to CUE ON
-            sendMessage("&" + String(EVENT_LICK) + " " + String(_lick_time));
+            // Send a event marker (lick) to HOST with timestamp
+            sendMessage("&" + String(EVENT_LICK) + " " + String(millis() - _exp_timer));
             _lick_state = true;                            // Halts lick detection
             //------------------------DEBUG MODE--------------------------//
             if (_params[_DEBUG]) {
@@ -1192,10 +1183,9 @@
 
       if (getLickState()) {                            // MOUSE: "Licked"
         if (!_lick_state) {                              // If a new lick initiated
-          //_lick_time = millis() - _trialTimer;           // Records _lick_time relative to trial start
           _lick_time = millis() - _cue_on_time;          // Records lick wrt CUE ON
-          // Send a event marker (lick) to HOST with timestamp relative to CUE ON
-          sendMessage("&" + String(EVENT_LICK) + " " + String(_lick_time));
+          // Send a event marker (lick) to HOST with timestamp
+          sendMessage("&" + String(EVENT_LICK) + " " + String(millis() - _exp_timer));
           _lick_state = true;                            // Halts lick detection
           //------------------------DEBUG MODE--------------------------//
           if (_params[_DEBUG]) {
@@ -1227,8 +1217,8 @@
 
 
       if (millis() - _trialTimer - _preCueDelay >= _params[TRIAL_DURATION]) {  // TRIAL END -> ITI
-        // Send event marker (trial end) to HOST with timestamp relative to trial start
-        sendMessage("&" + String(EVENT_TRIAL_END) + " " + String(millis() - _trialTimer));
+        // Send event marker (trial end) to HOST with timestamp
+        sendMessage("&" + String(EVENT_TRIAL_END) + " " + String(millis() - _exp_timer));
         _state = INTERTRIAL;                                // Move to ITI
         return;                                             // Exit Fx
       }
@@ -1252,8 +1242,8 @@
         playSound(TONE_ABORT);                             // Error Tone
 
         sendMessage("$" + String(_state));                 // Send HOST -- $7 (abort State) 
-        // Send event marker (abort) to HOST with timestamp relative to trial start
-        sendMessage("&" + String(EVENT_ABORT) + " " + String(_abort_timer - _trialTimer));
+        // Send event marker (abort) to HOST with timestamp
+        sendMessage("&" + String(EVENT_ABORT) + " " + String(millis() - _exp_timer));
         
         //------------------------DEBUG MODE--------------------------//  
         if (_params[_DEBUG]) {sendMessage("Incorrect: Trial aborted.");}
@@ -1265,10 +1255,9 @@
         
         if (getLickState()) {                            // MOUSE: "Licked"
           if (!_lick_state) {                              // If a new lick initiated
-            //_lick_time = millis() - _trialTimer;           // Records _lick_time relative to trial start
             _lick_time = millis() - _cue_on_time;          // Records lick wrt CUE ON
-            // Send a event marker (lick) to HOST with timestamp relative to CUE ON
-            sendMessage("&" + String(EVENT_LICK) + " " + String(_lick_time));
+            // Send a event marker (lick) to HOST with timestamp
+            sendMessage("&" + String(EVENT_LICK) + " " + String(millis() - _exp_timer));
             _lick_state = true;                            // Halts lick detection
             //------------------------DEBUG MODE--------------------------//
               if (_params[_DEBUG]) {
@@ -1290,10 +1279,9 @@
     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
       if (getLickState()) {                               // MOUSE: "Licked"
         if (!_lick_state) {                                 // If a new lick initiated
-          //_lick_time = millis() - _trialTimer;           // Records _lick_time relative to trial start
           _lick_time = millis() - _cue_on_time;          // Records lick wrt CUE ON
-          // Send a event marker (lick) to HOST with timestamp relative to CUE ON
-          sendMessage("&" + String(EVENT_LICK) + " " + String(_lick_time));
+          // Send a event marker (lick) to HOST with timestamp
+          sendMessage("&" + String(EVENT_LICK) + " " + String(millis() - _exp_timer));
           _lick_state = true;                               // Halts lick detection
           //------------------------DEBUG MODE--------------------------//
             if (_params[_DEBUG]) {sendMessage("Lick detected, tallying lick @ " + String(_lick_time) + "ms");}
@@ -1320,8 +1308,8 @@
       
 
       if (millis() - _trialTimer - _preCueDelay >= _params[TRIAL_DURATION]) { // Trial Timeout -> ITI
-        // Send event marker (trial end) to HOST with timestamp relative to trial start
-        sendMessage("&" + String(EVENT_TRIAL_END) + " " + String(millis() - _trialTimer));
+        // Send event marker (trial end) to HOST with timestamp
+        sendMessage("&" + String(EVENT_TRIAL_END) + " " + String(millis() - _exp_timer));
         _state = INTERTRIAL;                                      // Move to ITI
         return;                                                   // Exit Fx
       }
@@ -1347,8 +1335,8 @@
         setCueLED(false);                                // Cue LED OFF
         _prevState = _state;                             // Assign _prevState to ITI _state
         sendMessage("$" + String(_state));               // Send HOST $7 (ITI State)
-        // Send event marker (ITI) to HOST with timestamp relative to trial start
-        sendMessage("&" + String(EVENT_ITI) + " " + String(_ITI_timer - _trialTimer));
+        // Send event marker (ITI) to HOST with timestamp
+        sendMessage("&" + String(EVENT_ITI) + " " + String(millis() - _exp_timer));
         
         // Reset state variables
         _pre_window_elapsed = false;                  // Reset pre_window time tracker
@@ -1367,10 +1355,9 @@
 
         if (getLickState()) {                               // MOUSE: "Licked"
           if (!_lick_state) {                                 // If a new lick initiated
-            //_lick_time = millis() - _trialTimer;           // Records _lick_time relative to trial start
             _lick_time = millis() - _cue_on_time;          // Records lick wrt CUE ON
-            // Send a event marker (lick) to HOST with timestamp relative to CUE ON
-            sendMessage("&" + String(EVENT_LICK) + " " + String(_lick_time));
+            // Send a event marker (lick) to HOST with timestamp
+            sendMessage("&" + String(EVENT_LICK) + " " + String(millis() - _exp_timer));
             _lick_state = true;                               // Halts lick detection
             //------------------------DEBUG MODE--------------------------//
               if (_params[_DEBUG]) {sendMessage("Lick detected, tallying lick @ " + String(_lick_time) + "ms");}
@@ -1402,10 +1389,9 @@
     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
       if (getLickState()) {                               // MOUSE: "Licked"
         if (!_lick_state) {                                 // If a new lick initiated
-          //_lick_time = millis() - _trialTimer;           // Records _lick_time relative to trial start
           _lick_time = millis() - _cue_on_time;          // Records lick wrt CUE ON
-          // Send a event marker (lick) to HOST with timestamp relative to CUE ON
-          sendMessage("&" + String(EVENT_LICK) + " " + String(_lick_time));
+          // Send a event marker (lick) to HOST with timestamp
+          sendMessage("&" + String(EVENT_LICK) + " " + String(millis() - _exp_timer));
           _lick_state = true;                               // Halts lick detection
           //------------------------DEBUG MODE--------------------------//
             if (_params[_DEBUG]) {sendMessage("Lick detected, tallying lick @ " + String(_lick_time) + "ms");}
