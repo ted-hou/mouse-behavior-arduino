@@ -2,6 +2,7 @@
 classdef MouseBehaviorInterface < handle
 	properties
 		Arduino
+		UserData
 	end
 	properties (Transient)
 		Rsc
@@ -23,6 +24,14 @@ classdef MouseBehaviorInterface < handle
 		end
 
 		function CreateDialog_ExperimentControl(obj)
+			% If object already exists, show window
+			if isfield(obj.Rsc, 'ExperimentControl')
+				if isvalid(obj.Rsc.ExperimentControl)
+					figure(obj.Rsc.ExperimentControl)
+					return
+				end
+			end
+
 			% Size and position of controls
 			buttonWidth = 50; % Width of buttons
 			buttonHeight = 20; % Height of 
@@ -131,12 +140,21 @@ classdef MouseBehaviorInterface < handle
 			uimenu(menu_arduino, 'Label', 'Reconnect', 'Callback', {@MouseBehaviorInterface.ArduinoReconnect, obj.Arduino});
 
 			menu_window = uimenu(dlg, 'Label', '&Window');
+			uimenu(menu_window, 'Label', 'Experiment Control', 'Callback', @(~, ~) @obj.CreateDialog_ExperimentControl);
+			uimenu(menu_window, 'Label', 'Monitor', 'Callback', @(~, ~) obj.CreateDialog_Monitor);
 
 			% Unhide dialog now that all controls have been created
 			dlg.Visible = 'on';
 		end
 
 		function CreateDialog_Monitor(obj)
+			% If object already exists, show window
+			if isfield(obj.Rsc, 'Monitor')
+				if isvalid(obj.Rsc.Monitor)
+					figure(obj.Rsc.Monitor)
+					return
+				end
+			end
 			dlgWidth = 800;
 			dlgHeight = 400;
 
@@ -164,7 +182,7 @@ classdef MouseBehaviorInterface < handle
 			u = dlg.UserData;
 
 			% % Close serial port when you close the window
-			% dlg.CloseRequestFcn = {@MouseBehaviorInterface.ArduinoClose, obj.Arduino};
+			dlg.CloseRequestFcn = @(~, ~) (delete(gcbo));
 
 			%----------------------------------------------------
 			%		Left panel
@@ -389,6 +407,35 @@ classdef MouseBehaviorInterface < handle
 			% Update session summary everytime a new trial's results are registered by Arduino
 			obj.Arduino.Listeners.TrialRegistered = addlistener(obj.Arduino, 'TrialsCompleted', 'PostSet', @obj.OnTrialRegistered);
 
+
+			%----------------------------------------------------
+			% 		Menus
+			%----------------------------------------------------
+			menu_file = uimenu(dlg, 'Label', '&File');
+			uimenu(menu_file, 'Label', 'Save Plot Parameters ...', 'Callback', {@MouseBehaviorInterface.ArduinoSaveExperiment, obj.Arduino}, 'Accelerator', 's');
+			uimenu(menu_file, 'Label', 'Load Plot Parameters ...', 'Callback', {@MouseBehaviorInterface.ArduinoSaveAsExperiment, obj.Arduino});
+			menu_plot = uimenu(menu_file, 'Label', 'Plot Update', 'Separator', 'on');
+			menu_plot.UserData.Menu_Enable = uimenu(menu_plot, 'Label', 'Enabled', 'Callback', @(~, ~) obj.EnablePlotUpdate(menu_plot));
+			menu_plot.UserData.Menu_Disable = uimenu(menu_plot, 'Label', 'Disabled', 'Callback', @(~, ~) obj.DisablePlotUpdate(menu_plot));
+
+			if isfield(obj.UserData, 'UpdatePlot')
+				if obj.UserData.UpdatePlot
+					menu_plot.UserData.Menu_Enable.Checked = 'on';
+					menu_plot.UserData.Menu_Disable.Checked = 'off';
+				else
+					menu_plot.UserData.Menu_Enable.Checked = 'off';
+					menu_plot.UserData.Menu_Disable.Checked = 'on';
+				end
+			else
+				menu_plot.UserData.Menu_Enable.Checked = 'on';
+				menu_plot.UserData.Menu_Disable.Checked = 'off';
+				obj.UserData.UpdatePlot = true;
+			end
+
+			menu_window = uimenu(dlg, 'Label', '&Window');
+			uimenu(menu_window, 'Label', 'Experiment Control', 'Callback', @(~, ~) @obj.CreateDialog_ExperimentControl);
+			uimenu(menu_window, 'Label', 'Monitor', 'Callback', @(~, ~) obj.CreateDialog_Monitor);
+
 			% Stretch barchart When dialog window is resized
 			dlg.SizeChangedFcn = @MouseBehaviorInterface.OnMonitorDialogResized; 
 
@@ -404,22 +451,25 @@ classdef MouseBehaviorInterface < handle
 				MouseBehaviorInterface.ArduinoSaveExperiment([], [], obj.Arduino);
 			end
 
-			% Count how many trials have been completed
-			iTrial = obj.Arduino.TrialsCompleted;
+			if isvalid(obj.Rsc.Monitor)
+				% Count how many trials have been completed
+				iTrial = obj.Arduino.TrialsCompleted;
 
-			% Update the "Trials Completed" counter.
-			t = obj.Rsc.Monitor.UserData.Ctrl.TrialCountText;
-			t.String = sprintf('Trials completed: %d', iTrial);
+				% Update the "Trials Completed" counter.
+				t = obj.Rsc.Monitor.UserData.Ctrl.TrialCountText;
+				t.String = sprintf('Trials completed: %d', iTrial);
 
-			% When a new trial is completed
-			ax = obj.Rsc.Monitor.UserData.Ctrl.Ax;
-			% Get a list of currently recorded result codes
-			resultCodes = reshape([obj.Arduino.Trials.Code], [], 1);
-			resultCodeNames = obj.Arduino.ResultCodeNames;
-			allResultCodes = 1:(length(resultCodeNames) + 1);
-			resultCodeCounts = histcounts(resultCodes, allResultCodes);
+				% When a new trial is completed
+				ax = obj.Rsc.Monitor.UserData.Ctrl.Ax;
+				% Get a list of currently recorded result codes
+				resultCodes = reshape([obj.Arduino.Trials.Code], [], 1);
+				resultCodeNames = obj.Arduino.ResultCodeNames;
+				allResultCodes = 1:(length(resultCodeNames) + 1);
+				resultCodeCounts = histcounts(resultCodes, allResultCodes);
 
-			MouseBehaviorInterface.StackedBar(ax, resultCodeCounts, resultCodeNames);		
+				MouseBehaviorInterface.StackedBar(ax, resultCodeCounts, resultCodeNames);
+			end
+		
 			drawnow
 		end
 
@@ -466,13 +516,18 @@ classdef MouseBehaviorInterface < handle
 			ax.UserData.ParamPlotOptions 	= paramPlotOptions;
 
 			% Plot it for the first time
-			obj.Raster_Execute([], [], figId);
+			obj.Raster_Execute(figId);
 
 			% Plot again everytime an event of interest occurs
-			ax.UserData.Listener = addlistener(obj.Arduino, 'TrialsCompleted', 'PostSet', @(src, evnt) obj.Raster_Execute(src, evnt, figId));
+			ax.UserData.Listener = addlistener(obj.Arduino, 'TrialsCompleted', 'PostSet', @(~, ~) obj.Raster_Execute(figId));
 			f.CloseRequestFcn = {@MouseBehaviorInterface.OnLooseFigureClosed, ax.UserData.Listener};
 		end
-		function Raster_Execute(obj, ~, ~, figId)
+		function Raster_Execute(obj, figId)
+			% Do not plot if the Grad Student decides we should stop plotting stuff.
+			if isfield(obj.UserData, 'UpdatePlot') && (~obj.UserData.UpdatePlot)
+				return
+			end
+
 			data 				= obj.Arduino.EventMarkers;
 			ax 					= obj.Rsc.LooseFigures(figId).Ax;
 
@@ -535,7 +590,7 @@ classdef MouseBehaviorInterface < handle
 
 			% Plot parameters
 			% Filter out parameters the Grad Student does not want to plot
-			paramsToPlot = find([paramPlotOptions{:,2}]);
+			paramsToPlot = find([paramPlotOptions{:, 2}]);
 
 			if ~isempty(paramsToPlot)
 				params = ctranspose(reshape([obj.Arduino.Trials.Parameters], [], size(obj.Arduino.Trials, 2)));			
@@ -621,13 +676,18 @@ classdef MouseBehaviorInterface < handle
 			ax.UserData.FigName				= figName;
 
 			% Plot it for the first time
-			obj.Hist_Execute([], [], figId);
+			obj.Hist_Execute(figId);
 
 			% Plot again everytime an event of interest occurs
-			ax.UserData.Listener = addlistener(obj.Arduino, 'TrialsCompleted', 'PostSet', @(src, evnt) obj.Hist_Execute(src, evnt, figId));
+			ax.UserData.Listener = addlistener(obj.Arduino, 'TrialsCompleted', 'PostSet', @(~, ~) obj.Hist_Execute(figId));
 			f.CloseRequestFcn = {@MouseBehaviorInterface.OnLooseFigureClosed, ax.UserData.Listener};
 		end
-		function Hist_Execute(obj, ~, ~, figId)
+		function Hist_Execute(obj, figId)
+			% Do not plot if the Grad Student decides we should stop plotting stuff.
+			if isfield(obj.UserData, 'UpdatePlot') && (~obj.UserData.UpdatePlot)
+				return
+			end
+
 			data 				= obj.Arduino.EventMarkers;
 			ax 					= obj.Rsc.LooseFigures(figId).Ax;
 
@@ -695,6 +755,20 @@ classdef MouseBehaviorInterface < handle
 		function OnParamChanged(obj, ~, ~)
 			obj.Rsc.ExperimentControl.UserData.Ctrl.Table_Params.Data = obj.Arduino.ParamValues';
 		end
+
+		function EnablePlotUpdate(obj, menu_plot)
+			menu_plot.UserData.Menu_Enable.Checked = 'on';
+			menu_plot.UserData.Menu_Disable.Checked = 'off';
+
+			obj.UserData.UpdatePlot = true;
+		end
+
+		function DisablePlotUpdate(obj, menu_plot)
+			menu_plot.UserData.Menu_Enable.Checked = 'off';
+			menu_plot.UserData.Menu_Disable.Checked = 'on';
+
+			obj.UserData.UpdatePlot = false;
+		end		
 	end
 
 	%----------------------------------------------------
