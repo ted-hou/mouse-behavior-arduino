@@ -352,6 +352,7 @@
     pinMode(PIN_HOUSE_LAMP, OUTPUT);            // LED for illumination (trial cue)
     pinMode(PIN_LED_CUE, OUTPUT);               // LED for 'start' cue
     pinMode(PIN_SPEAKER, OUTPUT);               // Speaker for cue/correct/error tone
+    pinMode(PIN_REWARD, OUTPUT);                // Reward OUT
     // INPUTS
     pinMode(PIN_LICK, INPUT);                   // Lick detector
     //--------------------------------------------------------//
