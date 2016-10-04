@@ -412,11 +412,11 @@ classdef MouseBehaviorInterface < handle
 			% 		Menus
 			%----------------------------------------------------
 			menu_file = uimenu(dlg, 'Label', '&File');
-			uimenu(menu_file, 'Label', 'Save Plot Parameters ...', 'Callback', {@MouseBehaviorInterface.ArduinoSaveExperiment, obj.Arduino}, 'Accelerator', 's');
-			uimenu(menu_file, 'Label', 'Load Plot Parameters ...', 'Callback', {@MouseBehaviorInterface.ArduinoSaveAsExperiment, obj.Arduino});
-			menu_plot = uimenu(menu_file, 'Label', 'Plot Update', 'Separator', 'on');
-			menu_plot.UserData.Menu_Enable = uimenu(menu_plot, 'Label', 'Enabled', 'Callback', @(~, ~) obj.EnablePlotUpdate(menu_plot));
-			menu_plot.UserData.Menu_Disable = uimenu(menu_plot, 'Label', 'Disabled', 'Callback', @(~, ~) obj.DisablePlotUpdate(menu_plot));
+			uimenu(menu_file, 'Label', '&Save Plot Settings ...', 'Callback', @(~, ~) obj.SavePlotSettings, 'Accelerator', 's');
+			uimenu(menu_file, 'Label', '&Load Plot Settings ...', 'Callback', @(~, ~) obj.LoadPlotSettings, 'Accelerator', 'l');
+			menu_plot = uimenu(menu_file, 'Label', '&Plot Update', 'Separator', 'on');
+			menu_plot.UserData.Menu_Enable = uimenu(menu_plot, 'Label', '&Enabled', 'Callback', @(~, ~) obj.EnablePlotUpdate(menu_plot));
+			menu_plot.UserData.Menu_Disable = uimenu(menu_plot, 'Label', '&Disabled', 'Callback', @(~, ~) obj.DisablePlotUpdate(menu_plot));
 
 			if isfield(obj.UserData, 'UpdatePlot')
 				if obj.UserData.UpdatePlot
@@ -768,7 +768,70 @@ classdef MouseBehaviorInterface < handle
 			menu_plot.UserData.Menu_Disable.Checked = 'on';
 
 			obj.UserData.UpdatePlot = false;
-		end		
+		end
+
+		function SavePlotSettings(obj)
+			[filename, filepath] = uiputfile('plot_parameters.mat', 'Save plot settings to file');
+			% Exit if no file selected
+			if ~(ischar(filename) && ischar(filepath))
+				return
+			end
+
+			ctrl = obj.Rsc.Monitor.UserData.Ctrl;
+
+			plotSettings = {...
+				ctrl.Table_ParamsToPlot_Raster.Data,...
+				ctrl.Popup_EventTrialStart_Raster.Value,...
+				ctrl.Popup_EventZero_Raster.Value,...
+				ctrl.Popup_EventOfInterest_Raster.Value,...
+				ctrl.Popup_EventTrialStart_Hist.Value,...
+				ctrl.Popup_EventZero_Hist.Value,...
+				ctrl.Popup_EventOfInterest_Hist.Value...
+			};
+
+			save([filepath, filename], 'plotSettings')
+		end
+
+		function LoadPlotSettings(obj, errorMessage)
+			if nargin < 2
+				errorMessage = '';
+			end
+			% Display errorMessage prompt if called for
+			if ~isempty(errorMessage)
+				selection = questdlg(...
+					errorMessage,...
+					'Error',...
+					'Yes','No','Yes'...
+				);
+				% Exit if the Grad Student says 'No'
+				if strcmp(selection, 'No')
+					return
+				end
+			end
+
+			[filename, filepath] = uigetfile('*.mat', 'Load plot settings from file');
+			% Exit if no file selected
+			if ~(ischar(filename) && ischar(filepath))
+				return
+			end
+			% Load file
+			p = load([filepath, filename]);
+			% If loaded file does not contain parameters
+			if ~isfield(p, 'plotSettings')
+				% Ask the Grad Student if he wants to select another file instead
+				obj.LoadPlotSettings('The file you selected was not loaded because it does not contain plot settings. Select another file instead?')
+			else
+				% If all checks are good then do the deed
+				ctrl = obj.Rsc.Monitor.UserData.Ctrl;
+				ctrl.Table_ParamsToPlot_Raster.Data = p.plotSettings{1};
+				ctrl.Popup_EventTrialStart_Raster.Value = p.plotSettings{2};
+				ctrl.Popup_EventZero_Raster.Value = p.plotSettings{3};
+				ctrl.Popup_EventOfInterest_Raster.Value = p.plotSettings{4};
+				ctrl.Popup_EventTrialStart_Hist.Value = p.plotSettings{5};
+				ctrl.Popup_EventZero_Hist.Value = p.plotSettings{6};
+				ctrl.Popup_EventOfInterest_Hist.Value = p.plotSettings{7};
+			end
+		end
 	end
 
 	%----------------------------------------------------
