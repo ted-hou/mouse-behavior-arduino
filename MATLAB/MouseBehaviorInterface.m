@@ -13,14 +13,26 @@ classdef MouseBehaviorInterface < handle
 	%----------------------------------------------------
 	methods
 		function obj = MouseBehaviorInterface()
+			% Find arduino port
+			arduinoPortName = MouseBehaviorInterface.QueryDeviceType();
+			if islogical(arduinoPortName)
+				return
+			end
+			
+			% Splash
+			obj.CreateDialog_Splash()
+
 			% Establish arduino connection
-			obj.Arduino = ArduinoConnection();
+			obj.Arduino = ArduinoConnection(arduinoPortName);
 
 			% Creata Experiment Control window with all the knobs and buttons you need to set up an experiment. 
 			obj.CreateDialog_ExperimentControl()
 
 			% Create Monitor window with all thr trial results and plots and stuff so the Grad Student is ON TOP OF THE SITUATION AT ALL TIMES.
 			obj.CreateDialog_Monitor()
+
+			% Kill splash
+			obj.CloseDialog_Splash()
 		end
 
 		function CreateDialog_ExperimentControl(obj)
@@ -444,6 +456,45 @@ classdef MouseBehaviorInterface < handle
 			dlg.Visible = 'on';
 		end
 
+		function CreateDialog_Splash(obj)
+			% Load image
+			[fncpath, ~, ~] = fileparts(which('MouseBehaviorInterface'));
+			img = imread([fncpath, '\logo.png']);
+
+			% Create java window object
+			splashImage = im2java(img);
+			win = javax.swing.JWindow;
+			obj.Rsc.Splash = win;
+			icon = javax.swing.ImageIcon(splashImage);
+			label = javax.swing.JLabel(icon);
+			win.getContentPane.add(label);
+			win.setAlwaysOnTop(true);
+			win.pack;
+
+			% Set the splash image to the center of the screen
+			screenSize = win.getToolkit.getScreenSize;
+			screenHeight = screenSize.height;
+			screenWidth = screenSize.width;
+			% Get the actual splashImage size
+			imgHeight = icon.getIconHeight;
+			imgWidth = icon.getIconWidth;
+			win.setLocation((screenWidth-imgWidth)/2,(screenHeight-imgHeight)/2);
+
+			% Show the splash screen
+			win.show
+
+			% Hide in 10 seconds
+			t = timer;
+			obj.Rsc.SplashTimer = t;
+			t.StartDelay = 10;
+			t.TimerFcn = @(~, ~) win.dispose;
+			start(t)
+		end
+
+		function CloseDialog_Splash(obj)
+			stop(obj.Rsc.SplashTimer);
+			obj.Rsc.Splash.dispose;
+		end
 
 		function OnTrialRegistered(obj, ~, ~)
 		% Executed when a new trial is completed
@@ -748,7 +799,6 @@ classdef MouseBehaviorInterface < handle
 
 			% Plot histogram of selected event times
 			hist(ax, eventTimesOfInterest)
-			eventTimesOfInterest
 
 			ax.XLabel.String 	= 'Time (ms)';
 			ax.YLabel.String 	= 'Occurance';
@@ -850,6 +900,24 @@ classdef MouseBehaviorInterface < handle
 		%----------------------------------------------------
 		%		Commmunicating with Arduino
 		%----------------------------------------------------
+		function arduinoPortName = QueryDeviceType()
+			selection = questdlg(...
+				'Choose the device you are running.',...
+				'Choose device',...
+				'Arduino','Teensy','Arduino'...
+			);
+			switch selection
+				case 'Arduino'
+					arduinoPortName = [];
+				case 'Teensy'
+					arduinoPortName = inputdlg('Specify COM port:', 'USB Port', 1, {'COM1'});
+					arduinoPortName = arduinoPortName{1};
+				case ''
+					error('Device type not defined.');
+					arduinoPortName = false;
+			end
+		end
+
 		function OnParamChangedViaGUI(~, evnt, arduino)
 			% evnt (event data contains infomation on which elements were changed to what)
 			changedParam = evnt.Indices(1);

@@ -34,24 +34,7 @@ classdef ArduinoConnection < handle
 	end
 
 	methods
-		function obj = ArduinoConnection()
-			%-----------------------------------------------
-			%		Find USB Port
-			%-----------------------------------------------
-			selection = questdlg(...
-				'Choose the device you are running.',...
-				'Choose device',...
-				'Arduino','Teensy','Arduino'...
-			);
-			switch selection
-				case 'Arduino'
-					arduinoPortName = [];
-				case 'Teensy'
-					arduinoPortName = inputdlg('Specify COM port:', 'USB Port', 1, {'COM1'});
-					arduinoPortName = arduinoPortName{1};
-				case ''
-					error('Device type not defined.');
-			end
+		function obj = ArduinoConnection(arduinoPortName)
 
 			if isempty(arduinoPortName)
 				arduinoPortName = obj.findFirstArduinoPort();
