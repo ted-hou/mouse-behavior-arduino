@@ -113,10 +113,6 @@
      - Transitions: evaluated on each loop and determines what the next state should be.
 *********************************************************************/
 
-// Soft restart macro
-#define CPU_RESTART_ADDR (uint32_t *)0xE000ED0C
-#define CPU_RESTART_VAL 0x5FA0004
-#define CPU_RESTART (*CPU_RESTART_ADDR = CPU_RESTART_VAL);
 
 
 /*****************************************************
@@ -128,15 +124,15 @@
   *****************************************************/
 
     // Digital OUT
-    #define PIN_HOUSE_LAMP     34  // House Lamp Pin         (DUE = 34)  (MEGA = 34)  (UNO = 5?)  (TEENSY = 6?)
-    #define PIN_LED_CUE        35  // Cue LED Pin            (DUE = 35)  (MEGA = 28)  (UNO =  4)  (TEENSY = 4)
-    #define PIN_REWARD         37  // Reward Pin             (DUE = 37) (MEGA = 52)  (UNO =  7)  (TEENSY = 7)
+    #define PIN_HOUSE_LAMP     6  // House Lamp Pin         (DUE = 34)  (MEGA = 34)  (UNO = 5?)  (TEENSY = 6?)
+    #define PIN_LED_CUE        4  // Cue LED Pin            (DUE = 35)  (MEGA = 28)  (UNO =  4)  (TEENSY = 4)
+    #define PIN_REWARD         7  // Reward Pin             (DUE = 37) (MEGA = 52)  (UNO =  7)  (TEENSY = 7)
 
     // PWM OUT
-    #define PIN_SPEAKER        2  // Speaker Pin            (DUE =  2)  (MEGA =  8)  (UNO =  9)  (TEENSY = 5)
+    #define PIN_SPEAKER        5  // Speaker Pin            (DUE =  2)  (MEGA =  8)  (UNO =  9)  (TEENSY = 5)
 
     // Digital IN
-    #define PIN_LICK           36  // Lick Pin               (DUE = 36)  (MEGA =  2)  (UNO =  2)  (TEENSY = 2)
+    #define PIN_LICK           2  // Lick Pin               (DUE = 36)  (MEGA =  2)  (UNO =  2)  (TEENSY = 2)
 
 
   /*****************************************************
@@ -341,6 +337,11 @@
     static unsigned long _preCueDelay = 0;           // Initialize _preCueDelay var
     static bool _reward_dispensed_complete = false;  // init tracker of reward dispensal
 
+    //------Debug Mode: measure tick-rate (per ms)------------//
+    static unsigned long _debugTimer     = 0;        // Debugging _single_loop_timer
+    static unsigned long _ticks          = 0;        // # of loops/sec in the debugger
+
+
 /*****************************************************
   INITIALIZATION LOOP
 *****************************************************/
@@ -356,14 +357,10 @@
     pinMode(PIN_LICK, INPUT);                   // Lick detector
     //--------------------------------------------------------//
 
+
+
     //------------------------Serial Comms--------------------//
     Serial.begin(115200);                       // Set up USB communication at 115200 baud 
-
-    //--------------Set ititial OUTPUTS----------------//
-    setHouseLamp(true);                          // House Lamp ON
-    setCueLED(false);                            // Cue LED OFF
-    // Tell PC that we're running by sending '~' message:
-    hostInit();                                 // Sends all parameters, states and error codes to Matlab (LF Function)    
 
   } // End Initialization Loop -----------------------------------------------------------------------------------------------------
 
@@ -373,75 +370,105 @@
 *****************************************************/
   void loop()
   {
-    /*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-      Step 1: Read USB MESSAGE from HOST (if available)
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
-    // 1) Check USB for MESSAGE from HOST, if available. String is read byte by byte. (Each character is a byte, so reads e/a character)
-    static String usbMessage  = "";             // Initialize usbMessage to empty string, only happens once on first loop (thanks to static!)
-    _command = ' ';                              // Initialize _command to a SPACE
-    _arguments[0] = 0;                           // Initialize 1st integer argument
-    _arguments[1] = 0;                           // Initialize 2nd integer argument
+    // Initialization
+    mySetup();
 
-    if (Serial.available() > 0)  {              // If there's something in the SERIAL INPUT BUFFER (i.e., if another character from host is waiting in the queue to be read)
-      char inByte = Serial.read();                  // Read next character
-      
-      // The pound sign ('#') indicates a complete message!------------------------
-      if (inByte == '#')  {                         // If # received, terminate the message
-        // Parse the string, and updates `_command`, and `_arguments`
-        _command = getCommand(usbMessage);               // getCommand pulls out the character from the message for the _command         
-        getArguments(usbMessage, _arguments);            // getArguments pulls out the integer values from the usbMessage
-        usbMessage = "";                                // Clear message buffer (resets to prepare for next message)
-        if (_command == 'R') {
-          CPU_RESTART
+    // Main loop (R# resets it)
+    while (true)
+    {
+      // //----------------------DEBUG MODE------------------------//
+      // //* Debug mode will count the number of loop cycles/1000 ms to determine the reliability of arduino clock *//
+      // if (millis() - _debugTimer == 1000)  {       // If 1000 ms since last tick readout...
+      //   if (_params[_DEBUG]) {                           // If DEBUG mode is on
+      //     sendMessage("Tick rate: " + String(_ticks) + " ticks per second.");  // Sends message to Matlab host
+      //   }
+      //   _ticks = 0;                                      // reset _ticks to 0
+      //   _debugTimer = millis();                          // reset debug clock
+      // }
+      // else if (millis() - _debugTimer > 1000)  {   // If MORE than 1000 ms have passed, it means we lost a ms on the last loop
+      //   if (_params[_DEBUG]) {
+      //     sendMessage("Tick rate: A ms was lost on last loop cycle...Clock Speed Error?");
+      //   }
+      //   _ticks = 0;                                      // reset _ticks to 0
+      //   _debugTimer = millis();                          // reset debug clock
+      // }
+      // else if (millis() - _debugTimer < 1000)  {   // If LESS than 1000 ms have passed, acculumate a loop tick
+      //   _ticks = _ticks + 1;                              // Add a tick to the measurement
+      // }
+      // //----------------------end DEBUG MODE------------------------//
+
+
+
+      /*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        Step 1: Read USB MESSAGE from HOST (if available)
+      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
+      // 1) Check USB for MESSAGE from HOST, if available. String is read byte by byte. (Each character is a byte, so reads e/a character)
+      static String usbMessage  = "";             // Initialize usbMessage to empty string, only happens once on first loop (thanks to static!)
+      _command = ' ';                              // Initialize _command to a SPACE
+      _arguments[0] = 0;                           // Initialize 1st integer argument
+      _arguments[1] = 0;                           // Initialize 2nd integer argument
+
+      if (Serial.available() > 0)  {              // If there's something in the SERIAL INPUT BUFFER (i.e., if another character from host is waiting in the queue to be read)
+        char inByte = Serial.read();                  // Read next character
+        
+        // The pound sign ('#') indicates a complete message!------------------------
+        if (inByte == '#')  {                         // If # received, terminate the message
+          // Parse the string, and updates `_command`, and `_arguments`
+          _command = getCommand(usbMessage);               // getCommand pulls out the character from the message for the _command         
+          getArguments(usbMessage, _arguments);            // getArguments pulls out the integer values from the usbMessage
+          usbMessage = "";                                // Clear message buffer (resets to prepare for next message)
+          if (_command == 'R') {
+            break;
+          }
+        }
+        else {
+          // append character to message buffer
+          usbMessage = usbMessage + inByte;       // Appends the next character from the queue to the usbMessage string
         }
       }
-      else {
-        // append character to message buffer
-        usbMessage = usbMessage + inByte;       // Appends the next character from the queue to the usbMessage string
-      }
+
+      /*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        Step 2: Update the State Machine
+      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
+      // Depending on what _state we're in , call the appropriate _state function, which will evaluate the transition conditions, and update `_state` to what the next _state should be
+      switch (_state) {
+        case _INIT:
+          idle_state();
+          break;
+
+        case IDLE_STATE:
+          idle_state();
+          break;
+        
+        case INIT_TRIAL:
+          init_trial();
+          break;
+        
+        case PRE_WINDOW:    
+          pre_window();
+          break;
+        
+        case RESPONSE_WINDOW:         
+          response_window();
+          break;
+        
+        case POST_WINDOW:         
+          post_window();
+          break;
+
+        case REWARD: 
+          reward();
+          break;
+        
+        case ABORT_TRIAL:
+          abort_trial();
+          break;
+        
+        case INTERTRIAL:
+          intertrial();
+          break;
+      } // End switch statement--------------------------
     }
-
-    /*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-      Step 2: Update the State Machine
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
-    // Depending on what _state we're in , call the appropriate _state function, which will evaluate the transition conditions, and update `_state` to what the next _state should be
-    switch (_state) {
-      case _INIT:
-        idle_state();
-        break;
-
-      case IDLE_STATE:
-        idle_state();
-        break;
-      
-      case INIT_TRIAL:
-        init_trial();
-        break;
-      
-      case PRE_WINDOW:    
-        pre_window();
-        break;
-      
-      case RESPONSE_WINDOW:         
-        response_window();
-        break;
-      
-      case POST_WINDOW:         
-        post_window();
-        break;
-
-      case REWARD: 
-        reward();
-        break;
-      
-      case ABORT_TRIAL:
-        abort_trial();
-        break;
-      
-      case INTERTRIAL:
-        intertrial();
-        break;
-    } // End switch statement--------------------------
   } // End main loop-------------------------------------------------------------------------------------------------------------
 
 
@@ -449,6 +476,13 @@
   void mySetup()
   {
 
+    //--------------Set ititial OUTPUTS----------------//
+    setHouseLamp(true);                          // House Lamp ON
+    setCueLED(false);                            // Cue LED OFF
+
+    //-----------------------Global Clocks---------------------//
+    // Tick rate
+    _debugTimer = millis();                      // Start DEBUG _single_loop_timer clock
 
     //---------------------------Reset a bunch of variables---------------------------//
     _eventMarkerTimer = 0;
@@ -474,8 +508,12 @@
     _ITI_timer = 0;             // Tracks time in ITI state
     _preCueDelay = 0;           // Initialize _preCueDelay var
     _reward_dispensed_complete = false;  // init tracker of reward dispensal
+    _debugTimer     = 0;        // Debugging _single_loop_timer
+    _ticks          = 0;        // # of loops/sec in the debugger
 
 
+    // Tell PC that we're running by sending '~' message:
+    hostInit();                                 // Sends all parameters, states and error codes to Matlab (LF Function)    
   }
 
 
@@ -1617,80 +1655,80 @@
 // /*****************************************************
 //   Tone generator for Due -- not used in other Arduino modes
 // *****************************************************/
-  /*
-  Tone generator
-  v1  use timer, and toggle any digital pin in ISR
-     funky duration from arduino version
-     TODO use FindMckDivisor?
-     timer selected will preclude using associated pins for PWM etc.
-    could also do timer/pwm hardware toggle where caller controls duration
-  */
+//   /*
+//   Tone generator
+//   v1  use timer, and toggle any digital pin in ISR
+//      funky duration from arduino version
+//      TODO use FindMckDivisor?
+//      timer selected will preclude using associated pins for PWM etc.
+//     could also do timer/pwm hardware toggle where caller controls duration
+//   */
 
 
-  // timers TC0 TC1 TC2   channels 0-2 ids 0-2  3-5  6-8     AB 0 1
-  // use TC1 channel 0 
-  #define TONE_TIMER TC1
-  #define TONE_CHNL 0
-  #define TONE_IRQ TC3_IRQn
+//   // timers TC0 TC1 TC2   channels 0-2 ids 0-2  3-5  6-8     AB 0 1
+//   // use TC1 channel 0 
+//   #define TONE_TIMER TC1
+//   #define TONE_CHNL 0
+//   #define TONE_IRQ TC3_IRQn
 
-  // TIMER_CLOCK4   84MHz/128 with 16 bit counter give 10 Hz to 656KHz
-  //  piano 27Hz to 4KHz
+//   // TIMER_CLOCK4   84MHz/128 with 16 bit counter give 10 Hz to 656KHz
+//   //  piano 27Hz to 4KHz
 
-  static uint8_t pinEnabled[PINS_COUNT];
-  static uint8_t TCChanEnabled = 0;
-  static boolean pin_state = false ;
-  static Tc *chTC = TONE_TIMER;
-  static uint32_t chNo = TONE_CHNL;
+//   static uint8_t pinEnabled[PINS_COUNT];
+//   static uint8_t TCChanEnabled = 0;
+//   static boolean pin_state = false ;
+//   static Tc *chTC = TONE_TIMER;
+//   static uint32_t chNo = TONE_CHNL;
 
-  volatile static int32_t toggle_count;
-  static uint32_t tone_pin;
+//   volatile static int32_t toggle_count;
+//   static uint32_t tone_pin;
 
-  // frequency (in hertz) and duration (in milliseconds).
+//   // frequency (in hertz) and duration (in milliseconds).
 
-  void tone(uint32_t ulPin, uint32_t frequency, int32_t duration)
-  {
-      const uint32_t rc = VARIANT_MCK / 256 / frequency; 
-      tone_pin = ulPin;
-      toggle_count = 0;  // strange  wipe out previous duration
-      if (duration > 0 ) toggle_count = 2 * frequency * duration / 1000;
-       else toggle_count = -1;
+//   void tone(uint32_t ulPin, uint32_t frequency, int32_t duration)
+//   {
+//       const uint32_t rc = VARIANT_MCK / 256 / frequency; 
+//       tone_pin = ulPin;
+//       toggle_count = 0;  // strange  wipe out previous duration
+//       if (duration > 0 ) toggle_count = 2 * frequency * duration / 1000;
+//        else toggle_count = -1;
 
-      if (!TCChanEnabled) {
-        pmc_set_writeprotect(false);
-        pmc_enable_periph_clk((uint32_t)TONE_IRQ);
-        TC_Configure(chTC, chNo,
-          TC_CMR_TCCLKS_TIMER_CLOCK4 |
-          TC_CMR_WAVE |         // Waveform mode
-          TC_CMR_WAVSEL_UP_RC ); // Counter running up and reset when equals to RC
+//       if (!TCChanEnabled) {
+//         pmc_set_writeprotect(false);
+//         pmc_enable_periph_clk((uint32_t)TONE_IRQ);
+//         TC_Configure(chTC, chNo,
+//           TC_CMR_TCCLKS_TIMER_CLOCK4 |
+//           TC_CMR_WAVE |         // Waveform mode
+//           TC_CMR_WAVSEL_UP_RC ); // Counter running up and reset when equals to RC
     
-        chTC->TC_CHANNEL[chNo].TC_IER=TC_IER_CPCS;  // RC compare interrupt
-        chTC->TC_CHANNEL[chNo].TC_IDR=~TC_IER_CPCS;
-        NVIC_EnableIRQ(TONE_IRQ);
-               TCChanEnabled = 1;
-      }
-      if (!pinEnabled[ulPin]) {
-        pinMode(ulPin, OUTPUT);
-        pinEnabled[ulPin] = 1;
-      }
-      TC_Stop(chTC, chNo);
-      TC_SetRC(chTC, chNo, rc);    // set frequency
-      TC_Start(chTC, chNo);
-  }
+//         chTC->TC_CHANNEL[chNo].TC_IER=TC_IER_CPCS;  // RC compare interrupt
+//         chTC->TC_CHANNEL[chNo].TC_IDR=~TC_IER_CPCS;
+//         NVIC_EnableIRQ(TONE_IRQ);
+//                TCChanEnabled = 1;
+//       }
+//       if (!pinEnabled[ulPin]) {
+//         pinMode(ulPin, OUTPUT);
+//         pinEnabled[ulPin] = 1;
+//       }
+//       TC_Stop(chTC, chNo);
+//       TC_SetRC(chTC, chNo, rc);    // set frequency
+//       TC_Start(chTC, chNo);
+//   }
 
-  void noTone(uint32_t ulPin)
-  {
-    TC_Stop(chTC, chNo);  // stop timer
-    digitalWrite(ulPin,LOW);  // no signal on pin
-  }
+//   void noTone(uint32_t ulPin)
+//   {
+//     TC_Stop(chTC, chNo);  // stop timer
+//     digitalWrite(ulPin,LOW);  // no signal on pin
+//   }
 
-  // timer ISR  TC1 ch 0
-  void TC3_Handler ( void ) {
-    TC_GetStatus(TC1, 0);
-    if (toggle_count != 0){
-      // toggle pin  TODO  better
-      digitalWrite(tone_pin,pin_state= !pin_state);
-      if (toggle_count > 0) toggle_count--;
-    } else {
-      noTone(tone_pin);
-    }
-  }
+//   // timer ISR  TC1 ch 0
+//   void TC3_Handler ( void ) {
+//     TC_GetStatus(TC1, 0);
+//     if (toggle_count != 0){
+//       // toggle pin  TODO  better
+//       digitalWrite(tone_pin,pin_state= !pin_state);
+//       if (toggle_count > 0) toggle_count--;
+//     } else {
+//       noTone(tone_pin);
+//     }
+//   }
