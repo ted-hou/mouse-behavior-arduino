@@ -22,7 +22,6 @@ classdef ArduinoConnection < handle
 		Connected = false
 		AutosaveEnabled = false
 		SerialConnection = []
-		ArduinoMessageString = ''
 		State = []
 		ParamUpdateQueue = []
 		EventMarkersBuffer = []
@@ -57,9 +56,8 @@ classdef ArduinoConnection < handle
 			
 			% Add a callback function to be executed whenever 1 byte is available
 			% to be read from the port's buffer.
-			serialPort.BytesAvailableFcn = @(port, event)obj.ReadMessage(port, event);
-			serialPort.BytesAvailableFcnMode = 'byte';
-			serialPort.BytesAvailableFcnCount = 1;
+			serialPort.BytesAvailableFcn = @obj.OnMessageReceived;
+			serialPort.BytesAvailableFcnMode = 'terminator';
 
 			% Open the serial port for reading and writing.
 			obj.SerialConnection = serialPort;
@@ -249,33 +247,13 @@ classdef ArduinoConnection < handle
 			end
 		end
 
-		function ReadMessage(obj, port, event)
-			%arduinoPort = port;
-			% As long as there are still bytes to be read in the buffer...
-			while (obj.SerialConnection.BytesAvailable > 0)
-				charIn = char(fread(obj.SerialConnection,1,'char'));
-
-				% on carriage return, call message callback and reset ArduinoMessageString
-				if (charIn == sprintf('\n'))
-
-					% we confirm that the connection was established once the first message is recieved
-					if (~obj.Connected)
-						obj.Connected = true;
-					end
-					obj.OnMessageReceived()
-					obj.ArduinoMessageString = '';
-					return % process at most one message per function call to minimize time of call
-
-				% otherwise keep accumulating characters into ArduinoMessageString
-				elseif (charIn ~= sprintf('\r'))
-					obj.ArduinoMessageString = [obj.ArduinoMessageString charIn];
-				end
+		function OnMessageReceived(obj, ~, ~)
+			if (~obj.Connected)
+				obj.Connected = true;
 			end
-		end
 
-		function OnMessageReceived(obj)
 			% Remove leading and trailing white spaces
-			messageString = obj.ArduinoMessageString;
+			messageString = fgetl(obj.SerialConnection);
 			messageString = strtrim(messageString);
 
 			% First character contains the command
