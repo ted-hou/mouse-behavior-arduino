@@ -132,7 +132,7 @@
     #define PIN_SPEAKER        5  // Speaker Pin            (DUE =  2)  (MEGA =  8)  (UNO =  9)  (TEENSY = 5)
 
     // Digital IN
-    #define PIN_LICK           2  // Lick Pin               (DUE = 36)  (MEGA =  2)  (UNO =  2)  (TEENSY = 2)
+    #define PIN_LICK           3  // Lick Pin               (DUE = 36)  (MEGA =  2)  (UNO =  2)  (TEENSY = 2)
 
 
   /*****************************************************
