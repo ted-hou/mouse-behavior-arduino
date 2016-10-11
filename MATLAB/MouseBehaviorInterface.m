@@ -625,10 +625,12 @@ classdef MouseBehaviorInterface < handle
 			end
 
 			% Plot events
+			hold(ax, 'on')
 			obj.Raster_Execute_Events(ax, data, eventCodeTrialStart, eventCodeOfInterest, eventCodeZero, eventPlotOptions);
 
 			% Plot parameters
 			obj.Raster_Execute_Params(ax, paramPlotOptions);
+			hold(ax, 'off')
 
 			% Annotations
 			lgd = legend(ax, 'Location', 'northoutside');
@@ -735,7 +737,6 @@ classdef MouseBehaviorInterface < handle
 				end
 			end
 
-			hold(ax, 'on')
 			plot(ax, eventTimesRelative, trialsOfInterest, '.',...
 				'MarkerSize', markerSize,...
 				'MarkerEdgeColor', markerColor,...
@@ -743,7 +744,6 @@ classdef MouseBehaviorInterface < handle
 				'LineWidth', 1.5,...
 				'DisplayName', obj.Arduino.EventMarkerNames{eventCodeOfInterest}...
 			)
-			hold(ax, 'off')
 		end
 		function Raster_Execute_Params(obj, ax, paramPlotOptions)
 			% Plot parameters
@@ -752,7 +752,6 @@ classdef MouseBehaviorInterface < handle
 
 			if ~isempty(paramsToPlot)
 				params = ctranspose(reshape([obj.Arduino.Trials.Parameters], [], size(obj.Arduino.Trials, 2)));			
-				hold(ax, 'on')
 				for iParam = paramsToPlot
 					% Arduino parameter
 					if iParam <= length(obj.Arduino.ParamNames)
@@ -770,7 +769,6 @@ classdef MouseBehaviorInterface < handle
 						'LineWidth', 1.2 ...
 					);
 				end
-				hold(ax, 'off')
 			end			
 		end
 
