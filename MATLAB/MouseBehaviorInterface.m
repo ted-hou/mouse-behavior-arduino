@@ -297,25 +297,52 @@ classdef MouseBehaviorInterface < handle
 			);
 			dlg.UserData.Ctrl.Edit_FigureName_Raster = edit_figureName_raster;
 
-			text_paramsToPlot_raster = uicontrol(...
+			tabgrp_plot_raster = uitabgroup(...
 				'Parent', tab_raster,...
-				'Style', 'text',...
-				'String', 'Show parameters in plot:',...
-				'HorizontalAlignment', 'left'...
+				'Units', 'pixels'...
 			);
-			dlg.UserData.Ctrl.Text_ParamsToPlot_Raster = text_paramsToPlot_raster;
+			dlg.UserData.Ctrl.TabGrp_Plot_Raster = tabgrp_plot_raster;
+
+			tab_params_raster = uitab(...
+				'Parent', tabgrp_plot_raster,...
+				'Title', 'Add Parameters',...
+				'Units', 'pixels'...
+			);
+			dlg.UserData.Ctrl.Tab_Params_Raster = tab_params_raster;			
+
+			tab_events_raster = uitab(...
+				'Parent', tabgrp_plot_raster,...
+				'Title', 'Add Events',...
+				'Units', 'pixels'...
+			);
+			dlg.UserData.Ctrl.Tab_Events_Raster = tab_events_raster;			
 
 			paramNames = [obj.Arduino.ParamNames'; repmat({'Enter Custom Value'}, 4, 1)];
 			numParams = length(paramNames);
-			table_paramsToPlot_raster = uitable(...
-				'Parent', tab_raster,...
+			table_params_raster = uitable(...
+				'Parent', tab_params_raster,...
 				'Data', [paramNames, repmat({false}, [numParams, 1]), repmat({'black'}, [numParams, 1]), repmat({'-'}, [numParams, 1])],...
 				'RowName', {},...
 				'ColumnName', {'Parameter', 'Plot', 'Color', 'Style'},...
 				'ColumnFormat', {'char', 'logical', {'black', 'red', 'blue', 'green'}, {'-', '--', ':', '-.'}},...
 				'ColumnEditable', [true, true, true, true]...
 			);
-			dlg.UserData.Ctrl.Table_ParamsToPlot_Raster = table_paramsToPlot_raster;
+			dlg.UserData.Ctrl.Table_Params_Raster = table_params_raster;
+
+			eventNames = obj.Arduino.EventMarkerNames';
+			numEvents = length(eventNames);
+			table_events_raster = uitable(...
+				'Parent', tab_events_raster,...
+				'Data', [eventNames, repmat({false}, [numEvents, 1]), repmat({'black'}, [numEvents, 1]), repmat({10}, [numEvents, 1])],...
+				'RowName', {},...
+				'ColumnName', {'Event', 'Plot', 'Color', 'Size'},...
+				'ColumnFormat', {'char', 'logical', {'black', 'red', 'blue', 'green'}, 'numeric'},...
+				'ColumnEditable', [false, true, true, true]...
+			);
+			dlg.UserData.Ctrl.Table_Events_Raster = table_events_raster;
+
+			tab_params_raster.SizeChangedFcn = @(~, ~) MouseBehaviorInterface.OnPlotOptionsTabResized(table_params_raster);
+			tab_events_raster.SizeChangedFcn = @(~, ~) MouseBehaviorInterface.OnPlotOptionsTabResized(table_events_raster);
 
 			button_plot_raster = uicontrol(...
 				'Parent', tab_raster,...
@@ -535,11 +562,12 @@ classdef MouseBehaviorInterface < handle
 			eventCodeZero 		= ctrl.Popup_EventZero_Raster.Value;
 			eventCodeOfInterest = ctrl.Popup_EventOfInterest_Raster.Value;
 			figName 			= ctrl.Edit_FigureName_Raster.String;
-			paramPlotOptions 	= ctrl.Table_ParamsToPlot_Raster.Data;
+			paramPlotOptions 	= ctrl.Table_Params_Raster.Data;
+			eventPlotOptions	= ctrl.Table_Events_Raster.Data;
 
-			obj.Raster(eventCodeTrialStart, eventCodeZero, eventCodeOfInterest, figName, paramPlotOptions)
+			obj.Raster(eventCodeTrialStart, eventCodeZero, eventCodeOfInterest, figName, paramPlotOptions, eventPlotOptions)
 		end
-		function Raster(obj, eventCodeTrialStart, eventCodeZero, eventCodeOfInterest, figName, paramPlotOptions)
+		function Raster(obj, eventCodeTrialStart, eventCodeZero, eventCodeOfInterest, figName, paramPlotOptions, eventPlotOptions)
 			% First column in data is eventCode, second column is timestamp (since trial start)
 			if nargin < 5
 				figName = '';
@@ -566,6 +594,7 @@ classdef MouseBehaviorInterface < handle
 			ax.UserData.EventCodeOfInterest = eventCodeOfInterest;
 			ax.UserData.FigName				= figName;
 			ax.UserData.ParamPlotOptions 	= paramPlotOptions;
+			ax.UserData.EventPlotOptions 	= eventPlotOptions;
 
 			% Plot it for the first time
 			obj.Raster_Execute(figId);
@@ -588,12 +617,70 @@ classdef MouseBehaviorInterface < handle
 			eventCodeZero 		= ax.UserData.EventCodeZero;
 			figName 			= ax.UserData.FigName;
 			paramPlotOptions	= ax.UserData.ParamPlotOptions;
+			eventPlotOptions	= ax.UserData.EventPlotOptions;
 
 			% If events did not occur at all, do not plot
 			if (isempty(data))
 				return
 			end
 
+			% Plot events
+			obj.Raster_Execute_Events(ax, data, eventCodeTrialStart, eventCodeOfInterest, eventCodeZero, eventPlotOptions);
+
+			% Plot parameters
+			obj.Raster_Execute_Params(ax, paramPlotOptions);
+
+			% Annotations
+			lgd = legend(ax, 'Location', 'northoutside');
+			lgd.Interpreter = 'none';
+			lgd.Orientation = 'horizontal';
+
+			ax.XLimMode 		= 'auto';
+			ax.XLim 			= [ax.XLim(1) - 100, ax.XLim(2) + 100];
+			ax.YLim 			= [0, obj.Arduino.TrialsCompleted + 1];
+			ax.YDir				= 'reverse';
+			ax.XLabel.String 	= 'Time (ms)';
+			ax.YLabel.String 	= 'Trial';
+
+			% Set ytick labels
+			tickInterval 	= max([1, round(ceil(obj.Arduino.TrialsCompleted/10)/5)*5]);
+			ticks 			= tickInterval:tickInterval:obj.Arduino.TrialsCompleted;
+			if (tickInterval > 1)
+				ticks = [1, ticks];
+			end
+			if (obj.Arduino.TrialsCompleted) > ticks(end)
+				ticks = [ticks, obj.Arduino.TrialsCompleted];
+			end
+			ax.YTick 		= ticks;
+			ax.YTickLabel 	= ticks;
+
+			title(ax, figName)
+
+			% Store plot options cause for some reason it's lost unless we do this.
+			ax.UserData.EventCodeTrialStart = eventCodeTrialStart;
+			ax.UserData.EventCodeZero 		= eventCodeZero;
+			ax.UserData.EventCodeOfInterest = eventCodeOfInterest;
+			ax.UserData.FigName 			= figName;
+			ax.UserData.ParamPlotOptions 	= paramPlotOptions;
+			ax.UserData.EventPlotOptions 	= eventPlotOptions;
+		end
+		function Raster_Execute_Events(obj, ax, data, eventCodeTrialStart, eventCodeOfInterest, eventCodeZero, eventPlotOptions)
+			% Plot primary event of interest
+			obj.Raster_Execute_Single(ax, data, eventCodeTrialStart, eventCodeOfInterest, eventCodeZero, 'cyan', 10)
+
+			% Filter out events the Grad Student does not want to plot
+			eventsToPlot = find([eventPlotOptions{:, 2}]);
+
+			if ~isempty(eventsToPlot)
+				for iEvent = eventsToPlot
+					if iEvent == eventCodeOfInterest
+						continue
+					end
+					obj.Raster_Execute_Single(ax, data, eventCodeTrialStart, iEvent, eventCodeZero, eventPlotOptions{iEvent, 3}, eventPlotOptions{iEvent, 4})					
+				end
+			end	
+		end
+		function Raster_Execute_Single(obj, ax, data, eventCodeTrialStart, eventCodeOfInterest, eventCodeZero, markerColor, markerSize)
 			% Separate eventsOfInterest into trials, divided by eventsZero
 			eventsTrialStart	= find(data(:, 1) == eventCodeTrialStart);
 			eventsZero 			= find(data(:, 1) == eventCodeZero);
@@ -632,14 +719,33 @@ classdef MouseBehaviorInterface < handle
 
 			% Plot histogram of selected event times
 			eventTimesRelative = eventTimesOfInterest - eventTimesZero;
-			plot(ax, eventTimesRelative, trialsOfInterest, '.k',...
-				'MarkerSize', 10,...
-				'MarkerEdgeColor', [0 .5 .5],...
-				'MarkerFaceColor', [0 .7 .7],...
+
+			if ischar(markerColor)
+				switch markerColor
+					case 'black'
+						markerColor = [.1, .1, .1];
+					case 'red'
+						markerColor = [.9, .1, .1];
+					case 'blue'
+						markerColor = [.1, .1, .9];
+					case 'green'
+						markerColor = [.1, .9, .1];
+					case 'cyan'
+						markerColor = [0, .5, .5];
+				end
+			end
+
+			hold(ax, 'on')
+			plot(ax, eventTimesRelative, trialsOfInterest, '.',...
+				'MarkerSize', markerSize,...
+				'MarkerEdgeColor', markerColor,...
+				'MarkerFaceColor', markerColor,...
 				'LineWidth', 1.5,...
 				'DisplayName', obj.Arduino.EventMarkerNames{eventCodeOfInterest}...
 			)
-
+			hold(ax, 'off')
+		end
+		function Raster_Execute_Params(obj, ax, paramPlotOptions)
 			% Plot parameters
 			% Filter out parameters the Grad Student does not want to plot
 			paramsToPlot = find([paramPlotOptions{:, 2}]);
@@ -665,37 +771,7 @@ classdef MouseBehaviorInterface < handle
 					);
 				end
 				hold(ax, 'off')
-			end
-			lgd = legend(ax, 'Location', 'northoutside');
-			lgd.Interpreter = 'none';
-			lgd.Orientation = 'horizontal';
-
-			ax.XLim 			= [min(eventTimesRelative) - 100, max(eventTimesRelative) + 100];
-			ax.YLim 			= [max([0, min(trialsOfInterest) - 1]), obj.Arduino.TrialsCompleted + 1];
-			ax.YDir				= 'reverse';
-			ax.XLabel.String 	= 'Time (ms)';
-			ax.YLabel.String 	= 'Trial';
-
-			% Set ytick labels
-			tickInterval 	= max([1, round(ceil(obj.Arduino.TrialsCompleted/10)/5)*5]);
-			ticks 			= tickInterval:tickInterval:obj.Arduino.TrialsCompleted;
-			if (tickInterval > 1)
-				ticks = [1, ticks];
-			end
-			if (obj.Arduino.TrialsCompleted) > ticks(end)
-				ticks = [ticks, obj.Arduino.TrialsCompleted];
-			end
-			ax.YTick 		= ticks;
-			ax.YTickLabel 	= ticks;
-
-			title(ax, figName)
-
-			% Store plot options cause for some reason it's lost unless we do this.
-			ax.UserData.EventCodeTrialStart = eventCodeTrialStart;
-			ax.UserData.EventCodeZero 		= eventCodeZero;
-			ax.UserData.EventCodeOfInterest = eventCodeOfInterest;
-			ax.UserData.FigName 			= figName;
-			ax.UserData.ParamPlotOptions 	= paramPlotOptions;
+			end			
 		end
 
 		%----------------------------------------------------
@@ -839,7 +915,8 @@ classdef MouseBehaviorInterface < handle
 			ctrl = obj.Rsc.Monitor.UserData.Ctrl;
 
 			plotSettings = {...
-				ctrl.Table_ParamsToPlot_Raster.Data,...
+				ctrl.Table_Params_Raster.Data,...
+				ctrl.Table_Events_Raster.Data,...
 				ctrl.Popup_EventTrialStart_Raster.Value,...
 				ctrl.Popup_EventZero_Raster.Value,...
 				ctrl.Popup_EventOfInterest_Raster.Value,...
@@ -882,13 +959,14 @@ classdef MouseBehaviorInterface < handle
 			else
 				% If all checks are good then do the deed
 				ctrl = obj.Rsc.Monitor.UserData.Ctrl;
-				ctrl.Table_ParamsToPlot_Raster.Data = p.plotSettings{1};
-				ctrl.Popup_EventTrialStart_Raster.Value = p.plotSettings{2};
-				ctrl.Popup_EventZero_Raster.Value = p.plotSettings{3};
-				ctrl.Popup_EventOfInterest_Raster.Value = p.plotSettings{4};
-				ctrl.Popup_EventTrialStart_Hist.Value = p.plotSettings{5};
-				ctrl.Popup_EventZero_Hist.Value = p.plotSettings{6};
-				ctrl.Popup_EventOfInterest_Hist.Value = p.plotSettings{7};
+				ctrl.Table_Params_Raster.Data = p.plotSettings{1};
+				ctrl.Table_Events_Raster.Data = p.plotSettings{2};
+				ctrl.Popup_EventTrialStart_Raster.Value = p.plotSettings{3};
+				ctrl.Popup_EventZero_Raster.Value = p.plotSettings{4};
+				ctrl.Popup_EventOfInterest_Raster.Value = p.plotSettings{5};
+				ctrl.Popup_EventTrialStart_Hist.Value = p.plotSettings{6};
+				ctrl.Popup_EventZero_Hist.Value = p.plotSettings{7};
+				ctrl.Popup_EventOfInterest_Hist.Value = p.plotSettings{8};
 			end
 		end
 	end
@@ -1016,8 +1094,7 @@ classdef MouseBehaviorInterface < handle
 			popup_eventOfInterest_raster = dlg.UserData.Ctrl.Popup_EventOfInterest_Raster;
 			text_figureName_raster = dlg.UserData.Ctrl.Text_FigureName_Raster;
 			edit_figureName_raster = dlg.UserData.Ctrl.Edit_FigureName_Raster;
-			text_paramsToPlot_raster = dlg.UserData.Ctrl.Text_ParamsToPlot_Raster;
-			table_paramsToPlot_raster = dlg.UserData.Ctrl.Table_ParamsToPlot_Raster;
+			tabgrp_plot_raster = dlg.UserData.Ctrl.TabGrp_Plot_Raster;
 			button_plot_raster = dlg.UserData.Ctrl.Button_Plot_Raster;
 
 			text_eventTrialStart_hist = dlg.UserData.Ctrl.Text_EventTrialStart_Hist;
@@ -1091,24 +1168,15 @@ classdef MouseBehaviorInterface < handle
 			popup_eventOfInterest_raster.Position(2) =...
 				text_eventOfInterest_raster.Position(2) - text_eventOfInterest_raster.Position(4);
 
-			text_paramsToPlot_raster.Position = popup_eventTrialStart_raster.Position;
-			text_paramsToPlot_raster.Position(2:3) = [...
-				popup_eventTrialStart_raster.Position(2) - u.PanelSpacing - popup_eventTrialStart_raster.Position(4),...
-				2*plotOptionWidth + u.PanelMargin,...
-			];
-
-			table_paramsToPlot_raster.Position = text_paramsToPlot_raster.Position;
-			table_paramsToPlot_raster.Position = [...
-				text_paramsToPlot_raster.Position(1),...
+			tabgrp_plot_raster.Position = popup_eventTrialStart_raster.Position;
+			tabgrp_plot_raster.Position(2:4) = [...
 				u.PanelMargin,...
-				max([1, text_paramsToPlot_raster.Position(3)]),...
-				max([1, text_paramsToPlot_raster.Position(2) - u.PanelMargin])...
+				max([1, 2*plotOptionWidth + u.PanelMargin]),...
+				max([1, popup_eventTrialStart_raster.Position(2) - 2*u.PanelMargin]),...
 			];
-			tableWidth = text_paramsToPlot_raster.Position(3) - 16.5;
-			table_paramsToPlot_raster.ColumnWidth = num2cell(tableWidth*[0.5, 0.5/3, 0.5/3, 0.5/3]);
 
 			text_figureName_raster.Position = popup_eventOfInterest_raster.Position;
-			text_figureName_raster.Position(2) = text_paramsToPlot_raster.Position(2);
+			text_figureName_raster.Position(2) = popup_eventOfInterest_raster.Position(2) - u.PanelMargin - text_figureName_raster.Position(4);
 
 			edit_figureName_raster.Position = text_figureName_raster.Position;
 			edit_figureName_raster.Position(2) =...
@@ -1116,7 +1184,7 @@ classdef MouseBehaviorInterface < handle
 
 			button_plot_raster.Position = edit_figureName_raster.Position;
 			button_plot_raster.Position([2, 4]) = [...
-				table_paramsToPlot_raster.Position(2),...
+				tabgrp_plot_raster.Position(2),...
 				2*text_eventZero_raster.Position(4)...
 			];
 
@@ -1130,13 +1198,20 @@ classdef MouseBehaviorInterface < handle
 			text_figureName_hist.Position = text_figureName_raster.Position;
 			edit_figureName_hist.Position = edit_figureName_raster.Position;
 			button_plot_hist.Position = button_plot_raster.Position;
+
+		end
+
+		function OnPlotOptionsTabResized(table)
+			tab = gcbo;
+			table.Position = tab.Position;
+			table.ColumnWidth = num2cell((table.Position(3) - 17)*[0.5, 0.5/3, 0.5/3, 0.5/3]);
 		end
 
 		%----------------------------------------------------
 		%		Loose figure closed callback
 		%----------------------------------------------------
 		% Stop updating figure when we close it
-		function OnLooseFigureClosed(src, evnt, lh)
+		function OnLooseFigureClosed(src, ~, lh)
 			delete(lh)
 			delete(src)
 		end
