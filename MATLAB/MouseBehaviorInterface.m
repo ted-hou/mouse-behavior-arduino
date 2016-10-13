@@ -989,8 +989,10 @@ classdef MouseBehaviorInterface < handle
 				case 'Arduino'
 					arduinoPortName = [];
 				case 'Teensy'
-					arduinoPortName = inputdlg('Specify COM port:', 'USB Port', 1, {'COM1'});
+					defaultPortName = getpref('MouseBehaviorInterface', 'Port', 'COM1');
+					arduinoPortName = inputdlg('Specify COM port:', 'USB Port', 1, {defaultPortName});
 					arduinoPortName = arduinoPortName{1};
+					setpref('MouseBehaviorInterface', 'Port', arduinoPortName)
 				case ''
 					error('Device type not defined.');
 					arduinoPortName = false;
