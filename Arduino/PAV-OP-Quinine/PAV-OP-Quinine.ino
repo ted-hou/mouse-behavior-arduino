@@ -127,10 +127,10 @@
   *****************************************************/
 
     // Digital OUT
-    #define PIN_HOUSE_LAMP     6  // House Lamp Pin         (DUE = 34)  (MEGA = 34)  (UNO = 5?)  (TEENSY = 6?)
-    #define PIN_LED_CUE        4  // Cue LED Pin            (DUE = 35)  (MEGA = 28)  (UNO =  4)  (TEENSY = 4)
-    #define PIN_REWARD         7  // Reward Pin             (DUE = 37)  (MEGA = 52)  (UNO =  7)  (TEENSY = 7)
-    #define PIN_QUININE        8  // Quinine Pin            (DUE = 22)  (MEGA = 30)  (UNO =  8)  (TEENSY = 8)
+    #define PIN_HOUSE_LAMP     6   // House Lamp Pin         (DUE = 34)  (MEGA = 34)  (UNO = 5?)  (TEENSY = 6?)
+    #define PIN_LED_CUE        4   // Cue LED Pin            (DUE = 35)  (MEGA = 28)  (UNO =  4)  (TEENSY = 4)
+    #define PIN_REWARD         7   // Reward Pin             (DUE = 37)  (MEGA = 52)  (UNO =  7)  (TEENSY = 7)
+    #define PIN_QUININE        8   // Quinine Pin            (DUE = 22)  (MEGA = 9)   (UNO =  8)  (TEENSY = 8) ** Must be PWM
 
     // PWM OUT
     #define PIN_SPEAKER        5  // Speaker Pin            (DUE =  2)  (MEGA =  8)  (UNO =  9)  (TEENSY = 5)
@@ -253,8 +253,8 @@
       TONE_REWARD  = 5050,             // Correct tone: (prev C8 = 4186)
       TONE_ABORT   = 440,              // Error tone: (prev C3 = 131)
       TONE_CUE     = 3300,             // 'Start counting the interval' cue: (prev C6 = 1047)
-      TONE_ALERT   = 131               // Reserved for system errors
-      TONE_QUININE = 10000,            // Quinine delivery -- using tone so don't require own state to deliver for set time
+      TONE_ALERT   = 131,              // Reserved for system errors
+      TONE_QUININE = 10000             // Quinine delivery -- using tone so don't require own state to deliver for set time
     };
 
   /*****************************************************
@@ -305,7 +305,7 @@
     // Initialize parameters
     int _params[_NUM_PARAMS] = 
     {
-      1,                              // _DEBUG
+      0,                              // _DEBUG
       1,                              // PAVLOVIAN
       0,                              // OPERANT
       0,                              // ENFORCE_NO_LICK
@@ -319,7 +319,7 @@
       100,                            // CUE_DURATION
       100,                            // REWARD_DURATION
       30,                             // QUININE_DURATION
-      250                             // QUININE_TIMEOUT
+      400                             // QUININE_TIMEOUT
     };
 
   /*****************************************************
@@ -344,11 +344,11 @@
     static unsigned long _lick_time      = 0;        // Tracks most recent lick time
     static unsigned long _cue_on_time    = 0;        // Tracks time cue has been displayed for
     static unsigned long _response_window_timer = 0; // Tracks time in response window state
-    static unsigned long _reward_timer = 0;          // Tracks time in reward state
-    static unsigned long _quinine_timer = 0;         // Tracks time since last quinine delivery
-    static unsigned long _abort_timer = 0;           // Tracks time in abort state
-    static unsigned long _ITI_timer = 0;             // Tracks time in ITI state
-    static unsigned long _preCueDelay = 0;           // Initialize _preCueDelay var
+    static unsigned long _reward_timer   = 0;        // Tracks time in reward state
+    static unsigned long _quinine_timer  = 0;        // Tracks time since last quinine delivery
+    static unsigned long _abort_timer    = 0;        // Tracks time in abort state
+    static unsigned long _ITI_timer      = 0;        // Tracks time in ITI state
+    static unsigned long _preCueDelay    = 0;        // Initialize _preCueDelay var
     static bool _reward_dispensed_complete = false;  // init tracker of reward dispensal
 
     //------Debug Mode: measure tick-rate (per ms)------------//
@@ -500,35 +500,35 @@
     _debugTimer = millis();                      // Start DEBUG _single_loop_timer clock
 
     //---------------------------Reset a bunch of variables---------------------------//
-    _eventMarkerTimer = 0;
-    _trialTimer = 0;
-    _resultCode = 0; 
-    _random_delay_timer = 0;    // Random delay timer
-    _single_loop_timer = 0;     // Timer
+    _eventMarkerTimer       = 0;
+    _trialTimer             = 0;
+    _resultCode             = 0; 
+    _random_delay_timer     = 0;        // Random delay timer
+    _single_loop_timer      = 0;        // Timer
     _state                  = _INIT;    // This variable (current _state) get passed into a _state function, which determines what the next _state should be, and updates it to the next _state.
     _prevState              = _INIT;    // Remembers the previous _state from the last loop (actions should only be executed when you enter a _state for the first time, comparing currentState vs _prevState helps us keep track of that).
-    _command                 = ' ';      // Command char received from host, resets on each loop
-    _arguments[0]             = 0;      // Two integers received from host , resets on each loop
-    _arguments[1]             = 0;      // Two integers received from host , resets on each loop
-    _lick_state              = false;    // True when lick detected, False when no lick
-    _pre_window_elapsed      = false;    // Track if pre_window time has elapsed
-    _reached_target          = false;    // Track if target time reached
-    _late_lick_detected      = false;    // Track if late lick detected
-    _exp_timer		= millis();	// Experiment timer, reset to millis() at every soft reset
-    _lick_time      = 0;        // Tracks most recent lick time
-    _cue_on_time    = 0;        // Tracks time cue has been displayed for
-    _response_window_timer = 0; // Tracks time in response window state
-    _reward_timer = 0;          // Tracks time in reward state
-    _abort_timer = 0;           // Tracks time in abort state
-    _ITI_timer = 0;             // Tracks time in ITI state
-    _preCueDelay = 0;           // Initialize _preCueDelay var
-    _reward_dispensed_complete = false;  // init tracker of reward dispensal
-    _debugTimer     = 0;        // Debugging _single_loop_timer
-    _ticks          = 0;        // # of loops/sec in the debugger
+    _command                = ' ';      // Command char received from host, resets on each loop
+    _arguments[0]           = 0;        // Two integers received from host , resets on each loop
+    _arguments[1]           = 0;        // Two integers received from host , resets on each loop
+    _lick_state             = false;    // True when lick detected, False when no lick
+    _pre_window_elapsed     = false;    // Track if pre_window time has elapsed
+    _reached_target         = false;    // Track if target time reached
+    _late_lick_detected     = false;    // Track if late lick detected
+    _exp_timer		          = millis();	// Experiment timer, reset to millis() at every soft reset
+    _lick_time              = 0;        // Tracks most recent lick time
+    _cue_on_time            = 0;        // Tracks time cue has been displayed for
+    _response_window_timer  = 0;        // Tracks time in response window state
+    _reward_timer           = 0;        // Tracks time in reward state
+    _abort_timer            = 0;        // Tracks time in abort state
+    _ITI_timer              = 0;        // Tracks time in ITI state
+    _preCueDelay            = 0;        // Initialize _preCueDelay var
+    _reward_dispensed_complete = false; // init tracker of reward dispensal
+    _debugTimer             = 0;        // Debugging _single_loop_timer
+    _ticks                  = 0;        // # of loops/sec in the debugger
 
 
     // Tell PC that we're running by sending '~' message:
-    hostInit();                                 // Sends all parameters, states and error codes to Matlab (LF Function)    
+    hostInit();                         // Sends all parameters, states and error codes to Matlab (LF Function)    
   }
 
 
@@ -704,15 +704,15 @@
           if (_params[ENFORCE_NO_LICK] == 1) {
             _lick_time = millis() - _cue_on_time;          // Records lick wrt cue onset
             //~~~~~~~~~~~~~~~~~~~~~~~~~Deliver Quinine if Prior Quinine has elapsed~~~~~~~~~~~~~~~~~~~~~~~~//
-            _params[QUININE_TIMEOUT] = millis();           // Records time of last quinine delivery (we know this is first in this trial since the Action List only runs 1x)
-            tone(TONE_QUININE);                            // Dispenses quinine for QUININE_DURATION _params
+            _quinine_timer = millis();           // Records time of last quinine delivery (we know this is first in this trial since the Action List only runs 1x)
+            playSound(TONE_QUININE);                            // Dispenses quinine for QUININE_DURATION _params
             //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~//
             _lick_state = true;                            // Halt lick detection
             // Send a event marker (lick) to HOST with timestamp
             sendMessage("&" + String(EVENT_LICK) + " " + String(millis() - _exp_timer));
             //------------------------DEBUG MODE--------------------------//
               if (_params[_DEBUG]) {
-                sendMessage("Early lick detected @ " + String(_lick_time) + "ms wrt Cue Onset. Aborting Trial.");
+                sendMessage("Early lick detected @ " + String(_lick_time) + "ms wrt Cue Onset. Dispensing QUININE.");
               }
             //----------------------end DEBUG MODE------------------------//
             // sendMessage("`" + String(CODE_EARLY_LICK));    // Send result code (Early Lick) to Matlab HOST      
@@ -788,14 +788,14 @@
           _lick_state = true;                            // Halt lick detection
           //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~//
           //~~~~~~~~~~~~~~~~~~~~~~~~~Deliver Quinine if Prior Quinine has elapsed~~~~~~~~~~~~~~~~~~~~~~~~//
-            if (millis() - _params[QUININE_TIMEOUT] >= 250) { // If it's been >= 250 ms since last quinine delivery...
-              tone(TONE_QUININE);                             // Dispense quinine for QUININE_DURATION
-              _params[QUININE_TIMEOUT] = millis();            // Log time of last quinine deterrant
+            if (millis() - _quinine_timer >= _params[QUININE_TIMEOUT]) { // If it's been >= 250 ms since last quinine delivery...
+              playSound(TONE_QUININE);                   // Dispense quinine for QUININE_DURATION
+              _quinine_timer = millis();                 // Log time of last quinine deterrant
             }
           //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~//
           //------------------------DEBUG MODE--------------------------//
             if (_params[_DEBUG]) {
-              sendMessage("Early pre-window lick detected @ " + String(_lick_time) + "ms. Aborting Trial because No lick IS enforced.");
+              sendMessage("Early pre-window lick detected @ " + String(_lick_time) + "ms. Dispensing Quinine: No lick IS enforced.");
             }
           //----------------------end DEBUG MODE------------------------//
           // sendMessage("`" + String(CODE_EARLY_LICK));    // Send result code (Early Lick) to Matlab HOST      
