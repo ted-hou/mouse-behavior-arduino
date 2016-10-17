@@ -6,9 +6,10 @@
   State System Architecture             - Lingfeng Hou (lingfenghou@g.harvard.edu)
 
   Created       9/16/16 - ahamilos
-  Last Modified 9/20/16 - ahamilos
+  Last Modified 10/17/16 - ahamilos
   
-  (prior version: LFH Arduino STATE_MACHINE_v1_AH)
+  (prior version: PAVLOV_OPERANT)
+  New to this version: Instead of crashing trial when early licks, deliver quinine and continue
   ------------------------------------------------------------------
   COMPATIBILITY REPORT:
     Matlab HOST: Matlab 2016a - FileName = TBD
@@ -18,10 +19,10 @@
   ------------------------------------------------------------------
   Reserved:
     
-    Event Markers: 0-11
+    Event Markers: 0-12
     States:        0-8
     Result Codes:  0-3
-    Parameters:    0-12
+    Parameters:    0-14
   ------------------------------------------------------------------
   Task Architecture: Pavlovian-Operant
 
@@ -76,6 +77,8 @@
     10: RANDOM_DELAY_MAX    Maximum random pre-Cue delay (ms)
     11: CUE_DURATION        Duration of the cue tone and LED flash (ms)
     12: REWARD_DURATION     Duration of reward dispensal
+    13: QUININE_DURATION    Duration of quinine dispensal
+    14: QUININE_TIMEOUT     Minimum time between quinine deterrants
   ---------------------------------------------------------------------
     Incoming Message Syntax: (received from Matlab HOST)
       "(character)#"        -- a command
@@ -126,7 +129,8 @@
     // Digital OUT
     #define PIN_HOUSE_LAMP     6  // House Lamp Pin         (DUE = 34)  (MEGA = 34)  (UNO = 5?)  (TEENSY = 6?)
     #define PIN_LED_CUE        4  // Cue LED Pin            (DUE = 35)  (MEGA = 28)  (UNO =  4)  (TEENSY = 4)
-    #define PIN_REWARD         7  // Reward Pin             (DUE = 37) (MEGA = 52)  (UNO =  7)  (TEENSY = 7)
+    #define PIN_REWARD         7  // Reward Pin             (DUE = 37)  (MEGA = 52)  (UNO =  7)  (TEENSY = 7)
+    #define PIN_QUININE        8  // Quinine Pin            (DUE = 22)  (MEGA = 30)  (UNO =  8)  (TEENSY = 8)
 
     // PWM OUT
     #define PIN_SPEAKER        5  // Speaker Pin            (DUE =  2)  (MEGA =  8)  (UNO =  9)  (TEENSY = 5)
@@ -192,6 +196,7 @@
       EVENT_ITI,              // Enter ITI
       EVENT_LICK,             // Lick detected
       EVENT_REWARD,           // Reward dispensed
+      EVENT_QUININE,          // Quinine dispensed
       EVENT_ABORT,            // Abort (behavioral error)
       EVENT_CORRECT_LICK,     // Marks the "Peak" Lick (First within window)
       _NUM_OF_EVENT_MARKERS
@@ -209,6 +214,7 @@
       "ITI",
       "LICK",
       "REWARD",
+      "QUININE",
       "ABORT",
       "CORRECT_LICK"
     };
@@ -222,7 +228,7 @@
     enum ResultCode
     {
       CODE_CORRECT,                              // Correct    (1st lick w/in window)
-      CODE_EARLY_LICK,                           // Early Lick (-> Abort in Enforced No-Lick)
+      CODE_EARLY_LICK,                           // Early Lick (-> Abort in Enforced No-Lick)                         // NOTE: Early lick should be removed
       CODE_LATE_LICK,                            // Late Lick  (-> Abort in Operant)
       CODE_NO_LICK,                              // No Lick    (Timeout -> ITI)
       _NUM_RESULT_CODES                          // (Private) Used to count how many codes there are.
@@ -244,10 +250,11 @@
   *****************************************************/
     enum SoundEventFrequencyEnum
     {
-      TONE_REWARD = 5050,             // Correct tone: (prev C8 = 4186)
-      TONE_ABORT  = 440,              // Error tone: (prev C3 = 131)
-      TONE_CUE    = 3300,             // 'Start counting the interval' cue: (prev C6 = 1047)
-      TONE_ALERT  = 131               // Reserved for system errors
+      TONE_REWARD  = 5050,             // Correct tone: (prev C8 = 4186)
+      TONE_ABORT   = 440,              // Error tone: (prev C3 = 131)
+      TONE_CUE     = 3300,             // 'Start counting the interval' cue: (prev C6 = 1047)
+      TONE_ALERT   = 131               // Reserved for system errors
+      TONE_QUININE = 10000,            // Quinine delivery -- using tone so don't require own state to deliver for set time
     };
 
   /*****************************************************
@@ -269,6 +276,8 @@
       RANDOM_DELAY_MAX,               // Maximum random pre-Cue delay (ms)
       CUE_DURATION,                   // Duration of the cue tone and LED flash (ms)
       REWARD_DURATION,                // Duration of reward dispensal (ms)
+      QUININE_DURATION,               // Duration of quinine dispensal (ms)
+      QUININE_TIMEOUT,                // Minimum time between quinine dispensals (ms)
       _NUM_PARAMS                     // (Private) Used to count how many parameters there are so we can initialize the param array with the correct size. Insert additional parameters before this.
     }; //**** BE SURE TO ADD NEW PARAMS TO THE NAMES LIST BELOW!*****//
 
@@ -288,7 +297,9 @@
       "RANDOM_DELAY_MIN",
       "RANDOM_DELAY_MAX",
       "CUE_DURATION",
-      "REWARD_DURATION"
+      "REWARD_DURATION",
+      "QUININE_DURATION",
+      "QUININE_TIMEOUT"
     }; //**** BE SURE TO INIT NEW PARAM VALUES BELOW!*****//
 
     // Initialize parameters
@@ -306,7 +317,9 @@
       400,                            // RANDOM_DELAY_MIN
       1500,                           // RANDOM_DELAY_MAX
       100,                            // CUE_DURATION
-      100                             // REWARD_DURATION
+      100,                            // REWARD_DURATION
+      30,                             // QUININE_DURATION
+      250                             // QUININE_TIMEOUT
     };
 
   /*****************************************************
@@ -332,6 +345,7 @@
     static unsigned long _cue_on_time    = 0;        // Tracks time cue has been displayed for
     static unsigned long _response_window_timer = 0; // Tracks time in response window state
     static unsigned long _reward_timer = 0;          // Tracks time in reward state
+    static unsigned long _quinine_timer = 0;         // Tracks time since last quinine delivery
     static unsigned long _abort_timer = 0;           // Tracks time in abort state
     static unsigned long _ITI_timer = 0;             // Tracks time in ITI state
     static unsigned long _preCueDelay = 0;           // Initialize _preCueDelay var
@@ -353,6 +367,7 @@
     pinMode(PIN_LED_CUE, OUTPUT);               // LED for 'start' cue
     pinMode(PIN_SPEAKER, OUTPUT);               // Speaker for cue/correct/error tone
     pinMode(PIN_REWARD, OUTPUT);                // Reward OUT
+    pinMode(PIN_QUININE, OUTPUT);               // Quinine OUT
     // INPUTS
     pinMode(PIN_LICK, INPUT);                   // Lick detector
     //--------------------------------------------------------//
@@ -685,18 +700,23 @@
 
 
           //======================ENFORCED NO LICK=========================//
+          //~~ New to this version: enforced no lick will deliver quinine deterrant up to every 250ms (QUININE_TIMEOUT) within prewindow if early licks detected
           if (_params[ENFORCE_NO_LICK] == 1) {
             _lick_time = millis() - _cue_on_time;          // Records lick wrt cue onset
+            //~~~~~~~~~~~~~~~~~~~~~~~~~Deliver Quinine if Prior Quinine has elapsed~~~~~~~~~~~~~~~~~~~~~~~~//
+            _params[QUININE_TIMEOUT] = millis();           // Records time of last quinine delivery (we know this is first in this trial since the Action List only runs 1x)
+            tone(TONE_QUININE);                            // Dispenses quinine for QUININE_DURATION _params
+            //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~//
+            _lick_state = true;                            // Halt lick detection
             // Send a event marker (lick) to HOST with timestamp
             sendMessage("&" + String(EVENT_LICK) + " " + String(millis() - _exp_timer));
-            sendMessage("`" + String(CODE_EARLY_LICK));    // Send result code (Early Lick) to Matlab HOST      
-            _state = ABORT_TRIAL;                          // Move to ABORT state
-            _lick_state = true;                            // Halt lick detection
             //------------------------DEBUG MODE--------------------------//
               if (_params[_DEBUG]) {
                 sendMessage("Early lick detected @ " + String(_lick_time) + "ms wrt Cue Onset. Aborting Trial.");
               }
             //----------------------end DEBUG MODE------------------------//
+            // sendMessage("`" + String(CODE_EARLY_LICK));    // Send result code (Early Lick) to Matlab HOST      
+            // _state = ABORT_TRIAL;                          // Move to ABORT state
             if (_command == 'Q')  {                          // HOST: "QUIT" -> IDLE_STATE
               _state = IDLE_STATE;                               // Set IDLE_STATE
             }
@@ -765,14 +785,21 @@
           _lick_time = millis() - _cue_on_time;          // Records lick wrt CUE ON
           // Send a event marker (lick) to HOST with timestamp
           sendMessage("&" + String(EVENT_LICK) + " " + String(millis() - _exp_timer));
-          sendMessage("`" + String(CODE_EARLY_LICK));    // Send result code (Early Lick) to Matlab HOST      
-          _state = ABORT_TRIAL;                          // Move to ABORT state
           _lick_state = true;                            // Halt lick detection
+          //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~//
+          //~~~~~~~~~~~~~~~~~~~~~~~~~Deliver Quinine if Prior Quinine has elapsed~~~~~~~~~~~~~~~~~~~~~~~~//
+            if (millis() - _params[QUININE_TIMEOUT] >= 250) { // If it's been >= 250 ms since last quinine delivery...
+              tone(TONE_QUININE);                             // Dispense quinine for QUININE_DURATION
+              _params[QUININE_TIMEOUT] = millis();            // Log time of last quinine deterrant
+            }
+          //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~//
           //------------------------DEBUG MODE--------------------------//
             if (_params[_DEBUG]) {
               sendMessage("Early pre-window lick detected @ " + String(_lick_time) + "ms. Aborting Trial because No lick IS enforced.");
             }
           //----------------------end DEBUG MODE------------------------//
+          // sendMessage("`" + String(CODE_EARLY_LICK));    // Send result code (Early Lick) to Matlab HOST      
+          // _state = ABORT_TRIAL;                          // Move to ABORT state
           if (_command == 'Q')  {                          // HOST: "QUIT" -> IDLE_STATE
             _state = IDLE_STATE;                               // Set IDLE_STATE
           }
@@ -1518,7 +1545,12 @@
     }
     if (soundEventFrequency == TONE_ALERT) {        // SYSTEM: INTERNAL ERROR
       noTone(PIN_SPEAKER);                              // Turn off current sound (if any)
-      tone(PIN_SPEAKER, soundEventFrequency, 2000);    // Play Alert Tone (default 2000 ms)
+      tone(PIN_SPEAKER, soundEventFrequency, 2000);     // Play Alert Tone (default 2000 ms)
+      return;                                           // Exit Fx
+    }
+    if (soundEventFrequency == TONE_QUININE) {       // DETERRANT: QUININE delivery
+      noTone(PIN_QUININE);                              // Turn off current quinine (if any)
+      tone(PIN_QUININE, soundEventFrequency, _params[QUININE_DURATION]);     // Deliver Quinine (default 30 ms)
       return;                                           // Exit Fx
     }
   } // end Play Sound---------------------------------------------------------------------------------------------------------------------
