@@ -34,46 +34,51 @@ classdef ArduinoConnection < handle
 
 	methods
 		function obj = ArduinoConnection(arduinoPortName)
+			if strcmp(arduinoPortName, '/offline')
+				obj.Connected = false;
+				obj.LoadExperiment()
+			else
+				if isempty(arduinoPortName)
+					arduinoPortName = obj.findFirstArduinoPort();
+				end
+				if isempty(arduinoPortName)
+					disp('Can''t find serial port with Arduino')
+					return
+				end
 
-			if isempty(arduinoPortName)
-				arduinoPortName = obj.findFirstArduinoPort();
+				%-----------------------------------------------
+				%		Start Serial Connection
+				%-----------------------------------------------
+
+				% Define the serial port object.
+				fprintf('Starting serial on port: %s\n', arduinoPortName)
+				serialPort = serial(arduinoPortName);
+				
+				% Set the baud rate
+				serialPort.BaudRate = 115200;
+				
+				% Add a callback function to be executed whenever 1 byte is available
+				% to be read from the port's buffer.
+				serialPort.BytesAvailableFcn = @obj.OnMessageReceived;
+				serialPort.BytesAvailableFcnMode = 'terminator';
+
+				% Open the serial port for reading and writing.
+				obj.SerialConnection = serialPort;
+				fopen(serialPort);
+
+				% wait for Arduino startup
+				% (we expect the Arduino to write '~' to the Serial port upon starting up)
+				fprintf('Waiting for Arduino startup')
+				obj.SendMessage('R')
+				while (~obj.Connected)
+					fprintf('.')
+					pause(0.5)
+				end
+
+				% Add event handler to detect state changes
+				obj.Listeners.StateChanged = addlistener(obj, 'StateChanged', @obj.OnStateChanged);				
 			end
-			if isempty(arduinoPortName)
-				disp('Can''t find serial port with Arduino')
-				return
-			end
 
-			%-----------------------------------------------
-			%		Start Serial Connection
-			%-----------------------------------------------
-
-			% Define the serial port object.
-			fprintf('Starting serial on port: %s\n', arduinoPortName)
-			serialPort = serial(arduinoPortName);
-			
-			% Set the baud rate
-			serialPort.BaudRate = 115200;
-			
-			% Add a callback function to be executed whenever 1 byte is available
-			% to be read from the port's buffer.
-			serialPort.BytesAvailableFcn = @obj.OnMessageReceived;
-			serialPort.BytesAvailableFcnMode = 'terminator';
-
-			% Open the serial port for reading and writing.
-			obj.SerialConnection = serialPort;
-			fopen(serialPort);
-
-			% wait for Arduino startup
-			% (we expect the Arduino to write '~' to the Serial port upon starting up)
-			fprintf('Waiting for Arduino startup')
-			obj.SendMessage('R')
-			while (~obj.Connected)
-				fprintf('.')
-				pause(0.5)
-			end
-
-			% Add event handler to detect state changes
-			obj.Listeners.StateChanged = addlistener(obj, 'StateChanged', @obj.OnStateChanged);
 		end
 
 		%-----------------------------------------------~~
@@ -190,7 +195,7 @@ classdef ArduinoConnection < handle
 			end
 			% Load file
 			p = load([filepath, filename]);
-			% If loaded file does not contain parameters
+			% If loaded file does not contain experiment
 			if ~isfield(p, 'obj')
 				% Ask the Grad Student if he wants to select another file instead
 				obj.LoadExperiment('The file you selected was not loaded because it does not contain an ArduinoConnection object. Select another file instead?')
@@ -201,6 +206,17 @@ classdef ArduinoConnection < handle
 				% If all checks are good then do the deed
 				% Disable autosave first
 				obj.AutosaveEnabled = false;
+
+				% If we're doing this offline (w/o arduino), also load experiment setup
+				if ~obj.Connected 
+					obj.StateNames = p.obj.StateNames;
+					obj.StateCanUpdateParams = p.obj.StateCanUpdateParams;
+					obj.ParamNames = p.obj.ParamNames;
+					obj.ParamValues = p.obj.ParamValues;
+					obj.ResultCodeNames = p.obj.ResultCodeNames;
+					obj.EventMarkerNames = p.obj.EventMarkerNames;
+					obj.StateNames = p.obj.StateNames;
+				end
 
 				% Load relevant experiment data
 				obj.EventMarkers 			= p.obj.EventMarkers;
@@ -227,6 +243,11 @@ classdef ArduinoConnection < handle
 		%	Serial comms
 		%~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~		
 		function SendMessage(obj, messageChar, arg1, arg2)
+			% Do nothing unless connected
+			if isempty(obj.SerialConnection)
+				return
+			end
+
 			switch nargin
 				case 2
 					stringToSend = sprintf('%s', messageChar);
@@ -399,13 +420,17 @@ classdef ArduinoConnection < handle
 
 		% Terminate connection with arduino
 		function Close(obj)
-			fclose(obj.SerialConnection)
+			if ~isempty(obj.SerialConnection)
+				fclose(obj.SerialConnection)
+			end
 		end
 
 		% Disconnect serial
 		function Reconnect(obj)
-			fclose(obj.SerialConnection)
-			fopen(obj.SerialConnection)
+			if ~isempty(obj.SerialConnection)
+				fclose(obj.SerialConnection)
+				fopen(obj.SerialConnection)
+			end
 		end
 	end
 

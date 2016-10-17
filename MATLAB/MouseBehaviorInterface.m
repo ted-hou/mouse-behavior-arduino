@@ -15,10 +15,12 @@ classdef MouseBehaviorInterface < handle
 		function obj = MouseBehaviorInterface()
 			% Find arduino port
 			arduinoPortName = MouseBehaviorInterface.QueryDeviceType();
-			if islogical(arduinoPortName)
+
+			% Exit program if no choice provided
+			if strcmp(arduinoPortName, '/abort')
 				return
-			end
-			
+			end			
+
 			% Splash
 			obj.CreateDialog_Splash()
 
@@ -983,7 +985,7 @@ classdef MouseBehaviorInterface < handle
 			selection = questdlg(...
 				'Choose the device you are running.',...
 				'Choose device',...
-				'Arduino','Teensy','Arduino'...
+				'Arduino','Teensy','None','Arduino'...
 			);
 			switch selection
 				case 'Arduino'
@@ -993,9 +995,10 @@ classdef MouseBehaviorInterface < handle
 					arduinoPortName = inputdlg('Specify COM port:', 'USB Port', 1, {defaultPortName});
 					arduinoPortName = arduinoPortName{1};
 					setpref('MouseBehaviorInterface', 'Port', arduinoPortName)
-				case ''
-					error('Device type not defined.');
-					arduinoPortName = false;
+				case 'None'
+					arduinoPortName = '/offline';
+				otherwise
+					arduinoPortName = '/abort';
 			end
 		end
 
