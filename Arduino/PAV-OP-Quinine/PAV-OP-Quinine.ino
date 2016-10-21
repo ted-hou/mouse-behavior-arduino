@@ -758,7 +758,7 @@
       return;                                              // Exit Function
     }
 
-    if (_cue_on_time >= _params[CUE_DURATION]) {// Time to turn off Cue
+    if (millis() - _cue_on_time >= _params[CUE_DURATION]) {// Time to turn off Cue
       setCueLED(false);                                   // Turn Cue LED OFF
     }
 
