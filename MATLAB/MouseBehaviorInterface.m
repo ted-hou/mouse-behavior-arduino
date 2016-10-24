@@ -17,7 +17,9 @@ classdef MouseBehaviorInterface < handle
 			arduinoPortName = MouseBehaviorInterface.QueryPort();
 
 			% Splash
-			obj.CreateDialog_Splash()
+			if ~strcmp(arduinoPortName, '/offline')
+				obj.CreateDialog_Splash()
+			end
 
 			% Establish arduino connection
 			obj.Arduino = ArduinoConnection(arduinoPortName);
@@ -29,7 +31,9 @@ classdef MouseBehaviorInterface < handle
 			obj.CreateDialog_Monitor()
 
 			% Kill splash
-			obj.CloseDialog_Splash()
+			if ~strcmp(arduinoPortName, '/offline')
+				obj.CloseDialog_Splash()
+			end
 		end
 
 		function CreateDialog_ExperimentControl(obj)
