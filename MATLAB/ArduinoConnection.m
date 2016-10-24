@@ -167,8 +167,14 @@ classdef ArduinoConnection < handle
 			end
 			obj.ExperimentFileName = [filepath, filename];
 			obj.SaveExperiment()
-			obj.AutosaveEnabled = true;
-			fprintf('Autosave enabled. Saving to %s after each trial.\n', obj.ExperimentFileName)
+			% If online, enable autosave
+			if obj.Connected
+				obj.AutosaveEnabled = true;
+				fprintf('Autosave enabled. Saving to %s after each trial.\n', obj.ExperimentFileName)
+			else
+				obj.AutosaveEnabled = false;
+			end
+
 		end
 
 		function LoadExperiment(obj, errorMessage)
@@ -208,7 +214,7 @@ classdef ArduinoConnection < handle
 				obj.AutosaveEnabled = false;
 
 				% If we're doing this offline (w/o arduino), also load experiment setup
-				if ~obj.Connected 
+				if ~obj.Connected
 					obj.StateNames = p.obj.StateNames;
 					obj.StateCanUpdateParams = p.obj.StateCanUpdateParams;
 					obj.ParamNames = p.obj.ParamNames;
@@ -234,8 +240,10 @@ classdef ArduinoConnection < handle
 				% Store the save path
 				obj.ExperimentFileName = [filepath, filename];
 
-				% Re-enable autosave
-				obj.AutosaveEnabled = true;
+				% Re-enable autosave if online
+				if obj.Connected
+					obj.AutosaveEnabled = true;
+				end
 			end
 		end
 
