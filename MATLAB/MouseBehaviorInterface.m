@@ -14,7 +14,7 @@ classdef MouseBehaviorInterface < handle
 	methods
 		function obj = MouseBehaviorInterface()
 			% Find arduino port
-			arduinoPortName = MouseBehaviorInterface.QueryDeviceType();
+			arduinoPortName = MouseBehaviorInterface.QueryPort();
 
 			% Exit program if no choice provided
 			if strcmp(arduinoPortName, '/abort')
@@ -67,7 +67,7 @@ classdef MouseBehaviorInterface < handle
 			obj.Rsc.ExperimentControl = dlg;
 
 			% Close serial port when you close the window
-			dlg.CloseRequestFcn = {@MouseBehaviorInterface.ArduinoClose, obj.Arduino};
+			dlg.CloseRequestFcn = {@MouseBehaviorInterface.ArduinoClose, obj};
 
 			% Create a uitable for parameters
 			table_params = uitable(...
@@ -150,7 +150,7 @@ classdef MouseBehaviorInterface < handle
 			uimenu(menu_file, 'Label', 'Load Experiment ...', 'Callback', {@MouseBehaviorInterface.ArduinoLoadExperiment, obj.Arduino}, 'Accelerator', 'l');
 			uimenu(menu_file, 'Label', 'Save Parameters ...', 'Callback', {@MouseBehaviorInterface.ArduinoSaveParameters, obj.Arduino}, 'Separator', 'on');
 			uimenu(menu_file, 'Label', 'Load Parameters ...', 'Callback', {@MouseBehaviorInterface.ArduinoLoadParameters, obj.Arduino, table_params});
-			uimenu(menu_file, 'Label', 'Quit', 'Callback', {@MouseBehaviorInterface.ArduinoClose, obj.Arduino}, 'Separator', 'on');
+			uimenu(menu_file, 'Label', 'Quit', 'Callback', {@MouseBehaviorInterface.ArduinoClose, obj}, 'Separator', 'on');
 
 			menu_arduino = uimenu(dlg, 'Label', '&Arduino');
 			uimenu(menu_arduino, 'Label', 'Start', 'Callback', {@MouseBehaviorInterface.ArduinoStart, obj.Arduino});
@@ -991,7 +991,7 @@ classdef MouseBehaviorInterface < handle
 		%----------------------------------------------------
 		%		Commmunicating with Arduino
 		%----------------------------------------------------
-		function arduinoPortName = QueryDeviceType()
+		function arduinoPortName = QueryPort()
 			selection = questdlg(...
 				'Choose the device you are running.',...
 				'Choose device',...
@@ -1049,7 +1049,7 @@ classdef MouseBehaviorInterface < handle
 			arduino.Reset()
 			fprintf('Reset.\n')
 		end
-		function ArduinoClose(~, ~, arduino)
+		function ArduinoClose(~, ~, obj)
 			selection = questdlg(...
 				'Close all windows and terminate connection with Arduino?',...
 				'Close Window',...
@@ -1057,9 +1057,9 @@ classdef MouseBehaviorInterface < handle
 			);
 			switch selection
 				case 'Yes'
-					arduino.Close()
-					delete(gcf)
-					close all
+					obj.Arduino.Close()
+					delete(obj.Rsc.Monitor)
+					delete(obj.Rsc.ExperimentControl)
 					fprintf('Connection closed.\n')
 				case 'No'
 					return
