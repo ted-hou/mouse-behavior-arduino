@@ -16,11 +16,6 @@ classdef MouseBehaviorInterface < handle
 			% Find arduino port
 			arduinoPortName = MouseBehaviorInterface.QueryPort();
 
-			% Exit program if no choice provided
-			if strcmp(arduinoPortName, '/abort')
-				return
-			end			
-
 			% Splash
 			obj.CreateDialog_Splash()
 
@@ -992,24 +987,22 @@ classdef MouseBehaviorInterface < handle
 		%		Commmunicating with Arduino
 		%----------------------------------------------------
 		function arduinoPortName = QueryPort()
-			selection = questdlg(...
-				'Choose the device you are running.',...
-				'Choose device',...
-				'Arduino','Teensy','None','Arduino'...
+			
+			serialInfo = instrhwinfo('serial');
+
+			[selection, online] = listdlg(...
+				'ListString', serialInfo.AvailableSerialPorts,...
+				'SelectionMode', 'single',...
+				'ListSize', [100, 75],...
+				'PromptString', 'Select COM port',...
+				'CancelString', 'Offline'...
 			);
-			switch selection
-				case 'Arduino'
-					arduinoPortName = [];
-				case 'Teensy'
-					defaultPortName = getpref('MouseBehaviorInterface', 'Port', 'COM1');
-					arduinoPortName = inputdlg('Specify COM port:', 'USB Port', 1, {defaultPortName});
-					arduinoPortName = arduinoPortName{1};
-					setpref('MouseBehaviorInterface', 'Port', arduinoPortName)
-				case 'None'
-					arduinoPortName = '/offline';
-				otherwise
-					arduinoPortName = '/abort';
-			end
+
+			if (online)
+				arduinoPortName = serialInfo.AvailableSerialPorts{selection};
+			else
+				arduinoPortName = '/offline';
+			end	
 		end
 
 		function OnParamChangedViaGUI(~, evnt, arduino)
