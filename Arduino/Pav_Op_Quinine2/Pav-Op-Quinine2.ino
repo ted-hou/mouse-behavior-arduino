@@ -17,7 +17,7 @@
     Matlab HOST: Matlab 2016a - FileName = MouseBehaviorInterface.m (depends on ArduinoConnection.m)
     Arduino:
       Default: TEENSY
-      Others:  UNO, TEENSY, DUE
+      Others:  UNO, TEENSY, DUE, MEGA
   ------------------------------------------------------------------
   Reserved:
     
@@ -78,9 +78,15 @@
     9:  RANDOM_DELAY_MIN    Minimum random pre-Cue delay (ms)
     10: RANDOM_DELAY_MAX    Maximum random pre-Cue delay (ms)
     11: CUE_DURATION        Duration of the cue tone and LED flash (ms)
-    12: REWARD_DURATION     Duration of reward dispensal
-    13: QUININE_DURATION    Duration of quinine dispensal
-    14: QUININE_TIMEOUT     Minimum time between quinine deterrants
+    12: REWARD_DURATION     Duration of reward dispensal (ms)
+    13: QUININE_DURATION    Duration of quinine dispensal (ms)
+    14: QUININE_TIMEOUT     Minimum time between quinine deterrants (ms)
+    15: QUININE_MIN         Minimum time after cue before quinine available (ms)
+    16: QUININE_MAX         Maximum time after cue before quinine turns off (ms)
+    17: SHOCK_ON            1 to connect tube shock circuit
+    18: SHOCK_MIN           Miminum time after cue before shock connected (ms)
+    19: SHOCK_MAX           Maxumum time after cue before shock disconnected (ms)
+
   ---------------------------------------------------------------------
     Incoming Message Syntax: (received from Matlab HOST)
       "(character)#"        -- a command
@@ -132,13 +138,14 @@
     #define PIN_HOUSE_LAMP     6   // House Lamp Pin         (DUE = 34)  (MEGA = 34)  (UNO = 5?)  (TEENSY = 6?)
     #define PIN_LED_CUE        4   // Cue LED Pin            (DUE = 35)  (MEGA = 28)  (UNO =  4)  (TEENSY = 4)
     #define PIN_REWARD         7   // Reward Pin             (DUE = 37)  (MEGA = 52)  (UNO =  7)  (TEENSY = 7)
+    #define PIN_SHOCK          3   // Shock Trigger Pin                                           (TEENSY = 3)
+    
+    // PWM OUT
+    #define PIN_SPEAKER        5   // Speaker Pin            (DUE =  2)  (MEGA =  8)  (UNO =  9)  (TEENSY = 5)
     #define PIN_QUININE        8   // Quinine Pin            (DUE = 22)  (MEGA = 9)   (UNO =  8)  (TEENSY = 8) ** Must be PWM
 
-    // PWM OUT
-    #define PIN_SPEAKER        5  // Speaker Pin            (DUE =  2)  (MEGA =  8)  (UNO =  9)  (TEENSY = 5)
-
     // Digital IN
-    #define PIN_LICK           2  // Lick Pin               (DUE = 36)  (MEGA =  2)  (UNO =  2)  (TEENSY = 2)
+    #define PIN_LICK           2   // Lick Pin               (DUE = 36)  (MEGA =  2)  (UNO =  2)  (TEENSY = 2)
 
 
   /*****************************************************
@@ -280,6 +287,11 @@
       REWARD_DURATION,                // Duration of reward dispensal (ms)
       QUININE_DURATION,               // Duration of quinine dispensal (ms)
       QUININE_TIMEOUT,                // Minimum time between quinine dispensals (ms)
+      QUININE_MIN,                    // Minimum time post cue before quinine available (ms)
+      QUININE_MAX,                    // Maximum time post cue before quinine not available (ms)
+      SHOCK_ON,                       // 1 to enable Shock Mode
+      SHOCK_MIN,                      // Minimum time post cue before shock ckt connected (ms)
+      SHOCK_MAX,                      // Maximum time post cue before shock ckt disconnected (ms)
       _NUM_PARAMS                     // (Private) Used to count how many parameters there are so we can initialize the param array with the correct size. Insert additional parameters before this.
     }; //**** BE SURE TO ADD NEW PARAMS TO THE NAMES LIST BELOW!*****//
 
@@ -301,7 +313,12 @@
       "CUE_DURATION",
       "REWARD_DURATION",
       "QUININE_DURATION",
-      "QUININE_TIMEOUT"
+      "QUININE_TIMEOUT",
+      "QUININE_MIN",
+      "QUININE_MAX",
+      "SHOCK_ON",
+      "SHOCK_MIN",
+      "SHOCK_MAX"
     }; //**** BE SURE TO INIT NEW PARAM VALUES BELOW!*****//
 
     // Initialize parameters
@@ -319,9 +336,14 @@
       400,                            // RANDOM_DELAY_MIN
       1500,                           // RANDOM_DELAY_MAX
       100,                            // CUE_DURATION
-      100,                            // REWARD_DURATION
+      35,                             // REWARD_DURATION
       30,                             // QUININE_DURATION
-      400                             // QUININE_TIMEOUT
+      400,                            // QUININE_TIMEOUT
+      0,                              // QUININE_MIN
+      1250,                           // QUININE_MAX
+      0,                              // SHOCK_ON
+      0,                              // SHOCK_MIN
+      1250                            // SHOCK_MAX
     };
 
   /*****************************************************
@@ -352,6 +374,8 @@
     static unsigned long _ITI_timer      = 0;        // Tracks time in ITI state
     static unsigned long _preCueDelay    = 0;        // Initialize _preCueDelay var
     static bool _reward_dispensed_complete = false;  // init tracker of reward dispensal
+    static unsigned long _quinine_clock  = 0;        // Tracks time in quinine window (min-max)
+    static unsigned long _shock_clock    = 0;        // Tracks time in shock window (min-max)
 
     //------Debug Mode: measure tick-rate (per ms)------------//
     static unsigned long _debugTimer     = 0;        // Debugging _single_loop_timer
@@ -370,6 +394,7 @@
     pinMode(PIN_SPEAKER, OUTPUT);               // Speaker for cue/correct/error tone
     pinMode(PIN_REWARD, OUTPUT);                // Reward OUT
     pinMode(PIN_QUININE, OUTPUT);               // Quinine OUT
+    pinMode(PIN_SHOCK, OUTPUT);                 // Shock Trigger OUT
     // INPUTS
     pinMode(PIN_LICK, INPUT);                   // Lick detector
     //--------------------------------------------------------//
@@ -562,6 +587,8 @@
       setHouseLamp(true);                               // Turn House Lamp ON
       setCueLED(false);                                 // Kill Cue LED
       noTone(PIN_SPEAKER);                              // Kill tone
+      noTone(PIN_QUININE);                              // Kill quinine
+      setShockTrigger(false);                           // Kill shock ckt
       setReward(false);                                 // Kill reward
       // Reset state variables
       _pre_window_elapsed = false;                  // Reset pre_window time tracker
