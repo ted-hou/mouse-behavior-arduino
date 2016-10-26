@@ -376,6 +376,7 @@
     static bool _reward_dispensed_complete = false;  // init tracker of reward dispensal
     static unsigned long _quinine_clock  = 0;        // Tracks time in quinine window (min-max)
     static unsigned long _shock_clock    = 0;        // Tracks time in shock window (min-max)
+    static bool _shock_trigger_on        = false;    // Shock trigger default is off
 
     //------Debug Mode: measure tick-rate (per ms)------------//
     static unsigned long _debugTimer     = 0;        // Debugging _single_loop_timer
@@ -639,6 +640,8 @@
     if (_state != _prevState) {                       // If ENTERTING READY STATE:
       //-----------------INIT TRIAL CLOCKS and OUTPUTS--------------//
       _trialTimer = millis();                             // Start _trialTimer
+      // _quinine_clock = 0;                                 // Reset quinine clock
+      // _shock_clock = 0;                                   // Reset shock clock
       // Send event marker (trial_init) to HOST with timestamp
       sendMessage("&" + String(EVENT_TRIAL_INIT) + " " + String(millis() - _exp_timer));
 
@@ -708,7 +711,7 @@
   /*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     PRE_WINDOW - Timing Interval (Cue presentation to opening of Reward Response Window)
   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
-  void pre_window() {
+  void pre_window() { //***********************************************************************************************go back and do quinine*****************************
     /*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
       ACTION LIST -- initialize the new state
     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
@@ -724,6 +727,15 @@
       //------------------------DEBUG MODE--------------------------//  
         if (_params[_DEBUG]) {sendMessage("Cue on. Lick accepted between " + String(_params[INTERVAL_MIN]) + " - " + String(_params[INTERVAL_MAX]) + " ms");} 
       //----------------------end DEBUG MODE------------------------//
+      if (_params[SHOCK_ON] == 1) {                   // If shock circuit enforced
+        if (millis() - _cue_on_time > _params[SHOCK_MIN] && millis()-_cue_on_time < _params[SHOCK_MAX]) { // If shock window is open
+            setShockTrigger(true);                          // Connect the shock ckt        
+        else                                            
+          setShockTrigger(false);                           // Disconnect shock ckt
+        }
+      }
+
+
       if (getLickState()) {                            // MOUSE: "Licked"
         if (!_lick_state) {                              // If new lick
 
@@ -791,7 +803,13 @@
       setCueLED(false);                                   // Turn Cue LED OFF
     }
 
-
+    if (_params[SHOCK_ON] == 1) {                   // If shock circuit enforced
+        if (!_shock_trigger_on && millis() - _cue_on_time > _params[SHOCK_MIN] && millis()-_cue_on_time < _params[SHOCK_MAX]) { // If shock window is open
+            setShockTrigger(true);                          // Connect the shock ckt        
+        else if (_shock_trigger_on)                 // Otherwise, if shock is on, but we're in the wrong window...                                            
+          setShockTrigger(false);                           // Disconnect shock ckt
+        }
+    }
 
     unsigned long current_time = millis()-_cue_on_time; //****Changed to be wrt cue onset (not total trial time)
     if (!_pre_window_elapsed && current_time >= _params[INTERVAL_MIN]) { // If prewindow elapsed, break to response window
@@ -880,6 +898,8 @@
     RESPONSE_WINDOW - Rewards first lick
   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
   void response_window() {
+
+
     //(((((((((((((((((((((((((((((((((((((( -------- PAVLOVIAN --------- ))))))))))))))))))))))))))))))))))))))==================== PAVLOVIAN ===================)))))))))))))))))))//
       if (_params[PAVLOVIAN] == 1 && _params[OPERANT] == 0) {
         /*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -896,6 +916,13 @@
               sendMessage("Entered response window at " + String(_response_window_timer - _cue_on_time) +"ms, awaiting lick.");
             }
             //----------------------end DEBUG MODE------------------------//
+            if (_params[SHOCK_ON] == 1) {                   // If shock circuit enforced
+                if (!_shock_trigger_on && millis() - _cue_on_time > _params[SHOCK_MIN] && millis()-_cue_on_time < _params[SHOCK_MAX]) { // If shock window is open
+                    setShockTrigger(true);                          // Connect the shock ckt        
+                else if (_shock_trigger_on)                 // Otherwise, if shock is on, but we're in the wrong window...                                            
+                  setShockTrigger(false);                           // Disconnect shock ckt
+                }
+            }
             if (getLickState()) {                            // MOUSE: "Licked" -> Stay in RESPONSE_WINDOW
               if (!_lick_state) {                              // If a new lick initiated
                 _lick_time = millis() - _cue_on_time;          // Records lick wrt CUE ON
@@ -956,6 +983,14 @@
             return;                                              // Exit Fx
           }
 
+          if (_params[SHOCK_ON] == 1) {                   // If shock circuit enforced
+              if (!_shock_trigger_on && millis() - _cue_on_time > _params[SHOCK_MIN] && millis()-_cue_on_time < _params[SHOCK_MAX]) { // If shock window is open
+                  setShockTrigger(true);                          // Connect the shock ckt        
+              else if (_shock_trigger_on)                 // Otherwise, if shock is on, but we're in the wrong window...                                            
+                setShockTrigger(false);                           // Disconnect shock ckt
+              }
+          }
+
           unsigned long current_time = millis()-_cue_on_time; //****Changed to be wrt cue onset (not total trial time)
           if (!_reached_target && current_time >= _params[TARGET]) { // TARGET -> REWARD
             // Send event marker (target time) to HOST with timestamp
@@ -1001,6 +1036,13 @@
               sendMessage("Entered response window at " + String(_response_window_timer - _cue_on_time) +"ms wrt cue on, awaiting lick.");
             }
             //----------------------end DEBUG MODE------------------------//
+            if (_params[SHOCK_ON] == 1) {                   // If shock circuit enforced
+                if (!_shock_trigger_on && millis() - _cue_on_time > _params[SHOCK_MIN] && millis()-_cue_on_time < _params[SHOCK_MAX]) { // If shock window is open
+                    setShockTrigger(true);                          // Connect the shock ckt        
+                else if (_shock_trigger_on)                 // Otherwise, if shock is on, but we're in the wrong window...                                            
+                  setShockTrigger(false);                           // Disconnect shock ckt
+                }
+            }
             if (getLickState()) {                            // MOUSE: "Licked" -> REWARD
               if (!_lick_state) {                              // If a new lick initiated
                 _lick_time = millis() - _cue_on_time;          // Records lick wrt CUE ON
@@ -1061,6 +1103,14 @@
             return;                                              // Exit Fx
           }
 
+          if (_params[SHOCK_ON] == 1) {                   // If shock circuit enforced
+              if (!_shock_trigger_on && millis() - _cue_on_time > _params[SHOCK_MIN] && millis()-_cue_on_time < _params[SHOCK_MAX]) { // If shock window is open
+                  setShockTrigger(true);                          // Connect the shock ckt        
+              else if (_shock_trigger_on)                 // Otherwise, if shock is on, but we're in the wrong window...                                            
+                setShockTrigger(false);                           // Disconnect shock ckt
+              }
+          }
+
           unsigned long current_time = millis()-_cue_on_time; // WRT cue onset
           if (!_reached_target && current_time >= _params[TARGET]) { // If now is target time...record but stay in state (Operant only)
             // Send event marker (target time) to HOST with timestamp
@@ -1113,6 +1163,14 @@
         // Send event marker (window closed) to HOST with timestamp
         sendMessage("&" + String(EVENT_WINDOW_CLOSED) + " " + String(millis() - _exp_timer));
         
+        if (_params[SHOCK_ON] == 1) {                   // If shock circuit enforced
+            if (!_shock_trigger_on && millis() - _cue_on_time > _params[SHOCK_MIN] && millis()-_cue_on_time < _params[SHOCK_MAX]) { // If shock window is open
+                setShockTrigger(true);                          // Connect the shock ckt        
+            else if (_shock_trigger_on)                 // Otherwise, if shock is on, but we're in the wrong window...                                            
+              setShockTrigger(false);                           // Disconnect shock ckt
+            }
+        }
+
         if (getLickState()) {                            // MOUSE: "Licked"
           if (!_lick_state) {                              // If a new lick initiated
             _lick_time = millis() - _cue_on_time;          // Records lick wrt CUE ON
@@ -1152,6 +1210,14 @@
           //----------------------end DEBUG MODE------------------------//
           return;                                        // Exit Fx
         }
+      }
+
+      if (_params[SHOCK_ON] == 1) {                   // If shock circuit enforced
+          if (!_shock_trigger_on && millis() - _cue_on_time > _params[SHOCK_MIN] && millis()-_cue_on_time < _params[SHOCK_MAX]) { // If shock window is open
+              setShockTrigger(true);                          // Connect the shock ckt        
+          else if (_shock_trigger_on)                 // Otherwise, if shock is on, but we're in the wrong window...                                            
+            setShockTrigger(false);                           // Disconnect shock ckt
+          }
       }
 
       if (_command == 'Q')  {                          // HOST: "QUIT" -> IDLE_STATE
@@ -1199,6 +1265,13 @@
         //------------------------DEBUG MODE--------------------------//  
         if (_params[_DEBUG]) {sendMessage("Dispensing reward.");}
         //----------------------end DEBUG MODE------------------------//
+        if (_params[SHOCK_ON] == 1) {                   // If shock circuit enforced
+            if (!_shock_trigger_on && millis() - _cue_on_time > _params[SHOCK_MIN] && millis()-_cue_on_time < _params[SHOCK_MAX]) { // If shock window is open
+                setShockTrigger(true);                          // Connect the shock ckt        
+            else if (_shock_trigger_on)                 // Otherwise, if shock is on, but we're in the wrong window...                                            
+              setShockTrigger(false);                           // Disconnect shock ckt
+            }
+        }
         if (getLickState()) {                            // MOUSE: "Licked"
           if (!_lick_state) {                              // If a new lick initiated
             _lick_time = millis() - _cue_on_time;          // Records lick wrt CUE ON
@@ -1236,7 +1309,13 @@
           }
         //----------------------end DEBUG MODE------------------------//
       }
-
+      if (_params[SHOCK_ON] == 1) {                   // If shock circuit enforced
+          if (!_shock_trigger_on && millis() - _cue_on_time > _params[SHOCK_MIN] && millis()-_cue_on_time < _params[SHOCK_MAX]) { // If shock window is open
+              setShockTrigger(true);                          // Connect the shock ckt        
+          else if (_shock_trigger_on)                 // Otherwise, if shock is on, but we're in the wrong window...                                            
+            setShockTrigger(false);                           // Disconnect shock ckt
+          }
+      }
 
       if (getLickState()) {                            // MOUSE: "Licked"
         if (!_lick_state) {                              // If a new lick initiated
@@ -1305,6 +1384,13 @@
         //------------------------DEBUG MODE--------------------------//  
         if (_params[_DEBUG]) {sendMessage("Incorrect: Trial aborted.");}
         //----------------------end DEBUG MODE------------------------//
+        if (_params[SHOCK_ON] == 1) {                   // If shock circuit enforced
+            if (!_shock_trigger_on && millis() - _cue_on_time > _params[SHOCK_MIN] && millis()-_cue_on_time < _params[SHOCK_MAX]) { // If shock window is open
+                setShockTrigger(true);                          // Connect the shock ckt        
+            else if (_shock_trigger_on)                 // Otherwise, if shock is on, but we're in the wrong window...                                            
+              setShockTrigger(false);                           // Disconnect shock ckt
+            }
+        }
 
         if (_cue_on_time >= _params[CUE_DURATION]) {     // Time to turn off Cue if it's still on
           setCueLED(false);                                   // Turn Cue LED OFF
@@ -1334,6 +1420,14 @@
     /*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
       TRANSITION LIST -- checks conditions, moves to next state
     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
+      if (_params[SHOCK_ON] == 1) {                   // If shock circuit enforced
+          if (!_shock_trigger_on && millis() - _cue_on_time > _params[SHOCK_MIN] && millis()-_cue_on_time < _params[SHOCK_MAX]) { // If shock window is open
+              setShockTrigger(true);                          // Connect the shock ckt        
+          else if (_shock_trigger_on)                 // Otherwise, if shock is on, but we're in the wrong window...                                            
+            setShockTrigger(false);                           // Disconnect shock ckt
+          }
+      }
+
       if (getLickState()) {                               // MOUSE: "Licked"
         if (!_lick_state) {                                 // If a new lick initiated
           _lick_time = millis() - _cue_on_time;          // Records lick wrt CUE ON
@@ -1409,6 +1503,14 @@
           if (_params[_DEBUG]) {sendMessage("Intertrial.");}
         //----------------------end DEBUG MODE------------------------//
 
+        if (_params[SHOCK_ON] == 1) {                   // If shock circuit enforced
+            if (!_shock_trigger_on && millis() - _cue_on_time > _params[SHOCK_MIN] && millis()-_cue_on_time < _params[SHOCK_MAX]) { // If shock window is open
+                setShockTrigger(true);                          // Connect the shock ckt        
+            else if (_shock_trigger_on)                 // Otherwise, if shock is on, but we're in the wrong window...                                            
+              setShockTrigger(false);                           // Disconnect shock ckt
+            }
+        }
+
 
         if (getLickState()) {                               // MOUSE: "Licked"
           if (!_lick_state) {                                 // If a new lick initiated
@@ -1444,6 +1546,14 @@
     /*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
       TRANSITION LIST -- checks conditions, moves to next state
     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
+      if (_params[SHOCK_ON] == 1) {                   // If shock circuit enforced
+          if (!_shock_trigger_on && millis() - _cue_on_time > _params[SHOCK_MIN] && millis()-_cue_on_time < _params[SHOCK_MAX]) { // If shock window is open
+              setShockTrigger(true);                          // Connect the shock ckt        
+          else if (_shock_trigger_on)                 // Otherwise, if shock is on, but we're in the wrong window...                                            
+            setShockTrigger(false);                           // Disconnect shock ckt
+          }
+      }
+
       if (getLickState()) {                               // MOUSE: "Licked"
         if (!_lick_state) {                                 // If a new lick initiated
           _lick_time = millis() - _cue_on_time;          // Records lick wrt CUE ON
@@ -1605,7 +1715,27 @@
   } // end Set Reward---------------------------------------------------------------------------------------------------------------------
 
 
-
+  /*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    SET SHOCK TRIGGER (Connect the shock ckt)
+  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
+  void setShockTrigger(bool turnOn) {
+    if (turnOn)                                                       
+    {                                                                 // MOUSE: Deliver SHOCK = TRUE
+      digitalWrite(PIN_SHOCK, HIGH);                                    // Shock Pin HIGH
+      _shock_trigger_on = true;                                         // Shock trigger true
+      //------------------------DEBUG MODE--------------------------//  
+        if (_params[_DEBUG]) {sendMessage("Shock ckt connected");}
+      //----------------------end DEBUG MODE------------------------//
+    }
+    else
+    {                                                                 // MOUSE: Stop SHOCK
+      digitalWrite(PIN_SHOCK, LOW);                                     // Shock Pin LOW
+      _shock_trigger_on = false;                                        // Update shock trigger state
+      //------------------------DEBUG MODE--------------------------// 
+        if (_params[_DEBUG]) {sendMessage("Shock ckt offline");}
+      //----------------------end DEBUG MODE------------------------//
+    }
+  } // end Set Shock Trigger--------------------------------------------------------------------------------------------------------------
 
 
 
