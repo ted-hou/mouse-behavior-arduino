@@ -729,8 +729,9 @@
       //----------------------end DEBUG MODE------------------------//
       if (_params[SHOCK_ON] == 1) {                   // If shock circuit enforced
         if (millis() - _cue_on_time > _params[SHOCK_MIN] && millis()-_cue_on_time < _params[SHOCK_MAX]) { // If shock window is open
-            setShockTrigger(true);                          // Connect the shock ckt        
-        else                                            
+            setShockTrigger(true);                          // Connect the shock ckt
+        }        
+        else  {                                            
           setShockTrigger(false);                           // Disconnect shock ckt
         }
       }
@@ -806,7 +807,8 @@
     if (_params[SHOCK_ON] == 1) {                   // If shock circuit enforced
         if (!_shock_trigger_on && millis() - _cue_on_time > _params[SHOCK_MIN] && millis()-_cue_on_time < _params[SHOCK_MAX]) { // If shock window is open
             setShockTrigger(true);                          // Connect the shock ckt        
-        else if (_shock_trigger_on)                 // Otherwise, if shock is on, but we're in the wrong window...                                            
+        }
+        else if (_shock_trigger_on) {               // Otherwise, if shock is on, but we're in the wrong window...                                            
           setShockTrigger(false);                           // Disconnect shock ckt
         }
     }
@@ -919,7 +921,8 @@
             if (_params[SHOCK_ON] == 1) {                   // If shock circuit enforced
                 if (!_shock_trigger_on && millis() - _cue_on_time > _params[SHOCK_MIN] && millis()-_cue_on_time < _params[SHOCK_MAX]) { // If shock window is open
                     setShockTrigger(true);                          // Connect the shock ckt        
-                else if (_shock_trigger_on)                 // Otherwise, if shock is on, but we're in the wrong window...                                            
+                }
+                else if (_shock_trigger_on) {                // Otherwise, if shock is on, but we're in the wrong window...                                            
                   setShockTrigger(false);                           // Disconnect shock ckt
                 }
             }
@@ -986,7 +989,8 @@
           if (_params[SHOCK_ON] == 1) {                   // If shock circuit enforced
               if (!_shock_trigger_on && millis() - _cue_on_time > _params[SHOCK_MIN] && millis()-_cue_on_time < _params[SHOCK_MAX]) { // If shock window is open
                   setShockTrigger(true);                          // Connect the shock ckt        
-              else if (_shock_trigger_on)                 // Otherwise, if shock is on, but we're in the wrong window...                                            
+              }
+              else if (_shock_trigger_on) {               // Otherwise, if shock is on, but we're in the wrong window...                                            
                 setShockTrigger(false);                           // Disconnect shock ckt
               }
           }
@@ -1039,7 +1043,8 @@
             if (_params[SHOCK_ON] == 1) {                   // If shock circuit enforced
                 if (!_shock_trigger_on && millis() - _cue_on_time > _params[SHOCK_MIN] && millis()-_cue_on_time < _params[SHOCK_MAX]) { // If shock window is open
                     setShockTrigger(true);                          // Connect the shock ckt        
-                else if (_shock_trigger_on)                 // Otherwise, if shock is on, but we're in the wrong window...                                            
+                }
+                else if (_shock_trigger_on) {                // Otherwise, if shock is on, but we're in the wrong window...                                            
                   setShockTrigger(false);                           // Disconnect shock ckt
                 }
             }
@@ -1105,8 +1110,9 @@
 
           if (_params[SHOCK_ON] == 1) {                   // If shock circuit enforced
               if (!_shock_trigger_on && millis() - _cue_on_time > _params[SHOCK_MIN] && millis()-_cue_on_time < _params[SHOCK_MAX]) { // If shock window is open
-                  setShockTrigger(true);                          // Connect the shock ckt        
-              else if (_shock_trigger_on)                 // Otherwise, if shock is on, but we're in the wrong window...                                            
+                  setShockTrigger(true);                          // Connect the shock ckt  
+              }      
+              else if (_shock_trigger_on) {               // Otherwise, if shock is on, but we're in the wrong window...                                            
                 setShockTrigger(false);                           // Disconnect shock ckt
               }
           }
@@ -1166,7 +1172,8 @@
         if (_params[SHOCK_ON] == 1) {                   // If shock circuit enforced
             if (!_shock_trigger_on && millis() - _cue_on_time > _params[SHOCK_MIN] && millis()-_cue_on_time < _params[SHOCK_MAX]) { // If shock window is open
                 setShockTrigger(true);                          // Connect the shock ckt        
-            else if (_shock_trigger_on)                 // Otherwise, if shock is on, but we're in the wrong window...                                            
+            }
+            else if (_shock_trigger_on) {               // Otherwise, if shock is on, but we're in the wrong window...                                            
               setShockTrigger(false);                           // Disconnect shock ckt
             }
         }
@@ -1215,7 +1222,8 @@
       if (_params[SHOCK_ON] == 1) {                   // If shock circuit enforced
           if (!_shock_trigger_on && millis() - _cue_on_time > _params[SHOCK_MIN] && millis()-_cue_on_time < _params[SHOCK_MAX]) { // If shock window is open
               setShockTrigger(true);                          // Connect the shock ckt        
-          else if (_shock_trigger_on)                 // Otherwise, if shock is on, but we're in the wrong window...                                            
+          }
+          else if (_shock_trigger_on) {               // Otherwise, if shock is on, but we're in the wrong window...                                            
             setShockTrigger(false);                           // Disconnect shock ckt
           }
       }
@@ -1268,7 +1276,8 @@
         if (_params[SHOCK_ON] == 1) {                   // If shock circuit enforced
             if (!_shock_trigger_on && millis() - _cue_on_time > _params[SHOCK_MIN] && millis()-_cue_on_time < _params[SHOCK_MAX]) { // If shock window is open
                 setShockTrigger(true);                          // Connect the shock ckt        
-            else if (_shock_trigger_on)                 // Otherwise, if shock is on, but we're in the wrong window...                                            
+            }
+            else if (_shock_trigger_on) {               // Otherwise, if shock is on, but we're in the wrong window...                                            
               setShockTrigger(false);                           // Disconnect shock ckt
             }
         }
@@ -1312,7 +1321,8 @@
       if (_params[SHOCK_ON] == 1) {                   // If shock circuit enforced
           if (!_shock_trigger_on && millis() - _cue_on_time > _params[SHOCK_MIN] && millis()-_cue_on_time < _params[SHOCK_MAX]) { // If shock window is open
               setShockTrigger(true);                          // Connect the shock ckt        
-          else if (_shock_trigger_on)                 // Otherwise, if shock is on, but we're in the wrong window...                                            
+          }
+          else if (_shock_trigger_on) {               // Otherwise, if shock is on, but we're in the wrong window...                                            
             setShockTrigger(false);                           // Disconnect shock ckt
           }
       }
@@ -1387,7 +1397,8 @@
         if (_params[SHOCK_ON] == 1) {                   // If shock circuit enforced
             if (!_shock_trigger_on && millis() - _cue_on_time > _params[SHOCK_MIN] && millis()-_cue_on_time < _params[SHOCK_MAX]) { // If shock window is open
                 setShockTrigger(true);                          // Connect the shock ckt        
-            else if (_shock_trigger_on)                 // Otherwise, if shock is on, but we're in the wrong window...                                            
+            }
+            else if (_shock_trigger_on) {               // Otherwise, if shock is on, but we're in the wrong window...                                            
               setShockTrigger(false);                           // Disconnect shock ckt
             }
         }
@@ -1423,7 +1434,8 @@
       if (_params[SHOCK_ON] == 1) {                   // If shock circuit enforced
           if (!_shock_trigger_on && millis() - _cue_on_time > _params[SHOCK_MIN] && millis()-_cue_on_time < _params[SHOCK_MAX]) { // If shock window is open
               setShockTrigger(true);                          // Connect the shock ckt        
-          else if (_shock_trigger_on)                 // Otherwise, if shock is on, but we're in the wrong window...                                            
+          }
+          else if (_shock_trigger_on) {               // Otherwise, if shock is on, but we're in the wrong window...                                            
             setShockTrigger(false);                           // Disconnect shock ckt
           }
       }
@@ -1506,7 +1518,8 @@
         if (_params[SHOCK_ON] == 1) {                   // If shock circuit enforced
             if (!_shock_trigger_on && millis() - _cue_on_time > _params[SHOCK_MIN] && millis()-_cue_on_time < _params[SHOCK_MAX]) { // If shock window is open
                 setShockTrigger(true);                          // Connect the shock ckt        
-            else if (_shock_trigger_on)                 // Otherwise, if shock is on, but we're in the wrong window...                                            
+            }
+            else if (_shock_trigger_on) {               // Otherwise, if shock is on, but we're in the wrong window...                                            
               setShockTrigger(false);                           // Disconnect shock ckt
             }
         }
@@ -1549,7 +1562,8 @@
       if (_params[SHOCK_ON] == 1) {                   // If shock circuit enforced
           if (!_shock_trigger_on && millis() - _cue_on_time > _params[SHOCK_MIN] && millis()-_cue_on_time < _params[SHOCK_MAX]) { // If shock window is open
               setShockTrigger(true);                          // Connect the shock ckt        
-          else if (_shock_trigger_on)                 // Otherwise, if shock is on, but we're in the wrong window...                                            
+          }
+          else if (_shock_trigger_on) {               // Otherwise, if shock is on, but we're in the wrong window...                                            
             setShockTrigger(false);                           // Disconnect shock ckt
           }
       }
