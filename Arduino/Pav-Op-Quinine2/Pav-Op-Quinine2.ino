@@ -24,7 +24,7 @@
     Event Markers: 0-12
     States:        0-8
     Result Codes:  0-3
-    Parameters:    0-14
+    Parameters:    0-22
   ------------------------------------------------------------------
   Task Architecture: Pavlovian-Operant
 
@@ -86,6 +86,9 @@
     17: SHOCK_ON            1 to connect tube shock circuit
     18: SHOCK_MIN           Miminum time after cue before shock connected (ms)
     19: SHOCK_MAX           Maxumum time after cue before shock disconnected (ms)
+    20: EARLY_LICK_ABORT    1 to abort trial with early lick
+    21: ABORT_MIN           Minimum time after cue before early lick aborts trial (ms)
+    22: ABORT_MAX           Maximum time after cue when abort available (ms)
 
   ---------------------------------------------------------------------
     Incoming Message Syntax: (received from Matlab HOST)
@@ -292,6 +295,9 @@
       SHOCK_ON,                       // 1 to enable Shock Mode
       SHOCK_MIN,                      // Minimum time post cue before shock ckt connected (ms)
       SHOCK_MAX,                      // Maximum time post cue before shock ckt disconnected (ms)
+      EARLY_LICK_ABORT,               // 1 to Abort with Early Licks in window (ms)
+      ABORT_MIN,                      // Miminum time post cue before lick causes abort (ms)
+      ABORT_MAX,                      // Maximum time post cue before abort unavailable (ms)
       _NUM_PARAMS                     // (Private) Used to count how many parameters there are so we can initialize the param array with the correct size. Insert additional parameters before this.
     }; //**** BE SURE TO ADD NEW PARAMS TO THE NAMES LIST BELOW!*****//
 
@@ -318,7 +324,10 @@
       "QUININE_MAX",
       "SHOCK_ON",
       "SHOCK_MIN",
-      "SHOCK_MAX"
+      "SHOCK_MAX",
+      "EARLY_LICK_ABORT",
+      "ABORT_MIN",
+      "ABORT_MAX"
     }; //**** BE SURE TO INIT NEW PARAM VALUES BELOW!*****//
 
     // Initialize parameters
@@ -343,7 +352,10 @@
       1250,                           // QUININE_MAX
       0,                              // SHOCK_ON
       0,                              // SHOCK_MIN
-      1250                            // SHOCK_MAX
+      1250,                            // SHOCK_MAX
+      0,                              // EARLY_LICK_ABORT
+      0,                              // ABORT_MIN
+      1250                            // ABORT_MAX
     };
 
   /*****************************************************
@@ -374,8 +386,8 @@
     static unsigned long _ITI_timer      = 0;        // Tracks time in ITI state
     static unsigned long _preCueDelay    = 0;        // Initialize _preCueDelay var
     static bool _reward_dispensed_complete = false;  // init tracker of reward dispensal
-    static unsigned long _quinine_clock  = 0;        // Tracks time in quinine window (min-max)
-    static unsigned long _shock_clock    = 0;        // Tracks time in shock window (min-max)
+    // static unsigned long _quinine_clock  = 0;        // Tracks time in quinine window (min-max)
+    // static unsigned long _shock_clock    = 0;        // Tracks time in shock window (min-max)
     static bool _shock_trigger_on        = false;    // Shock trigger default is off
 
     //------Debug Mode: measure tick-rate (per ms)------------//
@@ -759,8 +771,11 @@
                 sendMessage("Early lick detected @ " + String(_lick_time) + "ms wrt Cue Onset. Dispensing QUININE.");
               }
             //----------------------end DEBUG MODE------------------------//
-            // sendMessage("`" + String(CODE_EARLY_LICK));    // Send result code (Early Lick) to Matlab HOST      
-            // _state = ABORT_TRIAL;                          // Move to ABORT state
+            if (_params[EARLY_LICK_ABORT] == 1 && millis() - _cue_on_time > _params[ABORT_MIN] && millis()-_cue_on_time < _params[ABORT_MAX]) { // If abort window open
+              sendMessage("`" + String(CODE_EARLY_LICK));    // Send result code (Early Lick) to Matlab HOST      
+              _state = ABORT_TRIAL;                          // Move to ABORT state
+              return;
+            }
             if (_command == 'Q')  {                           // HOST: "QUIT" -> IDLE_STATE
               _state = IDLE_STATE;                               // Set IDLE_STATE
             }
@@ -849,8 +864,11 @@
               sendMessage("Early pre-window lick detected @ " + String(_lick_time) + "ms. Dispensing Quinine: No lick IS enforced.");
             }
           //----------------------end DEBUG MODE------------------------//
-          // sendMessage("`" + String(CODE_EARLY_LICK));    // Send result code (Early Lick) to Matlab HOST      
-          // _state = ABORT_TRIAL;                          // Move to ABORT state
+          if (_params[EARLY_LICK_ABORT] == 1 && millis() - _cue_on_time > _params[ABORT_MIN] && millis()-_cue_on_time < _params[ABORT_MAX]) { // If abort window open
+            sendMessage("`" + String(CODE_EARLY_LICK));    // Send result code (Early Lick) to Matlab HOST      
+            _state = ABORT_TRIAL;                          // Move to ABORT state
+            return;
+          }
           if (_command == 'Q')  {                          // HOST: "QUIT" -> IDLE_STATE
             _state = IDLE_STATE;                               // Set IDLE_STATE
           }
