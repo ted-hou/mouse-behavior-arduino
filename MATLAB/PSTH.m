@@ -60,6 +60,14 @@ for ievent = 1:length(events)
     event_index = event_index + 1; % go to next event marker
 end
 
+% There may be zero licks in last trial. Thus, to make sure dimensions
+% correct, add another row to licks_by_trial if size(licks_by_trial,
+% 1)<numtrials:
+
+if size(licks_by_trial,1) < numtrials
+    licks_by_trial(numtrials, 1) = 0
+end
+
 
 
 %% Get lick times wrt cue on: (for whole experiment, not parced by pav/op
