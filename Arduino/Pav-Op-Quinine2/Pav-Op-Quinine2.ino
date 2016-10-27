@@ -745,9 +745,11 @@
           //~~ New to this version: enforced no lick will deliver quinine deterrant up to every 250ms (QUININE_TIMEOUT) within prewindow if early licks detected
           if (_params[ENFORCE_NO_LICK] == 1) {
             _lick_time = millis() - _cue_on_time;          // Records lick wrt cue onset
-            //~~~~~~~~~~~~~~~~~~~~~~~~~Deliver Quinine if Prior Quinine has elapsed~~~~~~~~~~~~~~~~~~~~~~~~//
-            _quinine_timer = millis();           // Records time of last quinine delivery (we know this is first in this trial since the Action List only runs 1x)
-            playSound(TONE_QUININE);                            // Dispenses quinine for QUININE_DURATION _params
+            //~~~~~~~~~~~~~~~~~~~~~~~~~Deliver Quinine if Window Open~~~~~~~~~~~~~~~~~~~~~~~~//
+            if (millis() - _cue_on_time > _params[QUININE_MIN] && millis()-_cue_on_time < _params[QUININE_MAX]) { // If quinine window open
+              _quinine_timer = millis();                     // Records time of last quinine delivery (we know this is first in this trial since the Action List only runs 1x)
+              playSound(TONE_QUININE);                       // Dispenses quinine for QUININE_DURATION _params
+            }
             //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~//
             _lick_state = true;                            // Halt lick detection
             // Send a event marker (lick) to HOST with timestamp
@@ -759,7 +761,7 @@
             //----------------------end DEBUG MODE------------------------//
             // sendMessage("`" + String(CODE_EARLY_LICK));    // Send result code (Early Lick) to Matlab HOST      
             // _state = ABORT_TRIAL;                          // Move to ABORT state
-            if (_command == 'Q')  {                          // HOST: "QUIT" -> IDLE_STATE
+            if (_command == 'Q')  {                           // HOST: "QUIT" -> IDLE_STATE
               _state = IDLE_STATE;                               // Set IDLE_STATE
             }
             return;                                              // Exit Fx -> ABORT OR IDLE
@@ -835,12 +837,12 @@
           // Send a event marker (lick) to HOST with timestamp
           sendMessage("&" + String(EVENT_LICK) + " " + String(millis() - _exp_timer));
           _lick_state = true;                            // Halt lick detection
-          //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~//
-          //~~~~~~~~~~~~~~~~~~~~~~~~~Deliver Quinine if Prior Quinine has elapsed~~~~~~~~~~~~~~~~~~~~~~~~//
-            if (millis() - _quinine_timer >= _params[QUININE_TIMEOUT]) { // If it's been >= 250 ms since last quinine delivery...
-              playSound(TONE_QUININE);                   // Dispense quinine for QUININE_DURATION
-              _quinine_timer = millis();                 // Log time of last quinine deterrant
-            }
+          //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~Check for Quinine Window~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~//
+          //~~~~~~~~~~~~~~~~~~~~~~~~~Deliver Quinine if Prior Quinine has elapsed~~~~~~~~~~~~~~~~~~~~~~~~//            
+          if (millis() - _quinine_timer >= _params[QUININE_TIMEOUT] && millis() - _cue_on_time > _params[QUININE_MIN] && millis()-_cue_on_time < _params[QUININE_MAX]) { // If quinine window open
+            playSound(TONE_QUININE);                   // Dispense quinine for QUININE_DURATION
+            _quinine_timer = millis();                 // Log time of last quinine deterrant
+          }
           //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~//
           //------------------------DEBUG MODE--------------------------//
             if (_params[_DEBUG]) {
@@ -902,7 +904,7 @@
   void response_window() {
 
 
-    //(((((((((((((((((((((((((((((((((((((( -------- PAVLOVIAN --------- ))))))))))))))))))))))))))))))))))))))==================== PAVLOVIAN ===================)))))))))))))))))))//
+    //(((((((((((((((((((((((((((((((((((((( -------- PAVLOVIAN --------- )))))))))))))))))))))))))))))))))))))))))))))))))))))//
       if (_params[PAVLOVIAN] == 1 && _params[OPERANT] == 0) {
         /*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
           ACTION LIST -- initialize the new state
