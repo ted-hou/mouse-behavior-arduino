@@ -318,7 +318,6 @@
       EARLY_LICK_ABORT,               // 1 to Abort with Early Licks in window (ms)
       ABORT_MIN,                      // Miminum time post cue before lick causes abort (ms)
       ABORT_MAX,                      // Maximum time post cue before abort unavailable (ms)
-      PERCENT_PAVLOVIAN,              // Percent of mixed trials that are pavlovian (decimal)
       _NUM_PARAMS                     // (Private) Used to count how many parameters there are so we can initialize the param array with the correct size. Insert additional parameters before this.
     }; //**** BE SURE TO ADD NEW PARAMS TO THE NAMES LIST BELOW!*****//
 
@@ -327,8 +326,6 @@
     static const char *_paramNames[] = 
     {
       "_DEBUG",
-      "PAVLOVIAN",
-      "OPERANT",
       "ENFORCE_NO_LICK",
       "INTERVAL_MIN",
       "INTERVAL_MAX",
@@ -348,22 +345,19 @@
       "SHOCK_MAX",
       "EARLY_LICK_ABORT",
       "ABORT_MIN",
-      "ABORT_MAX",
-      "PERCENT_PAVLOVIAN"
+      "ABORT_MAX"
     }; //**** BE SURE TO INIT NEW PARAM VALUES BELOW!*****//
 
     // Initialize parameters
     int _params[_NUM_PARAMS] = 
     {
       0,                              // _DEBUG
-      1,                              // PAVLOVIAN
-      0,                              // OPERANT
       0,                              // ENFORCE_NO_LICK
       1250,                           // INTERVAL_MIN
       1750,                           // INTERVAL_MAX
       1500,                           // TARGET
       3000,                           // TRIAL_DURATION
-      5000,                           // ITI
+      3000,                           // ITI
       400,                            // RANDOM_DELAY_MIN
       1500,                           // RANDOM_DELAY_MAX
       100,                            // CUE_DURATION
@@ -377,8 +371,7 @@
       1250,                           // SHOCK_MAX
       0,                              // EARLY_LICK_ABORT
       0,                              // ABORT_MIN
-      1250,                           // ABORT_MAX
-      1                               // PERCENT_PAVLOVIAN
+      1250                            // ABORT_MAX
     };
 
   /*****************************************************
@@ -390,17 +383,18 @@
       // static unsigned long _trialTimer = 0;
       // static long _resultCode              = 0;        // Result code number, see "enum ResultCode" for details.
     static unsigned long _random_delay_timer = 0;    // Random delay timer
-    static unsigned long _single_loop_timer = 0;     // Timer
     static State _state                  = _INIT;    // This variable (current _state) get passed into a _state function, which determines what the next _state should be, and updates it to the next _state.
     static State _prevState              = _INIT;    // Remembers the previous _state from the last loop (actions should only be executed when you enter a _state for the first time, comparing currentState vs _prevState helps us keep track of that).
     static char _command                 = ' ';      // Command char received from host, resets on each loop
     static int _arguments[2]             = {0};      // Two integers received from host , resets on each loop
     static bool _lick_state              = false;    // True when lick detected, False when no lick
+    static bool _lever_state             = false;    // True when lever pressed, false when released
     static bool _pre_window_elapsed      = false;    // Track if pre_window time has elapsed
     static bool _reached_target          = false;    // Track if target time reached
     static bool _late_lick_detected      = false;    // Track if late lick detected
     static unsigned long _exp_timer      = 0;        // Experiment timer, reset to millis() at every soft reset
     static unsigned long _lick_time      = 0;        // Tracks most recent lick time
+    static unsigned long _press_time     = 0;        // Tracks time of most recent press
     static unsigned long _cue_on_time    = 0;        // Tracks time cue has been displayed for
     static unsigned long _response_window_timer = 0; // Tracks time in response window state
     static unsigned long _reward_timer   = 0;        // Tracks time in reward state
@@ -410,10 +404,9 @@
     static unsigned long _preCueDelay    = 0;        // Initialize _preCueDelay var
     static bool _reward_dispensed_complete = false;  // init tracker of reward dispensal
     static bool _shock_trigger_on        = false;    // Shock trigger default is off
-    static unsigned int _dice_roll       = 0;        // Randomly select if trial will be pav or op
-    static bool _mixed_is_pavlovian      = true;     // Track if current mixed trial is pavlovian
 
     //------Debug Mode: measure tick-rate (per ms)------------//
+    static unsigned long _single_loop_timer = 0;     // Timer for debugging cycles/loop
     static unsigned long _debugTimer     = 0;        // Debugging _single_loop_timer
     static unsigned long _ticks          = 0;        // # of loops/sec in the debugger
 
@@ -433,6 +426,7 @@
     pinMode(PIN_SHOCK, OUTPUT);                 // Shock Trigger OUT
     // INPUTS
     pinMode(PIN_LICK, INPUT);                   // Lick detector
+    pinMode(PIN_LEVER, INPUT);                  // Lever detector
     //--------------------------------------------------------//
 
 
