@@ -1,19 +1,16 @@
 /*********************************************************************
-  Arduino state machine code for Pavlovian-Operant Training (mice)
+  Arduino state machine code for Lever Training (mice)
   
   Training Paradigm and Architecture    - Allison Hamilos (ahamilos@g.harvard.edu)
   Matlab Serial Communication Interface - Ofer
   State System Architecture             - Lingfeng Hou (lingfenghou@g.harvard.edu)
 
-  Created       9/16/16 - ahamilos
-  Last Modified 10/27/16 - ahamilos
+  Created       11/2/16 - ahamilos
+  Last Modified 11/2/16 - ahamilos
   
-  (prior version: PAV_OP_QUININE)
-  New to this version: Make quinine or enforced no lick more flexible - 
-  can choose a separate enforced no lick window before the opening of the reward window
-  that is distinct from the prewindow opening
-  --> Create flexible shock and abort add ons
-  --> Create a joint pav-op condition in which a fixed % of trials are pav vs op
+  (prior version: PAV_OP_QUININE2)
+  New to this version: 
+  -Keeping architecture of pav-op task, implement the lever control for task
   ------------------------------------------------------------------
   COMPATIBILITY REPORT:
     Matlab HOST: Matlab 2016a - FileName = MouseBehaviorInterface.m (depends on ArduinoConnection.m)
@@ -23,75 +20,82 @@
   ------------------------------------------------------------------
   Reserved:
     
-    Event Markers: 0-12
-    States:        0-8
+    Event Markers: 0-16
+    States:        0-10
     Result Codes:  0-3
-    Parameters:    0-23
+    Parameters:    0-20
   ------------------------------------------------------------------
-  Task Architecture: Pavlovian-Operant
+  Task Architecture: Lever Press and Hold
 
   Init Trial                (event marker = 0)
     -  House Lamp OFF       (event marker = 1)
-    -  Random delay
+    -  Lever Press          (event marker = 2)
+    -  Random delay state   (event marker = 3)
   Trial Body
-    -  Cue presentation     (event marker = 2)
+    -  Cue presentation     (event marker = 4)
     -  Pre-window interval
-    -  Window opens         (event marker = 3)
+    -  Window opens         (event marker = 5)
     -  1st half response window
-    -  Target time          (event marker = 4)    - (Pavlovian-only) reward dispensed (event marker = 8)
+    -  Target time          (event marker = 6)
     -  2nd half response window
-    -  Window closes        (event marker = 5)
+    -  Window closes        (event marker = 7)
     -  Post-window Interval                       - trial aborted at this point           
-  End Trial                 (event marker = 6)    - House lamps ON (if not already)
-    -  ITI                  (event marker = 7)
+  End Trial                 (event marker = 8)    - House lamps ON (if not already)
+    -  ITI                  (event marker = 9)    - Enforced no press - i.e., wait for him to get off lever before init next trial
 
   Behavioral Events:
-    -  Lick                 (event marker = 8)
-    -  Reward dispensed     (event marker = 9)
-    -  Waiting for ITI      (event marker = 10)   - enters this state if trial aborted by behavioral error, House lamps ON
+    -  Lever Press          (event marker = 2)
+    -  Lever Release        (event marker = 10)
+    -  Lick                 (event marker = 11)
+    -  Reward dispensed     (event marker = 12)
+    -  Quinine dispensed    (event marker = 13)
+    -  Behavioral Error     (event marker = 14)   - enters this state if trial aborted by behavioral error, House lamps ON
+    -  Never Released       (event marker = 15)   - enters this state if still holding lever at trial end
+    -  Correct Release      (event marker = 16)
   --------------------------------------------------------------------
   States:
     0: _INIT                (private) 1st state in init loop, sets up communication to Matlab HOST
     1: IDLE_STATE           Awaiting command from Matlab HOST to begin experiment
-    2: TRIAL_INIT           House lamp OFF, random delay before cue presentation
-    3: PRE_WINDOW           (+/-) Enforced no lick before response window opens
-    4: RESPONSE_WINDOW      First lick in this interval rewarded (operant). Reward delivered at target time (pavlov)
-    5: POST_WINDOW          Checking for late licks
-    6: REWARD               Dispense reward, wait for trial Timeout
-    7: ABORT_TRIAL          Behavioral Error - House lamps ON, await trial Timeout
-    8: INTERTRIAL           House lamps ON (if not already), write data to HOST and DISK
+    2: TRIAL_INIT           House lamp OFF, wait for press, 
+    3: RANDOM_DELAY         Random delay before Cue presented
+    4: PRE_WINDOW           (+/-) Enforced no lick before response window opens, enforced no release
+    5: RESPONSE_WINDOW      Release in this interval rewarded. Correct tone, then reward delivered
+    6: POST_WINDOW          Checking for late lever release
+    7: REWARD               Dispense reward, wait for trial Timeout
+    8: ABORT_TRIAL          Behavioral Error - House lamps ON, await trial Timeout
+    9: WAIT_FOR_RELEASE     Wait for release if never let go
+    10: INTERTRIAL           House lamps ON (if not already), write data to HOST and DISK, enforce no press before going to TRIAL_INIT
   ---------------------------------------------------------------------
   Result Codes:
     0: CODE_CORRECT         First lick within response window               
     1: CODE_EARLY_LICK      Early lick -> Abort (Enforced No-Lick Only)
-    2: CODE_LATE_LICK       Late Lick  -> Abort (Operant Only)
-    3: CODE_NO_LICK         No Response -> Time Out
+    2: CODE_EARLY_RELEASE   Early Release  -> Abort (either during trial init or prewindow)
+    3: CODE_LATE_RELEASE    Late Release -> Abort
+    4: CODE_NO_RELEASE      No Release in Trial Time -> ITI
   ---------------------------------------------------------------------
   Parameters:
     0:  _DEBUG              (private) 1 to enable debug messages to HOST
-    1:  PAVLOVIAN           1 to enable Pavlovian Mode
-    2:  OPERANT             1 to enable Operant Mode
-    3:  ENFORCE_NO_LICK     1 to enforce no lick in the pre-window interval
-    4:  INTERVAL_MIN        Time to start of reward window (ms)
-    5:  INTERVAL_MAX        Time to end of reward window (ms)
-    6:  TARGET              Target time (ms)
-    7:  TRIAL_DURATION      Total alloted time/trial (ms)
-    8:  ITI                 Intertrial interval duration (ms)
-    9:  RANDOM_DELAY_MIN    Minimum random pre-Cue delay (ms)
-    10: RANDOM_DELAY_MAX    Maximum random pre-Cue delay (ms)
-    11: CUE_DURATION        Duration of the cue tone and LED flash (ms)
-    12: REWARD_DURATION     Duration of reward dispensal (ms)
-    13: QUININE_DURATION    Duration of quinine dispensal (ms)
-    14: QUININE_TIMEOUT     Minimum time between quinine deterrants (ms)
-    15: QUININE_MIN         Minimum time after cue before quinine available (ms)
-    16: QUININE_MAX         Maximum time after cue before quinine turns off (ms)
-    17: SHOCK_ON            1 to connect tube shock circuit
-    18: SHOCK_MIN           Miminum time after cue before shock connected (ms)
-    19: SHOCK_MAX           Maxumum time after cue before shock disconnected (ms)
-    20: EARLY_LICK_ABORT    1 to abort trial with early lick
-    21: ABORT_MIN           Minimum time after cue before early lick aborts trial (ms)
-    22: ABORT_MAX           Maximum time after cue when abort available (ms)
-    23: PERCENT_PAVLOVIAN   Percent of mixed trials that should be pavlovian (decimal)
+    1:  ENFORCE_NO_LICK     1 to enforce no lick in the pre-window interval
+    2:  INTERVAL_MIN        Time to start of reward window (ms)
+    3:  INTERVAL_MAX        Time to end of reward window (ms)
+    4:  TARGET              Target time (ms)
+    5:  TRIAL_DURATION      Total alloted time/trial (ms)
+    6:  ITI                 Intertrial interval duration (ms)
+    7:  RANDOM_DELAY_MIN    Minimum random pre-Cue delay (ms)
+    8: RANDOM_DELAY_MAX    Maximum random pre-Cue delay (ms)
+    9: CUE_DURATION        Duration of the cue tone and LED flash (ms)
+    10: REWARD_DURATION     Duration of reward dispensal (ms)
+    11: QUININE_DURATION    Duration of quinine dispensal (ms)
+    12: QUININE_TIMEOUT     Minimum time between quinine deterrants (ms)
+    13: QUININE_MIN         Minimum time after cue before quinine available (ms)
+    14: QUININE_MAX         Maximum time after cue before quinine turns off (ms)
+    15: SHOCK_ON            1 to connect tube shock circuit
+    16: SHOCK_MIN           Miminum time after cue before shock connected (ms)
+    17: SHOCK_MAX           Maxumum time after cue before shock disconnected (ms)
+    18: EARLY_LICK_ABORT    1 to abort trial with early lick
+    19: ABORT_MIN           Minimum time after cue before early lick aborts trial (ms)
+    20: ABORT_MAX           Maximum time after cue when abort available (ms)
+
 
   ---------------------------------------------------------------------
     Incoming Message Syntax: (received from Matlab HOST)
@@ -147,11 +151,12 @@
     #define PIN_SHOCK          22   // Shock Trigger Pin                  (MEGA = 22)              (TEENSY = 3)
     
     // PWM OUT
-    #define PIN_SPEAKER        8   // Speaker Pin            (DUE =  2)  (MEGA =  8)  (UNO =  9)  (TEENSY = 5)
-    #define PIN_QUININE        9   // Quinine Pin            (DUE = 22)  (MEGA =  9)  (UNO =  8)  (TEENSY = 8) ** Must be PWM
+    #define PIN_SPEAKER        8    // Speaker Pin            (DUE =  2)  (MEGA =  8)  (UNO =  9)  (TEENSY = 5)
+    #define PIN_QUININE        9    // Quinine Pin            (DUE = 22)  (MEGA =  9)  (UNO =  8)  (TEENSY = 8) ** Must be PWM
 
     // Digital IN
-    #define PIN_LICK           2   // Lick Pin               (DUE = 36)  (MEGA =  2)  (UNO =  2)  (TEENSY = 2)
+    #define PIN_LICK           2    // Lick Pin               (DUE = 36)  (MEGA =  2)  (UNO =  2)  (TEENSY = 2)
+    #define PIN_LEVER          3    // Lever Pin              (DUE = ? )  (MEGA =  3)  (UNO =  ?)  (TEENSY = 1) ** check touch sense doesn't affect Teensy
 
 
   /*****************************************************
@@ -163,14 +168,17 @@
       _INIT,                // (Private) Initial state used on first loop. 
       IDLE_STATE,           // Idle state. Wait for go signal from host.
       INIT_TRIAL,           // House lamp OFF, random delay before cue presentation
+      RANDOM_DELAY,         // Random delay before Cue presented
       PRE_WINDOW,           // (+/-) Enforced no lick before response window opens
       RESPONSE_WINDOW,      // First lick in this interval rewarded (operant). Reward delivered at target time (pavlov)
       POST_WINDOW,          // Check for late licks
       REWARD,               // Dispense reward, wait for trial Timeout
       ABORT_TRIAL,          // Behavioral Error - House lamps ON, await trial Timeout
+      WAIT_FOR_RELEASE,     // Wait for release if never let go during trial time
       INTERTRIAL,           // House lamps ON (if not already), write data to HOST and DISK, receive new params
       _NUM_STATES           // (Private) Used to count number of states
     };
+
 
     // State names stored as strings, will be sent to host
     // Names cannot contain spaces!!!
@@ -179,16 +187,18 @@
       "_INIT",
       "IDLE_STATE",
       "INIT_TRIAL",
+      "RANDOM_DELAY",
       "PRE_WINDOW",
       "RESPONSE_WINDOW",
       "POST_WINDOW",
       "REWARD",
       "ABORT_TRIAL",
+      "WAIT_FOR_RELEASE",
       "INTERTRIAL"
     };
 
     // Define which states allow param update
-    static const int _stateCanUpdateParams[] = {0,1,0,0,0,0,0,0,1,0}; 
+    static const int _stateCanUpdateParams[] = {0,1,0,0,0,0,0,0,0,0,1,0}; 
     // Defined to allow Parameter upload from host during IDLE_STATE and INTERTRIAL
 
 
@@ -203,17 +213,21 @@
     {
       EVENT_TRIAL_INIT,       // New trial initiated
       EVENT_HOUSE_LAMP_OFF,   // House lamp off - start random pre-cue delay
+      EVENT_LEVER_PRESS,      // Lever Pressed
+      EVENT_RANDOM_DELAY,     // Entered Random Delay
       EVENT_CUE_ON,           // Begin cue presentation
       EVENT_WINDOW_OPEN,      // Response window open
       EVENT_TARGET_TIME,      // Target time
       EVENT_WINDOW_CLOSED,    // Response window closed
       EVENT_TRIAL_END,        // Trial end
       EVENT_ITI,              // Enter ITI
+      EVENT_LEVER_RELEASE,    // Lever Released
       EVENT_LICK,             // Lick detected
       EVENT_REWARD,           // Reward dispensed
       EVENT_QUININE,          // Quinine dispensed
       EVENT_ABORT,            // Abort (behavioral error)
-      EVENT_CORRECT_LICK,     // Marks the "Peak" Lick (First within window)
+      EVENT_NEVER_RELEASED,   // Enters wait for release state
+      EVENT_CORRECT_RELEASE,  // Marks time of correct release -- the reaction time
       _NUM_OF_EVENT_MARKERS
     };
 
@@ -221,6 +235,8 @@
     {
       "TRIAL_INIT",
       "HOUSE_LAMP_OFF",
+      "LEVER_PRESS",
+      "RANDOM_DELAY",
       "CUE_ON",
       "WINDOW_OPEN",
       "TARGET_TIME",
@@ -231,7 +247,8 @@
       "REWARD",
       "QUININE",
       "ABORT",
-      "CORRECT_LICK"
+      "NEVER_RELEASED",
+      "CORRECT_RELEASE"
     };
 
     static unsigned long _eventMarkerTimer = 0;
@@ -244,8 +261,9 @@
     {
       CODE_CORRECT,                              // Correct    (1st lick w/in window)
       CODE_EARLY_LICK,                           // Early Lick (-> Abort in Enforced No-Lick)                         // NOTE: Early lick should be removed
-      CODE_LATE_LICK,                            // Late Lick  (-> Abort in Operant)
-      CODE_NO_LICK,                              // No Lick    (Timeout -> ITI)
+      CODE_EARLY_RELEASE,                        // Early Release  (-> Abort)
+      CODE_LATE_RELEASE,                         // Late Release  (-> Abort)
+      CODE_NO_RELEASE,                           // No Release    (Timeout -> Wait for Release)
       _NUM_RESULT_CODES                          // (Private) Used to count how many codes there are.
     };
 
@@ -254,8 +272,9 @@
     {
       "CORRECT",
       "EARLY_LICK",
-      "LATE_LICK",
-      "NO_LICK",
+      "EARLY_RELEASE",
+      "LATE_RELEASE",
+      "NO_RELEASE",
     };
 
     static unsigned long _resultCode = 0;        // Result code number.
@@ -279,8 +298,6 @@
     enum ParamID
     {
       _DEBUG,                         // (Private) 1 to enable debug messages from HOST. Default 0.
-      PAVLOVIAN,                      // 1 to enable Pavlovian Mode
-      OPERANT,                        // 1 to enable Operant Mode (exclusive to PAVLOVIAN)
       ENFORCE_NO_LICK,                // 1 to enforce no lick in the pre-window interval
       INTERVAL_MIN,                   // Time to start of reward window (ms)
       INTERVAL_MAX,                   // Time to end of reward window (ms)
