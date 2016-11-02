@@ -515,6 +515,10 @@
         case INIT_TRIAL:
           init_trial();
           break;
+
+        case RANDOM_DELAY:
+          random_delay();
+          break;
         
         case PRE_WINDOW:    
           pre_window();
@@ -534,6 +538,10 @@
         
         case ABORT_TRIAL:
           abort_trial();
+          break;
+
+        case WAIT_FOR_RELEASE:
+          wait_for_release();
           break;
         
         case INTERTRIAL:
@@ -568,6 +576,7 @@
     _arguments[0]           = 0;        // Two integers received from host , resets on each loop
     _arguments[1]           = 0;        // Two integers received from host , resets on each loop
     _lick_state             = false;    // True when lick detected, False when no lick
+    _lever_state            = false;    // True when lever pressed, False when not
     _pre_window_elapsed     = false;    // Track if pre_window time has elapsed
     _reached_target         = false;    // Track if target time reached
     _late_lick_detected     = false;    // Track if late lick detected
@@ -660,19 +669,25 @@
 
 
   /*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    INIT_TRIAL - Trial started. House Lamp OFF, Awaiting lick
+    INIT_TRIAL - Trial started. House Lamp OFF, Awaiting press
   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
   void init_trial() {
     /*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
       ACTION LIST -- initialize the new state
     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
     if (_state != _prevState) {                       // If ENTERTING READY STATE:
+      if (_command == 'Q')  {                          // HOST: "QUIT" -> IDLE_STATE
+        _state = IDLE_STATE;                                 // Set IDLE_STATE
+        return;                                              // Exit Function
+      }
       //-----------------INIT TRIAL CLOCKS and OUTPUTS--------------//
       _trialTimer = millis();                             // Start _trialTimer
-      // _quinine_clock = 0;                                 // Reset quinine clock
-      // _shock_clock = 0;                                   // Reset shock clock
       // Send event marker (trial_init) to HOST with timestamp
-      sendMessage("&" + String(EVENT_TRIAL_INIT) + " " + String(millis() - _exp_timer));
+      sendMessage("&" + String(EVENT_TRIAL_INIT) + " " + String(millis() - _exp_timer)); 
+      /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+      NOTE: all events recorded in absolute time. For convenience, 
+      we sometimes track events relative to the trial start as well for debugging 
+      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
 
       _prevState = _state;                                // Assign _prevState to READY _state
       sendMessage("$" + String(_state));                  // Send  HOST _state entry -- $2 (Ready State)
@@ -681,29 +696,196 @@
       // Send event marker (house_lamp_off) to HOST with timestamp
       sendMessage("&" + String(EVENT_HOUSE_LAMP_OFF) + " " + String(millis() - _exp_timer));
       
-      _random_delay_timer = millis();                     // Start _random_delay_timer
+      // Select the _preCueDelay now so can track time relative to cue onset (though haven't entered rand delay yet)
       _preCueDelay = random(_params[RANDOM_DELAY_MIN], _params[RANDOM_DELAY_MAX]);     // Choose random delay time
+
+      /* Check for new lever press: ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
+      if (getLeverState()) {                            // MOUSE: "Lever Pressed"
+        if (!_lever_state) {                             // If a new press initiated
+          _lever_press_time = millis() - _trialTimer;    // Records _lever_press_time relative to trial start
+          // Send a event marker (lick) to HOST with timestamp
+          sendMessage("&" + String(EVENT_LEVER_PRESS) + " " + String(millis() - _exp_timer));
+          _lever_state = true;                           // Halts press detection
+          _state = RANDOM_DELAY;                         // Move -> RANDOM DELAY 
+          //------------------------DEBUG MODE--------------------------//
+            if (_params[_DEBUG]) {sendMessage("Lever pressed to init trial, tallying press @ " + String(-(_lever_press_time + _preCueDelay)) + "ms wrt Cue ON");}
+          //----------------------end DEBUG MODE------------------------//
+          return;                                        // Break to RANDOM DELAY
+        }
+      }
+      if (!getLeverState()) {                           // MOUSE: "No press"
+        if (_lever_state) {                               // If press just ended  
+          // Send a event marker (release) to HOST with timestamp
+          sendMessage("&" + String(EVENT_LEVER_RELEASE) + " " + String(millis() - _exp_timer));                          
+          _lever_state = false;                           // Resets lever detector
+        }
+      }
+      /* Check for new licks ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
+      if (getLickState()) {                            // MOUSE: "Licked"
+        if (!_lick_state) {                              // If a new lick initiated
+          // Send a event marker (lick) to HOST with timestamp
+          sendMessage("&" + String(EVENT_LICK) + " " + String(millis() - _exp_timer));
+          _lick_state = true;                            // Halts lick detection
+          //------------------------DEBUG MODE--------------------------//
+            if (_params[_DEBUG]) {sendMessage("Pre-press lick detected, tallying lick");}
+          //----------------------end DEBUG MODE------------------------//
+        }
+      }
+      if (!getLickState()) {                           // MOUSE: "No lick"
+        if (_lick_state) {                               // If lick just ended                            
+          _lick_state = false;                           // Resets lick detector
+        }
+      }
+      //------------------------DEBUG MODE--------------------------//
+        if (_params[_DEBUG]) {
+          sendMessage("Trial Started. Awaiting press...");
+        }
+      //----------------------end DEBUG MODE------------------------//
+      _state = INIT_TRIAL;                            // No Command --> Cycle back to INIT_TRIAL  
+    } // If no new press, return to Init state and wait for press
+
+
+    /*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+      TRANSITION LIST -- checks conditions, moves to next state
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
+    if (getLeverState()) {                            // MOUSE: "Lever Pressed"
+      if (!_lever_state) {                             // If a new press initiated
+        _lever_press_time = millis() - _trialTimer;    // Records _lever_press_time relative to trial start
+        // Send a event marker (lick) to HOST with timestamp
+        sendMessage("&" + String(EVENT_LEVER_PRESS) + " " + String(millis() - _exp_timer));
+        _lever_state = true;                           // Halts press detection
+        _state = RANDOM_DELAY;                         // Move -> RANDOM DELAY
+        //------------------------DEBUG MODE--------------------------//
+          if (_params[_DEBUG]) {sendMessage("Lever pressed to init trial, tallying press @ " + String(-(_lever_press_time + _preCueDelay)) + "ms wrt Cue ON");}
+        //----------------------end DEBUG MODE------------------------//
+        return;                                        // Break to RANDOM DELAY
+      }
+    }
+    if (!getLeverState()) {                           // MOUSE: "No press"
+      if (_lever_state) {                               // If press just ended  
+        // Send a event marker (release) to HOST with timestamp
+        sendMessage("&" + String(EVENT_LEVER_RELEASE) + " " + String(millis() - _exp_timer));                          
+        _lever_state = false;                           // Resets lever detector
+      }
+    }
+
+    if (getLickState()) {                            // MOUSE: "Licked"
+      if (!_lick_state) {                              // If a new lick initiated
+        // Send a event marker (lick) to HOST with timestamp
+        sendMessage("&" + String(EVENT_LICK) + " " + String(millis() - _exp_timer));
+        _lick_state = true;                            // Halts lick detection
+        //------------------------DEBUG MODE--------------------------//
+          if (_params[_DEBUG]) {sendMessage("Pre-press lick detected, tallying lick");}
+        //----------------------end DEBUG MODE------------------------//
+      }
+    }
+
+
+    if (_command == 'Q')  {                          // HOST: "QUIT" -> IDLE_STATE
+      _state = IDLE_STATE;                                 // Set IDLE_STATE
+      return;                                              // Exit Function
+    }
+
+
+    if (!getLickState()) {                           // MOUSE: "No lick"
+      if (_lick_state) {                               // If lick just ended                            
+        _lick_state = false;                           // Resets lick detector
+      }
+    }
+
+
+
+    _state = INIT_TRIAL;                            // No Command --> Cycle back to INIT_TRIAL
+  } // End INIT_TRIAL STATE ------------------------------------------------------------------------------------------------------------------------------------------
+
+
+
+
+
+
+
+
+/*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    RANDOM_DELAY - Trial started, Random Delay before Cue
+  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
+  void random_delay() {
+    /*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+      ACTION LIST -- initialize the new state
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
+    if (_state != _prevState) {                       // If ENTERTING RANDOM DELAY STATE:
+      //-----------------INIT TRIAL CLOCKS and OUTPUTS--------------//
+      sendMessage("&" + String(EVENT_RANDOM_DELAY) + " " + String(millis() - _exp_timer));
+      _prevState = _state;                                // Assign _prevState to READY _state
+      sendMessage("$" + String(_state));                  // Send  HOST _state entry -- $3 (Random Delay State)
+      _random_delay_timer = millis();                     // Start _random_delay_timer
+
+
+      /*~ Check for EARLY RELEASE~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
+      if (!getLeverState()) {                           // MOUSE: "No press"
+        if (_lever_state) {                               // If press just ended  
+          // Send a event marker (release) to HOST with timestamp
+          sendMessage("&" + String(EVENT_LEVER_RELEASE) + " " + String(millis() - _exp_timer));
+          sendMessage("`" + String(CODE_EARLY_RELEASE));  // Send result code (Early Release) to Matlab HOST                                
+          _lever_state = false;                           // Resets lever detector
+          _state = ABORT_TRIAL;                           // Move -> ABORT, wait for trial timeout
+          return;                                         // Break to Abort state
+        }
+      } /*~ ABORT TRIAL ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
+
+      /*~ Check for New Licks ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
+      if (getLickState()) {                            // MOUSE: "Licked"
+        if (!_lick_state) {                              // If a new lick initiated
+          // Send a event marker (lick) to HOST with timestamp
+          sendMessage("&" + String(EVENT_LICK) + " " + String(millis() - _exp_timer));
+          _lick_state = true;                            // Halts lick detection
+          //------------------------DEBUG MODE--------------------------//
+            if (_params[_DEBUG]) {sendMessage("Pre-cue lick detected, tallying lick @ " + String(millis() - _random_delay_timer - _preCueDelay) + "ms wrt Cue ON");}
+          //----------------------end DEBUG MODE------------------------//
+        }
+      }
+      if (_command == 'Q')  {                          // HOST: "QUIT" -> IDLE_STATE
+        _state = IDLE_STATE;                             // Set IDLE_STATE
+        return;                                          // Exit Function
+      }
+      if (!getLickState()) {                           // MOUSE: "No lick"
+        if (_lick_state) {                               // If lick just ended                            
+          _lick_state = false;                           // Resets lick detector
+        }
+      }
+
       
       //------------------------DEBUG MODE--------------------------//
         if (_params[_DEBUG]) {
-          sendMessage("Trial Started. Random Pre-Cue Delay in Progress...(" + String(_preCueDelay) + "ms delay)");
+          sendMessage("Random Pre-Cue Delay in Progress...(" + String(_preCueDelay) + "ms delay)");
         }
       //----------------------end DEBUG MODE------------------------//
+      _state = RANDOM_DELAY;                            // No Command --> Cycle back to RANDOM_DELAY  
     }
 
 
     /*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
       TRANSITION LIST -- checks conditions, moves to next state
     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
+    /*~ Check for EARLY RELEASE~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
+    if (!getLeverState()) {                           // MOUSE: "No press"
+      if (_lever_state) {                               // If press just ended  
+        // Send a event marker (release) to HOST with timestamp
+        sendMessage("&" + String(EVENT_LEVER_RELEASE) + " " + String(millis() - _exp_timer));
+        sendMessage("`" + String(CODE_EARLY_RELEASE));  // Send result code (Early Release) to Matlab HOST                           
+        _lever_state = false;                           // Resets lever detector
+        _state = ABORT_TRIAL;                           // Move -> ABORT, wait for trial timeout
+        return;                                         // Break to Abort state
+      }
+    } /*~ ABORT TRIAL ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
+
+
     if (getLickState()) {                            // MOUSE: "Licked"
       if (!_lick_state) {                              // If a new lick initiated
-        _lick_time = millis() - _trialTimer;           // Records _lick_time relative to trial start
-        int _neg_lick_time = _lick_time - _preCueDelay;
         // Send a event marker (lick) to HOST with timestamp
         sendMessage("&" + String(EVENT_LICK) + " " + String(millis() - _exp_timer));
         _lick_state = true;                            // Halts lick detection
         //------------------------DEBUG MODE--------------------------//
-          if (_params[_DEBUG]) {sendMessage("Pre-cue lick detected, tallying lick @ " + String(_neg_lick_time) + "ms wrt Cue ON");}
+          if (_params[_DEBUG]) {sendMessage("Pre-cue lick detected, tallying lick @ " + String(millis() - _random_delay_timer - _preCueDelay) + "ms wrt Cue ON");}
         //----------------------end DEBUG MODE------------------------//
       }
     }
@@ -732,8 +914,20 @@
 
 
 
-    _state = INIT_TRIAL;                            // No Command --> Cycle back to INIT_TRIAL
-  } // End INIT_TRIAL STATE ------------------------------------------------------------------------------------------------------------------------------------------
+    _state = RANDOM_DELAY;                            // No Command --> Cycle back to RANDOM_DELAY
+  } // End RANDOM_DELAY STATE ------------------------------------------------------------------------------------------------------------------------------------------
+
+
+
+
+
+
+
+///////////////////////////~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+
+
+
 
 
 
