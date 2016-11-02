@@ -6,7 +6,7 @@
   State System Architecture             - Lingfeng Hou (lingfenghou@g.harvard.edu)
 
   Created       9/16/16 - ahamilos
-  Last Modified 10/27/16 - ahamilos
+  Last Modified 10/28/16 - ahamilos
   
   (prior version: PAV_OP_QUININE)
   New to this version: Make quinine or enforced no lick more flexible - 
@@ -141,14 +141,14 @@
   *****************************************************/
 
     // Digital OUT
-    #define PIN_HOUSE_LAMP     34   // House Lamp Pin         (DUE = 34)  (MEGA = 34)  (UNO = 5?)  (TEENSY = 6?)
-    #define PIN_LED_CUE        28   // Cue LED Pin            (DUE = 35)  (MEGA = 28)  (UNO =  4)  (TEENSY = 4)
-    #define PIN_REWARD         52   // Reward Pin             (DUE = 37)  (MEGA = 52)  (UNO =  7)  (TEENSY = 7)
-    #define PIN_SHOCK          22   // Shock Trigger Pin                  (MEGA = 22)              (TEENSY = 3)
+    #define PIN_HOUSE_LAMP     6   // House Lamp Pin         (DUE = 34)  (MEGA = 34)  (UNO = 5?)  (TEENSY = 6?)
+    #define PIN_LED_CUE        4   // Cue LED Pin            (DUE = 35)  (MEGA = 28)  (UNO =  4)  (TEENSY = 4)
+    #define PIN_REWARD         7   // Reward Pin             (DUE = 37)  (MEGA = 52)  (UNO =  7)  (TEENSY = 7)
+    #define PIN_SHOCK          3   // Shock Trigger Pin                  (MEGA = 22)              (TEENSY = 3)
     
     // PWM OUT
-    #define PIN_SPEAKER        8   // Speaker Pin            (DUE =  2)  (MEGA =  8)  (UNO =  9)  (TEENSY = 5)
-    #define PIN_QUININE        9   // Quinine Pin            (DUE = 22)  (MEGA =  9)  (UNO =  8)  (TEENSY = 8) ** Must be PWM
+    #define PIN_SPEAKER        5   // Speaker Pin            (DUE =  2)  (MEGA =  8)  (UNO =  9)  (TEENSY = 5)
+    #define PIN_QUININE        8   // Quinine Pin            (DUE = 22)  (MEGA =  9)  (UNO =  8)  (TEENSY = 8) ** Must be PWM
 
     // Digital IN
     #define PIN_LICK           2   // Lick Pin               (DUE = 36)  (MEGA =  2)  (UNO =  2)  (TEENSY = 2)
