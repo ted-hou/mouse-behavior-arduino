@@ -269,7 +269,7 @@
       "NO_LICK",
     };
 
-    static unsigned long _resultCode = 0;        // Result code number.
+    static long _resultCode = -1;        // Result code number. -1 if there is no result.
 
   /*****************************************************
     Audio cue frequencies
@@ -559,7 +559,7 @@
     //---------------------------Reset a bunch of variables---------------------------//
     _eventMarkerTimer       = 0;
     _trialTimer             = 0;
-    _resultCode             = 0; 
+    _resultCode             = -1; 
     _random_delay_timer     = 0;        // Random delay timer
     _single_loop_timer      = 0;        // Timer
     _state                  = _INIT;    // This variable (current _state) get passed into a _state function, which determines what the next _state should be, and updates it to the next _state.
@@ -625,6 +625,8 @@
       _reached_target = false;                      // Reset target time tracker
       _late_lick_detected = false;                  // Reset late lick detector
       _reward_dispensed_complete = false;           // Reset tracker of reward dispensal
+      // Clear previously registered result code
+      _resultCode = -1;
 
       //------------------------DEBUG MODE--------------------------//
       if (_params[_DEBUG]) {
@@ -789,8 +791,8 @@
               }
             //----------------------end DEBUG MODE------------------------//
             if (_params[EARLY_LICK_ABORT] == 1 && millis() - _cue_on_time > _params[ABORT_MIN] && millis()-_cue_on_time < _params[ABORT_MAX]) { // If abort window open
-              sendMessage("`" + String(CODE_EARLY_LICK));    // Send result code (Early Lick) to Matlab HOST      
-              _state = ABORT_TRIAL;                          // Move to ABORT state
+              _resultCode = CODE_EARLY_LICK;                  // Register result code      
+              _state = ABORT_TRIAL;                           // Move to ABORT state
               return;
             }
             if (_command == 'Q')  {                           // HOST: "QUIT" -> IDLE_STATE
@@ -882,7 +884,7 @@
             }
           //----------------------end DEBUG MODE------------------------//
           if (_params[EARLY_LICK_ABORT] == 1 && millis() - _cue_on_time > _params[ABORT_MIN] && millis()-_cue_on_time < _params[ABORT_MAX]) { // If abort window open
-            sendMessage("`" + String(CODE_EARLY_LICK));    // Send result code (Early Lick) to Matlab HOST      
+            _resultCode = CODE_EARLY_LICK;                  // Register result code      
             _state = ABORT_TRIAL;                          // Move to ABORT state
             return;
           }
@@ -1488,7 +1490,7 @@
             _lick_time = millis() - _cue_on_time;          // Records lick wrt CUE ON
             // Send a event marker (lick) to HOST with timestamp
             sendMessage("&" + String(EVENT_LICK) + " " + String(millis() - _exp_timer));
-            sendMessage("`" + String(CODE_LATE_LICK));    // Send result code (Late Lick) to Matlab HOST      
+            _resultCode = CODE_LATE_LICK;                  // Register result code      
             _lick_state = true;                            // Halts lick detection
             _late_lick_detected = true;                    // Don't send Result Code on next lick
             //------------------------DEBUG MODE--------------------------//
@@ -1514,7 +1516,7 @@
           sendMessage("&" + String(EVENT_LICK) + " " + String(millis() - _exp_timer));    
           _lick_state = true;                            // Halts lick detection
           if (!_late_lick_detected) {                    // If this is first lick in post window
-            sendMessage("`" + String(CODE_LATE_LICK));     // Send result code (Late Lick) to Matlab HOST
+            _resultCode = CODE_LATE_LICK;                  // Register result code      
             _late_lick_detected  = true;                   // Don't send Result Code on next lick
           }
           //------------------------DEBUG MODE--------------------------//
@@ -1549,7 +1551,7 @@
         sendMessage("&" + String(EVENT_TRIAL_END) + " " + String(millis() - _exp_timer));
         _state = INTERTRIAL;                                      // Move to ITI
         if (!_late_lick_detected) {                    // If this is first lick in post window
-            sendMessage("`" + String(CODE_NO_LICK));              // Send result code (Correct) to Matlab HOST 
+          _resultCode = CODE_NO_LICK;                  // Register result code      
         }
         return;                                                   // Exit Fx
       }  
@@ -1572,7 +1574,7 @@
         playSound(TONE_REWARD);                             // Start reward tone    
         // Send event marker (reward) to HOST with timestamp
         sendMessage("&" + String(EVENT_REWARD) + " " + String(millis() - _exp_timer));
-        sendMessage("`" + String(CODE_CORRECT));            // Send result code (Correct) to Matlab HOST      
+        _resultCode = CODE_CORRECT;                  // Register result code      
         _prevState = _state;                                // Assign _prevState to REWARD _state
         sendMessage("$" + String(_state));                  // Send HOST $6 (reward State)  
         //------------------------DEBUG MODE--------------------------//  
@@ -1815,7 +1817,13 @@
         //=================== INIT HOST COMMUNICATION=================//
         isParamsUpdateStarted = false;                      // Initialize HOST param message monitor Start
         isParamsUpdateDone = false;                         // Initialize HOST param message monitor End  
-        
+
+        //=================== SEND RESULT CODE=================//
+        if (_resultCode > -1) {
+          sendMessage("`" + String(_resultCode));
+          _resultCode = -1;
+        }
+
         //------------------------DEBUG MODE--------------------------//  
           if (_params[_DEBUG]) {sendMessage("Intertrial.");}
         //----------------------end DEBUG MODE------------------------//
