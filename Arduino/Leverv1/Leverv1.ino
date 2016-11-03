@@ -394,7 +394,7 @@
     static bool _late_lick_detected      = false;    // Track if late lick detected
     static unsigned long _exp_timer      = 0;        // Experiment timer, reset to millis() at every soft reset
     static unsigned long _lick_time      = 0;        // Tracks most recent lick time
-    static unsigned long _press_time     = 0;        // Tracks time of most recent press
+    static unsigned long _lever_press_time=0;        // Tracks time of most recent press
     static unsigned long _cue_on_time    = 0;        // Tracks time cue has been displayed for
     static unsigned long _response_window_timer = 0; // Tracks time in response window state
     static unsigned long _reward_timer   = 0;        // Tracks time in reward state
@@ -921,20 +921,10 @@
 
 
 
-
-
-///////////////////////////~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-
-
-
-
-
-
   /*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     PRE_WINDOW - Timing Interval (Cue presentation to opening of Reward Response Window)
   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
-  void pre_window() { //***********************************************************************************************go back and do quinine*****************************
+  void pre_window() { 
     /*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
       ACTION LIST -- initialize the new state
     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
@@ -958,6 +948,18 @@
           setShockTrigger(false);                           // Disconnect shock ckt
         }
       }
+
+      /*~ Check for EARLY RELEASE~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
+      if (!getLeverState()) {                           // MOUSE: "No press"
+        if (_lever_state) {                               // If press just ended  
+          // Send a event marker (release) to HOST with timestamp
+          sendMessage("&" + String(EVENT_LEVER_RELEASE) + " " + String(millis() - _exp_timer));
+          sendMessage("`" + String(CODE_EARLY_RELEASE));  // Send result code (Early Release) to Matlab HOST                                
+          _lever_state = false;                           // Resets lever detector
+          _state = ABORT_TRIAL;                           // Move -> ABORT, wait for trial timeout
+          return;                                         // Break to Abort state
+        }
+      } /*~ ABORT TRIAL ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
 
 
       if (getLickState()) {                            // MOUSE: "Licked"
@@ -1027,6 +1029,18 @@
       _state = IDLE_STATE;                                 // Set IDLE_STATE
       return;                                              // Exit Function
     }
+
+    /*~ Check for EARLY RELEASE~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
+    if (!getLeverState()) {                           // MOUSE: "No press"
+      if (_lever_state) {                               // If press just ended  
+        // Send a event marker (release) to HOST with timestamp
+        sendMessage("&" + String(EVENT_LEVER_RELEASE) + " " + String(millis() - _exp_timer));
+        sendMessage("`" + String(CODE_EARLY_RELEASE));  // Send result code (Early Release) to Matlab HOST                                
+        _lever_state = false;                           // Resets lever detector
+        _state = ABORT_TRIAL;                           // Move -> ABORT, wait for trial timeout
+        return;                                         // Break to Abort state
+      }
+    } /*~ ABORT TRIAL ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
 
     if (millis() - _cue_on_time >= _params[CUE_DURATION]) {// Time to turn off Cue
       setCueLED(false);                                   // Turn Cue LED OFF
@@ -1127,523 +1141,158 @@
 
 
 
+/////////////////////////////
+
   /*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     RESPONSE_WINDOW - Rewards first lick
   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
   void response_window() {
+    /*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+      ACTION LIST -- initialize the new state
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
+      if (_state != _prevState) {                        // If ENTERTING RESPONSE_WINDOW:
+        _response_window_timer = millis();                  // Start _response_window_timer
+        _prevState = _state;                                // Assign _prevState to RESPONSE_WINDOW state
+        sendMessage("$" + String(_state));                  // Send a message to host upon _state entry -- $4 (response_window State)
+        // Send event marker (window open) to HOST with timestamp
+        sendMessage("&" + String(EVENT_WINDOW_OPEN) + " " + String(millis() - _exp_timer)); // relative to cue onset
+        //------------------------DEBUG MODE--------------------------//  
+        if (_params[_DEBUG]) {
+          sendMessage("Entered response window at " + String(_response_window_timer - _cue_on_time) +"ms, awaiting lick.");
+        }
+        //----------------------end DEBUG MODE------------------------//
+        if (_params[SHOCK_ON] == 1) {                   // If shock circuit enforced
+            if (!_shock_trigger_on && millis() - _cue_on_time > _params[SHOCK_MIN] && millis()-_cue_on_time < _params[SHOCK_MAX]) { // If shock window is open
+                setShockTrigger(true);                          // Connect the shock ckt        
+            }
+            else if (_shock_trigger_on) {                // Otherwise, if shock is on, but we're in the wrong window...                                            
+              setShockTrigger(false);                           // Disconnect shock ckt
+            }
+        }
 
-
-    //(((((((((((((((((((((((((((((((((((((( -------- PAVLOVIAN --------- )))))))))))))))))))))))))))))))))))))))))))))))))))))//
-      if (_params[PAVLOVIAN] == 1 && _params[OPERANT] == 0) {
-        /*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-          ACTION LIST -- initialize the new state
-        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
-          if (_state != _prevState) {                        // If ENTERTING RESPONSE_WINDOW:
-            _response_window_timer = millis();                  // Start _response_window_timer
-            _prevState = _state;                                // Assign _prevState to RESPONSE_WINDOW state
-            sendMessage("$" + String(_state));                  // Send a message to host upon _state entry -- $4 (response_window State)
-            // Send event marker (window open) to HOST with timestamp
-            sendMessage("&" + String(EVENT_WINDOW_OPEN) + " " + String(millis() - _exp_timer)); // relative to cue onset
-            //------------------------DEBUG MODE--------------------------//  
-            if (_params[_DEBUG]) {
-              sendMessage("Entered response window at " + String(_response_window_timer - _cue_on_time) +"ms, awaiting lick.");
-            }
-            //----------------------end DEBUG MODE------------------------//
-            if (_params[SHOCK_ON] == 1) {                   // If shock circuit enforced
-                if (!_shock_trigger_on && millis() - _cue_on_time > _params[SHOCK_MIN] && millis()-_cue_on_time < _params[SHOCK_MAX]) { // If shock window is open
-                    setShockTrigger(true);                          // Connect the shock ckt        
-                }
-                else if (_shock_trigger_on) {                // Otherwise, if shock is on, but we're in the wrong window...                                            
-                  setShockTrigger(false);                           // Disconnect shock ckt
-                }
-            }
-            if (getLickState()) {                            // MOUSE: "Licked" -> Stay in RESPONSE_WINDOW
-              if (!_lick_state) {                              // If a new lick initiated
-                _lick_time = millis() - _cue_on_time;          // Records lick wrt CUE ON
-                // Send a event marker (lick) to HOST with timestamp
-                sendMessage("&" + String(EVENT_LICK) + " " + String(millis() - _exp_timer));
-                // Send a event marker (correct lick) to HOST with timestamp
-                sendMessage("&" + String(EVENT_CORRECT_LICK) + " " + String(millis() - _exp_timer));
-                _lick_state = true;                            // Halts lick detection
-                // Cycle back to Response Window state in Pavlovian Mode //
-                //------------------------DEBUG MODE--------------------------//
-                  if (_params[_DEBUG]) {
-                    sendMessage("CORRECT lick detected, tallying lick @ " + String(_lick_time) + "ms");
-                  }
-                //----------------------end DEBUG MODE------------------------//
-                return;                                        // Exit Fx
-              
-              }
-            }
-            if (!getLickState()) {                           // MOUSE: "No lick"
-              if (_lick_state) {                               // If lick just ended                            
-                _lick_state = false;                           // Resets lick detector
-              }
-            }
+        /*~ Check for CORRECT RELEASE~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
+        if (!getLeverState()) {                           // MOUSE: "No press"
+          if (_lever_state) {                               // If press just ended  
+            // Send a event marker (release) to HOST with timestamp
+            sendMessage("&" + String(EVENT_LEVER_RELEASE) + " " + String(millis() - _exp_timer));
+            sendMessage("`" + String(CODE_CORRECT));        // Send result code (Correct) to Matlab HOST                                
+            _lever_state = false;                           // Resets lever detector
+            _state = REWARD;                                // Move -> REWARD, wait for trial timeout
+            return;                                         // Break to REWARD state
           }
+        } /*~ TO REWARD ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
 
-        /*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-          TRANSITION LIST -- checks conditions, moves to next state
-        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
-          if (getLickState()) {                            // MOUSE: "Licked" -> Stay in RESPONSE_WINDOW
-            if (!_lick_state) {                              // If a new lick initiated
-              _lick_time = millis() - _cue_on_time;          // Records lick wrt CUE ON
-              // Send a event marker (lick) to HOST with timestamp
-              sendMessage("&" + String(EVENT_LICK) + " " + String(millis() - _exp_timer));
-              // Send a event marker (correct lick) to HOST with timestamp
-              sendMessage("&" + String(EVENT_CORRECT_LICK) + " " + String(millis() - _exp_timer));
-              _lick_state = true;                            // Halts lick detection
-              // Cycle back to Response Window state in Pavlovian Mode //
-              //------------------------DEBUG MODE--------------------------//
+        if (getLickState()) {                            // MOUSE: "Licked"
+          if (!_lick_state) {                              // If a new lick initiated
+            // Send a event marker (lick) to HOST with timestamp
+            sendMessage("&" + String(EVENT_LICK) + " " + String(millis() - _exp_timer));
+            // Send a event marker (correct lick) to HOST with timestamp
+            sendMessage("&" + String(EVENT_CORRECT_LICK) + " " + String(millis() - _exp_timer));
+            _lick_state = true;                            // Halts lick detection
+            //------------------------DEBUG MODE--------------------------//
               if (_params[_DEBUG]) {
-                sendMessage("CORRECT lick detected, tallying lick @ " + String(_lick_time) + "ms");
-              }
-              //----------------------end DEBUG MODE------------------------//
-              if (_command == 'Q')  {                         // HOST: "QUIT" -> IDLE_STATE
-                _state = IDLE_STATE;                            // Set IDLE_STATE
-                return;                                         // Exit Function
-              }        
-              return;                                        // Exit Fx
-            }
-          }
-          if (!getLickState()) {                           // MOUSE: "No lick"
-            if (_lick_state) {                               // If lick just ended                            
-              _lick_state = false;                           // Resets lick detector
-            }
-          }
-
-          if (_command == 'Q')  {                          // HOST: "QUIT" -> IDLE_STATE
-            _state = IDLE_STATE;                                 // Set IDLE_STATE
-            return;                                              // Exit Fx
-          }
-
-          if (_params[SHOCK_ON] == 1) {                   // If shock circuit enforced
-              if (!_shock_trigger_on && millis() - _cue_on_time > _params[SHOCK_MIN] && millis()-_cue_on_time < _params[SHOCK_MAX]) { // If shock window is open
-                  setShockTrigger(true);                          // Connect the shock ckt        
-              }
-              else if (_shock_trigger_on) {               // Otherwise, if shock is on, but we're in the wrong window...                                            
-                setShockTrigger(false);                           // Disconnect shock ckt
-              }
-          }
-
-          unsigned long current_time = millis()-_cue_on_time; //****Changed to be wrt cue onset (not total trial time)
-          if (!_reached_target && current_time >= _params[TARGET]) { // TARGET -> REWARD
-            // Send event marker (target time) to HOST with timestamp
-            sendMessage("&" + String(EVENT_TARGET_TIME) + " " + String(millis() - _exp_timer));
-            _reached_target = true;                        // Indicate target reached
-            _state = REWARD;                               // Move -> REWARD (Pavlovian only)
-            //------------------------DEBUG MODE--------------------------//  
-            if (_params[_DEBUG]) {
-              sendMessage("Reached Target Time at " + String(current_time) +"ms.");
-            }
-            //----------------------end DEBUG MODE------------------------//
-          }
-
-          if (current_time >= _params[INTERVAL_MAX]) {      // Window Closed -> IDLE_STATE **** NEVER SHOULD HAPPEN FOR PAVLOVIAN!
-            setHouseLamp(true);                               // House Lamp ON (to indicate error)
-            playSound(TONE_ALERT);
-            // Send event marker (window closed) to HOST with timestamp
-            sendMessage("&" + String(EVENT_WINDOW_CLOSED) + " " + String(millis() - _exp_timer));
-            //------------------------DEBUG MODE--------------------------//  
-            if (_params[_DEBUG]) {
-              sendMessage("PAVLOVIAN ERROR: Reward window closed at " + String(current_time) +"ms.");
-            }
-            //----------------------end DEBUG MODE------------------------//
-            _state = IDLE_STATE;                            // Move -> IDLE_STATE (Pavlovian Only) - post_window for operant
-            return;                                         // Exit Fx
-          }
-      }
-    
-
-    //(((((((((((((((((((((((((((((((((((((( -------- OPERANT  --------- ))))))))))))))))))))))))))))))))))))))=====================//
-      else if (_params[OPERANT] == 1 && _params[PAVLOVIAN] == 0)  {
-        /*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-          ACTION LIST -- initialize the new state
-        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
-          if (_state != _prevState) {                        // If ENTERTING RESPONSE_WINDOW:
-            _response_window_timer = millis();                  // Start _response_window_timer
-            _prevState = _state;                                // Assign _prevState to RESPONSE_WINDOW state
-            sendMessage("$" + String(_state));                  // Send a message to host upon _state entry -- $4 (response_window State)
-            // Send event marker (window open) to HOST with timestamp
-            sendMessage("&" + String(EVENT_WINDOW_OPEN) + " " + String(millis() - _exp_timer));
-            //------------------------DEBUG MODE--------------------------//  
-            if (_params[_DEBUG]) {
-              sendMessage("Entered response window at " + String(_response_window_timer - _cue_on_time) +"ms wrt cue on, awaiting lick.");
-            }
-            //----------------------end DEBUG MODE------------------------//
-            if (_params[SHOCK_ON] == 1) {                   // If shock circuit enforced
-                if (!_shock_trigger_on && millis() - _cue_on_time > _params[SHOCK_MIN] && millis()-_cue_on_time < _params[SHOCK_MAX]) { // If shock window is open
-                    setShockTrigger(true);                          // Connect the shock ckt        
-                }
-                else if (_shock_trigger_on) {                // Otherwise, if shock is on, but we're in the wrong window...                                            
-                  setShockTrigger(false);                           // Disconnect shock ckt
-                }
-            }
-            if (getLickState()) {                            // MOUSE: "Licked" -> REWARD
-              if (!_lick_state) {                              // If a new lick initiated
                 _lick_time = millis() - _cue_on_time;          // Records lick wrt CUE ON
-                // Send a event marker (lick) to HOST with timestamp
-                sendMessage("&" + String(EVENT_LICK) + " " + String(millis() - _exp_timer));
-                // Send a event marker (correct lick) to HOST with timestamp
-                sendMessage("&" + String(EVENT_CORRECT_LICK) + " " + String(millis() - _exp_timer));
-                _lick_state = true;                            // Halts lick detection
-                _state = REWARD;                               // Move -> REWARD
-                //------------------------DEBUG MODE--------------------------//
-                  if (_params[_DEBUG]) {
-                    sendMessage("CORRECT lick detected, tallying lick @ " + String(millis()-_cue_on_time) + "ms wrt Cue ON.");
-                  }
-                //----------------------end DEBUG MODE------------------------//
-                return;                                        // Exit Fx
-              
+                sendMessage("Response Window Lick detected, tallying lick @ " + String(_lick_time) + "ms");
               }
-            }
-            if (!getLickState()) {                           // MOUSE: "No lick"
-              if (_lick_state) {                               // If lick just ended                            
-                _lick_state = false;                           // Resets lick detector
-              }
-            }
-          }
-
-        /*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-          TRANSITION LIST -- checks conditions, moves to next state
-        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
-          if (getLickState()) {                             // MOUSE: "Licked" -> REWARD
-            if (!_lick_state) {                              // If a new lick initiated
-              _lick_time = millis() - _cue_on_time;          // Records lick wrt CUE ON
-              // Send a event marker (lick) to HOST with timestamp
-              sendMessage("&" + String(EVENT_LICK) + " " + String(millis() - _exp_timer));
-              // Send a event marker (correct lick) to HOST with timestamp
-              sendMessage("&" + String(EVENT_CORRECT_LICK) + " " + String(millis() - _exp_timer));
-              _lick_state = true;                            // Halts lick detection
-              _state = REWARD;                               // Move -> REWARD
-              //------------------------DEBUG MODE--------------------------//
-              if (_params[_DEBUG]) {
-                sendMessage("CORRECT lick detected, tallying lick @ " + String(millis()-_cue_on_time) + "ms wrt Cue ON.");
-              }
-              //----------------------end DEBUG MODE------------------------//
-              if (_command == 'Q')  {                         // HOST: "QUIT" -> IDLE_STATE
-                _state = IDLE_STATE;                            // Set IDLE_STATE
-                return;                                         // Exit Function
-              }        
-              return;                                        // Exit Fx
-            }
-          }
-          if (!getLickState()) {                            // MOUSE: "No lick"
-            if (_lick_state) {                               // If lick just ended                            
-              _lick_state = false;                           // Resets lick detector
-            }
-          }
-
-          if (_command == 'Q')  {                           // HOST: "QUIT" -> IDLE_STATE
-            _state = IDLE_STATE;                                 // Set IDLE_STATE
-            return;                                              // Exit Fx
-          }
-
-          if (_params[SHOCK_ON] == 1) {                   // If shock circuit enforced
-              if (!_shock_trigger_on && millis() - _cue_on_time > _params[SHOCK_MIN] && millis()-_cue_on_time < _params[SHOCK_MAX]) { // If shock window is open
-                  setShockTrigger(true);                          // Connect the shock ckt  
-              }      
-              else if (_shock_trigger_on) {               // Otherwise, if shock is on, but we're in the wrong window...                                            
-                setShockTrigger(false);                           // Disconnect shock ckt
-              }
-          }
-
-          unsigned long current_time = millis()-_cue_on_time; // WRT cue onset
-          if (!_reached_target && current_time >= _params[TARGET]) { // If now is target time...record but stay in state (Operant only)
-            // Send event marker (target time) to HOST with timestamp
-            sendMessage("&" + String(EVENT_TARGET_TIME) + " " + String(millis() - _exp_timer));
-            _reached_target = true;                        // Indicate target reached
-            //------------------------DEBUG MODE--------------------------//  
-            if (_params[_DEBUG]) {
-              sendMessage("Reached Target Time at " + String(current_time) +"ms wrt Cue ON.");
-            }
             //----------------------end DEBUG MODE------------------------//
-          }
-
-          if (current_time >= _params[INTERVAL_MAX]) {      // Window Closed -> POST_WINDOW
-            setHouseLamp(true);                               // House Lamp ON (to indicate error)
-            playSound(TONE_ALERT);
-            // Send event marker (window closed) to HOST with timestamp
-            sendMessage("&" + String(EVENT_WINDOW_CLOSED) + " " + String(millis() - _exp_timer));
-            //------------------------DEBUG MODE--------------------------//  
-            if (_params[_DEBUG]) {
-              sendMessage("Reward window closed at " + String(current_time) +"ms wrt Cue ON.");
-            }
-            //----------------------end DEBUG MODE------------------------//
-            _state = POST_WINDOW;                           // Move -> POST_WINDOW
-            return;                                         // Exit Fx
-          }
-      }
-
-    //(((((((((((((((((((((((((((((((((((((( -------- MIXED PAVLOVIAN-OPERANT  --------- ))))))))))))))))))))))))))))))))))))))=====================//
-      else if (_params[OPERANT] == 1 && _params[PAVLOVIAN] == 1)  {
-        if (_state != _prevState){                                // If this is the first time in response window during this trial...
-          unsigned int dice_roll = random(1,100);                   // Random # between 1-100
-          if (dice_roll <= _params[PERCENT_PAVLOVIAN]) {            // If dice_roll <= the percent of trials that should be pavlovian
-            _mixed_is_pavlovian = true;                                // Set this trial to pavlovian
-          }
-          else {                                                    // If dice_roll > percent of trials that should be pavlovian
-            _mixed_is_pavlovian = false;                               // Set this trial to operant
           }
         }
+        if (!getLickState()) {                           // MOUSE: "No lick"
+          if (_lick_state) {                               // If lick just ended                            
+            _lick_state = false;                           // Resets lick detector
+          }
+        }
+      }
+
+    /*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+      TRANSITION LIST -- checks conditions, moves to next state
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
+
+      /*~ Check for CORRECT RELEASE~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
+      if (!getLeverState()) {                           // MOUSE: "No press"
+        if (_lever_state) {                               // If press just ended  
+          // Send a event marker (release) to HOST with timestamp
+          sendMessage("&" + String(EVENT_LEVER_RELEASE) + " " + String(millis() - _exp_timer));
+          sendMessage("`" + String(CODE_CORRECT));        // Send result code (Correct) to Matlab HOST                                
+          _lever_state = false;                           // Resets lever detector
+          _state = REWARD;                                // Move -> REWARD, wait for trial timeout
+          return;                                         // Break to REWARD state
+        }
+      } /*~ TO REWARD ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
+
+      if (getLickState()) {                            // MOUSE: "Licked" -> Stay in RESPONSE_WINDOW
+        if (!_lick_state) {                              // If a new lick initiated
+          // Send an event marker (lick) to HOST with timestamp
+          sendMessage("&" + String(EVENT_LICK) + " " + String(millis() - _exp_timer));
+          // Send an event marker (correct lick) to HOST with timestamp
+          sendMessage("&" + String(EVENT_CORRECT_LICK) + " " + String(millis() - _exp_timer));
+          _lick_state = true;                            // Halts lick detection
+          // Cycle back to Response Window state in Pavlovian Mode //
+          //------------------------DEBUG MODE--------------------------//
+          if (_params[_DEBUG]) {
+            _lick_time = millis() - _cue_on_time;          // Records lick wrt CUE ON
+            sendMessage("CORRECT lick detected, tallying lick @ " + String(_lick_time) + "ms");
+          }
+          //----------------------end DEBUG MODE------------------------//
+          if (_command == 'Q')  {                         // HOST: "QUIT" -> IDLE_STATE
+            _state = IDLE_STATE;                            // Set IDLE_STATE
+            return;                                         // Exit Function
+          }        
+          return;                                        // Exit Fx
+        }
+      }
+      if (!getLickState()) {                           // MOUSE: "No lick"
+        if (_lick_state) {                               // If lick just ended                            
+          _lick_state = false;                           // Resets lick detector
+        }
+      }
+
+      if (_command == 'Q')  {                          // HOST: "QUIT" -> IDLE_STATE
+        _state = IDLE_STATE;                                 // Set IDLE_STATE
+        return;                                              // Exit Fx
+      }
+
+      if (_params[SHOCK_ON] == 1) {                    // If shock circuit enforced
+          if (!_shock_trigger_on && millis() - _cue_on_time > _params[SHOCK_MIN] && millis()-_cue_on_time < _params[SHOCK_MAX]) { // If shock window is open
+              setShockTrigger(true);                          // Connect the shock ckt        
+          }
+          else if (_shock_trigger_on) {               // Otherwise, if shock is on, but we're in the wrong window...                                            
+            setShockTrigger(false);                           // Disconnect shock ckt
+          }
+      }
+
+      unsigned long current_time = millis()-_cue_on_time; //****Changed to be wrt cue onset (not total trial time)
+      if (!_reached_target && current_time >= _params[TARGET]) { // TARGET -> REWARD
+        // Send event marker (target time) to HOST with timestamp
+        sendMessage("&" + String(EVENT_TARGET_TIME) + " " + String(millis() - _exp_timer));
+        _reached_target = true;                        // Indicate target reached
+        //------------------------DEBUG MODE--------------------------//  
+        if (_params[_DEBUG]) {
+          sendMessage("Reached Target Time at " + String(current_time) +"ms.");
+        }
+        //----------------------end DEBUG MODE------------------------//
+      }
+
+      if (current_time >= _params[INTERVAL_MAX]) {     // Window Closed -> POST_WINDOW
+        setHouseLamp(true);                               // House Lamp ON (to indicate error)
+        playSound(TONE_ALERT);
+        // Send event marker (window closed) to HOST with timestamp
+        sendMessage("&" + String(EVENT_WINDOW_CLOSED) + " " + String(millis() - _exp_timer));
+        //------------------------DEBUG MODE--------------------------//  
+        if (_params[_DEBUG]) {
+          sendMessage("Reward window closed at " + String(current_time) +"ms wrt Cue ON.");
+        }
+        //----------------------end DEBUG MODE------------------------//
+        _state = POST_WINDOW;                           // Move -> POST_WINDOW
+        return;                                         // Exit Fx
+      }
+
+      _state = RESPONSE_WINDOW;                        // Cycle back to Response Window
       
-          //----------------------------- Mixed: PAVLOVIAN -----------------------------------//
-        if (_mixed_is_pavlovian) {
-          /*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-            ACTION LIST -- initialize the new state
-          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
-            if (_state != _prevState) {                        // If ENTERTING RESPONSE_WINDOW:
-              _response_window_timer = millis();                  // Start _response_window_timer
-              _prevState = _state;                                // Assign _prevState to RESPONSE_WINDOW state
-              sendMessage("$" + String(_state));                  // Send a message to host upon _state entry -- $4 (response_window State)
-              // Send event marker (window open) to HOST with timestamp
-              sendMessage("&" + String(EVENT_WINDOW_OPEN) + " " + String(millis() - _exp_timer)); // relative to cue onset
-              //------------------------DEBUG MODE--------------------------//  
-              if (_params[_DEBUG]) {
-                sendMessage("Entered response window at " + String(_response_window_timer - _cue_on_time) +"ms, awaiting lick.");
-              }
-              //----------------------end DEBUG MODE------------------------//
-              if (_params[SHOCK_ON] == 1) {                   // If shock circuit enforced
-                  if (!_shock_trigger_on && millis() - _cue_on_time > _params[SHOCK_MIN] && millis()-_cue_on_time < _params[SHOCK_MAX]) { // If shock window is open
-                      setShockTrigger(true);                          // Connect the shock ckt        
-                  }
-                  else if (_shock_trigger_on) {                // Otherwise, if shock is on, but we're in the wrong window...                                            
-                    setShockTrigger(false);                           // Disconnect shock ckt
-                  }
-              }
-              if (getLickState()) {                            // MOUSE: "Licked" -> Stay in RESPONSE_WINDOW
-                if (!_lick_state) {                              // If a new lick initiated
-                  _lick_time = millis() - _cue_on_time;          // Records lick wrt CUE ON
-                  // Send a event marker (lick) to HOST with timestamp
-                  sendMessage("&" + String(EVENT_LICK) + " " + String(millis() - _exp_timer));
-                  // Send a event marker (correct lick) to HOST with timestamp
-                  sendMessage("&" + String(EVENT_CORRECT_LICK) + " " + String(millis() - _exp_timer));
-                  _lick_state = true;                            // Halts lick detection
-                  // Cycle back to Response Window state in Pavlovian Mode //
-                  //------------------------DEBUG MODE--------------------------//
-                    if (_params[_DEBUG]) {
-                      sendMessage("CORRECT lick detected, tallying lick @ " + String(_lick_time) + "ms");
-                    }
-                  //----------------------end DEBUG MODE------------------------//
-                  return;                                        // Exit Fx
-                
-                }
-              }
-              if (!getLickState()) {                           // MOUSE: "No lick"
-                if (_lick_state) {                               // If lick just ended                            
-                  _lick_state = false;                           // Resets lick detector
-                }
-              }
-            }
-
-          /*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-            TRANSITION LIST -- checks conditions, moves to next state
-          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
-            if (getLickState()) {                            // MOUSE: "Licked" -> Stay in RESPONSE_WINDOW
-              if (!_lick_state) {                              // If a new lick initiated
-                _lick_time = millis() - _cue_on_time;          // Records lick wrt CUE ON
-                // Send a event marker (lick) to HOST with timestamp
-                sendMessage("&" + String(EVENT_LICK) + " " + String(millis() - _exp_timer));
-                // Send a event marker (correct lick) to HOST with timestamp
-                sendMessage("&" + String(EVENT_CORRECT_LICK) + " " + String(millis() - _exp_timer));
-                _lick_state = true;                            // Halts lick detection
-                // Cycle back to Response Window state in Pavlovian Mode //
-                //------------------------DEBUG MODE--------------------------//
-                if (_params[_DEBUG]) {
-                  sendMessage("CORRECT lick detected, tallying lick @ " + String(_lick_time) + "ms");
-                }
-                //----------------------end DEBUG MODE------------------------//
-                if (_command == 'Q')  {                         // HOST: "QUIT" -> IDLE_STATE
-                  _state = IDLE_STATE;                            // Set IDLE_STATE
-                  return;                                         // Exit Function
-                }        
-                return;                                        // Exit Fx
-              }
-            }
-            if (!getLickState()) {                           // MOUSE: "No lick"
-              if (_lick_state) {                               // If lick just ended                            
-                _lick_state = false;                           // Resets lick detector
-              }
-            }
-
-            if (_command == 'Q')  {                          // HOST: "QUIT" -> IDLE_STATE
-              _state = IDLE_STATE;                                 // Set IDLE_STATE
-              return;                                              // Exit Fx
-            }
-
-            if (_params[SHOCK_ON] == 1) {                   // If shock circuit enforced
-                if (!_shock_trigger_on && millis() - _cue_on_time > _params[SHOCK_MIN] && millis()-_cue_on_time < _params[SHOCK_MAX]) { // If shock window is open
-                    setShockTrigger(true);                          // Connect the shock ckt        
-                }
-                else if (_shock_trigger_on) {               // Otherwise, if shock is on, but we're in the wrong window...                                            
-                  setShockTrigger(false);                           // Disconnect shock ckt
-                }
-            }
-
-            unsigned long current_time = millis()-_cue_on_time; //****Changed to be wrt cue onset (not total trial time)
-            if (!_reached_target && current_time >= _params[TARGET]) { // TARGET -> REWARD
-              // Send event marker (target time) to HOST with timestamp
-              sendMessage("&" + String(EVENT_TARGET_TIME) + " " + String(millis() - _exp_timer));
-              _reached_target = true;                        // Indicate target reached
-              _state = REWARD;                               // Move -> REWARD (Pavlovian only)
-              //------------------------DEBUG MODE--------------------------//  
-              if (_params[_DEBUG]) {
-                sendMessage("Reached Target Time at " + String(current_time) +"ms.");
-              }
-              //----------------------end DEBUG MODE------------------------//
-            }
-
-            if (current_time >= _params[INTERVAL_MAX]) {      // Window Closed -> IDLE_STATE **** NEVER SHOULD HAPPEN FOR PAVLOVIAN!
-              setHouseLamp(true);                               // House Lamp ON (to indicate error)
-              playSound(TONE_ALERT);
-              // Send event marker (window closed) to HOST with timestamp
-              sendMessage("&" + String(EVENT_WINDOW_CLOSED) + " " + String(millis() - _exp_timer));
-              //------------------------DEBUG MODE--------------------------//  
-              if (_params[_DEBUG]) {
-                sendMessage("PAVLOVIAN ERROR: Reward window closed at " + String(current_time) +"ms.");
-              }
-              //----------------------end DEBUG MODE------------------------//
-              _state = IDLE_STATE;                            // Move -> IDLE_STATE (Pavlovian Only) - post_window for operant
-              return;                                         // Exit Fx
-            }
-        }
-      
-
-          // -------------------------------- Mixed: OPERANT  --------------------------------//
-        else {
-          /*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-            ACTION LIST -- initialize the new state
-          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
-            if (_state != _prevState) {                        // If ENTERTING RESPONSE_WINDOW:
-              _response_window_timer = millis();                  // Start _response_window_timer
-              _prevState = _state;                                // Assign _prevState to RESPONSE_WINDOW state
-              sendMessage("$" + String(_state));                  // Send a message to host upon _state entry -- $4 (response_window State)
-              // Send event marker (window open) to HOST with timestamp
-              sendMessage("&" + String(EVENT_WINDOW_OPEN) + " " + String(millis() - _exp_timer));
-              //------------------------DEBUG MODE--------------------------//  
-              if (_params[_DEBUG]) {
-                sendMessage("Entered response window at " + String(_response_window_timer - _cue_on_time) +"ms wrt cue on, awaiting lick.");
-              }
-              //----------------------end DEBUG MODE------------------------//
-              if (_params[SHOCK_ON] == 1) {                   // If shock circuit enforced
-                  if (!_shock_trigger_on && millis() - _cue_on_time > _params[SHOCK_MIN] && millis()-_cue_on_time < _params[SHOCK_MAX]) { // If shock window is open
-                      setShockTrigger(true);                          // Connect the shock ckt        
-                  }
-                  else if (_shock_trigger_on) {                // Otherwise, if shock is on, but we're in the wrong window...                                            
-                    setShockTrigger(false);                           // Disconnect shock ckt
-                  }
-              }
-              if (getLickState()) {                            // MOUSE: "Licked" -> REWARD
-                if (!_lick_state) {                              // If a new lick initiated
-                  _lick_time = millis() - _cue_on_time;          // Records lick wrt CUE ON
-                  // Send a event marker (lick) to HOST with timestamp
-                  sendMessage("&" + String(EVENT_LICK) + " " + String(millis() - _exp_timer));
-                  // Send a event marker (correct lick) to HOST with timestamp
-                  sendMessage("&" + String(EVENT_CORRECT_LICK) + " " + String(millis() - _exp_timer));
-                  _lick_state = true;                            // Halts lick detection
-                  _state = REWARD;                               // Move -> REWARD
-                  //------------------------DEBUG MODE--------------------------//
-                    if (_params[_DEBUG]) {
-                      sendMessage("CORRECT lick detected, tallying lick @ " + String(millis()-_cue_on_time) + "ms wrt Cue ON.");
-                    }
-                  //----------------------end DEBUG MODE------------------------//
-                  return;                                        // Exit Fx
-                
-                }
-              }
-              if (!getLickState()) {                           // MOUSE: "No lick"
-                if (_lick_state) {                               // If lick just ended                            
-                  _lick_state = false;                           // Resets lick detector
-                }
-              }
-            }
-
-          /*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-            TRANSITION LIST -- checks conditions, moves to next state
-          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
-            if (getLickState()) {                             // MOUSE: "Licked" -> REWARD
-              if (!_lick_state) {                              // If a new lick initiated
-                _lick_time = millis() - _cue_on_time;          // Records lick wrt CUE ON
-                // Send a event marker (lick) to HOST with timestamp
-                sendMessage("&" + String(EVENT_LICK) + " " + String(millis() - _exp_timer));
-                // Send a event marker (correct lick) to HOST with timestamp
-                sendMessage("&" + String(EVENT_CORRECT_LICK) + " " + String(millis() - _exp_timer));
-                _lick_state = true;                            // Halts lick detection
-                _state = REWARD;                               // Move -> REWARD
-                //------------------------DEBUG MODE--------------------------//
-                if (_params[_DEBUG]) {
-                  sendMessage("CORRECT lick detected, tallying lick @ " + String(millis()-_cue_on_time) + "ms wrt Cue ON.");
-                }
-                //----------------------end DEBUG MODE------------------------//
-                if (_command == 'Q')  {                         // HOST: "QUIT" -> IDLE_STATE
-                  _state = IDLE_STATE;                            // Set IDLE_STATE
-                  return;                                         // Exit Function
-                }        
-                return;                                        // Exit Fx
-              }
-            }
-            if (!getLickState()) {                            // MOUSE: "No lick"
-              if (_lick_state) {                               // If lick just ended                            
-                _lick_state = false;                           // Resets lick detector
-              }
-            }
-
-            if (_command == 'Q')  {                           // HOST: "QUIT" -> IDLE_STATE
-              _state = IDLE_STATE;                                 // Set IDLE_STATE
-              return;                                              // Exit Fx
-            }
-
-            if (_params[SHOCK_ON] == 1) {                   // If shock circuit enforced
-                if (!_shock_trigger_on && millis() - _cue_on_time > _params[SHOCK_MIN] && millis()-_cue_on_time < _params[SHOCK_MAX]) { // If shock window is open
-                    setShockTrigger(true);                          // Connect the shock ckt  
-                }      
-                else if (_shock_trigger_on) {               // Otherwise, if shock is on, but we're in the wrong window...                                            
-                  setShockTrigger(false);                           // Disconnect shock ckt
-                }
-            }
-
-            unsigned long current_time = millis()-_cue_on_time; // WRT cue onset
-            if (!_reached_target && current_time >= _params[TARGET]) { // If now is target time...record but stay in state (Operant only)
-              // Send event marker (target time) to HOST with timestamp
-              sendMessage("&" + String(EVENT_TARGET_TIME) + " " + String(millis() - _exp_timer));
-              _reached_target = true;                        // Indicate target reached
-              //------------------------DEBUG MODE--------------------------//  
-              if (_params[_DEBUG]) {
-                sendMessage("Reached Target Time at " + String(current_time) +"ms wrt Cue ON.");
-              }
-              //----------------------end DEBUG MODE------------------------//
-            }
-
-            if (current_time >= _params[INTERVAL_MAX]) {      // Window Closed -> POST_WINDOW
-              setHouseLamp(true);                               // House Lamp ON (to indicate error)
-              playSound(TONE_ALERT);
-              // Send event marker (window closed) to HOST with timestamp
-              sendMessage("&" + String(EVENT_WINDOW_CLOSED) + " " + String(millis() - _exp_timer));
-              //------------------------DEBUG MODE--------------------------//  
-              if (_params[_DEBUG]) {
-                sendMessage("Reward window closed at " + String(current_time) +"ms wrt Cue ON.");
-              }
-              //----------------------end DEBUG MODE------------------------//
-              _state = POST_WINDOW;                           // Move -> POST_WINDOW
-              return;                                         // Exit Fx
-            }
-        }
-
-
-
-
-      } // End mixed pav-op condition----------------------------------------------------------------------
-
-    //((((((((((((((((((((((((==================== TASK CONDITIONS ERROR =====================)))))))))))))))))))))//
-      else {
-        playSound(TONE_ABORT);
-        sendMessage("ERROR - Task must be either Pavlovian or Operant or both. Fix Parameters and Restart");
-        _state = IDLE_STATE;
-      }
   } // End RESPONSE_WINDOW STATE ------------------------------------------------------------------------------------------------------------------------------------------
 
 
-
+////////////////////////////////////////////////////////////////////
 
   /*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     POST_WINDOW - Checking for late licks (effectively an abort state)
@@ -2157,6 +1806,19 @@
   /*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     GET LEVER STATE (True/False - Boolean)
   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
+  bool getLeverState() {
+    if (digitalRead(PIN_LEVER) == HIGH) {
+      return true;
+    }
+    else {
+      return false;
+    }
+  } // end Get Lever State---------------------------------------------------------------------------------------------------------------------
+
+
+  /*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    GET LICK STATE (True/False - Boolean)
+  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
   bool getLickState() {
     if (digitalRead(PIN_LICK) == HIGH) {
       return true;
@@ -2164,7 +1826,7 @@
     else {
       return false;
     }
-  } // end Get Lever State---------------------------------------------------------------------------------------------------------------------
+  } // end Get Lick State---------------------------------------------------------------------------------------------------------------------
 
   /*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     PLAY SOUND (Choose event from Enum list and input the frequency for that event)
