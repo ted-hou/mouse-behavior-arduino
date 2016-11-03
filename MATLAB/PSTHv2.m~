@@ -345,4 +345,5 @@ plot([2000,2000], [0, 100], 'k--');
 ylim([0,30]);
 ylabel('number of licks');
 xlabel('time relative to cue on (ms)');
-title('No Licks Trials');
+title('No Licksclose all
+Trials');
