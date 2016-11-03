@@ -24,7 +24,7 @@ pav_index = 0;
 op_index = 0;
 % newtrial = true; % this one needed to be sure end of trial marker was present for previous trial
 
-% % Decide which trials pav or operant:
+% % Decide which trials pav or operant: (for use with unmixed pav-op files)
 % for itrial=1:numtrials
 %     pav_or_op_by_trial(itrial) = trial_data(itrial).Parameters(3);
 % end
