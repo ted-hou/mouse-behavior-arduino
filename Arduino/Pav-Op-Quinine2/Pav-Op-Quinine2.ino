@@ -6,7 +6,7 @@
   State System Architecture             - Lingfeng Hou (lingfenghou@g.harvard.edu)
 
   Created       9/16/16 - ahamilos
-  Last Modified 10/28/16 - ahamilos
+  Last Modified 11/3/16 - ahamilos
   
   (prior version: PAV_OP_QUININE)
   New to this version: Make quinine or enforced no lick more flexible - 
@@ -14,6 +14,7 @@
   that is distinct from the prewindow opening
   --> Create flexible shock and abort add ons
   --> Create a joint pav-op condition in which a fixed % of trials are pav vs op
+  --> Added an event marker to track whether trial is pavlovian or operant
   ------------------------------------------------------------------
   COMPATIBILITY REPORT:
     Matlab HOST: Matlab 2016a - FileName = MouseBehaviorInterface.m (depends on ArduinoConnection.m)
@@ -48,7 +49,13 @@
   Behavioral Events:
     -  Lick                 (event marker = 8)
     -  Reward dispensed     (event marker = 9)
-    -  Waiting for ITI      (event marker = 10)   - enters this state if trial aborted by behavioral error, House lamps ON
+    -  Quinine dispensed    (event marker = 10)
+    -  Waiting for ITI      (event marker = 11)   - enters this state if trial aborted by behavioral error, House lamps ON
+    -  Correct Lick         (event marker = 12)   - first correct lick in the window
+
+  Trial Type Markers:
+    -  Pavlovian            (event marker = 13)   - marks current trial as Pavlovian
+    -  Operant              (event marker = 14)   - marks current trial as Operant
   --------------------------------------------------------------------
   States:
     0: _INIT                (private) 1st state in init loop, sets up communication to Matlab HOST
@@ -214,6 +221,8 @@
       EVENT_QUININE,          // Quinine dispensed
       EVENT_ABORT,            // Abort (behavioral error)
       EVENT_CORRECT_LICK,     // Marks the "Peak" Lick (First within window)
+      EVENT_PAVLOVIAN,        // Marks trial as Pavlovian
+      EVENT_OPERANT,          // Marks trial as Operant
       _NUM_OF_EVENT_MARKERS
     };
 
@@ -231,7 +240,9 @@
       "REWARD",
       "QUININE",
       "ABORT",
-      "CORRECT_LICK"
+      "CORRECT_LICK",
+      "PAVLOVIAN",
+      "OPERANT"
     };
 
     static unsigned long _eventMarkerTimer = 0;
@@ -934,6 +945,9 @@
           ACTION LIST -- initialize the new state
         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
           if (_state != _prevState) {                        // If ENTERTING RESPONSE_WINDOW:
+            // Send event marker (pavlovian trial) to HOST with timestamp
+            sendMessage("&" + String(EVENT_PAVLOVIAN) + " " + String(millis() - _exp_timer));
+            // Set state clocks.....................
             _response_window_timer = millis();                  // Start _response_window_timer
             _prevState = _state;                                // Assign _prevState to RESPONSE_WINDOW state
             sendMessage("$" + String(_state));                  // Send a message to host upon _state entry -- $4 (response_window State)
@@ -1056,6 +1070,9 @@
           ACTION LIST -- initialize the new state
         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
           if (_state != _prevState) {                        // If ENTERTING RESPONSE_WINDOW:
+            // Send event marker (operant trial) to HOST with timestamp
+            sendMessage("&" + String(EVENT_OPERANT) + " " + String(millis() - _exp_timer));
+            // Set state clocks...
             _response_window_timer = millis();                  // Start _response_window_timer
             _prevState = _state;                                // Assign _prevState to RESPONSE_WINDOW state
             sendMessage("$" + String(_state));                  // Send a message to host upon _state entry -- $4 (response_window State)
@@ -1176,9 +1193,13 @@
           unsigned int dice_roll = random(1,100);                   // Random # between 1-100
           if (dice_roll <= _params[PERCENT_PAVLOVIAN]) {            // If dice_roll <= the percent of trials that should be pavlovian
             _mixed_is_pavlovian = true;                                // Set this trial to pavlovian
+            // Send event marker (pavlovian trial) to HOST with timestamp
+            sendMessage("&" + String(EVENT_PAVLOVIAN) + " " + String(millis() - _exp_timer));
           }
           else {                                                    // If dice_roll > percent of trials that should be pavlovian
             _mixed_is_pavlovian = false;                               // Set this trial to operant
+            // Send event marker (operant trial) to HOST with timestamp
+            sendMessage("&" + String(EVENT_OPERANT) + " " + String(millis() - _exp_timer));
           }
         }
       
