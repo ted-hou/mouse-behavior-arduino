@@ -17,19 +17,41 @@ licks_by_trial = [];        % each row is a different trial
 cue_on_time_by_trial = NaN(numtrials, 1);  % each row is a different trial
 pav_or_op_by_trial = NaN(numtrials, 1);    % 0 for pavlovian, 1 for operant
 
-
-
-% Decide which trials pav or operant:
-for itrial=1:numtrials
-    pav_or_op_by_trial(itrial) = trial_data(itrial).Parameters(3);
-end
-
-
 % define indices
 event_index = 1;
 trial_index = 0;
 pav_index = 0;
 op_index = 0;
+% newtrial = true; % this one needed to be sure end of trial marker was present for previous trial
+
+% % Decide which trials pav or operant:
+% for itrial=1:numtrials
+%     pav_or_op_by_trial(itrial) = trial_data(itrial).Parameters(3);
+% end
+
+% Decide which trials pav or operant based on new event markers (14 = pavlovian, 15 = operant)
+for ievent = 1:length(events)
+    if events(event_index, 1) == 1.             % If start new trial
+%         disp('New trial at');
+%         disp(num2str(event_index));
+        trial_index = trial_index + 1;
+    end
+    if events(event_index, 1) == 14             % 0 for pavlovian
+        disp('Pavlovian Trial Detected');
+        pav_or_op_by_trial(trial_index) = 0;
+    end
+    if events(event_index, 1) == 15             % 1 for operant
+        disp('Operant Trial Detected');
+        pav_or_op_by_trial(trial_index) = 1;
+    end 
+    % if events(event_index, 1) == 6              % End of Trial marker
+    %     disp('Trial complete');
+    %     newtrial = true;                            % next trial is available
+    % end
+end
+
+
+
 
 % this loop separates out the event markers. Counts number of trials in exp
 % and number of licks in each trial
