@@ -277,7 +277,7 @@
       "NO_RELEASE",
     };
 
-    static unsigned long _resultCode = 0;        // Result code number.
+    static long _resultCode = -1;        // Result code number. -1 if there is no result.
 
   /*****************************************************
     Audio cue frequencies
@@ -567,7 +567,7 @@
     //---------------------------Reset a bunch of variables---------------------------//
     _eventMarkerTimer       = 0;
     _trialTimer             = 0;
-    _resultCode             = 0; 
+    _resultCode             = -1;       // No result code to start
     _random_delay_timer     = 0;        // Random delay timer
     _single_loop_timer      = 0;        // Timer
     _state                  = _INIT;    // This variable (current _state) get passed into a _state function, which determines what the next _state should be, and updates it to the next _state.
@@ -634,6 +634,7 @@
       _reached_target = false;                      // Reset target time tracker
       _late_lick_detected = false;                  // Reset late lick detector
       _reward_dispensed_complete = false;           // Reset tracker of reward dispensal
+      _resultCode = -1;                             // Clear previously registered result code
 
       //------------------------DEBUG MODE--------------------------//
       if (_params[_DEBUG]) {
@@ -825,7 +826,8 @@
         if (_lever_state) {                               // If press just ended  
           // Send a event marker (release) to HOST with timestamp
           sendMessage("&" + String(EVENT_LEVER_RELEASE) + " " + String(millis() - _exp_timer));
-          sendMessage("`" + String(CODE_EARLY_RELEASE));  // Send result code (Early Release) to Matlab HOST                                
+          //sendMessage("`" + String(CODE_EARLY_RELEASE));  // Send result code (Early Release) to Matlab HOST                                
+          _resultCode = CODE_EARLY_RELEASE;               // Register result code 
           _lever_state = false;                           // Resets lever detector
           _state = ABORT_TRIAL;                           // Move -> ABORT, wait for trial timeout
           return;                                         // Break to Abort state
@@ -871,7 +873,8 @@
       if (_lever_state) {                               // If press just ended  
         // Send a event marker (release) to HOST with timestamp
         sendMessage("&" + String(EVENT_LEVER_RELEASE) + " " + String(millis() - _exp_timer));
-        sendMessage("`" + String(CODE_EARLY_RELEASE));  // Send result code (Early Release) to Matlab HOST                           
+        //sendMessage("`" + String(CODE_EARLY_RELEASE));  // Send result code (Early Release) to Matlab HOST                           
+        _resultCode = CODE_EARLY_RELEASE;                  // Register result code 
         _lever_state = false;                           // Resets lever detector
         _state = ABORT_TRIAL;                           // Move -> ABORT, wait for trial timeout
         return;                                         // Break to Abort state
@@ -954,7 +957,8 @@
         if (_lever_state) {                               // If press just ended  
           // Send a event marker (release) to HOST with timestamp
           sendMessage("&" + String(EVENT_LEVER_RELEASE) + " " + String(millis() - _exp_timer));
-          sendMessage("`" + String(CODE_EARLY_RELEASE));  // Send result code (Early Release) to Matlab HOST                                
+          //sendMessage("`" + String(CODE_EARLY_RELEASE));  // Send result code (Early Release) to Matlab HOST                                
+          _resultCode = CODE_EARLY_RELEASE;               // Register result code 
           _lever_state = false;                           // Resets lever detector
           _state = ABORT_TRIAL;                           // Move -> ABORT, wait for trial timeout
           return;                                         // Break to Abort state
@@ -985,7 +989,8 @@
           
           //~~~~~~~~~~~~~~~~~~~~~~~~~Abort if Window Open~~~~~~~~~~~~~~~~~~~~~~~~//
           if (_params[EARLY_LICK_ABORT] == 1 && millis() - _cue_on_time > _params[ABORT_MIN] && millis()-_cue_on_time < _params[ABORT_MAX]) { // If abort window open
-            sendMessage("`" + String(CODE_EARLY_LICK));    // Send result code (Early Lick) to Matlab HOST      
+            //sendMessage("`" + String(CODE_EARLY_LICK));    // Send result code (Early Lick) to Matlab HOST      
+            _resultCode = CODE_EARLY_LICK;                 // Register result code 
             _state = ABORT_TRIAL;                          // Move to ABORT state
             return;
           }  // End Abort ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~//
@@ -1036,7 +1041,8 @@
       if (_lever_state) {                               // If press just ended  
         // Send a event marker (release) to HOST with timestamp
         sendMessage("&" + String(EVENT_LEVER_RELEASE) + " " + String(millis() - _exp_timer));
-        sendMessage("`" + String(CODE_EARLY_RELEASE));  // Send result code (Early Release) to Matlab HOST                                
+        //sendMessage("`" + String(CODE_EARLY_RELEASE));  // Send result code (Early Release) to Matlab HOST                                
+        _resultCode = CODE_EARLY_RELEASE;               // Register result code 
         _lever_state = false;                           // Resets lever detector
         _state = ABORT_TRIAL;                           // Move -> ABORT, wait for trial timeout
         return;                                         // Break to Abort state
@@ -1091,7 +1097,8 @@
             }
           //----------------------end DEBUG MODE------------------------//
           if (_params[EARLY_LICK_ABORT] == 1 && millis() - _cue_on_time > _params[ABORT_MIN] && millis()-_cue_on_time < _params[ABORT_MAX]) { // If abort window open
-            sendMessage("`" + String(CODE_EARLY_LICK));    // Send result code (Early Lick) to Matlab HOST      
+            //sendMessage("`" + String(CODE_EARLY_LICK));    // Send result code (Early Lick) to Matlab HOST      
+            _resultCode = CODE_EARLY_LICK;                 // Register result code 
             _state = ABORT_TRIAL;                          // Move to ABORT state
             return;
           }
@@ -1176,7 +1183,8 @@
           if (_lever_state) {                               // If press just ended  
             // Send a event marker (release) to HOST with timestamp
             sendMessage("&" + String(EVENT_LEVER_RELEASE) + " " + String(millis() - _exp_timer));
-            sendMessage("`" + String(CODE_CORRECT));        // Send result code (Correct) to Matlab HOST                                
+            //sendMessage("`" + String(CODE_CORRECT));        // Send result code (Correct) to Matlab HOST                                
+            _resultCode = CODE_CORRECT;                     // Register result code 
             _lever_state = false;                           // Resets lever detector
             _state = REWARD;                                // Move -> REWARD, wait for trial timeout
             return;                                         // Break to REWARD state
@@ -1206,7 +1214,8 @@
             
             //~~~~~~~~~~~~~~~~~~~~~~~~~Abort if Window Open~~~~~~~~~~~~~~~~~~~~~~~~//
             if (_params[EARLY_LICK_ABORT] == 1 && millis() - _cue_on_time > _params[ABORT_MIN] && millis()-_cue_on_time < _params[ABORT_MAX]) { // If abort window open
-              sendMessage("`" + String(CODE_EARLY_LICK));    // Send result code (Early Lick) to Matlab HOST      
+              //sendMessage("`" + String(CODE_EARLY_LICK));    // Send result code (Early Lick) to Matlab HOST      
+              _resultCode = CODE_EARLY_LICK;                 // Register result code 
               _state = ABORT_TRIAL;                          // Move to ABORT state
               return;
             }  // End Abort ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~//
@@ -1251,7 +1260,8 @@
         if (_lever_state) {                               // If press just ended  
           // Send a event marker (release) to HOST with timestamp
           sendMessage("&" + String(EVENT_LEVER_RELEASE) + " " + String(millis() - _exp_timer));
-          sendMessage("`" + String(CODE_CORRECT));        // Send result code (Correct) to Matlab HOST                                
+          //sendMessage("`" + String(CODE_CORRECT));        // Send result code (Correct) to Matlab HOST                                
+          _resultCode = CODE_CORECT;                      // Register result code 
           _lever_state = false;                           // Resets lever detector
           _state = REWARD;                                // Move -> REWARD, wait for trial timeout
           return;                                         // Break to REWARD state
@@ -1281,7 +1291,8 @@
           
           //~~~~~~~~~~~~~~~~~~~~~~~~~Abort if Window Open~~~~~~~~~~~~~~~~~~~~~~~~//
           if (_params[EARLY_LICK_ABORT] == 1 && millis() - _cue_on_time > _params[ABORT_MIN] && millis()-_cue_on_time < _params[ABORT_MAX]) { // If abort window open
-            sendMessage("`" + String(CODE_EARLY_LICK));    // Send result code (Early Lick) to Matlab HOST      
+            //sendMessage("`" + String(CODE_EARLY_LICK));    // Send result code (Early Lick) to Matlab HOST      
+            _resultCode = CODE_EARLY_LICK;                 // Register result code 
             _state = ABORT_TRIAL;                          // Move to ABORT state
             return;
           }  // End Abort ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~//
@@ -1389,7 +1400,8 @@
             _lick_time = millis() - _cue_on_time;          // Records lick wrt CUE ON
             // Send a event marker (lick) to HOST with timestamp
             sendMessage("&" + String(EVENT_LICK) + " " + String(millis() - _exp_timer));
-            sendMessage("`" + String(CODE_LATE_LICK));    // Send result code (Late Lick) to Matlab HOST      
+            //sendMessage("`" + String(CODE_LATE_LICK));    // Send result code (Late Lick) to Matlab HOST      
+            _resultCode = CODE_LATE_LICK;                  // Register result code 
             _lick_state = true;                            // Halts lick detection
             _late_lick_detected = true;                    // Don't send Result Code on next lick
             //------------------------DEBUG MODE--------------------------//
@@ -1415,7 +1427,8 @@
           sendMessage("&" + String(EVENT_LICK) + " " + String(millis() - _exp_timer));    
           _lick_state = true;                            // Halts lick detection
           if (!_late_lick_detected) {                    // If this is first lick in post window
-            sendMessage("`" + String(CODE_LATE_LICK));     // Send result code (Late Lick) to Matlab HOST
+            //sendMessage("`" + String(CODE_LATE_LICK));     // Send result code (Late Lick) to Matlab HOST
+            _resultCode = CODE_LATE_LICK;                  // Register result code 
             _late_lick_detected  = true;                   // Don't send Result Code on next lick
           }
           //------------------------DEBUG MODE--------------------------//
@@ -1450,7 +1463,8 @@
         sendMessage("&" + String(EVENT_TRIAL_END) + " " + String(millis() - _exp_timer));
         _state = INTERTRIAL;                                      // Move to ITI
         if (!_late_lick_detected) {                    // If this is first lick in post window
-            sendMessage("`" + String(CODE_NO_LICK));              // Send result code (Correct) to Matlab HOST 
+            //sendMessage("`" + String(CODE_NO_LICK));              // Send result code (Correct) to Matlab HOST 
+            _resultCode = CODE_NO_LICK;                           // Register result code 
         }
         return;                                                   // Exit Fx
       }  
@@ -1473,7 +1487,8 @@
         playSound(TONE_REWARD);                             // Start reward tone    
         // Send event marker (reward) to HOST with timestamp
         sendMessage("&" + String(EVENT_REWARD) + " " + String(millis() - _exp_timer));
-        sendMessage("`" + String(CODE_CORRECT));            // Send result code (Correct) to Matlab HOST      
+        //sendMessage("`" + String(CODE_CORRECT));            // Send result code (Correct) to Matlab HOST      
+        _resultCode = CODE_CORRECT;                         // Register result code (THIS MAY BE REDUNDANT, CHECK...)
         _prevState = _state;                                // Assign _prevState to REWARD _state
         sendMessage("$" + String(_state));                  // Send HOST $6 (reward State)  
         //------------------------DEBUG MODE--------------------------//  
@@ -1717,9 +1732,17 @@
         isParamsUpdateStarted = false;                      // Initialize HOST param message monitor Start
         isParamsUpdateDone = false;                         // Initialize HOST param message monitor End  
         
+
+        //=================== SEND RESULT CODE=================//
+        if (_resultCode > -1) {                       // If result code exists
+          sendMessage("`" + String(_resultCode));           // Send result code to host to mark trial as complete
+          _resultCode = -1;                                 // Reset the result code tracker
+        }
+
         //------------------------DEBUG MODE--------------------------//  
           if (_params[_DEBUG]) {sendMessage("Intertrial.");}
         //----------------------end DEBUG MODE------------------------//
+
 
         if (_params[SHOCK_ON] == 1) {                   // If shock circuit enforced
             if (!_shock_trigger_on && millis() - _cue_on_time > _params[SHOCK_MIN] && millis()-_cue_on_time < _params[SHOCK_MAX]) { // If shock window is open

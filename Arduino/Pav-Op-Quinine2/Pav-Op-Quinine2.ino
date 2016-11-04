@@ -625,8 +625,7 @@
       _reached_target = false;                      // Reset target time tracker
       _late_lick_detected = false;                  // Reset late lick detector
       _reward_dispensed_complete = false;           // Reset tracker of reward dispensal
-      // Clear previously registered result code
-      _resultCode = -1;
+      _resultCode = -1;                             // Clear previously registered result code
 
       //------------------------DEBUG MODE--------------------------//
       if (_params[_DEBUG]) {
@@ -884,7 +883,7 @@
             }
           //----------------------end DEBUG MODE------------------------//
           if (_params[EARLY_LICK_ABORT] == 1 && millis() - _cue_on_time > _params[ABORT_MIN] && millis()-_cue_on_time < _params[ABORT_MAX]) { // If abort window open
-            _resultCode = CODE_EARLY_LICK;                  // Register result code      
+            _resultCode = CODE_EARLY_LICK;                 // Register result code      
             _state = ABORT_TRIAL;                          // Move to ABORT state
             return;
           }
@@ -1516,8 +1515,8 @@
           sendMessage("&" + String(EVENT_LICK) + " " + String(millis() - _exp_timer));    
           _lick_state = true;                            // Halts lick detection
           if (!_late_lick_detected) {                    // If this is first lick in post window
-            _resultCode = CODE_LATE_LICK;                  // Register result code      
-            _late_lick_detected  = true;                   // Don't send Result Code on next lick
+            _resultCode = CODE_LATE_LICK;                // Register result code      
+            _late_lick_detected  = true;                 // Don't send Result Code on next lick
           }
           //------------------------DEBUG MODE--------------------------//
           if (_params[_DEBUG]) {sendMessage("Late lick detected, tallying lick @ " + String(millis()-_cue_on_time) + "ms wrt Cue ON.");}
@@ -1574,7 +1573,7 @@
         playSound(TONE_REWARD);                             // Start reward tone    
         // Send event marker (reward) to HOST with timestamp
         sendMessage("&" + String(EVENT_REWARD) + " " + String(millis() - _exp_timer));
-        _resultCode = CODE_CORRECT;                  // Register result code      
+        _resultCode = CODE_CORRECT;                         // Register result code      
         _prevState = _state;                                // Assign _prevState to REWARD _state
         sendMessage("$" + String(_state));                  // Send HOST $6 (reward State)  
         //------------------------DEBUG MODE--------------------------//  
@@ -1819,9 +1818,9 @@
         isParamsUpdateDone = false;                         // Initialize HOST param message monitor End  
 
         //=================== SEND RESULT CODE=================//
-        if (_resultCode > -1) {
-          sendMessage("`" + String(_resultCode));
-          _resultCode = -1;
+        if (_resultCode > -1) {                       // If result code exists...
+          sendMessage("`" + String(_resultCode));           // Send result to HOST
+          _resultCode = -1;                                 // Reset result code to null state
         }
 
         //------------------------DEBUG MODE--------------------------//  
