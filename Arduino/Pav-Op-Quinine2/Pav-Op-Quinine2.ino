@@ -6,7 +6,7 @@
   State System Architecture             - Lingfeng Hou (lingfenghou@g.harvard.edu)
 
   Created       9/16/16 - ahamilos
-  Last Modified 11/3/16 - ahamilos
+  Last Modified 11/4/16 - ahamilos
   
   (prior version: PAV_OP_QUININE)
   New to this version: Make quinine or enforced no lick more flexible - 
@@ -668,16 +668,38 @@
       ACTION LIST -- initialize the new state
     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
     if (_state != _prevState) {                       // If ENTERTING READY STATE:
+      /*---------Decide Pav vs Op for mixed trials before starting the trial:---------*/
+      if (_params[OPERANT] == 1 && _params[PAVLOVIAN] == 1)  {
+        unsigned int _dice_roll = random(1,100);                   // Random # between 1-100
+        if (dice_roll <= _params[PERCENT_PAVLOVIAN]) {             // If dice_roll <= the percent of trials that should be pavlovian
+          _mixed_is_pavlovian = true;                                 // Set this trial to pavlovian
+          // Send event marker (pavlovian trial) to HOST with timestamp
+          sendMessage("&" + String(EVENT_PAVLOVIAN) + " " + String(millis() - _exp_timer));
+          //------------------------DEBUG MODE--------------------------//
+          if (_params[_DEBUG]) {
+            sendMessage("-----PAVLOVIAN-----");
+          }
+          //----------------------end DEBUG MODE------------------------//
+        }
+        else {                                                     // If dice_roll > percent of trials that should be pavlovian
+          _mixed_is_pavlovian = false;                                // Set this trial to operant
+          // Send event marker (operant trial) to HOST with timestamp
+          sendMessage("&" + String(EVENT_OPERANT) + " " + String(millis() - _exp_timer));
+          //------------------------DEBUG MODE--------------------------//
+          if (_params[_DEBUG]) {
+            sendMessage("-----OPERANT-----");
+          }
+          //----------------------end DEBUG MODE------------------------//
+        }
+      }
       //-----------------INIT TRIAL CLOCKS and OUTPUTS--------------//
       _trialTimer = millis();                             // Start _trialTimer
       // _quinine_clock = 0;                                 // Reset quinine clock
       // _shock_clock = 0;                                   // Reset shock clock
       // Send event marker (trial_init) to HOST with timestamp
       sendMessage("&" + String(EVENT_TRIAL_INIT) + " " + String(millis() - _exp_timer));
-
       _prevState = _state;                                // Assign _prevState to READY _state
       sendMessage("$" + String(_state));                  // Send  HOST _state entry -- $2 (Ready State)
-      
       setHouseLamp(false);                                // House Lamp OFF
       // Send event marker (house_lamp_off) to HOST with timestamp
       sendMessage("&" + String(EVENT_HOUSE_LAMP_OFF) + " " + String(millis() - _exp_timer));
@@ -1190,19 +1212,20 @@
 
     //(((((((((((((((((((((((((((((((((((((( -------- MIXED PAVLOVIAN-OPERANT  --------- ))))))))))))))))))))))))))))))))))))))=====================//
       else if (_params[OPERANT] == 1 && _params[PAVLOVIAN] == 1)  {
-        if (_state != _prevState){                                // If this is the first time in response window during this trial...
-          unsigned int dice_roll = random(1,100);                   // Random # between 1-100
-          if (dice_roll <= _params[PERCENT_PAVLOVIAN]) {            // If dice_roll <= the percent of trials that should be pavlovian
-            _mixed_is_pavlovian = true;                                // Set this trial to pavlovian
-            // Send event marker (pavlovian trial) to HOST with timestamp
-            sendMessage("&" + String(EVENT_PAVLOVIAN) + " " + String(millis() - _exp_timer));
-          }
-          else {                                                    // If dice_roll > percent of trials that should be pavlovian
-            _mixed_is_pavlovian = false;                               // Set this trial to operant
-            // Send event marker (operant trial) to HOST with timestamp
-            sendMessage("&" + String(EVENT_OPERANT) + " " + String(millis() - _exp_timer));
-          }
-        }
+      // Below: this is now determined in init state. Delete the below commented section in next version:  
+      //   if (_state != _prevState){                                // If this is the first time in response window during this trial...
+      //     unsigned int dice_roll = random(1,100);                   // Random # between 1-100
+      //     if (dice_roll <= _params[PERCENT_PAVLOVIAN]) {            // If dice_roll <= the percent of trials that should be pavlovian
+      //       _mixed_is_pavlovian = true;                                // Set this trial to pavlovian
+      //       // Send event marker (pavlovian trial) to HOST with timestamp
+      //       sendMessage("&" + String(EVENT_PAVLOVIAN) + " " + String(millis() - _exp_timer));
+      //     }
+      //     else {                                                    // If dice_roll > percent of trials that should be pavlovian
+      //       _mixed_is_pavlovian = false;                               // Set this trial to operant
+      //       // Send event marker (operant trial) to HOST with timestamp
+      //       sendMessage("&" + String(EVENT_OPERANT) + " " + String(millis() - _exp_timer));
+      //     }
+      //   }
       
           //----------------------------- Mixed: PAVLOVIAN -----------------------------------//
         if (_mixed_is_pavlovian) {
