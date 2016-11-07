@@ -540,9 +540,6 @@
           abort_trial();
           break;
 
-        case WAIT_FOR_RELEASE:
-          wait_for_release();
-          break;
         
         case INTERTRIAL:
           intertrial();
@@ -1438,7 +1435,7 @@
       if (millis() - _cue_on_time >= _params[TRIAL_DURATION]) {  // TRIAL END -> ITI
         // Send event marker (trial end) to HOST with timestamp
         sendMessage("&" + String(EVENT_TRIAL_END) + " " + String(millis() - _exp_timer));
-        _resultCode = CODE_NO_LICK;                               // Register result code 
+        _resultCode = CODE_NO_RELEASE;                            // Register result code 
         _state = INTERTRIAL;                                      // Move -> ITI
         return;                                                   // Exit Fx
       } /* -------------Trial Timed Out --> TO ITI---------------- */
