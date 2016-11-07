@@ -1496,10 +1496,10 @@
           return;                                         // Exit Fx
         }
         else {
-          static unsigned long error_timer = 0;
-          if (millis()-error_timer > 200 + annoying_beep) {
-            playSound(TONE_ALERT);
-            error_timer = millis();
+          static unsigned long error_timer = 0;           // Keep track of how long since last annoying beep
+          if (millis()-error_timer > 200 + annoying_beep) { // If it's been 400 ms since last annoying beep...
+            playSound(TONE_ABORT);                        // Play error tone
+            error_timer = millis();                       // Update the error timer
           }
         }
       }
