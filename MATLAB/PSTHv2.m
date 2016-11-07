@@ -1,5 +1,17 @@
 %% Peristimulus Time Histogram Plot
 
+
+
+% editable plot params:
+all_trials_max = 45;
+pav_max = 45;
+op_max = 30;
+
+
+
+
+
+
 % takes obj.EventMarkers, parces it to set all the time stamps, then plots
 % PSTH
 
@@ -14,6 +26,25 @@ events = obj.EventMarkers;
 numtrials = length(obj.Trials);
 trial_data = obj.Trials;
 result_codes = [obj.Trials.Code];
+
+
+% Find majority of times for salient events in trial (ie mode)
+num_parameters = length(obj.Trials(1).Parameters); % 24 for this file
+all_trials_parameters = [obj.Trials.Parameters]; % 1xn vector with all the parameters
+all_trials_parameters = reshape(all_trials_parameters, 24, numtrials)'; % rows = trials, cols = params
+
+    % find target time:
+    time_target = mode(all_trials_parameters(:,7));
+    % find min interval:
+    time_min_interval = mode(all_trials_parameters(:,5));
+    % find max interval:
+    time_max_interval = mode(all_trials_parameters(:,6));
+    % find trial duration:
+    time_trial_duration = mode(all_trials_parameters(:,8));
+    % find abort min:
+    time_abort_min = mode(all_trials_parameters(:,22));
+    % find abort max:
+    time_abort_max = mode(all_trials_parameters(:,23));
 
 %% Find all Correct Trials (and other result codes):
 
@@ -36,21 +67,20 @@ pav_or_op_by_trial = NaN(numtrials, 1);    % each row is a trial, 0 for pavlovia
 
 % define indices
 event_index = 1;
-trial_index = 0;
+trial_index = 1;
 pav_index = 0;
 op_index = 0;
 
 for ievent = 1:length(events)
     if events(ievent, 1) == 1              % If start new trial
-        trial_index = trial_index + 1;
     end
     if events(ievent, 1) == 14             % 0 for pavlovian
-%         disp('Pavlovian Trial Detected');
         pav_or_op_by_trial(trial_index) = 0;
+        trial_index = trial_index + 1;
     end
     if events(ievent, 1) == 15             % 1 for operant
-%         disp('Operant Trial Detected');
         pav_or_op_by_trial(trial_index) = 1;
+        trial_index = trial_index + 1;
     end 
 end
 
@@ -172,22 +202,90 @@ no_licks_hist = reshape(no_lick_trial_licks,[1,numel(no_lick_trial_licks)]);
 
 licks_by_pavlovian = [];  % each row diff trial - no longer numbered corresponding to absolute trial #
 licks_by_operant = [];
+pav_correct_trial_licks = [];
+pav_early_trial_licks = [];
+pav_late_trial_licks = [];
+pav_no_lick_trial_licks = [];
+op_correct_trial_licks = [];
+op_early_trial_licks = [];
+op_late_trial_licks = [];
+op_no_lick_trial_licks = [];
 
 pavlovian_index = 0;
 operant_index = 0;
 
+pav_correct_index = 1;
+pav_early_index = 1;
+pav_late_index = 1;
+pav_no_lick_index = 1;
+
+op_correct_index = 1;
+op_early_index = 1;
+op_late_index = 1;
+op_no_lick_index = 1;
+
+
+
 for itrials = 1:numtrials
     if pav_or_op_by_trial(itrials) == 0 % pavlovian
         pavlovian_index = pavlovian_index + 1;
-        licks_by_pavlovian(pavlovian_index, :) = licks_by_trial(itrials, :);
+        licks_by_pavlovian(pavlovian_index, :) = licks_by_trial_relative_to_cue(itrials, :);
+
+        % Pavlovian Correct trials only:
+        if ~isempty(find(correct_trial_numbers == itrials))
+            pav_correct_trial_licks(pav_correct_index, :) = licks_by_trial_relative_to_cue(itrials, :);
+            pav_correct_index = pav_correct_index + 1;
+        end
+
+        % Pavlovian Early trials only:
+        if ~isempty(find(early_trial_numbers == itrials))
+            pav_early_trial_licks(pav_early_index, :) = licks_by_trial_relative_to_cue(itrials, :);
+            pav_early_index = pav_early_index + 1;
+        end
+
+        % Pavlovian Late trials only:
+        if ~isempty(find(late_trial_numbers == itrials))
+            pav_late_trial_licks(pav_late_index, :) = licks_by_trial_relative_to_cue(itrials, :);
+            pav_late_index = pav_late_index + 1;
+        end
+
+        % Pavlovian No lick trials only:
+        if ~isempty(find(no_lick_trial_numbers == itrials))
+            pav_no_lick_trial_licks(pav_no_lick_index, :) = licks_by_trial_relative_to_cue(itrials, :);
+            pav_no_lick_index = pav_no_lick_index + 1;
+        end
     end
     if pav_or_op_by_trial(itrials) == 1 % operant
         operant_index = operant_index + 1;
-        licks_by_operant(operant_index, :) = licks_by_trial(itrials, :);
+        licks_by_operant(operant_index, :) = licks_by_trial_relative_to_cue(itrials, :);
+
+        % Operant Correct trials only:
+        if ~isempty(find(correct_trial_numbers == itrials))
+            op_correct_trial_licks(op_correct_index, :) = licks_by_trial_relative_to_cue(itrials, :);
+            op_correct_index = op_correct_index + 1;
+        end
+
+        % Operant Early trials only:
+        if ~isempty(find(early_trial_numbers == itrials))
+            op_early_trial_licks(op_early_index, :) = licks_by_trial_relative_to_cue(itrials, :);
+            op_early_index = op_early_index + 1;
+        end
+
+        % Operant Late trials only:
+        if ~isempty(find(late_trial_numbers == itrials))
+            op_late_trial_licks(op_late_index, :) = licks_by_trial_relative_to_cue(itrials, :);
+            op_late_index = op_late_index + 1;
+        end
+
+        % Operant No lick trials only:
+        if ~isempty(find(no_lick_trial_numbers == itrials))
+            op_no_lick_trial_licks(op_no_lick_index, :) = licks_by_trial_relative_to_cue(itrials, :);
+            op_no_lick_index = op_no_lick_index + 1;
+        end
     end
 end
 
-%% Get lick times wrt cue on for pav/op parced data:
+%% Get lick times wrt cue on for pav/op parced data: (redundant, may remove next version!)
 
 % number of trials in each:
 pav_numtrials = size(licks_by_pavlovian, 1);
@@ -203,31 +301,31 @@ pav_index = 0;
 op_index = 0;
 
 
-% pavlovian loop
-for itrial=1:pav_numtrials
-    for jlick = 1:size(licks_by_pavlovian,2)
-        if licks_by_pavlovian(itrial, jlick) ~= 0
-            pav_licks_by_trial_relative_to_cue(itrial, jlick) = licks_by_pavlovian(itrial, jlick) - pav_cue_on_time_by_trial(itrial);
-        else
-            pav_licks_by_trial_relative_to_cue(itrial, jlick) = NaN;
-        end
-    end
-end
+% % pavlovian loop
+% for itrial=1:pav_numtrials
+%     for jlick = 1:size(licks_by_pavlovian,2)
+%         if licks_by_pavlovian(itrial, jlick) ~= 0
+%             pav_licks_by_trial_relative_to_cue(itrial, jlick) = licks_by_pavlovian(itrial, jlick) - pav_cue_on_time_by_trial(itrial);
+%         else
+%             pav_licks_by_trial_relative_to_cue(itrial, jlick) = NaN;
+%         end
+%     end
+% end
 
 for i=1:pav_numtrials
     pav_start_trial_relative_to_cue(i) = - pav_cue_on_time_by_trial(i);
 end
 
-% operant loop
-for itrial=1:op_numtrials
-    for jlick = 1:size(licks_by_operant,2)
-        if licks_by_operant(itrial, jlick) ~= 0
-            op_licks_by_trial_relative_to_cue(itrial, jlick) = licks_by_operant(itrial, jlick) - op_cue_on_time_by_trial(itrial);
-        else
-            op_licks_by_trial_relative_to_cue(itrial, jlick) = NaN;
-        end
-    end
-end
+% % operant loop
+% for itrial=1:op_numtrials
+%     for jlick = 1:size(licks_by_operant,2)
+%         if licks_by_operant(itrial, jlick) ~= 0
+%             op_licks_by_trial_relative_to_cue(itrial, jlick) = licks_by_operant(itrial, jlick) - op_cue_on_time_by_trial(itrial);
+%         else
+%             op_licks_by_trial_relative_to_cue(itrial, jlick) = NaN;
+%         end
+%     end
+% end
 
 for i=1:op_numtrials
     op_start_trial_relative_to_cue(i) = - op_cue_on_time_by_trial(i);
@@ -236,53 +334,83 @@ end
 %% Put all the licks in one array (IS parced for pav/op)
 
 % pavlovian
-pav_licks_hist = reshape(pav_licks_by_trial_relative_to_cue,[1,numel(pav_licks_by_trial_relative_to_cue)]);
+pav_licks_hist = reshape(licks_by_pavlovian,[1,numel(licks_by_pavlovian)]);
+pav_correct_licks_hist = reshape(pav_correct_trial_licks,[1,numel(pav_correct_trial_licks)]);
+pav_early_licks_hist = reshape(pav_early_trial_licks,[1,numel(pav_early_trial_licks)]);
+pav_late_licks_hist = reshape(pav_late_trial_licks,[1,numel(pav_late_trial_licks)]);
+pav_no_licks_hist = reshape(pav_no_lick_trial_licks,[1,numel(pav_no_lick_trial_licks)]);
 
 % operant
-op_licks_hist = reshape(op_licks_by_trial_relative_to_cue,[1,numel(op_licks_by_trial_relative_to_cue)]);
+op_licks_hist = reshape(licks_by_operant,[1,numel(licks_by_operant)]);
+op_correct_licks_hist = reshape(op_correct_trial_licks,[1,numel(op_correct_trial_licks)]);
+op_early_licks_hist = reshape(op_early_trial_licks,[1,numel(op_early_trial_licks)]);
+op_late_licks_hist = reshape(op_late_trial_licks,[1,numel(op_late_trial_licks)]);
+op_no_licks_hist = reshape(op_no_lick_trial_licks,[1,numel(op_no_lick_trial_licks)]);
+
+% % pavlovian
+% pav_licks_hist = reshape(pav_licks_by_trial_relative_to_cue,[1,numel(pav_licks_by_trial_relative_to_cue)]);
+
+% % operant
+% op_licks_hist = reshape(op_licks_by_trial_relative_to_cue,[1,numel(op_licks_by_trial_relative_to_cue)]);
 
 
 %% Plot PSTH: All Trials
 
 figure
+subplot(3,1,1);
 histogram(licks_hist, 1000);
 hold on
 plot([0,0], [0, 100], 'g-');
 
-plot([1500,1500], [0, 100], 'r-');
-plot([1250,1250], [0, 100], 'k--');
-plot([2000,2000], [0, 100], 'k--');
-ylim([0,30]);
+plot([time_target,time_target], [0, 100], 'r-');
+plot([time_abort_min,time_abort_min], [0, 100], 'b--');
+plot([time_abort_max,time_abort_max], [0, 100], 'b--');
+plot([time_min_interval,time_min_interval], [0, 100], 'g--');
+plot([time_max_interval,time_max_interval], [0, 100], 'g--');
+plot([time_trial_duration,time_trial_duration], [0, 100], 'c--');
+ylim([0,all_trials_max]);
+xlim([min(min(licks_by_trial_relative_to_cue)) - 500, max(max(licks_by_trial_relative_to_cue)) + 500]);
 ylabel('number of licks');
 xlabel('time relative to cue on (ms)');
+title('All Trials');
 
 
 %% Plot PSTH: Pavlovian Trials Only
 
-figure
+% figure
+subplot(3,1,2);
 histogram(pav_licks_hist, 1000);
 hold on
 plot([0,0], [0, 100], 'g-');
 
-plot([1500,1500], [0, 100], 'r-');
-plot([1250,1250], [0, 100], 'k--');
-plot([2000,2000], [0, 100], 'k--');
-ylim([0,10]);
+plot([time_target,time_target], [0, 100], 'r-');
+plot([time_abort_min,time_abort_min], [0, 100], 'b--');
+plot([time_abort_max,time_abort_max], [0, 100], 'b--');
+plot([time_min_interval,time_min_interval], [0, 100], 'g--');
+plot([time_max_interval,time_max_interval], [0, 100], 'g--');
+plot([time_trial_duration,time_trial_duration], [0, 100], 'c--');
+ylim([0,pav_max]);
+xlim([min(min(licks_by_trial_relative_to_cue)) - 500, max(max(licks_by_trial_relative_to_cue)) + 500]);
 ylabel('number of licks');
 xlabel('time relative to cue on (ms)');
 title('Pavlovian Trials');
 
 %% Plot PSTH: Operant Trials Only
 
-figure
+% figure
+subplot(3,1,3);
 histogram(op_licks_hist, 1000);
 hold on
 plot([0,0], [0, 100], 'g-');
 
-plot([1500,1500], [0, 100], 'r-');
-plot([1250,1250], [0, 100], 'k--');
-plot([2000,2000], [0, 100], 'k--');
-ylim([0,30]);
+plot([time_target,time_target], [0, 100], 'r-');
+plot([time_abort_min,time_abort_min], [0, 100], 'b--');
+plot([time_abort_max,time_abort_max], [0, 100], 'b--');
+plot([time_min_interval,time_min_interval], [0, 100], 'g--');
+plot([time_max_interval,time_max_interval], [0, 100], 'g--');
+plot([time_trial_duration,time_trial_duration], [0, 100], 'c--');
+ylim([0,op_max]);
+xlim([min(min(licks_by_trial_relative_to_cue)) - 500, max(max(licks_by_trial_relative_to_cue)) + 500]);
 ylabel('number of licks');
 xlabel('time relative to cue on (ms)');
 title('Operant Trials');
@@ -290,59 +418,272 @@ title('Operant Trials');
 %% Plot PSTH: Correct Trials Only
 
 figure
+subplot(4,1,1);
 histogram(correct_licks_hist, 1000);
 hold on
 plot([0,0], [0, 100], 'g-');
 
-plot([1500,1500], [0, 100], 'r-');
-plot([1250,1250], [0, 100], 'k--');
-plot([2000,2000], [0, 100], 'k--');
-ylim([0,30]);
+plot([time_target,time_target], [0, 100], 'r-');
+plot([time_abort_min,time_abort_min], [0, 100], 'b--');
+plot([time_abort_max,time_abort_max], [0, 100], 'b--');
+plot([time_min_interval,time_min_interval], [0, 100], 'g--');
+plot([time_max_interval,time_max_interval], [0, 100], 'g--');
+plot([time_trial_duration,time_trial_duration], [0, 100], 'c--');
+ylim([0,all_trials_max]);
+xlim([min(min(licks_by_trial_relative_to_cue)) - 500, max(max(licks_by_trial_relative_to_cue)) + 500]);
 ylabel('number of licks');
 xlabel('time relative to cue on (ms)');
 title('Correct Trials');
 
 %% Plot PSTH: Early Trials Only
 
-figure
+% figure
+subplot(4,1,2);
 histogram(early_licks_hist, 1000);
 hold on
 plot([0,0], [0, 100], 'g-');
 
-plot([1500,1500], [0, 100], 'r-');
-plot([1250,1250], [0, 100], 'k--');
-plot([2000,2000], [0, 100], 'k--');
-ylim([0,30]);
+plot([time_target,time_target], [0, 100], 'r-');
+plot([time_abort_min,time_abort_min], [0, 100], 'b--');
+plot([time_abort_max,time_abort_max], [0, 100], 'b--');
+plot([time_min_interval,time_min_interval], [0, 100], 'g--');
+plot([time_max_interval,time_max_interval], [0, 100], 'g--');
+plot([time_trial_duration,time_trial_duration], [0, 100], 'c--');
+ylim([0,all_trials_max]);
+xlim([min(min(licks_by_trial_relative_to_cue)) - 500, max(max(licks_by_trial_relative_to_cue)) + 500]);
 ylabel('number of licks');
 xlabel('time relative to cue on (ms)');
 title('Early Abort Trials');
 
 %% Plot PSTH: Early Trials Only
 
-figure
+% figure
+subplot(4,1,3);
 histogram(late_licks_hist, 1000);
 hold on
 plot([0,0], [0, 100], 'g-');
 
-plot([1500,1500], [0, 100], 'r-');
-plot([1250,1250], [0, 100], 'k--');
-plot([2000,2000], [0, 100], 'k--');
-ylim([0,30]);
+plot([time_target,time_target], [0, 100], 'r-');
+plot([time_abort_min,time_abort_min], [0, 100], 'b--');
+plot([time_abort_max,time_abort_max], [0, 100], 'b--');
+plot([time_min_interval,time_min_interval], [0, 100], 'g--');
+plot([time_max_interval,time_max_interval], [0, 100], 'g--');
+plot([time_trial_duration,time_trial_duration], [0, 100], 'c--');
+ylim([0,all_trials_max]);
+xlim([min(min(licks_by_trial_relative_to_cue)) - 500, max(max(licks_by_trial_relative_to_cue)) + 500]);
 ylabel('number of licks');
 xlabel('time relative to cue on (ms)');
 title('Late Abort Trials');
 
 %% Plot PSTH: No Lick Trials Only
 
-figure
+% figure
+subplot(4,1,4);
 histogram(no_licks_hist, 1000);
 hold on
 plot([0,0], [0, 100], 'g-');
 
-plot([1500,1500], [0, 100], 'r-');
-plot([1250,1250], [0, 100], 'k--');
-plot([2000,2000], [0, 100], 'k--');
-ylim([0,30]);
+plot([time_target,time_target], [0, 100], 'r-');
+plot([time_abort_min,time_abort_min], [0, 100], 'b--');
+plot([time_abort_max,time_abort_max], [0, 100], 'b--');
+plot([time_min_interval,time_min_interval], [0, 100], 'g--');
+plot([time_max_interval,time_max_interval], [0, 100], 'g--');
+plot([time_trial_duration,time_trial_duration], [0, 100], 'c--');
+ylim([0,10]);
+xlim([min(min(licks_by_trial_relative_to_cue)) - 500, max(max(licks_by_trial_relative_to_cue)) + 500]);
 ylabel('number of licks');
 xlabel('time relative to cue on (ms)');
 title('No Licks Trials');
+
+
+
+
+%% Pavlovian only plots:
+figure
+subplot(4,1,1);
+histogram(pav_licks_hist, 1000);
+hold on
+plot([0,0], [0, 100], 'g-');
+
+plot([time_target,time_target], [0, 100], 'r-');
+plot([time_abort_min,time_abort_min], [0, 100], 'b--');
+plot([time_abort_max,time_abort_max], [0, 100], 'b--');
+plot([time_min_interval,time_min_interval], [0, 100], 'g--');
+plot([time_max_interval,time_max_interval], [0, 100], 'g--');
+plot([time_trial_duration,time_trial_duration], [0, 100], 'c--');
+ylim([0,pav_max]);
+xlim([min(min(licks_by_trial_relative_to_cue)) - 500, max(max(licks_by_trial_relative_to_cue)) + 500]);
+ylabel('number of licks');
+xlabel('time relative to cue on (ms)');
+title('Pavlovian Trials');
+
+%% Plot PSTH: Pav Correct Trials Only
+% figure
+subplot(4,1,2);
+histogram(pav_correct_licks_hist, 1000);
+hold on
+plot([0,0], [0, 100], 'g-');
+
+plot([time_target,time_target], [0, 100], 'r-');
+plot([time_abort_min,time_abort_min], [0, 100], 'b--');
+plot([time_abort_max,time_abort_max], [0, 100], 'b--');
+plot([time_min_interval,time_min_interval], [0, 100], 'g--');
+plot([time_max_interval,time_max_interval], [0, 100], 'g--');
+plot([time_trial_duration,time_trial_duration], [0, 100], 'c--');
+ylim([0,pav_max]);
+xlim([min(min(licks_by_trial_relative_to_cue)) - 500, max(max(licks_by_trial_relative_to_cue)) + 500]);
+ylabel('number of licks');
+xlabel('time relative to cue on (ms)');
+title('Pavlovian Correct Trials');
+
+%% Plot PSTH: Pav Early Trials Only
+% figure
+subplot(4,1,3);
+histogram(pav_early_licks_hist, 1000);
+hold on
+plot([0,0], [0, 100], 'g-');
+
+plot([time_target,time_target], [0, 100], 'r-');
+plot([time_abort_min,time_abort_min], [0, 100], 'b--');
+plot([time_abort_max,time_abort_max], [0, 100], 'b--');
+plot([time_min_interval,time_min_interval], [0, 100], 'g--');
+plot([time_max_interval,time_max_interval], [0, 100], 'g--');
+plot([time_trial_duration,time_trial_duration], [0, 100], 'c--');
+ylim([0,pav_max]);
+xlim([min(min(licks_by_trial_relative_to_cue)) - 500, max(max(licks_by_trial_relative_to_cue)) + 500]);
+ylabel('number of licks');
+xlabel('time relative to cue on (ms)');
+title('Pavlovian Early Abort Trials');
+
+%% Plot PSTH: Pav No Lick Trials Only
+
+% figure
+subplot(4,1,4);
+histogram(pav_no_licks_hist, 1000);
+hold on
+plot([0,0], [0, 100], 'g-');
+
+plot([time_target,time_target], [0, 100], 'r-');
+plot([time_abort_min,time_abort_min], [0, 100], 'b--');
+plot([time_abort_max,time_abort_max], [0, 100], 'b--');
+plot([time_min_interval,time_min_interval], [0, 100], 'g--');
+plot([time_max_interval,time_max_interval], [0, 100], 'g--');
+plot([time_trial_duration,time_trial_duration], [0, 100], 'c--');
+ylim([0,10]);
+xlim([min(min(licks_by_trial_relative_to_cue)) - 500, max(max(licks_by_trial_relative_to_cue)) + 500]);
+ylabel('number of licks');
+xlabel('time relative to cue on (ms)');
+title('Pavlovian No Licks Trials');
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+%% Operant only plots:
+figure
+subplot(5,1,1);
+histogram(op_licks_hist, 1000);
+hold on
+plot([0,0], [0, 100], 'g-');
+
+plot([time_target,time_target], [0, 100], 'r-');
+plot([time_abort_min,time_abort_min], [0, 100], 'b--');
+plot([time_abort_max,time_abort_max], [0, 100], 'b--');
+plot([time_min_interval,time_min_interval], [0, 100], 'g--');
+plot([time_max_interval,time_max_interval], [0, 100], 'g--');
+plot([time_trial_duration,time_trial_duration], [0, 100], 'c--');
+ylim([0,op_max]);
+xlim([min(min(licks_by_trial_relative_to_cue)) - 500, max(max(licks_by_trial_relative_to_cue)) + 500]);
+ylabel('number of licks');
+xlabel('time relative to cue on (ms)');
+title('Operant Trials');
+
+%% Plot PSTH: Op Correct Trials Only
+% figure
+subplot(5,1,2);
+histogram(op_correct_licks_hist, 1000);
+hold on
+plot([0,0], [0, 100], 'g-');
+
+plot([time_target,time_target], [0, 100], 'r-');
+plot([time_abort_min,time_abort_min], [0, 100], 'b--');
+plot([time_abort_max,time_abort_max], [0, 100], 'b--');
+plot([time_min_interval,time_min_interval], [0, 100], 'g--');
+plot([time_max_interval,time_max_interval], [0, 100], 'g--');
+plot([time_trial_duration,time_trial_duration], [0, 100], 'c--');
+ylim([0,op_max]);
+xlim([min(min(licks_by_trial_relative_to_cue)) - 500, max(max(licks_by_trial_relative_to_cue)) + 500]);
+ylabel('number of licks');
+xlabel('time relative to cue on (ms)');
+title('Operant Correct Trials');
+
+%% Plot PSTH: Op Early Trials Only
+% figure
+subplot(5,1,3);
+histogram(op_early_licks_hist, 1000);
+hold on
+plot([0,0], [0, 100], 'g-');
+
+plot([time_target,time_target], [0, 100], 'r-');
+plot([time_abort_min,time_abort_min], [0, 100], 'b--');
+plot([time_abort_max,time_abort_max], [0, 100], 'b--');
+plot([time_min_interval,time_min_interval], [0, 100], 'g--');
+plot([time_max_interval,time_max_interval], [0, 100], 'g--');
+plot([time_trial_duration,time_trial_duration], [0, 100], 'c--');
+ylim([0,op_max]);
+xlim([min(min(licks_by_trial_relative_to_cue)) - 500, max(max(licks_by_trial_relative_to_cue)) + 500]);
+ylabel('number of licks');
+xlabel('time relative to cue on (ms)');
+title('Operant Early Abort Trials');
+
+%% Plot PSTH: Op Late Trials Only
+% figure
+subplot(5,1,4);
+histogram(op_late_licks_hist, 1000);
+hold on
+plot([0,0], [0, 100], 'g-');
+
+plot([time_target,time_target], [0, 100], 'r-');
+plot([time_abort_min,time_abort_min], [0, 100], 'b--');
+plot([time_abort_max,time_abort_max], [0, 100], 'b--');
+plot([time_min_interval,time_min_interval], [0, 100], 'g--');
+plot([time_max_interval,time_max_interval], [0, 100], 'g--');
+plot([time_trial_duration,time_trial_duration], [0, 100], 'c--');
+ylim([0,op_max]);
+xlim([min(min(licks_by_trial_relative_to_cue)) - 500, max(max(licks_by_trial_relative_to_cue)) + 500]);
+ylabel('number of licks');
+xlabel('time relative to cue on (ms)');
+title('Operant Late Abort Trials');
+
+%% Plot PSTH: Op No Lick Trials Only
+% figure
+subplot(5,1,5);
+histogram(op_no_licks_hist, 1000);
+hold on
+plot([0,0], [0, 100], 'g-');
+
+plot([time_target,time_target], [0, 100], 'r-');
+plot([time_abort_min,time_abort_min], [0, 100], 'b--');
+plot([time_abort_max,time_abort_max], [0, 100], 'b--');
+plot([time_min_interval,time_min_interval], [0, 100], 'g--');
+plot([time_max_interval,time_max_interval], [0, 100], 'g--');
+plot([time_trial_duration,time_trial_duration], [0, 100], 'c--');
+ylim([0,10]);
+xlim([min(min(licks_by_trial_relative_to_cue)) - 500, max(max(licks_by_trial_relative_to_cue)) + 500]);
+ylabel('number of licks');
+xlabel('time relative to cue on (ms)');
+title('Operant No Licks Trials');
