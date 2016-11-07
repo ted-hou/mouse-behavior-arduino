@@ -15,6 +15,7 @@
   --> Create flexible shock and abort add ons
   --> Create a joint pav-op condition in which a fixed % of trials are pav vs op
   --> Added an event marker to track whether trial is pavlovian or operant
+  --> Mixed trial type now decided at TRIAL INIT
   ------------------------------------------------------------------
   COMPATIBILITY REPORT:
     Matlab HOST: Matlab 2016a - FileName = MouseBehaviorInterface.m (depends on ArduinoConnection.m)
