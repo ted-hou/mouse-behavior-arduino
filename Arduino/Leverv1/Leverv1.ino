@@ -232,6 +232,7 @@
       EVENT_LATE_RELEASE,     // Marks time of a late release
       EVENT_SPURIOUS_PRESS,   // Marks time of a spurious press
       EVENT_SPURIOUS_RELEASE, // Marks time of a spurious release
+      EVENT_RELEVANT_RELEASE, // Marks time of any relevant release (early, correct and late)
       _NUM_OF_EVENT_MARKERS
     };
 
@@ -256,7 +257,8 @@
       "EARLY_RELEASE",
       "LATE_RELEASE",
       "SPURIOUS_PRESS",
-      "SPURIOUS_RELEASE"
+      "SPURIOUS_RELEASE",
+      "RELEVANT_RELEASE"
     };
 
     static unsigned long _eventMarkerTimer = 0;
@@ -794,6 +796,7 @@
       if (_lever_state) {                               // If press just ended  
         // Send a event marker (early release) to HOST with timestamp
         sendMessage("&" + String(EVENT_EARLY_RELEASE) + " " + String(millis() - _exp_timer));
+        sendMessage("&" + String(EVENT_RELEVANT_RELEASE) + " " + String(millis() - _exp_timer));
         //sendMessage("`" + String(CODE_EARLY_RELEASE));  // Send result code (Early Release) to Matlab HOST                           
         _resultCode = CODE_EARLY_RELEASE;                 // Register result code 
         _lever_state = false;                             // Resets lever detector
@@ -877,6 +880,7 @@
       if (_lever_state) {                               // If press just ended  
         // Send a event marker (early release) to HOST with timestamp
         sendMessage("&" + String(EVENT_EARLY_RELEASE) + " " + String(millis() - _exp_timer));
+        sendMessage("&" + String(EVENT_RELEVANT_RELEASE) + " " + String(millis() - _exp_timer));
         //sendMessage("`" + String(CODE_EARLY_RELEASE));  // Send result code (Early Release) to Matlab HOST                                
         _resultCode = CODE_EARLY_RELEASE;               // Register result code 
         _lever_state = false;                           // Resets lever detector
@@ -1007,6 +1011,7 @@
         if (_lever_state) {                               // If press just ended  
           // Send a event marker (release) to HOST with timestamp
           sendMessage("&" + String(EVENT_CORRECT_RELEASE) + " " + String(millis() - _exp_timer));
+          sendMessage("&" + String(EVENT_RELEVANT_RELEASE) + " " + String(millis() - _exp_timer));
           //sendMessage("`" + String(CODE_CORRECT));        // Send result code (Correct) to Matlab HOST                                
           // Note: don't need to send the below, is done in REWARD state, delete in next version
           //_resultCode = CODE_CORECT;                      // Register result code 
@@ -1130,9 +1135,7 @@
         if (_lever_state) {                               // If press just ended  
           // Send a event marker (late release) to HOST with timestamp
           sendMessage("&" + String(EVENT_LATE_RELEASE) + " " + String(millis() - _exp_timer));
-          //sendMessage("`" + String(CODE_CORRECT));        // Send result code (Correct) to Matlab HOST                                
-          // Note: don't need to send the below, is done in REWARD state, delete in next version
-          //_resultCode = CODE_CORECT;                      // Register result code 
+          sendMessage("&" + String(EVENT_RELEVANT_RELEASE) + " " + String(millis() - _exp_timer));                             
           _lever_state = false;                           // Resets lever detector
           _state = ABORT_TRIAL;                           // Move -> ABORT, wait for trial timeout
           return;                                         // Break to ABORT state
