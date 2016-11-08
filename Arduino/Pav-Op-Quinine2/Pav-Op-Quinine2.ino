@@ -1826,6 +1826,7 @@
         _ITI_timer = millis();                           // Start ITI timer
         setHouseLamp(true);                              // House Lamp ON (if not already)
         setCueLED(false);                                // Cue LED OFF
+        setReward(false);                                // Stop reward if still going
         _prevState = _state;                             // Assign _prevState to ITI _state
         sendMessage("$" + String(_state));               // Send HOST $7 (ITI State)
         // Send event marker (ITI) to HOST with timestamp
