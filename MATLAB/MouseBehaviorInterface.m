@@ -1257,6 +1257,8 @@ classdef MouseBehaviorInterface < handle
 			ax.YLim = [1 - 0.5*bars(1).BarWidth, 1 + 0.5*bars(1).BarWidth];
 			ax.XTickLabel = [];
 			ax.YTickLabel = [];
+			ax.XTick = [];
+			ax.YTick = [];
 
 			% Add labels and set color
 			edges = [0, cumsum(data)];
