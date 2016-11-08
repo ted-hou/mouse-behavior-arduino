@@ -177,7 +177,6 @@
       POST_WINDOW,          // Check for late licks
       REWARD,               // Dispense reward, wait for trial Timeout
       ABORT_TRIAL,          // Behavioral Error - House lamps ON, await trial Timeout
-      WAIT_FOR_RELEASE,     // Wait for release if never let go during trial time
       INTERTRIAL,           // House lamps ON (if not already), write data to HOST and DISK, receive new params
       _NUM_STATES           // (Private) Used to count number of states
     };
@@ -196,7 +195,6 @@
       "POST_WINDOW",
       "REWARD",
       "ABORT_TRIAL",
-      "WAIT_FOR_RELEASE",
       "INTERTRIAL"
     };
 
@@ -1405,6 +1403,7 @@
       static bool isParamsUpdateStarted;              // Initialize tracker of new param reception from HOST - true when new params received
       static bool isParamsUpdateDone;                 // Set to true upon receiving confirmation signal from HOST ("Over")
       static unsigned short annoying_beep = 200;      // To get animal off lever, will use this as the inter-beep interval
+      static unsigned long error_timer = 0;           // Keep track of how long since last annoying beep
       if (_state != _prevState) {                     // If ENTERTING ITI:
         _ITI_timer = millis();                           // Start ITI timer
         setHouseLamp(true);                              // House Lamp ON (if not already)
@@ -1535,7 +1534,6 @@
           return;                                         // Exit Fx
         }
         else {
-          static unsigned long error_timer = 0;           // Keep track of how long since last annoying beep
           if (millis()-error_timer > 200 + annoying_beep) { // If it's been 400 ms since last annoying beep...
             playSound(TONE_ABORT);                        // Play error tone
             error_timer = millis();                       // Update the error timer
