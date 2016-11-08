@@ -672,7 +672,7 @@
       /*---------Decide Pav vs Op for mixed trials before starting the trial:---------*/
       if (_params[OPERANT] == 1 && _params[PAVLOVIAN] == 1)  {
         unsigned int _dice_roll = random(1,100);                   // Random # between 1-100
-        if (dice_roll <= _params[PERCENT_PAVLOVIAN]) {             // If dice_roll <= the percent of trials that should be pavlovian
+        if (_dice_roll <= _params[PERCENT_PAVLOVIAN]) {             // If dice_roll <= the percent of trials that should be pavlovian
           _mixed_is_pavlovian = true;                                 // Set this trial to pavlovian
           // Send event marker (pavlovian trial) to HOST with timestamp
           sendMessage("&" + String(EVENT_PAVLOVIAN) + " " + String(millis() - _exp_timer));
