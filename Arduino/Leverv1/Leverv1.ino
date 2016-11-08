@@ -20,7 +20,7 @@
   ------------------------------------------------------------------
   Reserved:
     
-    Event Markers: 0-16
+    Event Markers: 0-20
     States:        0-10
     Result Codes:  0-3
     Parameters:    0-20
@@ -45,13 +45,16 @@
 
   Behavioral Events:
     -  Lever Press          (event marker = 2)
-    -  Lever Release        (event marker = 10)
-    -  Lick                 (event marker = 11)
-    -  Reward dispensed     (event marker = 12)
-    -  Quinine dispensed    (event marker = 13)
-    -  Behavioral Error     (event marker = 14)   - enters this state if trial aborted by behavioral error, House lamps ON
-    -  Never Released       (event marker = 15)   - enters this state if still holding lever at trial end
-    -  Correct Release      (event marker = 16)
+    -  Lick                 (event marker = 10)
+    -  Reward dispensed     (event marker = 11)
+    -  Quinine dispensed    (event marker = 12)
+    -  Behavioral Error     (event marker = 13)   - enters this state if trial aborted by behavioral error, House lamps ON
+    -  Never Released       (event marker = 14)   - enters this state if still holding lever at trial end
+    -  Correct Release      (event marker = 15)
+    -  Early Release        (event marker = 16)
+    -  Late Release         (event marker = 17)
+    -  Spurious Press       (event marker = 18)
+    -  Spurious Release     (event marker = 19).  - if animal never releases, spurious release will occur in ITI by definition
   --------------------------------------------------------------------
   States:
     0: _INIT                (private) 1st state in init loop, sets up communication to Matlab HOST
@@ -221,13 +224,16 @@
       EVENT_WINDOW_CLOSED,    // Response window closed
       EVENT_TRIAL_END,        // Trial end
       EVENT_ITI,              // Enter ITI
-      EVENT_LEVER_RELEASE,    // Lever Released
       EVENT_LICK,             // Lick detected
       EVENT_REWARD,           // Reward dispensed
       EVENT_QUININE,          // Quinine dispensed
       EVENT_ABORT,            // Abort (behavioral error)
       EVENT_NEVER_RELEASED,   // Enters wait for release state
       EVENT_CORRECT_RELEASE,  // Marks time of correct release -- the reaction time
+      EVENT_EARLY_RELEASE,    // Marks time of an early release
+      EVENT_LATE_RELEASE,     // Marks time of a late release
+      EVENT_SPURIOUS_PRESS,   // Marks time of a spurious press
+      EVENT_SPURIOUS_RELEASE, // Marks time of a spurious release
       _NUM_OF_EVENT_MARKERS
     };
 
@@ -248,7 +254,11 @@
       "QUININE",
       "ABORT",
       "NEVER_RELEASED",
-      "CORRECT_RELEASE"
+      "CORRECT_RELEASE",
+      "EARLY_RELEASE",
+      "LATE_RELEASE",
+      "SPURIOUS_PRESS",
+      "SPURIOUS_RELEASE"
     };
 
     static unsigned long _eventMarkerTimer = 0;
@@ -703,7 +713,7 @@
     if (getLeverState()) {                            // MOUSE: "Lever Pressed"
       if (!_lever_state) {                             // If a new press initiated
         _lever_press_time = millis() - _trialTimer;    // Records _lever_press_time relative to trial start
-        // Send a event marker (lick) to HOST with timestamp
+        // Send a event marker (lever press) to HOST with timestamp
         sendMessage("&" + String(EVENT_LEVER_PRESS) + " " + String(millis() - _exp_timer));
         _lever_state = true;                           // Halts press detection
         _state = RANDOM_DELAY;                         // Move -> RANDOM DELAY
@@ -715,8 +725,8 @@
     }
     if (!getLeverState()) {                           // MOUSE: "No press"
       if (_lever_state) {                               // If press just ended  
-        // Send a event marker (release) to HOST with timestamp
-        sendMessage("&" + String(EVENT_LEVER_RELEASE) + " " + String(millis() - _exp_timer));                          
+        // Send a event marker (spurious release) to HOST with timestamp
+        sendMessage("&" + String(EVENT_SPURIOUS_RELEASE) + " " + String(millis() - _exp_timer));                          
         _lever_state = false;                           // Resets lever detector
       }
     }
@@ -779,13 +789,13 @@
     /*~ Check for EARLY RELEASE~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
     if (!getLeverState()) {                           // MOUSE: "No press"
       if (_lever_state) {                               // If press just ended  
-        // Send a event marker (release) to HOST with timestamp
-        sendMessage("&" + String(EVENT_LEVER_RELEASE) + " " + String(millis() - _exp_timer));
+        // Send a event marker (early release) to HOST with timestamp
+        sendMessage("&" + String(EVENT_EARLY_RELEASE) + " " + String(millis() - _exp_timer));
         //sendMessage("`" + String(CODE_EARLY_RELEASE));  // Send result code (Early Release) to Matlab HOST                           
-        _resultCode = CODE_EARLY_RELEASE;                  // Register result code 
-        _lever_state = false;                           // Resets lever detector
-        _state = ABORT_TRIAL;                           // Move -> ABORT, wait for trial timeout
-        return;                                         // Break to Abort state
+        _resultCode = CODE_EARLY_RELEASE;                 // Register result code 
+        _lever_state = false;                             // Resets lever detector
+        _state = ABORT_TRIAL;                             // Move -> ABORT, wait for trial timeout
+        return;                                           // Break to Abort state
       }
     } /*~ ABORT TRIAL ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
 
@@ -862,8 +872,8 @@
     /*~ Check for EARLY RELEASE~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
     if (!getLeverState()) {                           // MOUSE: "No press"
       if (_lever_state) {                               // If press just ended  
-        // Send a event marker (release) to HOST with timestamp
-        sendMessage("&" + String(EVENT_LEVER_RELEASE) + " " + String(millis() - _exp_timer));
+        // Send a event marker (early release) to HOST with timestamp
+        sendMessage("&" + String(EVENT_EARLY_RELEASE) + " " + String(millis() - _exp_timer));
         //sendMessage("`" + String(CODE_EARLY_RELEASE));  // Send result code (Early Release) to Matlab HOST                                
         _resultCode = CODE_EARLY_RELEASE;               // Register result code 
         _lever_state = false;                           // Resets lever detector
@@ -903,7 +913,6 @@
       if (!_lick_state) {                              // If new lick
         //======================ENFORCED NO LICK=========================//
         if (_params[ENFORCE_NO_LICK] == 1) {
-          _lick_time = millis() - _cue_on_time;          // Records lick wrt CUE ON
           // Send a event marker (lick) to HOST with timestamp
           sendMessage("&" + String(EVENT_LICK) + " " + String(millis() - _exp_timer));
           _lick_state = true;                            // Halt lick detection
@@ -916,6 +925,7 @@
           //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~//
           //------------------------DEBUG MODE--------------------------//
             if (_params[_DEBUG]) {
+              _lick_time = millis() - _cue_on_time;          // Records lick wrt CUE ON
               sendMessage("Early pre-window lick detected @ " + String(_lick_time) + "ms. Dispensing Quinine: No lick IS enforced.");
             }
           //----------------------end DEBUG MODE------------------------//
@@ -993,7 +1003,7 @@
       if (!getLeverState()) {                           // MOUSE: "No press"
         if (_lever_state) {                               // If press just ended  
           // Send a event marker (release) to HOST with timestamp
-          sendMessage("&" + String(EVENT_LEVER_RELEASE) + " " + String(millis() - _exp_timer));
+          sendMessage("&" + String(EVENT_CORRECT_RELEASE) + " " + String(millis() - _exp_timer));
           //sendMessage("`" + String(CODE_CORRECT));        // Send result code (Correct) to Matlab HOST                                
           // Note: don't need to send the below, is done in REWARD state, delete in next version
           //_resultCode = CODE_CORECT;                      // Register result code 
@@ -1115,8 +1125,8 @@
       /*~ Check for LATE RELEASE~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
       if (!getLeverState()) {                           // MOUSE: "No press"
         if (_lever_state) {                               // If press just ended  
-          // Send a event marker (release) to HOST with timestamp
-          sendMessage("&" + String(EVENT_LEVER_RELEASE) + " " + String(millis() - _exp_timer));
+          // Send a event marker (late release) to HOST with timestamp
+          sendMessage("&" + String(EVENT_LATE_RELEASE) + " " + String(millis() - _exp_timer));
           //sendMessage("`" + String(CODE_CORRECT));        // Send result code (Correct) to Matlab HOST                                
           // Note: don't need to send the below, is done in REWARD state, delete in next version
           //_resultCode = CODE_CORECT;                      // Register result code 
@@ -1230,8 +1240,8 @@
       /*~~~~~~~~~~~~~~~~~ Check for new lever presses and releases ~~~~~~~~~~~~~~~~~~~*/
       if (getLeverState()) {                            // MOUSE: "Lever Pressed"
         if (!_lever_state) {                             // If a new press initiated
-          // Send a event marker (LEVER PRESS) to HOST with timestamp
-          sendMessage("&" + String(EVENT_LEVER_PRESS) + " " + String(millis() - _exp_timer));
+          // Send a event marker (SPURIOUS LEVER PRESS) to HOST with timestamp
+          sendMessage("&" + String(EVENT_SPURIOUS_PRESS) + " " + String(millis() - _exp_timer));
           _lever_state = true;                           // Halts press detection
           //------------------------DEBUG MODE--------------------------//
             if (_params[_DEBUG]) {
@@ -1243,8 +1253,8 @@
       }
       if (!getLeverState()) {                           // MOUSE: "No press"
         if (_lever_state) {                               // If press just ended  
-          // Send an event marker (release) to HOST with timestamp
-          sendMessage("&" + String(EVENT_LEVER_RELEASE) + " " + String(millis() - _exp_timer));                          
+          // Send an event marker (spurious release) to HOST with timestamp
+          sendMessage("&" + String(EVENT_SPURIOUS_RELEASE) + " " + String(millis() - _exp_timer));                          
           _lever_state = false;                           // Resets lever detector
           //------------------------DEBUG MODE--------------------------//
             if (_params[_DEBUG]) {sendMessage("Lever released again @ " + String(millis() - _cue_on_time) + "ms wrt Cue ON");}
@@ -1318,19 +1328,21 @@
       /*~~~~~~~~~~~~~~~~~ Check for new lever presses and releases ~~~~~~~~~~~~~~~~~~~*/
       if (getLeverState()) {                            // MOUSE: "Lever Pressed"
         if (!_lever_state) {                             // If a new press initiated
-          _lever_press_time = millis() - _trialTimer;    // Records _lever_press_time relative to trial start
-          // Send a event marker (lick) to HOST with timestamp
-          sendMessage("&" + String(EVENT_LEVER_PRESS) + " " + String(millis() - _exp_timer));
+          // Send a event marker (spurious press) to HOST with timestamp
+          sendMessage("&" + String(EVENT_SPURIOUS_PRESS) + " " + String(millis() - _exp_timer));
           _lever_state = true;                           // Halts press detection
           //------------------------DEBUG MODE--------------------------//
-            if (_params[_DEBUG]) {sendMessage("Lever pressed again, tallying press @ " + String(_lever_press_time - _cue_on_time) + "ms wrt Cue ON");}
+            if (_params[_DEBUG]) {
+              _lever_press_time = millis() - _trialTimer;    // Records _lever_press_time relative to trial start
+              sendMessage("Lever pressed again, tallying press @ " + String(_lever_press_time - _cue_on_time) + "ms wrt Cue ON");
+            }
           //----------------------end DEBUG MODE------------------------//
         }
       }
       if (!getLeverState()) {                           // MOUSE: "No press"
         if (_lever_state) {                               // If press just ended  
-          // Send an event marker (release) to HOST with timestamp
-          sendMessage("&" + String(EVENT_LEVER_RELEASE) + " " + String(millis() - _exp_timer));                          
+          // Send an event marker (spurious release) to HOST with timestamp
+          sendMessage("&" + String(EVENT_SPURIOUS_RELEASE) + " " + String(millis() - _exp_timer));                          
           _lever_state = false;                           // Resets lever detector
           //------------------------DEBUG MODE--------------------------//
             if (_params[_DEBUG]) {sendMessage("Lever released again @ " + String(millis() - _cue_on_time) + "ms wrt Cue ON");}
@@ -1433,6 +1445,33 @@
         return;                                              // Exit Function
       }
 
+      /*~~~~~~~~~~~~~~~~~ Check for new lever presses and releases ~~~~~~~~~~~~~~~~~~~*/
+      if (getLeverState()) {                            // MOUSE: "Lever Pressed"
+        if (!_lever_state) {                             // If a new press initiated
+          // Send a event marker (spurious press) to HOST with timestamp
+          sendMessage("&" + String(EVENT_SPURIOUS_PRESS) + " " + String(millis() - _exp_timer));
+          _lever_state = true;                           // Halts press detection
+          //------------------------DEBUG MODE--------------------------//
+            if (_params[_DEBUG]) {
+              _lever_press_time = millis() - _trialTimer;    // Records _lever_press_time relative to trial start
+              sendMessage("Lever pressed again, tallying press @ " + String(_lever_press_time - _cue_on_time) + "ms wrt Cue ON");
+            }
+          //----------------------end DEBUG MODE------------------------//
+        }
+      }
+      if (!getLeverState()) {                           // MOUSE: "No press"
+        if (_lever_state) {                               // If press just ended  
+          // Send an event marker (spurious release) to HOST with timestamp
+          sendMessage("&" + String(EVENT_SPURIOUS_RELEASE) + " " + String(millis() - _exp_timer));                          
+          _lever_state = false;                           // Resets lever detector
+          //------------------------DEBUG MODE--------------------------//
+            if (_params[_DEBUG]) {sendMessage("Lever released again @ " + String(millis() - _cue_on_time) + "ms wrt Cue ON");}
+          //----------------------end DEBUG MODE------------------------//
+        }
+      }
+      /* ~~~~~~~~~~~~~~~~~ End Lever Services ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
+
+
 
       if (_params[SHOCK_ON] == 1) {                   // If shock circuit enforced
           if (!_shock_trigger_on && millis() - _cue_on_time > _params[SHOCK_MIN] && millis()-_cue_on_time < _params[SHOCK_MAX]) { // If shock window is open
@@ -1491,7 +1530,7 @@
         -Lever must not be pressed (will hold in ITI till lever released)
         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
       if (millis() - _ITI_timer >= _params[ITI] && (isParamsUpdateDone || !isParamsUpdateStarted))  { 
-        if (!getLeverState) {
+        if (!getLeverState()) {
           _state = INIT_TRIAL;                            // Move -> READY state
           return;                                         // Exit Fx
         }
