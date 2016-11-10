@@ -710,7 +710,7 @@ void init_trial() {
 		TRANSITION LIST -- checks conditions, moves to next state
 	~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
 	if (getLeverState()) {                            // MOUSE: "Lever Pressed"
-			if (!_lever_state) {                             // If a new press initiated
+		if (!_lever_state) {                             // If a new press initiated
 			// Send a event marker (lever press) to HOST with timestamp
 			sendMessage("&" + String(EVENT_LEVER_PRESS) + " " + String(signedMillis() - _exp_timer));
 			_lever_state = true;                           // Halts press detection
@@ -721,18 +721,18 @@ void init_trial() {
 			return;                                        // Break to RANDOM DELAY
 		}
 	}
-	if (!getLeverState()) {                           // MOUSE: "No press"
-		if (_lever_state) {                               // If press just ended  
-			// Send a event marker (spurious release) to HOST with timestamp
-			sendMessage("&" + String(EVENT_SPURIOUS_RELEASE) + " " + String(signedMillis() - _exp_timer));                          
-			_lever_state = false;                           // Resets lever detector
-			//------------------------DEBUG MODE--------------------------//
-				if (_params[_DEBUG]) {sendMessage("ERROR! Shouldn't be able to release in the init_trial state. Cycling to IDLE_STATE");}
-			//----------------------end DEBUG MODE------------------------//
-			_state = IDLE_STATE;
-			return;
-		}
-	}
+	// if (!getLeverState()) {                           // MOUSE: "No press"
+	// 	if (_lever_state) {                               // If press just ended  
+	// 		// Send a event marker (spurious release) to HOST with timestamp
+	// 		sendMessage("&" + String(EVENT_SPURIOUS_RELEASE) + " " + String(signedMillis() - _exp_timer));                          
+	// 		_lever_state = false;                           // Resets lever detector
+	// 		//------------------------DEBUG MODE--------------------------//
+	// 			if (_params[_DEBUG]) {sendMessage("ERROR! Shouldn't be able to release in the init_trial state. Cycling to IDLE_STATE");}
+	// 		//----------------------end DEBUG MODE------------------------//
+	// 		_state = IDLE_STATE;
+	// 		return;
+	// 	}
+	// }
 
 	if (getLickState()) {                            // MOUSE: "Licked"
 		if (!_lick_state) {                              // If a new lick initiated
