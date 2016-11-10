@@ -269,11 +269,6 @@ classdef ArduinoConnection < handle
 
 		function SendString(obj, stringToWrite)
 			fprintf(obj.SerialConnection,'%s#',stringToWrite, 'sync')
-
-			% DEBUGING
-			if obj.DebugMode
-				disp(['To Arduino: "', stringToSend, '"' ])
-			end
 		end
 
 		function OnMessageReceived(obj, ~, ~)
@@ -299,6 +294,11 @@ classdef ArduinoConnection < handle
 
 					% Trigger StateChanged Event
 					notify(obj, 'StateChanged')
+
+					% Debug message
+					if obj.DebugMode
+						fprintf('	STATE: %s\n', obj.StateNames{obj.State})
+					end
 				case '@'
 					% Arduino sent the name of a state - "@ 1 IDLE"
 					subStrings = strsplit(strtrim(value), ' ');
@@ -314,6 +314,11 @@ classdef ArduinoConnection < handle
 					timeStamp = str2num(subStrings{2});
 					obj.EventMarkersBuffer = [obj.EventMarkersBuffer; eventCode, timeStamp];
 					obj.EventMarkersUntrimmed = [obj.EventMarkersUntrimmed; eventCode, timeStamp];
+
+					% Debug message
+					if obj.DebugMode
+						fprintf('		EVENT: %s - %d\n', obj.EventMarkerNames{eventCode}, timeStamp)
+					end
 				case '+'
 					% Arduino sent the name of an event marker - "+ 0 TRIAL_START"
 					subStrings = strsplit(strtrim(value), ' ');
@@ -343,6 +348,11 @@ classdef ArduinoConnection < handle
 					obj.Trials(iTrial).CodeName = obj.ResultCodeNames{resultCode};
 					obj.Trials(iTrial).Parameters = obj.ParamValues;
 					obj.TrialsCompleted = iTrial;
+
+					% Debug message
+					if obj.DebugMode
+						fprintf('RESULT: %s\n', obj.ResultCodeNames{resultCode})
+					end
 				case '*'
 					% Arduino sent error code interpretations - "# 0 ERROR_LEVER_NOT_PRESSED" means error code -1
 					subStrings = strsplit(strtrim(value), ' ');
