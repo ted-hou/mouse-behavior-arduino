@@ -1316,9 +1316,9 @@ void abort_trial() {
 		//----------------------end DEBUG MODE------------------------//
 	}
 
-/*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-	TRANSITION LIST -- checks conditions, moves to next state
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
+	/*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+		TRANSITION LIST -- checks conditions, moves to next state
+	~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
 	if (_command == 'Q')  {                             // HOST: "QUIT" -> IDLE_STATE
 		_state = IDLE_STATE;                                 // Set IDLE_STATE
 		return;                                              // Exit Function
@@ -1354,8 +1354,11 @@ void abort_trial() {
 		if (!_shock_trigger_on && signedMillis() - _cue_on_time > _params[SHOCK_MIN] && signedMillis()-_cue_on_time < _params[SHOCK_MAX]) { // If shock window is open
 			setShockTrigger(true);                          // Connect the shock ckt        
 		}
-		else if (_shock_trigger_on) {               // Otherwise, if shock is on, but we're in the wrong window...                                            
-			setShockTrigger(false);                           // Disconnect shock ckt
+		else
+		{ 
+			if (_shock_trigger_on) {               // Otherwise, if shock is on, but we're in the wrong window...                                            
+				setShockTrigger(false);                           // Disconnect shock ckt
+			}
 		}
 	}
 
@@ -1406,34 +1409,35 @@ void intertrial() {
 	static long annoying_beep = 200;      // To get animal off lever, will use this as the inter-beep interval
 	static long error_timer = 0;           // Keep track of how long since last annoying beep
 	if (_state != _prevState) {                     // If ENTERTING ITI:
-	_ITI_timer = signedMillis();                           // Start ITI timer
-	setHouseLamp(true);                              // House Lamp ON (if not already)
-	setCueLED(false);                                // Cue LED OFF
-	_prevState = _state;                             // Assign _prevState to ITI _state
-	sendMessage("$" + String(_state));               // Send HOST $10 (ITI State)
-	// Send event marker (ITI) to HOST with timestamp
-	sendMessage("&" + String(EVENT_ITI) + " " + String(signedMillis() - _exp_timer));
-	
-	// Reset state variables
-	_pre_window_elapsed = false;                  // Reset pre_window time tracker
-	_reached_target = false;                      // Reset target time tracker
-	_late_lick_detected = false;                  // Reset late lick detector
-	_reward_dispensed_complete = false;           // Reset tracker of reward dispensal
+		_ITI_timer = signedMillis();                           // Start ITI timer
+		setHouseLamp(true);                              // House Lamp ON (if not already)
+		setCueLED(false);                                // Cue LED OFF
+		_prevState = _state;                             // Assign _prevState to ITI _state
+		sendMessage("$" + String(_state));               // Send HOST $10 (ITI State)
+		// Send event marker (ITI) to HOST with timestamp
+		sendMessage("&" + String(EVENT_ITI) + " " + String(signedMillis() - _exp_timer));
+		
+		// Reset state variables
+		_pre_window_elapsed = false;                  // Reset pre_window time tracker
+		_reached_target = false;                      // Reset target time tracker
+		_late_lick_detected = false;                  // Reset late lick detector
+		_reward_dispensed_complete = false;           // Reset tracker of reward dispensal
 
-	//=================== INIT HOST COMMUNICATION=================//
-	isParamsUpdateStarted = false;                      // Initialize HOST param message monitor Start
-	isParamsUpdateDone = false;                         // Initialize HOST param message monitor End  
-	
+		//=================== INIT HOST COMMUNICATION=================//
+		isParamsUpdateStarted = false;                      // Initialize HOST param message monitor Start
+		isParamsUpdateDone = false;                         // Initialize HOST param message monitor End  
+		
 
-	//=================== SEND RESULT CODE=================//
-	if (_resultCode > -1) {                       // If result code exists
-		sendMessage("`" + String(_resultCode));           // Send result code to host to mark trial as complete
-		_resultCode = -1;                                 // Reset the result code tracker
+		//=================== SEND RESULT CODE=================//
+		if (_resultCode > -1) {                       // If result code exists
+			sendMessage("`" + String(_resultCode));           // Send result code to host to mark trial as complete
+			_resultCode = -1;                                 // Reset the result code tracker
+		}
+
+		//------------------------DEBUG MODE--------------------------//  
+		if (_params[_DEBUG]) {sendMessage("Intertrial.");}
+		//----------------------end DEBUG MODE------------------------//
 	}
-
-	//------------------------DEBUG MODE--------------------------//  
-	if (_params[_DEBUG]) {sendMessage("Intertrial.");}
-	//----------------------end DEBUG MODE------------------------//
 
 
 	/*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
