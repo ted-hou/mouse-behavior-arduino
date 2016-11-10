@@ -725,6 +725,9 @@ classdef MouseBehaviorInterface < handle
 			[~, ~, trialsZero] = histcounts(eventsZero, edges);
 
 			ism = ismember(trialsOfInterest, trialsZero);
+			if (ism == 0)
+				return
+			end
 			trialsOfInterest = trialsOfInterest(ism);
 			eventsOfInterest = eventsOfInterest(ism);
 
