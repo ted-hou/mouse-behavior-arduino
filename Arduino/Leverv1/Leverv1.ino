@@ -435,7 +435,7 @@
 	pinMode(PIN_SHOCK, OUTPUT);                 // Shock Trigger OUT
 	// INPUTS
 	pinMode(PIN_LICK, INPUT);                   // Lick detector
-	pinMode(PIN_LEVER, INPUT_PULLUP);                  // Lever detector
+	pinMode(PIN_LEVER, INPUT);                  // Lever detector
 	//--------------------------------------------------------//
 
 
@@ -1588,7 +1588,7 @@
 	GET LEVER STATE (True/False - Boolean)
 	~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
 	bool getLeverState() {
-	if (digitalRead(PIN_LEVER) == LOW) {
+	if (digitalRead(PIN_LEVER) == HIGH) {
 		return true;
 	}
 	else {
