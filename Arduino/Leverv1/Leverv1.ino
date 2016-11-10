@@ -1130,6 +1130,7 @@ void post_window() {
 			sendMessage("&" + String(EVENT_LATE_RELEASE) + " " + String(signedMillis() - _exp_timer));
 			sendMessage("&" + String(EVENT_RELEVANT_RELEASE) + " " + String(signedMillis() - _exp_timer));                             
 			_lever_state = false;                           // Resets lever detector
+			_resultCode = CODE_LATE_RELEASE;				// Result code: late release
 			_state = ABORT_TRIAL;                           // Move -> ABORT, wait for trial timeout
 			return;                                         // Break to ABORT state
 		}
