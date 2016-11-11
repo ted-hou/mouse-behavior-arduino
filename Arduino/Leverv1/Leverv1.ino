@@ -143,287 +143,287 @@
 	Global Variables
 *****************************************************/
 
-	/*****************************************************
-	Arduino Pin Outs (Mode: TEENSY)
-	*****************************************************/
+/*****************************************************
+Arduino Pin Outs (Mode: TEENSY)
+*****************************************************/
 
-	// Digital OUT
-	#define PIN_HOUSE_LAMP     6    // House Lamp Pin         (DUE = 34)  (MEGA = 34)  (UNO = 5?)  (TEENSY = 6?)
-	#define PIN_LED_CUE        4    // Cue LED Pin            (DUE = 35)  (MEGA = 28)  (UNO =  4)  (TEENSY = 4)
-	#define PIN_REWARD         7    // Reward Pin             (DUE = 37)  (MEGA = 52)  (UNO =  7)  (TEENSY = 7)
-	#define PIN_SHOCK          3    // Shock Trigger Pin                  (MEGA = 22)              (TEENSY = 3)
-	
-	// PWM OUT
-	#define PIN_SPEAKER        5    // Speaker Pin            (DUE =  2)  (MEGA =  8)  (UNO =  9)  (TEENSY = 5)
-	#define PIN_QUININE        8    // Quinine Pin            (DUE = 22)  (MEGA =  9)  (UNO =  8)  (TEENSY = 8) ** Must be PWM
+// Digital OUT
+#define PIN_HOUSE_LAMP     6    // House Lamp Pin         (DUE = 34)  (MEGA = 34)  (UNO = 5?)  (TEENSY = 6?)
+#define PIN_LED_CUE        4    // Cue LED Pin            (DUE = 35)  (MEGA = 28)  (UNO =  4)  (TEENSY = 4)
+#define PIN_REWARD         7    // Reward Pin             (DUE = 37)  (MEGA = 52)  (UNO =  7)  (TEENSY = 7)
+#define PIN_SHOCK          3    // Shock Trigger Pin                  (MEGA = 22)              (TEENSY = 3)
 
-	// Digital IN
-	#define PIN_LICK           2    // Lick Pin               (DUE = 36)  (MEGA =  2)  (UNO =  2)  (TEENSY = 2)
-	#define PIN_LEVER          1    // Lever Pin              (DUE = ? )  (MEGA =  3)  (UNO =  ?)  (TEENSY = 1) ** check touch sense doesn't affect Teensy
+// PWM OUT
+#define PIN_SPEAKER        5    // Speaker Pin            (DUE =  2)  (MEGA =  8)  (UNO =  9)  (TEENSY = 5)
+#define PIN_QUININE        8    // Quinine Pin            (DUE = 22)  (MEGA =  9)  (UNO =  8)  (TEENSY = 8) ** Must be PWM
 
-
-	/*****************************************************
-	Enums - DEFINE States
-	*****************************************************/
-	// All the states
-	enum State
-	{
-		_INIT,                // (Private) Initial state used on first loop. 
-		IDLE_STATE,           // Idle state. Wait for go signal from host.
-		INIT_TRIAL,           // House lamp OFF, random delay before cue presentation
-		RANDOM_DELAY,         // Random delay before Cue presented
-		PRE_WINDOW,           // (+/-) Enforced no lick before response window opens
-		RESPONSE_WINDOW,      // First lick in this interval rewarded (operant). Reward delivered at target time (pavlov)
-		POST_WINDOW,          // Check for late licks
-		REWARD,               // Dispense reward, wait for trial Timeout
-		ABORT_TRIAL,          // Behavioral Error - House lamps ON, await trial Timeout
-		INTERTRIAL,           // House lamps ON (if not already), write data to HOST and DISK, receive new params
-		_NUM_STATES           // (Private) Used to count number of states
-	};
+// Digital IN
+#define PIN_LICK           2    // Lick Pin               (DUE = 36)  (MEGA =  2)  (UNO =  2)  (TEENSY = 2)
+#define PIN_LEVER          1    // Lever Pin              (DUE = ? )  (MEGA =  3)  (UNO =  ?)  (TEENSY = 1) ** check touch sense doesn't affect Teensy
 
 
-	// State names stored as strings, will be sent to host
-	// Names cannot contain spaces!!!
-	static const char *_stateNames[] = 
-	{
-		"_INIT",
-		"IDLE_STATE",
-		"INIT_TRIAL",
-		"RANDOM_DELAY",
-		"PRE_WINDOW",
-		"RESPONSE_WINDOW",
-		"POST_WINDOW",
-		"REWARD",
-		"ABORT_TRIAL",
-		"INTERTRIAL"
-	};
+/*****************************************************
+Enums - DEFINE States
+*****************************************************/
+// All the states
+enum State
+{
+	_INIT,                // (Private) Initial state used on first loop. 
+	IDLE_STATE,           // Idle state. Wait for go signal from host.
+	INIT_TRIAL,           // House lamp OFF, random delay before cue presentation
+	RANDOM_DELAY,         // Random delay before Cue presented
+	PRE_WINDOW,           // (+/-) Enforced no lick before response window opens
+	RESPONSE_WINDOW,      // First lick in this interval rewarded (operant). Reward delivered at target time (pavlov)
+	POST_WINDOW,          // Check for late licks
+	REWARD,               // Dispense reward, wait for trial Timeout
+	ABORT_TRIAL,          // Behavioral Error - House lamps ON, await trial Timeout
+	INTERTRIAL,           // House lamps ON (if not already), write data to HOST and DISK, receive new params
+	_NUM_STATES           // (Private) Used to count number of states
+};
 
-	// Define which states allow param update
-	static const int _stateCanUpdateParams[] = {0,1,0,0,0,0,0,0,0,0,1,0}; 
-	// Defined to allow Parameter upload from host during IDLE_STATE and INTERTRIAL
+
+// State names stored as strings, will be sent to host
+// Names cannot contain spaces!!!
+static const char *_stateNames[] = 
+{
+	"_INIT",
+	"IDLE_STATE",
+	"INIT_TRIAL",
+	"RANDOM_DELAY",
+	"PRE_WINDOW",
+	"RESPONSE_WINDOW",
+	"POST_WINDOW",
+	"REWARD",
+	"ABORT_TRIAL",
+	"INTERTRIAL"
+};
+
+// Define which states allow param update
+static const int _stateCanUpdateParams[] = {0,1,0,0,0,0,0,0,0,0,1,0}; 
+// Defined to allow Parameter upload from host during IDLE_STATE and INTERTRIAL
 
 
-	/*****************************************************
-	Event Markers
-	*****************************************************/
-	enum EventMarkers
-	/* You may define as many event markers as you like.
-		Assign event markers to any IN/OUT event
-		Times and trials will be defined by global time, 
-		which can be parsed later to validate time measurements */
-	{
-		EVENT_TRIAL_INIT,       // New trial initiated
-		EVENT_HOUSE_LAMP_OFF,   // House lamp off - start random pre-cue delay
-		EVENT_LEVER_PRESS,      // Lever Pressed
-		EVENT_RANDOM_DELAY,     // Entered Random Delay
-		EVENT_CUE_ON,           // Begin cue presentation
-		EVENT_WINDOW_OPEN,      // Response window open
-		EVENT_TARGET_TIME,      // Target time
-		EVENT_WINDOW_CLOSED,    // Response window closed
-		EVENT_TRIAL_END,        // Trial end
-		EVENT_ITI,              // Enter ITI
-		EVENT_LICK,             // Lick detected
-		EVENT_REWARD,           // Reward dispensed
-		EVENT_QUININE,          // Quinine dispensed
-		EVENT_ABORT,            // Abort (behavioral error)
-		EVENT_NEVER_RELEASED,   // Enters wait for release state
-		EVENT_CORRECT_RELEASE,  // Marks time of correct release -- the reaction time
-		EVENT_EARLY_RELEASE,    // Marks time of an early release
-		EVENT_LATE_RELEASE,     // Marks time of a late release
-		EVENT_SPURIOUS_PRESS,   // Marks time of a spurious press
-		EVENT_SPURIOUS_RELEASE, // Marks time of a spurious release
-		EVENT_RELEVANT_RELEASE, // Marks time of any relevant release (early, correct and late)
-		_NUM_OF_EVENT_MARKERS
-	};
+/*****************************************************
+Event Markers
+*****************************************************/
+enum EventMarkers
+/* You may define as many event markers as you like.
+	Assign event markers to any IN/OUT event
+	Times and trials will be defined by global time, 
+	which can be parsed later to validate time measurements */
+{
+	EVENT_TRIAL_INIT,       // New trial initiated
+	EVENT_HOUSE_LAMP_OFF,   // House lamp off - start random pre-cue delay
+	EVENT_LEVER_PRESS,      // Lever Pressed
+	EVENT_RANDOM_DELAY,     // Entered Random Delay
+	EVENT_CUE_ON,           // Begin cue presentation
+	EVENT_WINDOW_OPEN,      // Response window open
+	EVENT_TARGET_TIME,      // Target time
+	EVENT_WINDOW_CLOSED,    // Response window closed
+	EVENT_TRIAL_END,        // Trial end
+	EVENT_ITI,              // Enter ITI
+	EVENT_LICK,             // Lick detected
+	EVENT_REWARD,           // Reward dispensed
+	EVENT_QUININE,          // Quinine dispensed
+	EVENT_ABORT,            // Abort (behavioral error)
+	EVENT_NEVER_RELEASED,   // Enters wait for release state
+	EVENT_CORRECT_RELEASE,  // Marks time of correct release -- the reaction time
+	EVENT_EARLY_RELEASE,    // Marks time of an early release
+	EVENT_LATE_RELEASE,     // Marks time of a late release
+	EVENT_SPURIOUS_PRESS,   // Marks time of a spurious press
+	EVENT_SPURIOUS_RELEASE, // Marks time of a spurious release
+	EVENT_RELEVANT_RELEASE, // Marks time of any relevant release (early, correct and late)
+	_NUM_OF_EVENT_MARKERS
+};
 
-	static const char *_eventMarkerNames[] =    // * to define array of strings
-	{
-		"TRIAL_INIT",
-		"HOUSE_LAMP_OFF",
-		"LEVER_PRESS",
-		"RANDOM_DELAY",
-		"CUE_ON",
-		"WINDOW_OPEN",
-		"TARGET_TIME",
-		"WINDOW_CLOSED",
-		"TRIAL_END",
-		"ITI",
-		"LICK",
-		"REWARD",
-		"QUININE",
-		"ABORT",
-		"NEVER_RELEASED",
-		"CORRECT_RELEASE",
-		"EARLY_RELEASE",
-		"LATE_RELEASE",
-		"SPURIOUS_PRESS",
-		"SPURIOUS_RELEASE",
-		"RELEVANT_RELEASE"
-	};
+static const char *_eventMarkerNames[] =    // * to define array of strings
+{
+	"TRIAL_INIT",
+	"HOUSE_LAMP_OFF",
+	"LEVER_PRESS",
+	"RANDOM_DELAY",
+	"CUE_ON",
+	"WINDOW_OPEN",
+	"TARGET_TIME",
+	"WINDOW_CLOSED",
+	"TRIAL_END",
+	"ITI",
+	"LICK",
+	"REWARD",
+	"QUININE",
+	"ABORT",
+	"NEVER_RELEASED",
+	"CORRECT_RELEASE",
+	"EARLY_RELEASE",
+	"LATE_RELEASE",
+	"SPURIOUS_PRESS",
+	"SPURIOUS_RELEASE",
+	"RELEVANT_RELEASE"
+};
 
-	static long _eventMarkerTimer = 0;
-	static long _trialTimer = 0;
+static long _eventMarkerTimer = 0;
+static long _trialTimer = 0;
 
-	/*****************************************************
-	Result codes
-	*****************************************************/
-	enum ResultCode
-	{
-		CODE_CORRECT,                              // Correct    (1st lick w/in window)
-		CODE_EARLY_LICK,                           // Early Lick (-> Abort in Enforced No-Lick)                         // NOTE: Early lick should be removed
-		CODE_EARLY_RELEASE,                        // Early Release  (-> Abort)
-		CODE_LATE_RELEASE,                         // Late Release  (-> Abort)
-		CODE_NO_RELEASE,                           // No Release    (Timeout -> Wait for Release)
-		_NUM_RESULT_CODES                          // (Private) Used to count how many codes there are.
-	};
+/*****************************************************
+Result codes
+*****************************************************/
+enum ResultCode
+{
+	CODE_CORRECT,                              // Correct    (1st lick w/in window)
+	CODE_EARLY_LICK,                           // Early Lick (-> Abort in Enforced No-Lick)                         // NOTE: Early lick should be removed
+	CODE_EARLY_RELEASE,                        // Early Release  (-> Abort)
+	CODE_LATE_RELEASE,                         // Late Release  (-> Abort)
+	CODE_NO_RELEASE,                           // No Release    (Timeout -> Wait for Release)
+	_NUM_RESULT_CODES                          // (Private) Used to count how many codes there are.
+};
 
-	// We'll send result code translations to MATLAB at startup
-	static const char *_resultCodeNames[] =
-	{
-		"CORRECT",
-		"EARLY_LICK",
-		"EARLY_RELEASE",
-		"LATE_RELEASE",
-		"NO_RELEASE",
-	};
+// We'll send result code translations to MATLAB at startup
+static const char *_resultCodeNames[] =
+{
+	"CORRECT",
+	"EARLY_LICK",
+	"EARLY_RELEASE",
+	"LATE_RELEASE",
+	"NO_RELEASE",
+};
 
-	static long _resultCode = -1;        // Result code number. -1 if there is no result.
+static long _resultCode = -1;        // Result code number. -1 if there is no result.
 
-	/*****************************************************
-	Audio cue frequencies
-	*****************************************************/
-	enum SoundEventFrequencyEnum
-	{
-		TONE_REWARD  = 5050,             // Correct tone: (prev C8 = 4186)
-		TONE_ABORT   = 440,              // Error tone: (prev C3 = 131)
-		TONE_CUE     = 3300,             // 'Start counting the interval' cue: (prev C6 = 1047)
-		TONE_ALERT   = 131,              // Reserved for system errors
-		TONE_QUININE = 10000             // Quinine delivery -- using tone so don't require own state to deliver for set time
-	};
+/*****************************************************
+Audio cue frequencies
+*****************************************************/
+enum SoundEventFrequencyEnum
+{
+	TONE_REWARD  = 5050,             // Correct tone: (prev C8 = 4186)
+	TONE_ABORT   = 440,              // Error tone: (prev C3 = 131)
+	TONE_CUE     = 3300,             // 'Start counting the interval' cue: (prev C6 = 1047)
+	TONE_ALERT   = 131,              // Reserved for system errors
+	TONE_QUININE = 10000             // Quinine delivery -- using tone so don't require own state to deliver for set time
+};
 
-	/*****************************************************
-	Parameters that can be updated by HOST
-	*****************************************************/
-	// Storing everything in array _params[]. Using enum ParamID as array indices so it's easier to add/remove parameters. 
-	enum ParamID
-	{
-		_DEBUG,                         // (Private) 1 to enable debug messages from HOST. Default 0.
-		ENFORCE_NO_LICK,                // 1 to enforce no lick in the pre-window interval
-		INTERVAL_MIN,                   // Time to start of reward window (ms)
-		INTERVAL_MAX,                   // Time to end of reward window (ms)
-		TARGET,                         // Target time (ms)
-		TRIAL_DURATION,                 // Total alloted time/trial (ms)
-		ITI,                            // Intertrial interval duration (ms)
-		RANDOM_DELAY_MIN,               // Minimum random pre-Cue delay (ms)
-		RANDOM_DELAY_MAX,               // Maximum random pre-Cue delay (ms)
-		CUE_DURATION,                   // Duration of the cue tone and LED flash (ms)
-		REWARD_DURATION,                // Duration of reward dispensal (ms)
-		QUININE_DURATION,               // Duration of quinine dispensal (ms)
-		QUININE_TIMEOUT,                // Minimum time between quinine dispensals (ms)
-		QUININE_MIN,                    // Minimum time post cue before quinine available (ms)
-		QUININE_MAX,                    // Maximum time post cue before quinine not available (ms)
-		SHOCK_ON,                       // 1 to enable Shock Mode
-		SHOCK_MIN,                      // Minimum time post cue before shock ckt connected (ms)
-		SHOCK_MAX,                      // Maximum time post cue before shock ckt disconnected (ms)
-		EARLY_LICK_ABORT,               // 1 to Abort with Early Licks in window (ms)
-		ABORT_MIN,                      // Miminum time post cue before lick causes abort (ms)
-		ABORT_MAX,                      // Maximum time post cue before abort unavailable (ms)
-		_NUM_PARAMS                     // (Private) Used to count how many parameters there are so we can initialize the param array with the correct size. Insert additional parameters before this.
-	}; //**** BE SURE TO ADD NEW PARAMS TO THE NAMES LIST BELOW!*****//
+/*****************************************************
+Parameters that can be updated by HOST
+*****************************************************/
+// Storing everything in array _params[]. Using enum ParamID as array indices so it's easier to add/remove parameters. 
+enum ParamID
+{
+	_DEBUG,                         // (Private) 1 to enable debug messages from HOST. Default 0.
+	ENFORCE_NO_LICK,                // 1 to enforce no lick in the pre-window interval
+	INTERVAL_MIN,                   // Time to start of reward window (ms)
+	INTERVAL_MAX,                   // Time to end of reward window (ms)
+	TARGET,                         // Target time (ms)
+	TRIAL_DURATION,                 // Total alloted time/trial (ms)
+	ITI,                            // Intertrial interval duration (ms)
+	RANDOM_DELAY_MIN,               // Minimum random pre-Cue delay (ms)
+	RANDOM_DELAY_MAX,               // Maximum random pre-Cue delay (ms)
+	CUE_DURATION,                   // Duration of the cue tone and LED flash (ms)
+	REWARD_DURATION,                // Duration of reward dispensal (ms)
+	QUININE_DURATION,               // Duration of quinine dispensal (ms)
+	QUININE_TIMEOUT,                // Minimum time between quinine dispensals (ms)
+	QUININE_MIN,                    // Minimum time post cue before quinine available (ms)
+	QUININE_MAX,                    // Maximum time post cue before quinine not available (ms)
+	SHOCK_ON,                       // 1 to enable Shock Mode
+	SHOCK_MIN,                      // Minimum time post cue before shock ckt connected (ms)
+	SHOCK_MAX,                      // Maximum time post cue before shock ckt disconnected (ms)
+	EARLY_LICK_ABORT,               // 1 to Abort with Early Licks in window (ms)
+	ABORT_MIN,                      // Miminum time post cue before lick causes abort (ms)
+	ABORT_MAX,                      // Maximum time post cue before abort unavailable (ms)
+	_NUM_PARAMS                     // (Private) Used to count how many parameters there are so we can initialize the param array with the correct size. Insert additional parameters before this.
+}; //**** BE SURE TO ADD NEW PARAMS TO THE NAMES LIST BELOW!*****//
 
-	// Store parameter names as strings, will be sent to host
-	// Names cannot contain spaces!!!
-	static const char *_paramNames[] = 
-	{
-		"_DEBUG",
-		"ENFORCE_NO_LICK",
-		"INTERVAL_MIN",
-		"INTERVAL_MAX",
-		"TARGET",
-		"TRIAL_DURATION",
-		"ITI",
-		"RANDOM_DELAY_MIN",
-		"RANDOM_DELAY_MAX",
-		"CUE_DURATION",
-		"REWARD_DURATION",
-		"QUININE_DURATION",
-		"QUININE_TIMEOUT",
-		"QUININE_MIN",
-		"QUININE_MAX",
-		"SHOCK_ON",
-		"SHOCK_MIN",
-		"SHOCK_MAX",
-		"EARLY_LICK_ABORT",
-		"ABORT_MIN",
-		"ABORT_MAX"
-	}; //**** BE SURE TO INIT NEW PARAM VALUES BELOW!*****//
+// Store parameter names as strings, will be sent to host
+// Names cannot contain spaces!!!
+static const char *_paramNames[] = 
+{
+	"_DEBUG",
+	"ENFORCE_NO_LICK",
+	"INTERVAL_MIN",
+	"INTERVAL_MAX",
+	"TARGET",
+	"TRIAL_DURATION",
+	"ITI",
+	"RANDOM_DELAY_MIN",
+	"RANDOM_DELAY_MAX",
+	"CUE_DURATION",
+	"REWARD_DURATION",
+	"QUININE_DURATION",
+	"QUININE_TIMEOUT",
+	"QUININE_MIN",
+	"QUININE_MAX",
+	"SHOCK_ON",
+	"SHOCK_MIN",
+	"SHOCK_MAX",
+	"EARLY_LICK_ABORT",
+	"ABORT_MIN",
+	"ABORT_MAX"
+}; //**** BE SURE TO INIT NEW PARAM VALUES BELOW!*****//
 
-	// Initialize parameters
-	long _params[_NUM_PARAMS] = 
-	{
-		0,                              // _DEBUG
-		0,                              // ENFORCE_NO_LICK
-		1250,                           // INTERVAL_MIN
-		1750,                           // INTERVAL_MAX
-		1500,                           // TARGET
-		3000,                           // TRIAL_DURATION
-		3000,                           // ITI
-		400,                            // RANDOM_DELAY_MIN
-		1500,                           // RANDOM_DELAY_MAX
-		100,                            // CUE_DURATION
-		35,                             // REWARD_DURATION
-		30,                             // QUININE_DURATION
-		400,                            // QUININE_TIMEOUT
-		0,                              // QUININE_MIN
-		1250,                           // QUININE_MAX
-		0,                              // SHOCK_ON
-		0,                              // SHOCK_MIN
-		1250,                           // SHOCK_MAX
-		0,                              // EARLY_LICK_ABORT
-		0,                              // ABORT_MIN
-		1250                            // ABORT_MAX
-	};
+// Initialize parameters
+long _params[_NUM_PARAMS] = 
+{
+	0,                              // _DEBUG
+	0,                              // ENFORCE_NO_LICK
+	1250,                           // INTERVAL_MIN
+	1750,                           // INTERVAL_MAX
+	1500,                           // TARGET
+	3000,                           // TRIAL_DURATION
+	3000,                           // ITI
+	400,                            // RANDOM_DELAY_MIN
+	1500,                           // RANDOM_DELAY_MAX
+	100,                            // CUE_DURATION
+	35,                             // REWARD_DURATION
+	30,                             // QUININE_DURATION
+	400,                            // QUININE_TIMEOUT
+	0,                              // QUININE_MIN
+	1250,                           // QUININE_MAX
+	0,                              // SHOCK_ON
+	0,                              // SHOCK_MIN
+	1250,                           // SHOCK_MAX
+	0,                              // EARLY_LICK_ABORT
+	0,                              // ABORT_MIN
+	1250                            // ABORT_MAX
+};
 
-	/*****************************************************
-	Other Global Variables 
-	*****************************************************/
-	// Variables declared here can be carried to the next loop, AND read/written in function scope as well as main scope
-	// (previously defined):
-		// static long _eventMarkerTimer = 0;
-		// static long _trialTimer = 0;
-		// static long _resultCode              = 0;        // Result code number, see "enum ResultCode" for details.
-	static long _random_delay_timer = 0;    // Random delay timer
-	static State _state                  = _INIT;    // This variable (current _state) get passed into a _state function, which determines what the next _state should be, and updates it to the next _state.
-	static State _prevState              = _INIT;    // Remembers the previous _state from the last loop (actions should only be executed when you enter a _state for the first time, comparing currentState vs _prevState helps us keep track of that).
-	static char _command                 = ' ';      // Command char received from host, resets on each loop
-	static int _arguments[2]             = {0};      // Two integers received from host , resets on each loop
-	static bool _lick_state              = false;    // True when lick detected, False when no lick
-	static bool _lever_state             = false;    // True when lever pressed, false when released
-	static bool _pre_window_elapsed      = false;    // Track if pre_window time has elapsed
-	static bool _reached_target          = false;    // Track if target time reached
-	static bool _late_lick_detected      = false;    // Track if late lick detected
-	static long _exp_timer      = 0;        // Experiment timer, reset to signedMillis() at every soft reset
-	static long _lick_time      = 0;        // Tracks most recent lick time
-	static long _cue_on_time    = 0;        // Tracks time cue has been displayed for
-	static long _response_window_timer = 0; // Tracks time in response window state
-	static long _reward_timer   = 0;        // Tracks time in reward state
-	static long _quinine_timer  = 0;        // Tracks time since last quinine delivery
-	static long _abort_timer    = 0;        // Tracks time in abort state
-	static long _ITI_timer      = 0;        // Tracks time in ITI state
-	static long _preCueDelay    = 0;        // Initialize _preCueDelay var
-	static bool _reward_dispensed_complete = false;  // init tracker of reward dispensal
-	static bool _shock_trigger_on        = false;    // Shock trigger default is off
+/*****************************************************
+Other Global Variables 
+*****************************************************/
+// Variables declared here can be carried to the next loop, AND read/written in function scope as well as main scope
+// (previously defined):
+	// static long _eventMarkerTimer = 0;
+	// static long _trialTimer = 0;
+	// static long _resultCode              = 0;        // Result code number, see "enum ResultCode" for details.
+static long _random_delay_timer = 0;    // Random delay timer
+static State _state                  = _INIT;    // This variable (current _state) get passed into a _state function, which determines what the next _state should be, and updates it to the next _state.
+static State _prevState              = _INIT;    // Remembers the previous _state from the last loop (actions should only be executed when you enter a _state for the first time, comparing currentState vs _prevState helps us keep track of that).
+static char _command                 = ' ';      // Command char received from host, resets on each loop
+static int _arguments[2]             = {0};      // Two integers received from host , resets on each loop
+static bool _lick_state              = false;    // True when lick detected, False when no lick
+static bool _lever_state             = false;    // True when lever pressed, false when released
+static bool _pre_window_elapsed      = false;    // Track if pre_window time has elapsed
+static bool _reached_target          = false;    // Track if target time reached
+static bool _late_lick_detected      = false;    // Track if late lick detected
+static long _exp_timer      = 0;        // Experiment timer, reset to signedMillis() at every soft reset
+static long _lick_time      = 0;        // Tracks most recent lick time
+static long _cue_on_time    = 0;        // Tracks time cue has been displayed for
+static long _response_window_timer = 0; // Tracks time in response window state
+static long _reward_timer   = 0;        // Tracks time in reward state
+static long _quinine_timer  = 0;        // Tracks time since last quinine delivery
+static long _abort_timer    = 0;        // Tracks time in abort state
+static long _ITI_timer      = 0;        // Tracks time in ITI state
+static long _preCueDelay    = 0;        // Initialize _preCueDelay var
+static bool _reward_dispensed_complete = false;  // init tracker of reward dispensal
+static bool _shock_trigger_on        = false;    // Shock trigger default is off
 
-	//------Debug Mode: measure tick-rate (per ms)------------//
-	static long _single_loop_timer = 0;     // Timer for debugging cycles/loop
-	static long _debugTimer     = 0;        // Debugging _single_loop_timer
-	static long _ticks          = 0;        // # of loops/sec in the debugger
+//------Debug Mode: measure tick-rate (per ms)------------//
+static long _single_loop_timer = 0;     // Timer for debugging cycles/loop
+static long _debugTimer     = 0;        // Debugging _single_loop_timer
+static long _ticks          = 0;        // # of loops/sec in the debugger
 
 
 /*****************************************************
 	INITIALIZATION LOOP
 *****************************************************/
-	void setup()
+void setup()
 	{
 	//--------------------I/O initialization------------------//
 	// OUTPUTS
@@ -443,14 +443,14 @@
 	//------------------------Serial Comms--------------------//
 	Serial.begin(115200);                       // Set up USB communication at 115200 baud 
 
-	} // End Initialization Loop -----------------------------------------------------------------------------------------------------
+} // End Initialization Loop -----------------------------------------------------------------------------------------------------
 
 
 /*****************************************************
 	MAIN LOOP
 *****************************************************/
-	void loop()
-	{
+void loop()
+{
 	// Initialization
 	mySetup();
 
@@ -555,12 +555,12 @@
 			break;
 		} // End switch statement--------------------------
 	}
-	} // End main loop-------------------------------------------------------------------------------------------------------------
+} // End main loop-------------------------------------------------------------------------------------------------------------
 
 
 
-	void mySetup()
-	{
+void mySetup()
+{
 
 	//--------------Set ititial OUTPUTS----------------//
 	setHouseLamp(true);                          // House Lamp ON
@@ -601,13 +601,7 @@
 
 	// Tell PC that we're running by sending '~' message:
 	hostInit();                         // Sends all parameters, states and error codes to Matlab (LF Function)    
-	}
-
-
-
-
-
-
+}
 
 
 
