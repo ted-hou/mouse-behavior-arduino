@@ -261,9 +261,6 @@ static const char *_eventMarkerNames[] =    // * to define array of strings
 	"RELEVANT_RELEASE"
 };
 
-static long _eventMarkerTimer = 0;
-static long _trialTimer = 0;
-
 /*****************************************************
 Result codes
 *****************************************************/
@@ -286,8 +283,6 @@ static const char *_resultCodeNames[] =
 	"LATE_RELEASE",
 	"NO_RELEASE",
 };
-
-static long _resultCode = -1;        // Result code number. -1 if there is no result.
 
 /*****************************************************
 Audio cue frequencies
@@ -389,9 +384,8 @@ Other Global Variables
 *****************************************************/
 // Variables declared here can be carried to the next loop, AND read/written in function scope as well as main scope
 // (previously defined):
-	// static long _eventMarkerTimer = 0;
-	// static long _trialTimer = 0;
-	// static long _resultCode              = 0;        // Result code number, see "enum ResultCode" for details.
+static long _trialTimer = 0;
+static long _resultCode = -1;        // Result code number. -1 if there is no result.
 static long _random_delay_timer = 0;    // Random delay timer
 static State _state                  = _INIT;    // This variable (current _state) get passed into a _state function, which determines what the next _state should be, and updates it to the next _state.
 static State _prevState              = _INIT;    // Remembers the previous _state from the last loop (actions should only be executed when you enter a _state for the first time, comparing currentState vs _prevState helps us keep track of that).
@@ -413,12 +407,6 @@ static long _ITI_timer      = 0;        // Tracks time in ITI state
 static long _preCueDelay    = 0;        // Initialize _preCueDelay var
 static bool _reward_dispensed_complete = false;  // init tracker of reward dispensal
 static bool _shock_trigger_on        = false;    // Shock trigger default is off
-
-//------Debug Mode: measure tick-rate (per ms)------------//
-static long _single_loop_timer = 0;     // Timer for debugging cycles/loop
-static long _debugTimer     = 0;        // Debugging _single_loop_timer
-static long _ticks          = 0;        // # of loops/sec in the debugger
-
 
 /*****************************************************
 	INITIALIZATION LOOP
@@ -566,38 +554,30 @@ void mySetup()
 	setHouseLamp(true);                          // House Lamp ON
 	setCueLED(false);                            // Cue LED OFF
 
-	//-----------------------Global Clocks---------------------//
-	// Tick rate
-	_debugTimer = signedMillis();                      // Start DEBUG _single_loop_timer clock
-
 	//---------------------------Reset a bunch of variables---------------------------//
-	_eventMarkerTimer       = 0;
-	_trialTimer             = 0;
-	_resultCode             = -1;       // No result code to start
-	_random_delay_timer     = 0;        // Random delay timer
-	_single_loop_timer      = 0;        // Timer
-	_state                  = _INIT;    // This variable (current _state) get passed into a _state function, which determines what the next _state should be, and updates it to the next _state.
-	_prevState              = _INIT;    // Remembers the previous _state from the last loop (actions should only be executed when you enter a _state for the first time, comparing currentState vs _prevState helps us keep track of that).
-	_command                = ' ';      // Command char received from host, resets on each loop
-	_arguments[0]           = 0;        // Two integers received from host , resets on each loop
-	_arguments[1]           = 0;        // Two integers received from host , resets on each loop
-	_lick_state             = false;    // True when lick detected, False when no lick
-	_lever_state            = false;    // True when lever pressed, False when not
-	_pre_window_elapsed     = false;    // Track if pre_window time has elapsed
-	_reached_target         = false;    // Track if target time reached
-	_late_lick_detected     = false;    // Track if late lick detected
-	_exp_timer		        = signedMillis();	// Experiment timer, reset to signedMillis() at every soft reset
-	_lick_time              = 0;        // Tracks most recent lick time
-	_cue_on_time            = 0;        // Tracks time cue has been displayed for
-	_response_window_timer  = 0;        // Tracks time in response window state
-	_reward_timer           = 0;        // Tracks time in reward state
-	_abort_timer            = 0;        // Tracks time in abort state
-	_ITI_timer              = 0;        // Tracks time in ITI state
-	_preCueDelay            = 0;        // Initialize _preCueDelay var
-	_reward_dispensed_complete = false; // init tracker of reward dispensal
-	_debugTimer             = 0;        // Debugging _single_loop_timer
-	_ticks                  = 0;        // # of loops/sec in the debugger
-
+	_trialTimer 				= 0;
+	_resultCode 				= -1;        // Result code number. -1 if there is no result.
+	_random_delay_timer 		= 0;    // Random delay timer
+	_state                  	= _INIT;    // This variable (current _state) get passed into a _state function, which determines what the next _state should be, and updates it to the next _state.
+	_prevState              	= _INIT;    // Remembers the previous _state from the last loop (actions should only be executed when you enter a _state for the first time, comparing currentState vs _prevState helps us keep track of that).
+	_command                 	= ' ';      // Command char received from host, resets on each loop
+	_arguments[2]             	= {0};      // Two integers received from host , resets on each loop
+	_lick_state              	= false;    // True when lick detected, False when no lick
+	_lever_state             	= false;    // True when lever pressed, false when released
+	_pre_window_elapsed      	= false;    // Track if pre_window time has elapsed
+	_reached_target          	= false;    // Track if target time reached
+	_late_lick_detected      	= false;    // Track if late lick detected
+	_exp_timer      			= 0;        // Experiment timer, reset to signedMillis() at every soft reset
+	_lick_time      			= 0;        // Tracks most recent lick time
+	_cue_on_time    			= 0;        // Tracks time cue has been displayed for
+	_response_window_timer 		= 0; // Tracks time in response window state
+	_reward_timer   			= 0;        // Tracks time in reward state
+	_quinine_timer  			= 0;        // Tracks time since last quinine delivery
+	_abort_timer    			= 0;        // Tracks time in abort state
+	_ITI_timer      			= 0;        // Tracks time in ITI state
+	_preCueDelay    			= 0;        // Initialize _preCueDelay var
+	_reward_dispensed_complete 	= false;  // init tracker of reward dispensal
+	_shock_trigger_on        	= false;    // Shock trigger default is off
 
 	// Tell PC that we're running by sending '~' message:
 	hostInit();                         // Sends all parameters, states and error codes to Matlab (LF Function)    
@@ -681,6 +661,7 @@ void init_trial() {
 		// Select the _preCueDelay now so can track time relative to cue onset (though haven't entered rand delay yet)
 		_preCueDelay = random(_params[RANDOM_DELAY_MIN], _params[RANDOM_DELAY_MAX]);     // Choose random delay time
 		_trialTimer = signedMillis();                             // Start _trialTimer
+		_lever_state = false;			// Just to be safe
 		// Send event marker (trial_init) to HOST with timestamp
 		sendMessage("&" + String(EVENT_TRIAL_INIT) + " " + String(signedMillis() - _exp_timer)); 
 		/* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -1185,18 +1166,19 @@ void reward() {
 		ACTION LIST -- initialize the new state
 	~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
 	if (_state != _prevState) {                        // If ENTERTING REWARD:
-	_reward_timer = signedMillis();                        // Start _reward_timer
-	setReward(true);                                    // Initiate reward delivery
-	playSound(TONE_REWARD);                             // Start reward tone    
-	// Send event marker (reward) to HOST with timestamp
-	sendMessage("&" + String(EVENT_REWARD) + " " + String(signedMillis() - _exp_timer));
-	//sendMessage("`" + String(CODE_CORRECT));            // Send result code (Correct) to Matlab HOST      
-	_resultCode = CODE_CORRECT;                         // Register result code (THIS MAY BE REDUNDANT, CHECK...)
-	_prevState = _state;                                // Assign _prevState to REWARD _state
-	sendMessage("$" + String(_state));                  // Send HOST $6 (reward State)  
-	//------------------------DEBUG MODE--------------------------//  
-	if (_params[_DEBUG]) {sendMessage("Dispensing reward.");}
-	//----------------------end DEBUG MODE------------------------//
+		_reward_timer = signedMillis();                        // Start _reward_timer
+		_reward_dispensed_complete = false;
+		setReward(true);                                    // Initiate reward delivery
+		playSound(TONE_REWARD);                             // Start reward tone    
+		// Send event marker (reward) to HOST with timestamp
+		sendMessage("&" + String(EVENT_REWARD) + " " + String(signedMillis() - _exp_timer));
+		//sendMessage("`" + String(CODE_CORRECT));            // Send result code (Correct) to Matlab HOST      
+		_resultCode = CODE_CORRECT;                         // Register result code (THIS MAY BE REDUNDANT, CHECK...)
+		_prevState = _state;                                // Assign _prevState to REWARD _state
+		sendMessage("$" + String(_state));                  // Send HOST $6 (reward State)  
+		//------------------------DEBUG MODE--------------------------//  
+		if (_params[_DEBUG]) {sendMessage("Dispensing reward.");}
+		//----------------------end DEBUG MODE------------------------//
 	}
 
 	 /*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -1213,7 +1195,7 @@ void reward() {
 		_reward_dispensed_complete = true;                  // track completion
 		//------------------------DEBUG MODE--------------------------//
 			if (_params[_DEBUG]) {
-			sendMessage("Reward terminated at " + String(signedMillis() - _reward_timer) + "ms wrt reward initiation.");
+				sendMessage("Reward terminated at " + String(signedMillis() - _reward_timer) + "ms wrt reward initiation.");
 			}
 		//----------------------end DEBUG MODE------------------------//
 	} /*------------------------- End Duration Checker ---------------------------*/
@@ -1280,7 +1262,7 @@ void reward() {
 	} /* End Lick Checker ...................................................*/
 
 
-	if (signedMillis() - _trialTimer - _preCueDelay >= _params[TRIAL_DURATION]) {  // TRIAL END -> ITI
+	if (signedMillis() - _trialTimer - _preCueDelay >= _params[TRIAL_DURATION] && _reward_dispensed_complete) {  // TRIAL END -> ITI
 		// Send event marker (trial end) to HOST with timestamp
 		sendMessage("&" + String(EVENT_TRIAL_END) + " " + String(signedMillis() - _exp_timer));
 		_state = INTERTRIAL;                                // Move to ITI
@@ -1529,13 +1511,15 @@ void intertrial() {
 	~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
 	if (signedMillis() - _ITI_timer >= _params[ITI] && (isParamsUpdateDone || !isParamsUpdateStarted))  { 
 		if (!getLeverState()) {
-			_state = INIT_TRIAL;                            // Move -> READY state
-			return;                                         // Exit Fx
+			_lever_state = false;                           // Halts press detection
+			_state = INIT_TRIAL;                         // Move -> RANDOM DELAY
+			return;                                        // Break to RANDOM DELAY
 		}
 		else {
 			if (signedMillis()-error_timer > 200 + annoying_beep) { // If it's been 400 ms since last annoying beep...
-			playSound(TONE_ABORT);                        // Play error tone
-			error_timer = signedMillis();                       // Update the error timer
+				_lever_state = true;							// Just to be safe
+				playSound(TONE_ABORT);                        // Play error tone
+				error_timer = signedMillis();                       // Update the error timer
 			}
 		}
 	}
