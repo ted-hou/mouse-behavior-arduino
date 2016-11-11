@@ -725,7 +725,7 @@ classdef MouseBehaviorInterface < handle
 			[~, ~, trialsZero] = histcounts(eventsZero, edges);
 
 			ism = ismember(trialsOfInterest, trialsZero);
-			if (ism == 0)
+			if (sum(ism) == 0)
 				return
 			end
 			trialsOfInterest = trialsOfInterest(ism);
@@ -880,12 +880,14 @@ classdef MouseBehaviorInterface < handle
 			[~, ~, trialsZero] = histcounts(eventsZero, edges);
 
 			ism = ismember(trialsOfInterest, trialsZero);
+			if (sum(ism) == 0)
+				return
+			end
 			trialsOfInterest = trialsOfInterest(ism);
 			eventsOfInterest = eventsOfInterest(ism);
 
 			% Get timestamps for events of interests and zero events
 			[C, ia, ~] 			= unique(trialsOfInterest);
-
 			eventsZero  		= eventsZero(C);
 			eventsOfInterest 	= eventsOfInterest(ia);
 
