@@ -199,7 +199,7 @@ static const char *_stateNames[] =
 };
 
 // Define which states allow param update
-static const int _stateCanUpdateParams[] = {0,1,0,0,0,0,0,0,0,0,1,0}; 
+static const int _stateCanUpdateParams[] = {0,1,0,0,0,0,0,0,0,1}; 
 // Defined to allow Parameter upload from host during IDLE_STATE and INTERTRIAL
 
 
