@@ -49,12 +49,24 @@ all_trials_parameters = reshape(all_trials_parameters, 24, numtrials)'; % rows =
     % We also want to keep track of first licks in each interval:
         % First lick after the cue:
         times_1st_post_cue_lick = [];
+        pav_times_1st_post_cue_lick = [];
+        op_times_1st_post_cue_lick = [];
         % First lick in the no lick period:
         times_1st_lick_no_lick_period = [];
+        pav_times_1st_lick_no_lick_period = [];
+        op_times_1st_lick_no_lick_period = [];
+        % First lick in the pre-reward interval (if reached it):
+        pre_times_1st_lick_reward = [];
+        pre_pav_times_1st_lick_reward = [];
+        pre_op_times_1st_lick_reward = [];
         % First lick in the reward interval (if reached it):
         times_1st_lick_reward = [];
+        pav_times_1st_lick_reward = [];
+        op_times_1st_lick_reward = [];
         % First lick in post-window (if reached it):
         times_1st_late_lick = [];
+        pav_times_1st_late_lick = [];
+        op_times_1st_late_lick = [];
 
 %% Find all Correct Trials (and other result codes):
 
@@ -114,6 +126,7 @@ for ievent = 1:length(events)
         first_abort_window_lick = false;
         first_reward_lick = false;
         first_post_window_lick = false;
+        pre_first_reward_lick = false;
 
     end
     if events(ievent, 1) == 3             % if cue on marker
@@ -134,25 +147,58 @@ for ievent = 1:length(events)
         if first_post_cue_lick == false && events(ievent, 2) - cue_on_time_by_trial(trial_index) - start_time > 0 && events(ievent, 2) - cue_on_time_by_trial(trial_index) - start_time < time_abort_min
             times_1st_post_cue_lick(length(times_1st_post_cue_lick)+1) = events(ievent, 2) - cue_on_time_by_trial(trial_index) - start_time;
             first_post_cue_lick = true;
+            if pav_or_op_by_trial(trial_index) == 0   % for a pavlovian trial...
+                pav_times_1st_post_cue_lick(length(pav_times_1st_post_cue_lick)+1) = events(ievent, 2) - cue_on_time_by_trial(trial_index) - start_time;
+            end
+            if pav_or_op_by_trial(trial_index) == 1   % for an operant trial...
+                op_times_1st_post_cue_lick(length(op_times_1st_post_cue_lick)+1) = events(ievent, 2) - cue_on_time_by_trial(trial_index) - start_time;
+            end
         end
         % check for first abort window lick:
         if first_abort_window_lick == false && events(ievent, 2) - cue_on_time_by_trial(trial_index) - start_time > time_abort_min && events(ievent, 2) - cue_on_time_by_trial(trial_index) - start_time < time_abort_max
             times_1st_lick_no_lick_period(length(times_1st_lick_no_lick_period)+1) = events(ievent, 2) - cue_on_time_by_trial(trial_index) - start_time;
             first_abort_window_lick = true;
+            if pav_or_op_by_trial(trial_index) == 0   % for a pavlovian trial...
+                pav_times_1st_lick_no_lick_period(length(times_1st_lick_no_lick_period)+1) = events(ievent, 2) - cue_on_time_by_trial(trial_index) - start_time;
+            end
+            if pav_or_op_by_trial(trial_index) == 1   % for an operant trial...
+                op_times_1st_lick_no_lick_period(length(op_times_1st_lick_no_lick_period)+1) = events(ievent, 2) - cue_on_time_by_trial(trial_index) - start_time;
+            end
+        end
+        % check for pre-reward window lick if trial not aborted:
+        if pre_first_reward_lick == false && events(ievent, 2) - cue_on_time_by_trial(trial_index) - start_time > time_abort_max && events(ievent, 2) - cue_on_time_by_trial(trial_index) - start_time < time_min_interval && first_abort_window_lick == false;
+            pre_times_1st_lick_reward(length(pre_times_1st_lick_reward)+1) = events(ievent, 2) - cue_on_time_by_trial(trial_index) - start_time;
+            pre_first_reward_lick = true;
+            if pav_or_op_by_trial(trial_index) == 0   % for a pavlovian trial...
+                pre_pav_times_1st_lick_reward(length(pre_pav_times_1st_lick_reward)+1) = events(ievent, 2) - cue_on_time_by_trial(trial_index) - start_time;
+            end
+            if pav_or_op_by_trial(trial_index) == 1   % for an operant trial...
+                pre_op_times_1st_lick_reward(length(pre_op_times_1st_lick_reward)+1) = events(ievent, 2) - cue_on_time_by_trial(trial_index) - start_time;
+            end
         end
         % check for first reward window lick if trial not aborted:
         if first_reward_lick == false && events(ievent, 2) - cue_on_time_by_trial(trial_index) - start_time > time_min_interval && events(ievent, 2) - cue_on_time_by_trial(trial_index) - start_time < time_max_interval && first_abort_window_lick == false;
             times_1st_lick_reward(length(times_1st_lick_reward)+1) = events(ievent, 2) - cue_on_time_by_trial(trial_index) - start_time;
             first_reward_lick = true;
+            if pav_or_op_by_trial(trial_index) == 0   % for a pavlovian trial...
+                pav_times_1st_lick_reward(length(pav_times_1st_lick_reward)+1) = events(ievent, 2) - cue_on_time_by_trial(trial_index) - start_time;
+            end
+            if pav_or_op_by_trial(trial_index) == 1   % for an operant trial...
+                op_times_1st_lick_reward(length(op_times_1st_lick_reward)+1) = events(ievent, 2) - cue_on_time_by_trial(trial_index) - start_time;
+            end
         end
         % check for first post window lick if trial not aborted or rewarded:
         if first_post_cue_lick == false && events(ievent, 2) - cue_on_time_by_trial(trial_index) - start_time > time_max_interval && first_abort_window_lick == false && first_reward_lick == false;
             times_1st_late_lick(length(times_1st_late_lick)+1) = events(ievent, 2) - cue_on_time_by_trial(trial_index) - start_time;
             first_post_window_lickrs = true;
+            if pav_or_op_by_trial(trial_index) == 0   % for a pavlovian trial...
+                pav_times_1st_late_lick(length(pav_times_1st_late_lick)+1) = events(ievent, 2) - cue_on_time_by_trial(trial_index) - start_time;
+            end
+            if pav_or_op_by_trial(trial_index) == 1   % for an operant trial...
+                op_times_1st_late_lick(length(op_times_1st_late_lick)+1) = events(ievent, 2) - cue_on_time_by_trial(trial_index) - start_time;
+            end
         end
-    
     end
-    
 end
 
 % There may be zero licks in last trial. Thus, to make sure dimensions
@@ -748,7 +794,7 @@ disp(['# Operant Late: ', num2str(op_late_index - 1), ' | ', num2str(round(100*(
 disp(['# Operant No Lick: ', num2str(op_no_lick_index - 1), ' | ', num2str(round(100*(op_no_lick_index - 1)/operant_index)), '%'])
 
 
-
+%--------------------------------------------------------------------------------------------------------------------------
 %% Plot Hx of First Licks for each Interval
 % First lick post cue
 figure
@@ -825,3 +871,180 @@ xlim([min(min(licks_by_trial_relative_to_cue)) - 500, max(max(licks_by_trial_rel
 ylabel('number of licks');
 xlabel('time relative to cue on (ms)');
 title('First lick in post-reward window');
+
+
+%--------------------------------------------------------------------------------------------------------------------------
+% Pavlovian First Licks
+
+figure
+subplot(4,1,1);
+histogram(pav_times_1st_post_cue_lick, 100);
+hold on
+plot([0,0], [0, 100], 'g-');
+
+plot([time_target,time_target], [0, 100], 'r-');
+plot([time_abort_min,time_abort_min], [0, 100], 'b--');
+plot([time_abort_max,time_abort_max], [0, 100], 'b--');
+plot([time_min_interval,time_min_interval], [0, 100], 'g--');
+plot([time_max_interval,time_max_interval], [0, 100], 'g--');
+plot([time_trial_duration,time_trial_duration], [0, 100], 'c--');
+ylim([0,10]);
+xlim([min(min(licks_by_trial_relative_to_cue)) - 500, max(max(licks_by_trial_relative_to_cue)) + 500]);
+ylabel('number of licks');
+xlabel('time relative to cue on (ms)');
+title('Pavlovian First lick after cue');
+
+
+%% Abort window licks:
+subplot(4,1,2);
+histogram(pav_times_1st_lick_no_lick_period, 100);
+hold on
+plot([0,0], [0, 100], 'g-');
+
+plot([time_target,time_target], [0, 100], 'r-');
+plot([time_abort_min,time_abort_min], [0, 100], 'b--');
+plot([time_abort_max,time_abort_max], [0, 100], 'b--');
+plot([time_min_interval,time_min_interval], [0, 100], 'g--');
+plot([time_max_interval,time_max_interval], [0, 100], 'g--');
+plot([time_trial_duration,time_trial_duration], [0, 100], 'c--');
+ylim([0,10]);
+xlim([min(min(licks_by_trial_relative_to_cue)) - 500, max(max(licks_by_trial_relative_to_cue)) + 500]);
+ylabel('number of licks');
+xlabel('time relative to cue on (ms)');
+title('Pavlovian First lick in abort window');
+
+
+%% Reward window first lick:
+subplot(4,1,3);
+histogram(pav_times_1st_lick_reward, 100);
+hold on
+plot([0,0], [0, 100], 'g-');
+
+plot([time_target,time_target], [0, 100], 'r-');
+plot([time_abort_min,time_abort_min], [0, 100], 'b--');
+plot([time_abort_max,time_abort_max], [0, 100], 'b--');
+plot([time_min_interval,time_min_interval], [0, 100], 'g--');
+plot([time_max_interval,time_max_interval], [0, 100], 'g--');
+plot([time_trial_duration,time_trial_duration], [0, 100], 'c--');
+ylim([0,10]);
+xlim([min(min(licks_by_trial_relative_to_cue)) - 500, max(max(licks_by_trial_relative_to_cue)) + 500]);
+ylabel('number of licks');
+xlabel('time relative to cue on (ms)');
+title('Pavlovian First lick in REWARD window');
+
+
+%% Abort window licks:
+subplot(4,1,4);
+histogram(pav_times_1st_late_lick, 100);
+hold on
+plot([0,0], [0, 100], 'g-');
+
+plot([time_target,time_target], [0, 100], 'r-');
+plot([time_abort_min,time_abort_min], [0, 100], 'b--');
+plot([time_abort_max,time_abort_max], [0, 100], 'b--');
+plot([time_min_interval,time_min_interval], [0, 100], 'g--');
+plot([time_max_interval,time_max_interval], [0, 100], 'g--');
+plot([time_trial_duration,time_trial_duration], [0, 100], 'c--');
+ylim([0,10]);
+xlim([min(min(licks_by_trial_relative_to_cue)) - 500, max(max(licks_by_trial_relative_to_cue)) + 500]);
+ylabel('number of licks');
+xlabel('time relative to cue on (ms)');
+title('Pavlovian First lick in post-reward window');
+
+
+%--------------------------------------------------------------------------------------------------------------------------
+% Operant First Licks
+
+figure
+subplot(5,1,1);
+histogram(op_times_1st_post_cue_lick, 100);
+hold on
+plot([0,0], [0, 100], 'g-');
+
+plot([time_target,time_target], [0, 100], 'r-');
+plot([time_abort_min,time_abort_min], [0, 100], 'b--');
+plot([time_abort_max,time_abort_max], [0, 100], 'b--');
+plot([time_min_interval,time_min_interval], [0, 100], 'g--');
+plot([time_max_interval,time_max_interval], [0, 100], 'g--');
+plot([time_trial_duration,time_trial_duration], [0, 100], 'c--');
+ylim([0,10]);
+xlim([min(min(licks_by_trial_relative_to_cue)) - 500, max(max(licks_by_trial_relative_to_cue)) + 500]);
+ylabel('number of licks');
+xlabel('time relative to cue on (ms)');
+title('Operant First lick after cue');
+
+
+%% Abort window licks:
+subplot(5,1,2);
+histogram(op_times_1st_lick_no_lick_period, 100);
+hold on
+plot([0,0], [0, 100], 'g-');
+
+plot([time_target,time_target], [0, 100], 'r-');
+plot([time_abort_min,time_abort_min], [0, 100], 'b--');
+plot([time_abort_max,time_abort_max], [0, 100], 'b--');
+plot([time_min_interval,time_min_interval], [0, 100], 'g--');
+plot([time_max_interval,time_max_interval], [0, 100], 'g--');
+plot([time_trial_duration,time_trial_duration], [0, 100], 'c--');
+ylim([0,10]);
+xlim([min(min(licks_by_trial_relative_to_cue)) - 500, max(max(licks_by_trial_relative_to_cue)) + 500]);
+ylabel('number of licks');
+xlabel('time relative to cue on (ms)');
+title('Operant First lick in abort window');
+
+
+%% Reward window first lick:
+subplot(5,1,3);
+histogram(op_times_1st_lick_reward, 100);
+hold on
+plot([0,0], [0, 100], 'g-');
+
+plot([time_target,time_target], [0, 100], 'r-');
+plot([time_abort_min,time_abort_min], [0, 100], 'b--');
+plot([time_abort_max,time_abort_max], [0, 100], 'b--');
+plot([time_min_interval,time_min_interval], [0, 100], 'g--');
+plot([time_max_interval,time_max_interval], [0, 100], 'g--');
+plot([time_trial_duration,time_trial_duration], [0, 100], 'c--');
+ylim([0,10]);
+xlim([min(min(licks_by_trial_relative_to_cue)) - 500, max(max(licks_by_trial_relative_to_cue)) + 500]);
+ylabel('number of licks');
+xlabel('time relative to cue on (ms)');
+title('Operant First lick in REWARD window');
+
+
+%% Abort window licks:
+subplot(5,1,4);
+histogram(op_times_1st_late_lick, 100);
+hold on
+plot([0,0], [0, 100], 'g-');
+
+plot([time_target,time_target], [0, 100], 'r-');
+plot([time_abort_min,time_abort_min], [0, 100], 'b--');
+plot([time_abort_max,time_abort_max], [0, 100], 'b--');
+plot([time_min_interval,time_min_interval], [0, 100], 'g--');
+plot([time_max_interval,time_max_interval], [0, 100], 'g--');
+plot([time_trial_duration,time_trial_duration], [0, 100], 'c--');
+ylim([0,10]);
+xlim([min(min(licks_by_trial_relative_to_cue)) - 500, max(max(licks_by_trial_relative_to_cue)) + 500]);
+ylabel('number of licks');
+xlabel('time relative to cue on (ms)');
+title('Operant First lick in post-reward window');
+
+
+%% All op 1st licks:
+subplot(5,1,5);
+histogram([op_times_1st_post_cue_lick, op_times_1st_lick_no_lick_period, pre_op_times_1st_lick_reward, op_times_1st_lick_reward, op_times_1st_late_lick], 100);
+hold on
+plot([0,0], [0, 100], 'g-'); 
+
+plot([time_target,time_target], [0, 100], 'r-');
+plot([time_abort_min,time_abort_min], [0, 100], 'b--');
+plot([time_abort_max,time_abort_max], [0, 100], 'b--');
+plot([time_min_interval,time_min_interval], [0, 100], 'g--');
+plot([time_max_interval,time_max_interval], [0, 100], 'g--');
+plot([time_trial_duration,time_trial_duration], [0, 100], 'c--');
+ylim([0,10]);
+xlim([min(min(licks_by_trial_relative_to_cue)) - 500, max(max(licks_by_trial_relative_to_cue)) + 500]);
+ylabel('number of licks');
+xlabel('time relative to cue on (ms)');
+title('Operant Combined First licks');
