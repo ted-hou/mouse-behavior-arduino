@@ -6,11 +6,13 @@
 	State System Architecture             - Lingfeng Hou (lingfenghou@g.harvard.edu)
 
 	Created       11/2/16 - ahamilos
-	Last Modified 11/7/16 - ahamilos
+	Last Modified 11/12/16 - ahamilos
 	
 	(prior version: PAV_OP_QUININE2)
 	New to this version: 
 	-> Keeping architecture of pav-op task, implement the lever control for task
+  -> Added pre-cue release state to aid with plotting raster (ahamilos 11/12/16)
+  -> Added option to not enforce no held press at end of ITI (ahamilos 11/12/16)
 	------------------------------------------------------------------
 	COMPATIBILITY REPORT:
 	Matlab HOST: Matlab 2016a - FileName = MouseBehaviorInterface.m (depends on ArduinoConnection.m)
@@ -21,13 +23,13 @@
 	Reserved:
 	
 	Event Markers: 0-20
-	States:        0-10
+	States:        0-11
 	Result Codes:  0-3
-	Parameters:    0-20
+	Parameters:    0-21
 	------------------------------------------------------------------
 	Task Architecture: Lever Press and Hold
 
-	Init Trial                (event marker = 0)
+	Init Trial              (event marker = 0)
 	-  House Lamp OFF       (event marker = 1)
 	-  Lever Press          (event marker = 2)
 	-  Random delay state   (event marker = 3)
@@ -40,7 +42,7 @@
 	-  2nd half response window
 	-  Window closes        (event marker = 7)
 	-  Post-window Interval                       - trial aborted at this point           
-	End Trial                 (event marker = 8)    - House lamps ON (if not already)
+	End Trial               (event marker = 8)    - House lamps ON (if not already)
 	-  ITI                  (event marker = 9)    - Enforced no press - i.e., wait for him to get off lever before init next trial
 
 	Behavioral Events:
@@ -50,11 +52,12 @@
 	-  Quinine dispensed    (event marker = 12)
 	-  Behavioral Error     (event marker = 13)   - enters this state if trial aborted by behavioral error, House lamps ON
 	-  Never Released       (event marker = 14)   - enters this state if still holding lever at trial end
-	-  Correct Release      (event marker = 15)
-	-  Early Release        (event marker = 16)
+	-  Correct Release      (event marker = 15)   
+	-  Early Release        (event marker = 16)   - includes both pre-cue and pre-window releases
 	-  Late Release         (event marker = 17)
-	-  Spurious Press       (event marker = 18)
-	-  Spurious Release     (event marker = 19).  - if animal never releases, spurious release will occur in ITI by definition
+	-  Spurious Press       (event marker = 18)   - press not involved in the trial
+	-  Spurious Release     (event marker = 19)   - if animal never releases, spurious release will occur in ITI by definition
+  -  Relevant Release     (event marker = 20)  - marks any trial-related release, early, correct or late
 	--------------------------------------------------------------------
 	States:
 	0: _INIT                (private) 1st state in init loop, sets up communication to Matlab HOST
@@ -65,39 +68,42 @@
 	5: RESPONSE_WINDOW      Release in this interval rewarded. Correct tone, then reward delivered
 	6: POST_WINDOW          Checking for late lever release
 	7: REWARD               Dispense reward, wait for trial Timeout
-	8: ABORT_TRIAL          Behavioral Error - House lamps ON, await trial Timeout
-	9: WAIT_FOR_RELEASE     Wait for release if never let go
-	10: INTERTRIAL           House lamps ON (if not already), write data to HOST and DISK, enforce no press before going to TRIAL_INIT
+  8: PRE_CUE_RELEASE      If release before cue, wait for rand delay to expire and trial Timeout
+	9: ABORT_TRIAL          Behavioral Error - House lamps ON, await trial Timeout 
+	10: WAIT_FOR_RELEASE     Wait for release if never let go
+	11: INTERTRIAL           House lamps ON (if not already), write data to HOST and DISK, enforce no press before going to TRIAL_INIT
 	---------------------------------------------------------------------
 	Result Codes:
 	0: CODE_CORRECT         First lick within response window               
 	1: CODE_EARLY_LICK      Early lick -> Abort (Enforced No-Lick Only)
-	2: CODE_EARLY_RELEASE   Early Release  -> Abort (either during trial init or prewindow)
-	3: CODE_LATE_RELEASE    Late Release -> Abort
-	4: CODE_NO_RELEASE      No Release in Trial Time -> ITI
+  2: CODE_PRE_CUE_RELEASE Release before cue onset -> Abort
+	3: CODE_EARLY_RELEASE   Early Release  -> Abort (either during trial init or prewindow)
+	4: CODE_LATE_RELEASE    Late Release -> Abort
+	5: CODE_NO_RELEASE      No Release in Trial Time -> ITI
 	---------------------------------------------------------------------
 	Parameters:
 	0:  _DEBUG              (private) 1 to enable debug messages to HOST
-	1:  ENFORCE_NO_LICK     1 to enforce no lick in the pre-window interval
-	2:  INTERVAL_MIN        Time to start of reward window (ms)
-	3:  INTERVAL_MAX        Time to end of reward window (ms)
-	4:  TARGET              Target time (ms)
-	5:  TRIAL_DURATION      Total alloted time/trial (ms)
-	6:  ITI                 Intertrial interval duration (ms)
-	7:  RANDOM_DELAY_MIN    Minimum random pre-Cue delay (ms)
-	8: RANDOM_DELAY_MAX    Maximum random pre-Cue delay (ms)
-	9: CUE_DURATION        Duration of the cue tone and LED flash (ms)
-	10: REWARD_DURATION     Duration of reward dispensal (ms)
-	11: QUININE_DURATION    Duration of quinine dispensal (ms)
-	12: QUININE_TIMEOUT     Minimum time between quinine deterrants (ms)
-	13: QUININE_MIN         Minimum time after cue before quinine available (ms)
-	14: QUININE_MAX         Maximum time after cue before quinine turns off (ms)
-	15: SHOCK_ON            1 to connect tube shock circuit
-	16: SHOCK_MIN           Miminum time after cue before shock connected (ms)
-	17: SHOCK_MAX           Maxumum time after cue before shock disconnected (ms)
-	18: EARLY_LICK_ABORT    1 to abort trial with early lick
-	19: ABORT_MIN           Minimum time after cue before early lick aborts trial (ms)
-	20: ABORT_MAX           Maximum time after cue when abort available (ms)
+  1:  ENFORCE_NO_PRESS_ITI 1 to prevent press held beyond end of ITI
+	2:  ENFORCE_NO_LICK     1 to enforce no lick in the pre-window interval
+	3:  INTERVAL_MIN        Time to start of reward window (ms)
+	4:  INTERVAL_MAX        Time to end of reward window (ms)
+	5:  TARGET              Target time (ms)
+	6:  TRIAL_DURATION      Total alloted time/trial (ms)
+	7:  ITI                 Intertrial interval duration (ms)
+	8:  RANDOM_DELAY_MIN    Minimum random pre-Cue delay (ms)
+	9: RANDOM_DELAY_MAX    Maximum random pre-Cue delay (ms)
+	10: CUE_DURATION        Duration of the cue tone and LED flash (ms)
+	11: REWARD_DURATION     Duration of reward dispensal (ms)
+	12: QUININE_DURATION    Duration of quinine dispensal (ms)
+	13: QUININE_TIMEOUT     Minimum time between quinine deterrants (ms)
+	14: QUININE_MIN         Minimum time after cue before quinine available (ms)
+	15: QUININE_MAX         Maximum time after cue before quinine turns off (ms)
+	16: SHOCK_ON            1 to connect tube shock circuit
+	17: SHOCK_MIN           Miminum time after cue before shock connected (ms)
+	18: SHOCK_MAX           Maxumum time after cue before shock disconnected (ms)
+	19: EARLY_LICK_ABORT    1 to abort trial with early lick
+	20: ABORT_MIN           Minimum time after cue before early lick aborts trial (ms)
+	21: ABORT_MAX           Maximum time after cue when abort available (ms)
 
 
 	---------------------------------------------------------------------
@@ -176,7 +182,8 @@ enum State
 	RESPONSE_WINDOW,      // First lick in this interval rewarded (operant). Reward delivered at target time (pavlov)
 	POST_WINDOW,          // Check for late licks
 	REWARD,               // Dispense reward, wait for trial Timeout
-	ABORT_TRIAL,          // Behavioral Error - House lamps ON, await trial Timeout
+	PRE_CUE_RELEASE,      // Released before the cue - to keep track of cue on time for plotting
+  ABORT_TRIAL,          // Behavioral Error - House lamps ON, await trial Timeout
 	INTERTRIAL,           // House lamps ON (if not already), write data to HOST and DISK, receive new params
 	_NUM_STATES           // (Private) Used to count number of states
 };
@@ -194,12 +201,13 @@ static const char *_stateNames[] =
 	"RESPONSE_WINDOW",
 	"POST_WINDOW",
 	"REWARD",
+  "PRE_CUE_RELEASE",
 	"ABORT_TRIAL",
 	"INTERTRIAL"
 };
 
 // Define which states allow param update
-static const int _stateCanUpdateParams[] = {0,1,0,0,0,0,0,0,0,1}; 
+static const int _stateCanUpdateParams[] = {0,1,0,0,0,0,0,0,0,0,1}; 
 // Defined to allow Parameter upload from host during IDLE_STATE and INTERTRIAL
 
 
@@ -268,7 +276,8 @@ enum ResultCode
 {
 	CODE_CORRECT,                              // Correct    (1st lick w/in window)
 	CODE_EARLY_LICK,                           // Early Lick (-> Abort in Enforced No-Lick)                         // NOTE: Early lick should be removed
-	CODE_EARLY_RELEASE,                        // Early Release  (-> Abort)
+	CODE_PRE_CUE_RELEASE,                      // Release before cue (-> Abort)
+  CODE_EARLY_RELEASE,                        // Early Release  (-> Abort)
 	CODE_LATE_RELEASE,                         // Late Release  (-> Abort)
 	CODE_NO_RELEASE,                           // No Release    (Timeout -> Wait for Release)
 	_NUM_RESULT_CODES                          // (Private) Used to count how many codes there are.
@@ -279,6 +288,7 @@ static const char *_resultCodeNames[] =
 {
 	"CORRECT",
 	"EARLY_LICK",
+  "PRE_CUE_RELEASE",
 	"EARLY_RELEASE",
 	"LATE_RELEASE",
 	"NO_RELEASE",
@@ -303,7 +313,8 @@ Parameters that can be updated by HOST
 enum ParamID
 {
 	_DEBUG,                         // (Private) 1 to enable debug messages from HOST. Default 0.
-	ENFORCE_NO_LICK,                // 1 to enforce no lick in the pre-window interval
+	ENFORCE_NO_PRESS_ITI,           // 1 to prevents press held beyond the end of the ITI
+  ENFORCE_NO_LICK,                // 1 to enforce no lick in the pre-window interval
 	INTERVAL_MIN,                   // Time to start of reward window (ms)
 	INTERVAL_MAX,                   // Time to end of reward window (ms)
 	TARGET,                         // Target time (ms)
@@ -331,6 +342,7 @@ enum ParamID
 static const char *_paramNames[] = 
 {
 	"_DEBUG",
+  "ENFORCE_NO_PRESS_ITI",
 	"ENFORCE_NO_LICK",
 	"INTERVAL_MIN",
 	"INTERVAL_MAX",
@@ -357,6 +369,7 @@ static const char *_paramNames[] =
 long _params[_NUM_PARAMS] = 
 {
 	0,                              // _DEBUG
+  1,                              // ENFORCE_NO_PRESS_ITI
 	0,                              // ENFORCE_NO_LICK
 	1250,                           // INTERVAL_MIN
 	1750,                           // INTERVAL_MAX
@@ -384,9 +397,9 @@ Other Global Variables
 *****************************************************/
 // Variables declared here can be carried to the next loop, AND read/written in function scope as well as main scope
 // (previously defined):
-static long _trialTimer = 0;
-static long _resultCode = -1;        // Result code number. -1 if there is no result.
-static long _random_delay_timer = 0;    // Random delay timer
+static long _trialTimer              = 0;
+static long _resultCode              = -1;       // Result code number. -1 if there is no result.
+static long _random_delay_timer      = 0;        // Random delay timer
 static State _state                  = _INIT;    // This variable (current _state) get passed into a _state function, which determines what the next _state should be, and updates it to the next _state.
 static State _prevState              = _INIT;    // Remembers the previous _state from the last loop (actions should only be executed when you enter a _state for the first time, comparing currentState vs _prevState helps us keep track of that).
 static char _command                 = ' ';      // Command char received from host, resets on each loop
@@ -396,15 +409,15 @@ static bool _lever_state             = false;    // True when lever pressed, fal
 static bool _pre_window_elapsed      = false;    // Track if pre_window time has elapsed
 static bool _reached_target          = false;    // Track if target time reached
 static bool _late_lick_detected      = false;    // Track if late lick detected
-static long _exp_timer      = 0;        // Experiment timer, reset to signedMillis() at every soft reset
-static long _lick_time      = 0;        // Tracks most recent lick time
-static long _cue_on_time    = 0;        // Tracks time cue has been displayed for
-static long _response_window_timer = 0; // Tracks time in response window state
-static long _reward_timer   = 0;        // Tracks time in reward state
-static long _quinine_timer  = 0;        // Tracks time since last quinine delivery
-static long _abort_timer    = 0;        // Tracks time in abort state
-static long _ITI_timer      = 0;        // Tracks time in ITI state
-static long _preCueDelay    = 0;        // Initialize _preCueDelay var
+static long _exp_timer               = 0;        // Experiment timer, reset to signedMillis() at every soft reset
+static long _lick_time               = 0;        // Tracks most recent lick time
+static long _cue_on_time             = 0;        // Tracks time cue has been displayed for
+static long _response_window_timer   = 0;        // Tracks time in response window state
+static long _reward_timer            = 0;        // Tracks time in reward state
+static long _quinine_timer           = 0;        // Tracks time since last quinine delivery
+static long _abort_timer             = 0;        // Tracks time in abort state
+static long _ITI_timer               = 0;        // Tracks time in ITI state
+static long _preCueDelay             = 0;        // Initialize _preCueDelay var
 static bool _reward_dispensed_complete = false;  // init tracker of reward dispensal
 static bool _shock_trigger_on        = false;    // Shock trigger default is off
 
@@ -532,6 +545,10 @@ void loop()
 		case REWARD: 
 			reward();
 			break;
+
+    case PRE_CUE_RELEASE:
+      pre_cue_release();
+      break;
 		
 		case ABORT_TRIAL:
 			abort_trial();
@@ -555,28 +572,28 @@ void mySetup()
 	setCueLED(false);                            // Cue LED OFF
 
 	//---------------------------Reset a bunch of variables---------------------------//
-	_trialTimer 				= 0;
-	_resultCode 				= -1;        // Result code number. -1 if there is no result.
-	_random_delay_timer 		= 0;    // Random delay timer
+	_trialTimer 				      = 0;
+	_resultCode 				      = -1;        // Result code number. -1 if there is no result.
+	_random_delay_timer 		  = 0;    // Random delay timer
 	_state                  	= _INIT;    // This variable (current _state) get passed into a _state function, which determines what the next _state should be, and updates it to the next _state.
 	_prevState              	= _INIT;    // Remembers the previous _state from the last loop (actions should only be executed when you enter a _state for the first time, comparing currentState vs _prevState helps us keep track of that).
 	_command                 	= ' ';      // Command char received from host, resets on each loop
-	_arguments[2]             	= {0};      // Two integers received from host , resets on each loop
+	_arguments[2]             = {0};      // Two integers received from host , resets on each loop
 	_lick_state              	= false;    // True when lick detected, False when no lick
 	_lever_state             	= false;    // True when lever pressed, false when released
 	_pre_window_elapsed      	= false;    // Track if pre_window time has elapsed
 	_reached_target          	= false;    // Track if target time reached
 	_late_lick_detected      	= false;    // Track if late lick detected
-	_exp_timer      			= 0;        // Experiment timer, reset to signedMillis() at every soft reset
-	_lick_time      			= 0;        // Tracks most recent lick time
-	_cue_on_time    			= 0;        // Tracks time cue has been displayed for
-	_response_window_timer 		= 0; // Tracks time in response window state
-	_reward_timer   			= 0;        // Tracks time in reward state
-	_quinine_timer  			= 0;        // Tracks time since last quinine delivery
-	_abort_timer    			= 0;        // Tracks time in abort state
-	_ITI_timer      			= 0;        // Tracks time in ITI state
-	_preCueDelay    			= 0;        // Initialize _preCueDelay var
-	_reward_dispensed_complete 	= false;  // init tracker of reward dispensal
+	_exp_timer      			    = 0;        // Experiment timer, reset to signedMillis() at every soft reset
+	_lick_time      			    = 0;        // Tracks most recent lick time
+	_cue_on_time    			    = 0;        // Tracks time cue has been displayed for
+	_response_window_timer    = 0; // Tracks time in response window state
+	_reward_timer   			    = 0;        // Tracks time in reward state
+	_quinine_timer  			    = 0;        // Tracks time since last quinine delivery
+	_abort_timer    			    = 0;        // Tracks time in abort state
+	_ITI_timer      			    = 0;        // Tracks time in ITI state
+	_preCueDelay    			    = 0;        // Initialize _preCueDelay var
+	_reward_dispensed_complete= false;  // init tracker of reward dispensal
 	_shock_trigger_on        	= false;    // Shock trigger default is off
 
 	// Tell PC that we're running by sending '~' message:
@@ -704,7 +721,7 @@ void init_trial() {
 			//------------------------DEBUG MODE--------------------------//
 			if (_params[_DEBUG]) {sendMessage("Early Release in INIT_TRIAL state.");}
 			//----------------------end DEBUG MODE------------------------//
-			_resultCode = CODE_EARLY_RELEASE;
+			_resultCode = CODE_PRE_CUE_RELEASE;
 			_state = ABORT_TRIAL;
 			return;
 		}
@@ -772,9 +789,9 @@ void random_delay() {
 			sendMessage("&" + String(EVENT_EARLY_RELEASE) + " " + String(signedMillis() - _exp_timer));
 			sendMessage("&" + String(EVENT_RELEVANT_RELEASE) + " " + String(signedMillis() - _exp_timer));
 			//sendMessage("`" + String(CODE_EARLY_RELEASE));  // Send result code (Early Release) to Matlab HOST                           
-			_resultCode = CODE_EARLY_RELEASE;                 // Register result code 
+			_resultCode = CODE_PRE_CUE_RELEASE;               // Register result code 
 			_lever_state = false;                             // Resets lever detector
-			_state = ABORT_TRIAL;                             // Move -> ABORT, wait for trial timeout
+			_state = PRE_CUE_RELEASE;                         // Move -> PRE_CUE_RELEASE, wait for trial timeout
 			return;                                           // Break to Abort state
 		}
 	} /*~ ABORT TRIAL ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
@@ -1274,6 +1291,126 @@ void reward() {
 
 
 
+
+
+
+
+
+
+/*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+PRE_CUE_RELEASE - Presents error, assigns time to cue on, and waits for Trial Timeout
+Note: if reach this state, you will not ever go to the Abort state in this trial - 
+  this is effectively an abort state that keeps track of the cue on time for plotting
+  purposes.
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
+void pre_cue_release() {
+  /*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    ACTION LIST -- initialize the new state
+  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
+  if (_state != _prevState) {                        // If ENTERTING ABORT:
+    _prevState = _state;                               // Assign _prevState to PRE_CUE_RELEASE _state
+    setHouseLamp(true);                                // House Lamp ON
+    playSound(TONE_ABORT);                             // Error Tone
+    sendMessage("$" + String(_state));                 // Send HOST -- $ (pre_cue_release State) 
+    // Send event marker (abort) to HOST with timestamp
+    sendMessage("&" + String(EVENT_ABORT) + " " + String(signedMillis() - _exp_timer));
+    //------------------------DEBUG MODE--------------------------//  
+    if (_params[_DEBUG]) {sendMessage("Pre-cue-release: Waiting for rand delay to end.");}
+    //----------------------end DEBUG MODE------------------------//
+  }
+
+  /*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    TRANSITION LIST -- checks conditions, moves to next state
+  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
+  if (_command == 'Q')  {                             // HOST: "QUIT" -> IDLE_STATE
+    _state = IDLE_STATE;                                 // Set IDLE_STATE
+    return;                                              // Exit Function
+  }
+
+
+  /*~~~~~~~~~~~~~~~~~ Check for new lever presses and releases ~~~~~~~~~~~~~~~~~~~*/
+  if (getLeverState()) {                            // MOUSE: "Lever Pressed"
+    if (!_lever_state) {                             // If a new press initiated
+      // Send a event marker (spurious press) to HOST with timestamp
+      sendMessage("&" + String(EVENT_SPURIOUS_PRESS) + " " + String(signedMillis() - _exp_timer));
+      _lever_state = true;                           // Halts press detection
+      //------------------------DEBUG MODE--------------------------//
+      if (_params[_DEBUG]) {
+        sendMessage("Lever pressed again, tallying press @ " + String(signedMillis() - _cue_on_time) + "ms wrt Cue ON");
+      }
+      //----------------------end DEBUG MODE------------------------//
+    }
+  }
+  if (!getLeverState()) {                           // MOUSE: "No press"
+    if (_lever_state) {                               // If press just ended  
+      // Send an event marker (spurious release) to HOST with timestamp
+      sendMessage("&" + String(EVENT_SPURIOUS_RELEASE) + " " + String(signedMillis() - _exp_timer));                          
+      _lever_state = false;                           // Resets lever detector
+      //------------------------DEBUG MODE--------------------------//
+      if (_params[_DEBUG]) {sendMessage("Lever released again @ " + String(signedMillis() - _cue_on_time) + "ms wrt Cue ON");}
+      //----------------------end DEBUG MODE------------------------//
+    }
+  }
+  /* ~~~~~~~~~~~~~~~~~ End Lever Services ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
+
+  if (_params[SHOCK_ON] == 1) {                   // If shock circuit enforced
+    if (!_shock_trigger_on && signedMillis() - _cue_on_time > _params[SHOCK_MIN] && signedMillis()-_cue_on_time < _params[SHOCK_MAX]) { // If shock window is open
+      setShockTrigger(true);                          // Connect the shock ckt        
+    }
+    else
+    { 
+      if (_shock_trigger_on) {               // Otherwise, if shock is on, but we're in the wrong window...                                            
+        setShockTrigger(false);                           // Disconnect shock ckt
+      }
+    }
+  }
+
+  if (getLickState()) {                               // MOUSE: "Licked"
+    if (!_lick_state) {                                 // If a new lick initiated
+      // Send a event marker (lick) to HOST with timestamp
+      sendMessage("&" + String(EVENT_LICK) + " " + String(signedMillis() - _exp_timer));
+      _lick_state = true;                               // Halts lick detection
+      //------------------------DEBUG MODE--------------------------//
+      if (_params[_DEBUG]) {
+        _lick_time = signedMillis() - _cue_on_time;          // Records lick wrt CUE ON
+        sendMessage("Lick detected, tallying lick @ " + String(_lick_time) + "ms");
+      }
+      //----------------------end DEBUG MODE------------------------//
+    }
+  }
+
+
+  if (!getLickState()) {                              // MOUSE: "No lick"
+    if (_lick_state) {                               // If lick just ended                            
+      _lick_state = false;                           // Resets lick detector
+    }
+  }
+  
+
+  if (signedMillis() - _random_delay_timer >= _preCueDelay) { // CUe on time reached
+    // Send event marker (cue on) to HOST with timestamp (for plotting)
+    sendMessage("&" + String(EVENT_CUE_ON) + " " + String(signedMillis() - _exp_timer));
+    //------------------------DEBUG MODE--------------------------//  
+    if (_params[_DEBUG]) {sendMessage("Pre-cue delay successfully completed.");}
+    //----------------------end DEBUG MODE------------------------//
+  }
+
+
+  if (signedMillis() - _trialTimer - _preCueDelay >= _params[TRIAL_DURATION]) { // Trial Timeout -> ITI
+    // Send event marker (trial end) to HOST with timestamp
+    sendMessage("&" + String(EVENT_TRIAL_END) + " " + String(signedMillis() - _exp_timer));
+    _state = INTERTRIAL;                                      // Move to ITI
+    return;                                                   // Exit Fx
+  }
+
+
+  _state = PRE_CUE_RELEASE;                               // No Command: Cycle -> PRE_CUE_RELEASE
+} // End PRE_CUE_RELEASE STATE ---------------------------------------------------------------------------------------------------------------------
+
+
+
+
+
 /*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 ABORT_TRIAL - Presents error and waits for Trial Timeout
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
@@ -1507,22 +1644,32 @@ void intertrial() {
 	/* End ITI Services:~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 	-If param update initiated, should also wait for update completion signal from HOST ('O' for Over).
 	-ITI must time out
-	-Lever must not be pressed (will hold in ITI till lever released)
+	-Lever must not be pressed (will hold in ITI till lever released) (if ENFORCE_NO_PRESS_ITI enabled)
 	~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
-	if (signedMillis() - _ITI_timer >= _params[ITI] && (isParamsUpdateDone || !isParamsUpdateStarted))  { 
-		if (!getLeverState()) {
-			_lever_state = false;                           // Halts press detection
-			_state = INIT_TRIAL;                         // Move -> RANDOM DELAY
-			return;                                        // Break to RANDOM DELAY
-		}
-		else {
-			if (signedMillis()-error_timer > 200 + annoying_beep) { // If it's been 400 ms since last annoying beep...
-				_lever_state = true;							// Just to be safe
-				playSound(TONE_ABORT);                        // Play error tone
-				error_timer = signedMillis();                       // Update the error timer
-			}
-		}
-	}
+  /* Enforcing no press held at end of ITI: ------------------------------*/
+  if (_params(ENFORCE_NO_PRESS_ITI == 1)) { 
+  	if (signedMillis() - _ITI_timer >= _params[ITI] && (isParamsUpdateDone || !isParamsUpdateStarted))  { 
+  		if (!getLeverState()) {
+  			_lever_state = false;                          // Halts press detection
+  			_state = INIT_TRIAL;                           // Move -> RANDOM DELAY
+  			return;                                        // Break to RANDOM DELAY
+  		}
+  		else {
+  			if (signedMillis()-error_timer > 200 + annoying_beep) { // If it's been 400 ms since last annoying beep...
+  				_lever_state = true;							           // Just to be safe (LFH)
+  				playSound(TONE_ABORT);                       // Play error tone
+  				error_timer = signedMillis();                // Update the error timer
+  			}
+  		}
+  	}
+  }
+  /* NOT enforcing no press held at end of ITI: ------------------------------*/
+  else {        
+      if (millis() - _ITI_timer >= _params[ITI] && (isParamsUpdateDone || !isParamsUpdateStarted))  { // End when ITI ends. If param update initiated, should also wait for update completion signal from HOST ('O' for Over).
+        _state = INIT_TRIAL;                           // Move -> READY state
+        return;                                        // Exit Fx
+      }
+  }
 
 	_state = INTERTRIAL;                            // No Command -> Cycle back to ITI
 } // End ITI---------------------------------------------------------------------------------------------------------------------
