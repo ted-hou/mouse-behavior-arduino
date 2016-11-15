@@ -263,6 +263,8 @@
       CODE_EARLY_LICK,                           // Early Lick (-> Abort in Enforced No-Lick)                         // NOTE: Early lick should be removed
       CODE_LATE_LICK,                            // Late Lick  (-> Abort in Operant)
       CODE_NO_LICK,                              // No Lick    (Timeout -> ITI)
+      CODE_CORRECT_OP_HYBRID,                    // Licked before target in window
+      CODE_PAVLOV_HYBRID,                        // Reached target time and dispensed before lick
       _NUM_RESULT_CODES                          // (Private) Used to count how many codes there are.
     };
 
@@ -273,6 +275,8 @@
       "EARLY_LICK",
       "LATE_LICK",
       "NO_LICK",
+      "CORRECT_OP_HYBRID",
+      "PAVLOV_HYBRID"
     };
 
     static long _resultCode = -1;        // Result code number. -1 if there is no result.
@@ -1023,6 +1027,7 @@
             //----------------------end DEBUG MODE------------------------//        
             // Before target, licks are operant. Go to Reward //
             _state = REWARD;                               // -> REWARD
+            _resultCode = CODE_CORRECT_OP_HYBRID;          // Mark as operant correct for hybrid
             return;                                        // Exit Fx
           }
         }
@@ -1052,7 +1057,8 @@
           }
           //----------------------end DEBUG MODE------------------------//
           _state = REWARD;                               // Move -> REWARD (Pavlovian only)
-          return;                                         // Exit fx
+          _resultCode = CODE_PAVLOV_HYBRID;              // Mark as reaching target before lick for hybrid
+          return;                                        // Exit fx
         }
 
         if (current_time >= _params[INTERVAL_MAX]) {     // Window Closed -> IDLE_STATE **** NEVER SHOULD HAPPEN FOR PAVLOVIAN!
@@ -1693,7 +1699,9 @@
         playSound(TONE_REWARD);                             // Start reward tone    
         // Send event marker (reward) to HOST with timestamp
         sendMessage("&" + String(EVENT_REWARD) + " " + String(millis() - _exp_timer));
-        _resultCode = CODE_CORRECT;                         // Register result code      
+        if (_params[HYBRID] == 0) {                      // If NOT hybrid trial:
+          _resultCode = CODE_CORRECT;                         // Register result code      
+        }
         _prevState = _state;                                // Assign _prevState to REWARD _state
         sendMessage("$" + String(_state));                  // Send HOST $6 (reward State)  
         //------------------------DEBUG MODE--------------------------//  
