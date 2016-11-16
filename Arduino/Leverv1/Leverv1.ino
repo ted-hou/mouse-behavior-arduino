@@ -1647,7 +1647,7 @@ void intertrial() {
 	-Lever must not be pressed (will hold in ITI till lever released) (if ENFORCE_NO_PRESS_ITI enabled)
 	~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
   /* Enforcing no press held at end of ITI: ------------------------------*/
-  if (_params(ENFORCE_NO_PRESS_ITI == 1)) { 
+  if (_params[ENFORCE_NO_PRESS_ITI] == 1) { 
   	if (signedMillis() - _ITI_timer >= _params[ITI] && (isParamsUpdateDone || !isParamsUpdateStarted))  { 
   		if (!getLeverState()) {
   			_lever_state = false;                          // Halts press detection
