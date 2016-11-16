@@ -183,7 +183,7 @@ enum State
 	POST_WINDOW,          // Check for late licks
 	REWARD,               // Dispense reward, wait for trial Timeout
 	PRE_CUE_RELEASE,      // Released before the cue - to keep track of cue on time for plotting
-  ABORT_TRIAL,          // Behavioral Error - House lamps ON, await trial Timeout
+	ABORT_TRIAL,          // Behavioral Error - House lamps ON, await trial Timeout
 	INTERTRIAL,           // House lamps ON (if not already), write data to HOST and DISK, receive new params
 	_NUM_STATES           // (Private) Used to count number of states
 };
@@ -201,7 +201,7 @@ static const char *_stateNames[] =
 	"RESPONSE_WINDOW",
 	"POST_WINDOW",
 	"REWARD",
-  "PRE_CUE_RELEASE",
+	"PRE_CUE_RELEASE",
 	"ABORT_TRIAL",
 	"INTERTRIAL"
 };
@@ -277,7 +277,7 @@ enum ResultCode
 	CODE_CORRECT,                              // Correct    (1st lick w/in window)
 	CODE_EARLY_LICK,                           // Early Lick (-> Abort in Enforced No-Lick)                         // NOTE: Early lick should be removed
 	CODE_PRE_CUE_RELEASE,                      // Release before cue (-> Abort)
-  CODE_EARLY_RELEASE,                        // Early Release  (-> Abort)
+	CODE_EARLY_RELEASE,                        // Early Release  (-> Abort)
 	CODE_LATE_RELEASE,                         // Late Release  (-> Abort)
 	CODE_NO_RELEASE,                           // No Release    (Timeout -> Wait for Release)
 	_NUM_RESULT_CODES                          // (Private) Used to count how many codes there are.
@@ -288,7 +288,7 @@ static const char *_resultCodeNames[] =
 {
 	"CORRECT",
 	"EARLY_LICK",
-  "PRE_CUE_RELEASE",
+	"PRE_CUE_RELEASE",
 	"EARLY_RELEASE",
 	"LATE_RELEASE",
 	"NO_RELEASE",
@@ -314,7 +314,7 @@ enum ParamID
 {
 	_DEBUG,                         // (Private) 1 to enable debug messages from HOST. Default 0.
 	ENFORCE_NO_PRESS_ITI,           // 1 to prevents press held beyond the end of the ITI
-  ENFORCE_NO_LICK,                // 1 to enforce no lick in the pre-window interval
+	ENFORCE_NO_LICK,                // 1 to enforce no lick in the pre-window interval
 	INTERVAL_MIN,                   // Time to start of reward window (ms)
 	INTERVAL_MAX,                   // Time to end of reward window (ms)
 	TARGET,                         // Target time (ms)
@@ -342,7 +342,7 @@ enum ParamID
 static const char *_paramNames[] = 
 {
 	"_DEBUG",
-  "ENFORCE_NO_PRESS_ITI",
+	"ENFORCE_NO_PRESS_ITI",
 	"ENFORCE_NO_LICK",
 	"INTERVAL_MIN",
 	"INTERVAL_MAX",
@@ -369,7 +369,7 @@ static const char *_paramNames[] =
 long _params[_NUM_PARAMS] = 
 {
 	0,                              // _DEBUG
-  1,                              // ENFORCE_NO_PRESS_ITI
+	1,                              // ENFORCE_NO_PRESS_ITI
 	0,                              // ENFORCE_NO_LICK
 	1250,                           // INTERVAL_MIN
 	1750,                           // INTERVAL_MAX
@@ -546,9 +546,9 @@ void loop()
 			reward();
 			break;
 
-    case PRE_CUE_RELEASE:
-      pre_cue_release();
-      break;
+		case PRE_CUE_RELEASE:
+			pre_cue_release();
+			break;
 		
 		case ABORT_TRIAL:
 			abort_trial();
@@ -1300,111 +1300,111 @@ void reward() {
 /*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 PRE_CUE_RELEASE - Presents error, assigns time to cue on, and waits for Trial Timeout
 Note: if reach this state, you will not ever go to the Abort state in this trial - 
-  this is effectively an abort state that keeps track of the cue on time for plotting
-  purposes.
+	this is effectively an abort state that keeps track of the cue on time for plotting
+	purposes.
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
 void pre_cue_release() {
-  /*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    ACTION LIST -- initialize the new state
-  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
-  if (_state != _prevState) {                        // If ENTERTING ABORT:
-    _prevState = _state;                               // Assign _prevState to PRE_CUE_RELEASE _state
-    setHouseLamp(true);                                // House Lamp ON
-    playSound(TONE_ABORT);                             // Error Tone
-    sendMessage("$" + String(_state));                 // Send HOST -- $ (pre_cue_release State) 
-    // Send event marker (abort) to HOST with timestamp
-    sendMessage("&" + String(EVENT_ABORT) + " " + String(signedMillis() - _exp_timer));
-    //------------------------DEBUG MODE--------------------------//  
-    if (_params[_DEBUG]) {sendMessage("Pre-cue-release: Waiting for rand delay to end.");}
-    //----------------------end DEBUG MODE------------------------//
-  }
+	/*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+		ACTION LIST -- initialize the new state
+	~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
+	if (_state != _prevState) {                        // If ENTERTING ABORT:
+		_prevState = _state;                               // Assign _prevState to PRE_CUE_RELEASE _state
+		setHouseLamp(true);                                // House Lamp ON
+		playSound(TONE_ABORT);                             // Error Tone
+		sendMessage("$" + String(_state));                 // Send HOST -- $ (pre_cue_release State) 
+		// Send event marker (abort) to HOST with timestamp
+		sendMessage("&" + String(EVENT_ABORT) + " " + String(signedMillis() - _exp_timer));
+		//------------------------DEBUG MODE--------------------------//  
+		if (_params[_DEBUG]) {sendMessage("Pre-cue-release: Waiting for rand delay to end.");}
+		//----------------------end DEBUG MODE------------------------//
+	}
 
-  /*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    TRANSITION LIST -- checks conditions, moves to next state
-  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
-  if (_command == 'Q')  {                             // HOST: "QUIT" -> IDLE_STATE
-    _state = IDLE_STATE;                                 // Set IDLE_STATE
-    return;                                              // Exit Function
-  }
-
-
-  /*~~~~~~~~~~~~~~~~~ Check for new lever presses and releases ~~~~~~~~~~~~~~~~~~~*/
-  if (getLeverState()) {                            // MOUSE: "Lever Pressed"
-    if (!_lever_state) {                             // If a new press initiated
-      // Send a event marker (spurious press) to HOST with timestamp
-      sendMessage("&" + String(EVENT_SPURIOUS_PRESS) + " " + String(signedMillis() - _exp_timer));
-      _lever_state = true;                           // Halts press detection
-      //------------------------DEBUG MODE--------------------------//
-      if (_params[_DEBUG]) {
-        sendMessage("Lever pressed again, tallying press @ " + String(signedMillis() - _cue_on_time) + "ms wrt Cue ON");
-      }
-      //----------------------end DEBUG MODE------------------------//
-    }
-  }
-  if (!getLeverState()) {                           // MOUSE: "No press"
-    if (_lever_state) {                               // If press just ended  
-      // Send an event marker (spurious release) to HOST with timestamp
-      sendMessage("&" + String(EVENT_SPURIOUS_RELEASE) + " " + String(signedMillis() - _exp_timer));                          
-      _lever_state = false;                           // Resets lever detector
-      //------------------------DEBUG MODE--------------------------//
-      if (_params[_DEBUG]) {sendMessage("Lever released again @ " + String(signedMillis() - _cue_on_time) + "ms wrt Cue ON");}
-      //----------------------end DEBUG MODE------------------------//
-    }
-  }
-  /* ~~~~~~~~~~~~~~~~~ End Lever Services ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
-
-  if (_params[SHOCK_ON] == 1) {                   // If shock circuit enforced
-    if (!_shock_trigger_on && signedMillis() - _cue_on_time > _params[SHOCK_MIN] && signedMillis()-_cue_on_time < _params[SHOCK_MAX]) { // If shock window is open
-      setShockTrigger(true);                          // Connect the shock ckt        
-    }
-    else
-    { 
-      if (_shock_trigger_on) {               // Otherwise, if shock is on, but we're in the wrong window...                                            
-        setShockTrigger(false);                           // Disconnect shock ckt
-      }
-    }
-  }
-
-  if (getLickState()) {                               // MOUSE: "Licked"
-    if (!_lick_state) {                                 // If a new lick initiated
-      // Send a event marker (lick) to HOST with timestamp
-      sendMessage("&" + String(EVENT_LICK) + " " + String(signedMillis() - _exp_timer));
-      _lick_state = true;                               // Halts lick detection
-      //------------------------DEBUG MODE--------------------------//
-      if (_params[_DEBUG]) {
-        _lick_time = signedMillis() - _cue_on_time;          // Records lick wrt CUE ON
-        sendMessage("Lick detected, tallying lick @ " + String(_lick_time) + "ms");
-      }
-      //----------------------end DEBUG MODE------------------------//
-    }
-  }
+	/*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+		TRANSITION LIST -- checks conditions, moves to next state
+	~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
+	if (_command == 'Q')  {                             // HOST: "QUIT" -> IDLE_STATE
+		_state = IDLE_STATE;                                 // Set IDLE_STATE
+		return;                                              // Exit Function
+	}
 
 
-  if (!getLickState()) {                              // MOUSE: "No lick"
-    if (_lick_state) {                               // If lick just ended                            
-      _lick_state = false;                           // Resets lick detector
-    }
-  }
-  
+	/*~~~~~~~~~~~~~~~~~ Check for new lever presses and releases ~~~~~~~~~~~~~~~~~~~*/
+	if (getLeverState()) {                            // MOUSE: "Lever Pressed"
+		if (!_lever_state) {                             // If a new press initiated
+			// Send a event marker (spurious press) to HOST with timestamp
+			sendMessage("&" + String(EVENT_SPURIOUS_PRESS) + " " + String(signedMillis() - _exp_timer));
+			_lever_state = true;                           // Halts press detection
+			//------------------------DEBUG MODE--------------------------//
+			if (_params[_DEBUG]) {
+				sendMessage("Lever pressed again, tallying press @ " + String(signedMillis() - _cue_on_time) + "ms wrt Cue ON");
+			}
+			//----------------------end DEBUG MODE------------------------//
+		}
+	}
+	if (!getLeverState()) {                           // MOUSE: "No press"
+		if (_lever_state) {                               // If press just ended  
+			// Send an event marker (spurious release) to HOST with timestamp
+			sendMessage("&" + String(EVENT_SPURIOUS_RELEASE) + " " + String(signedMillis() - _exp_timer));                          
+			_lever_state = false;                           // Resets lever detector
+			//------------------------DEBUG MODE--------------------------//
+			if (_params[_DEBUG]) {sendMessage("Lever released again @ " + String(signedMillis() - _cue_on_time) + "ms wrt Cue ON");}
+			//----------------------end DEBUG MODE------------------------//
+		}
+	}
+	/* ~~~~~~~~~~~~~~~~~ End Lever Services ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
 
-  if (signedMillis() - _random_delay_timer >= _preCueDelay) { // CUe on time reached
-    // Send event marker (cue on) to HOST with timestamp (for plotting)
-    sendMessage("&" + String(EVENT_CUE_ON) + " " + String(signedMillis() - _exp_timer));
-    //------------------------DEBUG MODE--------------------------//  
-    if (_params[_DEBUG]) {sendMessage("Pre-cue delay successfully completed.");}
-    //----------------------end DEBUG MODE------------------------//
-  }
+	if (_params[SHOCK_ON] == 1) {                   // If shock circuit enforced
+		if (!_shock_trigger_on && signedMillis() - _cue_on_time > _params[SHOCK_MIN] && signedMillis()-_cue_on_time < _params[SHOCK_MAX]) { // If shock window is open
+			setShockTrigger(true);                          // Connect the shock ckt        
+		}
+		else
+		{ 
+			if (_shock_trigger_on) {               // Otherwise, if shock is on, but we're in the wrong window...                                            
+				setShockTrigger(false);                           // Disconnect shock ckt
+			}
+		}
+	}
+
+	if (getLickState()) {                               // MOUSE: "Licked"
+		if (!_lick_state) {                                 // If a new lick initiated
+			// Send a event marker (lick) to HOST with timestamp
+			sendMessage("&" + String(EVENT_LICK) + " " + String(signedMillis() - _exp_timer));
+			_lick_state = true;                               // Halts lick detection
+			//------------------------DEBUG MODE--------------------------//
+			if (_params[_DEBUG]) {
+				_lick_time = signedMillis() - _cue_on_time;          // Records lick wrt CUE ON
+				sendMessage("Lick detected, tallying lick @ " + String(_lick_time) + "ms");
+			}
+			//----------------------end DEBUG MODE------------------------//
+		}
+	}
 
 
-  if (signedMillis() - _trialTimer - _preCueDelay >= _params[TRIAL_DURATION]) { // Trial Timeout -> ITI
-    // Send event marker (trial end) to HOST with timestamp
-    sendMessage("&" + String(EVENT_TRIAL_END) + " " + String(signedMillis() - _exp_timer));
-    _state = INTERTRIAL;                                      // Move to ITI
-    return;                                                   // Exit Fx
-  }
+	if (!getLickState()) {                              // MOUSE: "No lick"
+		if (_lick_state) {                               // If lick just ended                            
+			_lick_state = false;                           // Resets lick detector
+		}
+	}
+	
+
+	if (signedMillis() - _random_delay_timer >= _preCueDelay) { // CUe on time reached
+		// Send event marker (cue on) to HOST with timestamp (for plotting)
+		sendMessage("&" + String(EVENT_CUE_ON) + " " + String(signedMillis() - _exp_timer));
+		//------------------------DEBUG MODE--------------------------//  
+		if (_params[_DEBUG]) {sendMessage("Pre-cue delay successfully completed.");}
+		//----------------------end DEBUG MODE------------------------//
+	}
 
 
-  _state = PRE_CUE_RELEASE;                               // No Command: Cycle -> PRE_CUE_RELEASE
+	if (signedMillis() - _trialTimer - _preCueDelay >= _params[TRIAL_DURATION]) { // Trial Timeout -> ITI
+		// Send event marker (trial end) to HOST with timestamp
+		sendMessage("&" + String(EVENT_TRIAL_END) + " " + String(signedMillis() - _exp_timer));
+		_state = INTERTRIAL;                                      // Move to ITI
+		return;                                                   // Exit Fx
+	}
+
+
+	_state = PRE_CUE_RELEASE;                               // No Command: Cycle -> PRE_CUE_RELEASE
 } // End PRE_CUE_RELEASE STATE ---------------------------------------------------------------------------------------------------------------------
 
 
