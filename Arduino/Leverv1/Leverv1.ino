@@ -1304,6 +1304,7 @@ Note: if reach this state, you will not ever go to the Abort state in this trial
 	purposes.
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
 void pre_cue_release() {
+	static bool isCueOn;	
 	/*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 		ACTION LIST -- initialize the new state
 	~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
@@ -1314,6 +1315,8 @@ void pre_cue_release() {
 		sendMessage("$" + String(_state));                 // Send HOST -- $ (pre_cue_release State) 
 		// Send event marker (abort) to HOST with timestamp
 		sendMessage("&" + String(EVENT_ABORT) + " " + String(signedMillis() - _exp_timer));
+
+		isCueOn = false;
 		//------------------------DEBUG MODE--------------------------//  
 		if (_params[_DEBUG]) {sendMessage("Pre-cue-release: Waiting for rand delay to end.");}
 		//----------------------end DEBUG MODE------------------------//
@@ -1387,8 +1390,9 @@ void pre_cue_release() {
 	}
 	
 
-	if (signedMillis() - _random_delay_timer >= _preCueDelay) { // CUe on time reached
+	if (signedMillis() - _random_delay_timer >= _preCueDelay && !isCueOn) { // CUe on time reached
 		// Send event marker (cue on) to HOST with timestamp (for plotting)
+		isCueOn = true;
 		sendMessage("&" + String(EVENT_CUE_ON) + " " + String(signedMillis() - _exp_timer));
 		//------------------------DEBUG MODE--------------------------//  
 		if (_params[_DEBUG]) {sendMessage("Pre-cue delay successfully completed.");}
@@ -1665,7 +1669,7 @@ void intertrial() {
   }
   /* NOT enforcing no press held at end of ITI: ------------------------------*/
   else {        
-      if (millis() - _ITI_timer >= _params[ITI] && (isParamsUpdateDone || !isParamsUpdateStarted))  { // End when ITI ends. If param update initiated, should also wait for update completion signal from HOST ('O' for Over).
+      if (signedMillis() - _ITI_timer >= _params[ITI] && (isParamsUpdateDone || !isParamsUpdateStarted))  { // End when ITI ends. If param update initiated, should also wait for update completion signal from HOST ('O' for Over).
         _state = INIT_TRIAL;                           // Move -> READY state
         return;                                        // Exit Fx
       }
