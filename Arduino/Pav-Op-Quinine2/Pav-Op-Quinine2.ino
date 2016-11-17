@@ -413,7 +413,7 @@ static long _ITI_timer      = 0;        // Tracks time in ITI state
 static long _preCueDelay    = 0;        // Initialize _preCueDelay var
 static bool _reward_dispensed_complete = false;  // init tracker of reward dispensal
 static bool _shock_trigger_on        = false;    // Shock trigger default is off
-static unsigned int _dice_roll       = 0;        // Randomly select if trial will be pav or op
+static long _dice_roll       = 0;        // Randomly select if trial will be pav or op
 static bool _mixed_is_pavlovian      = true;     // Track if current mixed trial is pavlovian
 
 
@@ -737,7 +737,6 @@ void pre_window() { //**********************************************************
 	/*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 		ACTION LIST -- initialize the new state
 	~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
-	static long pre_window_duration = _params[INTERVAL_MIN]; // Prewindow duration wrt cue onset
 	if (_state != _prevState) {                      // If ENTERTING PRE_WINDOW:
 		setCueLED(true);                                 // Cue LED ON
 		playSound(TONE_CUE);                             // Cue tone ON
