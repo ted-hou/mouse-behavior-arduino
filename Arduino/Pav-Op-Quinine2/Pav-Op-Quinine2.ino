@@ -355,7 +355,7 @@ static const char *_paramNames[] =
 }; //**** BE SURE TO INIT NEW PARAM VALUES BELOW!*****//
 
 // Initialize parameters
-int _params[_NUM_PARAMS] = 
+long _params[_NUM_PARAMS] = 
 {
 	0,                              // _DEBUG
 	1,                              // HYBRID
@@ -1627,7 +1627,7 @@ void intertrial() {
 		_state = INTERTRIAL;                            // Return -> ITI
 		return;                                         // Exit Fx
 	}
-	
+
 	if (_params[SHOCK_ON] == 1) {                   // If shock circuit enforced
 		if (!_shock_trigger_on && signedMillis() - _cue_on_time > _params[SHOCK_MIN] && signedMillis()-_cue_on_time < _params[SHOCK_MAX]) { // If shock window is open
 			setShockTrigger(true);                          // Connect the shock ckt        
