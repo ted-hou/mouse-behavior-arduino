@@ -1009,13 +1009,24 @@ classdef MouseBehaviorInterface < handle
 			
 			serialInfo = instrhwinfo('serial');
 
+			if isempty(serialInfo.AvailableSerialPorts)
+				serialPorts = {'Nothing connected'};
+			else
+				serial = serialInfo.AvailableSerialPorts;
+			end
+
 			[selection, online] = listdlg(...
-				'ListString', serialInfo.AvailableSerialPorts,...
+				'ListString', serialPorts,...
 				'SelectionMode', 'single',...
 				'ListSize', [100, 75],...
 				'PromptString', 'Select COM port',...
 				'CancelString', 'Offline'...
 			);
+
+			if isempty(serialInfo.AvailableSerialPorts)
+				arduinoPortName = '/offline';
+				return
+			end
 
 			if (online)
 				arduinoPortName = serialInfo.AvailableSerialPorts{selection};
