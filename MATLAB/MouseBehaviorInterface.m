@@ -1028,7 +1028,7 @@ classdef MouseBehaviorInterface < handle
 			if isempty(serialInfo.AvailableSerialPorts)
 				serialPorts = {'Nothing connected'};
 			else
-				serial = serialInfo.AvailableSerialPorts;
+				serialPorts = serialInfo.AvailableSerialPorts;
 			end
 
 			[selection, online] = listdlg(...
