@@ -491,31 +491,173 @@ hybrid_late_licks_hist = reshape(hybrid_late_trial_licks,[1,numel(hybrid_late_tr
 hybrid_no_licks_hist = reshape(hybrid_no_lick_trial_licks,[1,numel(hybrid_no_lick_trial_licks)]);
 
 
-% %% Plot PSTH: All Trials
-% 
+%% Plot PSTH: All Trials
+
+figure
+subplot(4,1,1);
+histogram(licks_hist, 1000);
+hold on
+plot([0,0], [0, 100], 'g-');
+
+plot([time_target,time_target], [0, 100], 'r-');
+plot([time_abort_min,time_abort_min], [0, 100], 'b--');
+plot([time_abort_max,time_abort_max], [0, 100], 'b--');
+plot([time_min_interval,time_min_interval], [0, 100], 'g--');
+plot([time_max_interval,time_max_interval], [0, 100], 'g--');
+plot([time_trial_duration,time_trial_duration], [0, 100], 'c--');
+ylim([0,all_trials_max]);
+xlim([min(min(licks_by_trial_relative_to_cue)) - 500, max(max(licks_by_trial_relative_to_cue)) + 500]);
+ylabel('number of licks');
+xlabel('time relative to cue on (ms)');
+title('All Trials');
+
+
+%% Plot PSTH: Pavlovian Trials Only
+
+% figure
+subplot(4,1,2);
+histogram(pav_licks_hist, 1000);
+hold on
+plot([0,0], [0, 100], 'g-');
+
+plot([time_target,time_target], [0, 100], 'r-');
+plot([time_abort_min,time_abort_min], [0, 100], 'b--');
+plot([time_abort_max,time_abort_max], [0, 100], 'b--');
+plot([time_min_interval,time_min_interval], [0, 100], 'g--');
+plot([time_max_interval,time_max_interval], [0, 100], 'g--');
+plot([time_trial_duration,time_trial_duration], [0, 100], 'c--');
+ylim([0,pav_max]);
+xlim([min(min(licks_by_trial_relative_to_cue)) - 500, max(max(licks_by_trial_relative_to_cue)) + 500]);
+ylabel('number of licks');
+xlabel('time relative to cue on (ms)');
+title('Pavlovian Trials');
+
+%% Plot PSTH: Operant Trials Only
+
+% figure
+subplot(4,1,3);
+histogram(op_licks_hist, 1000);
+hold on
+plot([0,0], [0, 100], 'g-');
+
+plot([time_target,time_target], [0, 100], 'r-');
+plot([time_abort_min,time_abort_min], [0, 100], 'b--');
+plot([time_abort_max,time_abort_max], [0, 100], 'b--');
+plot([time_min_interval,time_min_interval], [0, 100], 'g--');
+plot([time_max_interval,time_max_interval], [0, 100], 'g--');
+plot([time_trial_duration,time_trial_duration], [0, 100], 'c--');
+ylim([0,op_max]);
+xlim([min(min(licks_by_trial_relative_to_cue)) - 500, max(max(licks_by_trial_relative_to_cue)) + 500]);
+ylabel('number of licks');
+xlabel('time relative to cue on (ms)');
+title('Operant Trials');
+
+%% Plot PSTH: Hybrid Trials Only
+
+% figure
+subplot(4,1,4);
+histogram(hybrid_licks_hist, 1000);
+hold on
+plot([0,0], [0, 100], 'g-');
+
+plot([time_target,time_target], [0, 100], 'r-');
+plot([time_abort_min,time_abort_min], [0, 100], 'b--');
+plot([time_abort_max,time_abort_max], [0, 100], 'b--');
+plot([time_min_interval,time_min_interval], [0, 100], 'g--');
+plot([time_max_interval,time_max_interval], [0, 100], 'g--');
+plot([time_trial_duration,time_trial_duration], [0, 100], 'c--');
+ylim([0,op_max]);
+xlim([min(min(licks_by_trial_relative_to_cue)) - 500, max(max(licks_by_trial_relative_to_cue)) + 500]);
+ylabel('number of licks');
+xlabel('time relative to cue on (ms)');
+title('Hyrbid Trials');
+
+%% Plot PSTH: Correct Trials Only
+
+figure
+subplot(4,1,1);
+histogram(correct_licks_hist, 1000);
+hold on
+plot([0,0], [0, 100], 'g-');
+
+plot([time_target,time_target], [0, 100], 'r-');
+plot([time_abort_min,time_abort_min], [0, 100], 'b--');
+plot([time_abort_max,time_abort_max], [0, 100], 'b--');
+plot([time_min_interval,time_min_interval], [0, 100], 'g--');
+plot([time_max_interval,time_max_interval], [0, 100], 'g--');
+plot([time_trial_duration,time_trial_duration], [0, 100], 'c--');
+ylim([0,all_trials_max]);
+xlim([min(min(licks_by_trial_relative_to_cue)) - 500, max(max(licks_by_trial_relative_to_cue)) + 500]);
+ylabel('number of licks');
+xlabel('time relative to cue on (ms)');
+title('Correct Trials');
+
+%% Plot PSTH: Early Trials Only
+
+% figure
+subplot(4,1,2);
+histogram(early_licks_hist, 1000);
+hold on
+plot([0,0], [0, 100], 'g-');
+
+plot([time_target,time_target], [0, 100], 'r-');
+plot([time_abort_min,time_abort_min], [0, 100], 'b--');
+plot([time_abort_max,time_abort_max], [0, 100], 'b--');
+plot([time_min_interval,time_min_interval], [0, 100], 'g--');
+plot([time_max_interval,time_max_interval], [0, 100], 'g--');
+plot([time_trial_duration,time_trial_duration], [0, 100], 'c--');
+ylim([0,all_trials_max]);
+xlim([min(min(licks_by_trial_relative_to_cue)) - 500, max(max(licks_by_trial_relative_to_cue)) + 500]);
+ylabel('number of licks');
+xlabel('time relative to cue on (ms)');
+title('Early Abort Trials');
+
+%% Plot PSTH: Late Trials Only
+
+% figure
+subplot(4,1,3);
+histogram(late_licks_hist, 1000);
+hold on
+plot([0,0], [0, 100], 'g-');
+
+plot([time_target,time_target], [0, 100], 'r-');
+plot([time_abort_min,time_abort_min], [0, 100], 'b--');
+plot([time_abort_max,time_abort_max], [0, 100], 'b--');
+plot([time_min_interval,time_min_interval], [0, 100], 'g--');
+plot([time_max_interval,time_max_interval], [0, 100], 'g--');
+plot([time_trial_duration,time_trial_duration], [0, 100], 'c--');
+ylim([0,all_trials_max]);
+xlim([min(min(licks_by_trial_relative_to_cue)) - 500, max(max(licks_by_trial_relative_to_cue)) + 500]);
+ylabel('number of licks');
+xlabel('time relative to cue on (ms)');
+title('Late Abort Trials');
+
+%% Plot PSTH: No Lick Trials Only
+
+% figure
+subplot(4,1,4);
+histogram(no_licks_hist, 1000);
+hold on
+plot([0,0], [0, 100], 'g-');
+
+plot([time_target,time_target], [0, 100], 'r-');
+plot([time_abort_min,time_abort_min], [0, 100], 'b--');
+plot([time_abort_max,time_abort_max], [0, 100], 'b--');
+plot([time_min_interval,time_min_interval], [0, 100], 'g--');
+plot([time_max_interval,time_max_interval], [0, 100], 'g--');
+plot([time_trial_duration,time_trial_duration], [0, 100], 'c--');
+ylim([0,10]);
+xlim([min(min(licks_by_trial_relative_to_cue)) - 500, max(max(licks_by_trial_relative_to_cue)) + 500]);
+ylabel('number of licks');
+xlabel('time relative to cue on (ms)');
+title('No Licks Trials');
+
+
+
+
+% %% Pavlovian only plots:
 % figure
 % subplot(4,1,1);
-% histogram(licks_hist, 1000);
-% hold on
-% plot([0,0], [0, 100], 'g-');
-% 
-% plot([time_target,time_target], [0, 100], 'r-');
-% plot([time_abort_min,time_abort_min], [0, 100], 'b--');
-% plot([time_abort_max,time_abort_max], [0, 100], 'b--');
-% plot([time_min_interval,time_min_interval], [0, 100], 'g--');
-% plot([time_max_interval,time_max_interval], [0, 100], 'g--');
-% plot([time_trial_duration,time_trial_duration], [0, 100], 'c--');
-% ylim([0,all_trials_max]);
-% xlim([min(min(licks_by_trial_relative_to_cue)) - 500, max(max(licks_by_trial_relative_to_cue)) + 500]);
-% ylabel('number of licks');
-% xlabel('time relative to cue on (ms)');
-% title('All Trials');
-% 
-% 
-% %% Plot PSTH: Pavlovian Trials Only
-% 
-% % figure
-% subplot(4,1,2);
 % histogram(pav_licks_hist, 1000);
 % hold on
 % plot([0,0], [0, 100], 'g-');
@@ -532,10 +674,85 @@ hybrid_no_licks_hist = reshape(hybrid_no_lick_trial_licks,[1,numel(hybrid_no_lic
 % xlabel('time relative to cue on (ms)');
 % title('Pavlovian Trials');
 % 
-% %% Plot PSTH: Operant Trials Only
+% %% Plot PSTH: Pav Correct Trials Only
+% % figure
+% subplot(4,1,2);
+% histogram(pav_correct_licks_hist, 1000);
+% hold on
+% plot([0,0], [0, 100], 'g-');
 % 
+% plot([time_target,time_target], [0, 100], 'r-');
+% plot([time_abort_min,time_abort_min], [0, 100], 'b--');
+% plot([time_abort_max,time_abort_max], [0, 100], 'b--');
+% plot([time_min_interval,time_min_interval], [0, 100], 'g--');
+% plot([time_max_interval,time_max_interval], [0, 100], 'g--');
+% plot([time_trial_duration,time_trial_duration], [0, 100], 'c--');
+% ylim([0,pav_max]);
+% xlim([min(min(licks_by_trial_relative_to_cue)) - 500, max(max(licks_by_trial_relative_to_cue)) + 500]);
+% ylabel('number of licks');
+% xlabel('time relative to cue on (ms)');
+% title('Pavlovian Correct Trials');
+% 
+% %% Plot PSTH: Pav Early Trials Only
 % % figure
 % subplot(4,1,3);
+% histogram(pav_early_licks_hist, 1000);
+% hold on
+% plot([0,0], [0, 100], 'g-');
+% 
+% plot([time_target,time_target], [0, 100], 'r-');
+% plot([time_abort_min,time_abort_min], [0, 100], 'b--');
+% plot([time_abort_max,time_abort_max], [0, 100], 'b--');
+% plot([time_min_interval,time_min_interval], [0, 100], 'g--');
+% plot([time_max_interval,time_max_interval], [0, 100], 'g--');
+% plot([time_trial_duration,time_trial_duration], [0, 100], 'c--');
+% ylim([0,pav_max]);
+% xlim([min(min(licks_by_trial_relative_to_cue)) - 500, max(max(licks_by_trial_relative_to_cue)) + 500]);
+% ylabel('number of licks');
+% xlabel('time relative to cue on (ms)');
+% title('Pavlovian Early Abort Trials');
+% 
+% %% Plot PSTH: Pav No Lick Trials Only
+% 
+% % figure
+% subplot(4,1,4);
+% histogram(pav_no_licks_hist, 1000);
+% hold on
+% plot([0,0], [0, 100], 'g-');
+% 
+% plot([time_target,time_target], [0, 100], 'r-');
+% plot([time_abort_min,time_abort_min], [0, 100], 'b--');
+% plot([time_abort_max,time_abort_max], [0, 100], 'b--');
+% plot([time_min_interval,time_min_interval], [0, 100], 'g--');
+% plot([time_max_interval,time_max_interval], [0, 100], 'g--');
+% plot([time_trial_duration,time_trial_duration], [0, 100], 'c--');
+% ylim([0,10]);
+% xlim([min(min(licks_by_trial_relative_to_cue)) - 500, max(max(licks_by_trial_relative_to_cue)) + 500]);
+% ylabel('number of licks');
+% xlabel('time relative to cue on (ms)');
+% title('Pavlovian No Licks Trials');
+% 
+% 
+% 
+% 
+% 
+% 
+% 
+% 
+% 
+% 
+% 
+% 
+% 
+% 
+% 
+% 
+% 
+% 
+% 
+% %% Operant only plots:
+% figure
+% subplot(5,1,1);
 % histogram(op_licks_hist, 1000);
 % hold on
 % plot([0,0], [0, 100], 'g-');
@@ -552,11 +769,10 @@ hybrid_no_licks_hist = reshape(hybrid_no_lick_trial_licks,[1,numel(hybrid_no_lic
 % xlabel('time relative to cue on (ms)');
 % title('Operant Trials');
 % 
-% %% Plot PSTH: Hybrid Trials Only
-% 
+% %% Plot PSTH: Op Correct Trials Only
 % % figure
-% subplot(4,1,4);
-% histogram(hybrid_licks_hist, 1000);
+% subplot(5,1,2);
+% histogram(op_correct_licks_hist, 1000);
 % hold on
 % plot([0,0], [0, 100], 'g-');
 % 
@@ -570,13 +786,12 @@ hybrid_no_licks_hist = reshape(hybrid_no_lick_trial_licks,[1,numel(hybrid_no_lic
 % xlim([min(min(licks_by_trial_relative_to_cue)) - 500, max(max(licks_by_trial_relative_to_cue)) + 500]);
 % ylabel('number of licks');
 % xlabel('time relative to cue on (ms)');
-% title('Hyrbid Trials');
+% title('Operant Correct Trials');
 % 
-% %% Plot PSTH: Correct Trials Only
-% 
-% figure
-% subplot(4,1,1);
-% histogram(correct_licks_hist, 1000);
+% %% Plot PSTH: Op Early Trials Only
+% % figure
+% subplot(5,1,3);
+% histogram(op_early_licks_hist, 1000);
 % hold on
 % plot([0,0], [0, 100], 'g-');
 % 
@@ -586,17 +801,16 @@ hybrid_no_licks_hist = reshape(hybrid_no_lick_trial_licks,[1,numel(hybrid_no_lic
 % plot([time_min_interval,time_min_interval], [0, 100], 'g--');
 % plot([time_max_interval,time_max_interval], [0, 100], 'g--');
 % plot([time_trial_duration,time_trial_duration], [0, 100], 'c--');
-% ylim([0,all_trials_max]);
+% ylim([0,op_max]);
 % xlim([min(min(licks_by_trial_relative_to_cue)) - 500, max(max(licks_by_trial_relative_to_cue)) + 500]);
 % ylabel('number of licks');
 % xlabel('time relative to cue on (ms)');
-% title('Correct Trials');
+% title('Operant Early Abort Trials');
 % 
-% %% Plot PSTH: Early Trials Only
-% 
+% %% Plot PSTH: Op Late Trials Only
 % % figure
-% subplot(4,1,2);
-% histogram(early_licks_hist, 1000);
+% subplot(5,1,4);
+% histogram(op_late_licks_hist, 1000);
 % hold on
 % plot([0,0], [0, 100], 'g-');
 % 
@@ -606,37 +820,16 @@ hybrid_no_licks_hist = reshape(hybrid_no_lick_trial_licks,[1,numel(hybrid_no_lic
 % plot([time_min_interval,time_min_interval], [0, 100], 'g--');
 % plot([time_max_interval,time_max_interval], [0, 100], 'g--');
 % plot([time_trial_duration,time_trial_duration], [0, 100], 'c--');
-% ylim([0,all_trials_max]);
+% ylim([0,op_max]);
 % xlim([min(min(licks_by_trial_relative_to_cue)) - 500, max(max(licks_by_trial_relative_to_cue)) + 500]);
 % ylabel('number of licks');
 % xlabel('time relative to cue on (ms)');
-% title('Early Abort Trials');
+% title('Operant Late Abort Trials');
 % 
-% %% Plot PSTH: Late Trials Only
-% 
+% %% Plot PSTH: Op No Lick Trials Only
 % % figure
-% subplot(4,1,3);
-% histogram(late_licks_hist, 1000);
-% hold on
-% plot([0,0], [0, 100], 'g-');
-% 
-% plot([time_target,time_target], [0, 100], 'r-');
-% plot([time_abort_min,time_abort_min], [0, 100], 'b--');
-% plot([time_abort_max,time_abort_max], [0, 100], 'b--');
-% plot([time_min_interval,time_min_interval], [0, 100], 'g--');
-% plot([time_max_interval,time_max_interval], [0, 100], 'g--');
-% plot([time_trial_duration,time_trial_duration], [0, 100], 'c--');
-% ylim([0,all_trials_max]);
-% xlim([min(min(licks_by_trial_relative_to_cue)) - 500, max(max(licks_by_trial_relative_to_cue)) + 500]);
-% ylabel('number of licks');
-% xlabel('time relative to cue on (ms)');
-% title('Late Abort Trials');
-% 
-% %% Plot PSTH: No Lick Trials Only
-% 
-% % figure
-% subplot(4,1,4);
-% histogram(no_licks_hist, 1000);
+% subplot(5,1,5);
+% histogram(op_no_licks_hist, 1000);
 % hold on
 % plot([0,0], [0, 100], 'g-');
 % 
@@ -650,263 +843,70 @@ hybrid_no_licks_hist = reshape(hybrid_no_lick_trial_licks,[1,numel(hybrid_no_lic
 % xlim([min(min(licks_by_trial_relative_to_cue)) - 500, max(max(licks_by_trial_relative_to_cue)) + 500]);
 % ylabel('number of licks');
 % xlabel('time relative to cue on (ms)');
-% title('No Licks Trials');
-% 
-% 
-% 
-% 
-% % %% Pavlovian only plots:
-% % figure
-% % subplot(4,1,1);
-% % histogram(pav_licks_hist, 1000);
-% % hold on
-% % plot([0,0], [0, 100], 'g-');
-% % 
-% % plot([time_target,time_target], [0, 100], 'r-');
-% % plot([time_abort_min,time_abort_min], [0, 100], 'b--');
-% % plot([time_abort_max,time_abort_max], [0, 100], 'b--');
-% % plot([time_min_interval,time_min_interval], [0, 100], 'g--');
-% % plot([time_max_interval,time_max_interval], [0, 100], 'g--');
-% % plot([time_trial_duration,time_trial_duration], [0, 100], 'c--');
-% % ylim([0,pav_max]);
-% % xlim([min(min(licks_by_trial_relative_to_cue)) - 500, max(max(licks_by_trial_relative_to_cue)) + 500]);
-% % ylabel('number of licks');
-% % xlabel('time relative to cue on (ms)');
-% % title('Pavlovian Trials');
-% % 
-% % %% Plot PSTH: Pav Correct Trials Only
-% % % figure
-% % subplot(4,1,2);
-% % histogram(pav_correct_licks_hist, 1000);
-% % hold on
-% % plot([0,0], [0, 100], 'g-');
-% % 
-% % plot([time_target,time_target], [0, 100], 'r-');
-% % plot([time_abort_min,time_abort_min], [0, 100], 'b--');
-% % plot([time_abort_max,time_abort_max], [0, 100], 'b--');
-% % plot([time_min_interval,time_min_interval], [0, 100], 'g--');
-% % plot([time_max_interval,time_max_interval], [0, 100], 'g--');
-% % plot([time_trial_duration,time_trial_duration], [0, 100], 'c--');
-% % ylim([0,pav_max]);
-% % xlim([min(min(licks_by_trial_relative_to_cue)) - 500, max(max(licks_by_trial_relative_to_cue)) + 500]);
-% % ylabel('number of licks');
-% % xlabel('time relative to cue on (ms)');
-% % title('Pavlovian Correct Trials');
-% % 
-% % %% Plot PSTH: Pav Early Trials Only
-% % % figure
-% % subplot(4,1,3);
-% % histogram(pav_early_licks_hist, 1000);
-% % hold on
-% % plot([0,0], [0, 100], 'g-');
-% % 
-% % plot([time_target,time_target], [0, 100], 'r-');
-% % plot([time_abort_min,time_abort_min], [0, 100], 'b--');
-% % plot([time_abort_max,time_abort_max], [0, 100], 'b--');
-% % plot([time_min_interval,time_min_interval], [0, 100], 'g--');
-% % plot([time_max_interval,time_max_interval], [0, 100], 'g--');
-% % plot([time_trial_duration,time_trial_duration], [0, 100], 'c--');
-% % ylim([0,pav_max]);
-% % xlim([min(min(licks_by_trial_relative_to_cue)) - 500, max(max(licks_by_trial_relative_to_cue)) + 500]);
-% % ylabel('number of licks');
-% % xlabel('time relative to cue on (ms)');
-% % title('Pavlovian Early Abort Trials');
-% % 
-% % %% Plot PSTH: Pav No Lick Trials Only
-% % 
-% % % figure
-% % subplot(4,1,4);
-% % histogram(pav_no_licks_hist, 1000);
-% % hold on
-% % plot([0,0], [0, 100], 'g-');
-% % 
-% % plot([time_target,time_target], [0, 100], 'r-');
-% % plot([time_abort_min,time_abort_min], [0, 100], 'b--');
-% % plot([time_abort_max,time_abort_max], [0, 100], 'b--');
-% % plot([time_min_interval,time_min_interval], [0, 100], 'g--');
-% % plot([time_max_interval,time_max_interval], [0, 100], 'g--');
-% % plot([time_trial_duration,time_trial_duration], [0, 100], 'c--');
-% % ylim([0,10]);
-% % xlim([min(min(licks_by_trial_relative_to_cue)) - 500, max(max(licks_by_trial_relative_to_cue)) + 500]);
-% % ylabel('number of licks');
-% % xlabel('time relative to cue on (ms)');
-% % title('Pavlovian No Licks Trials');
-% % 
-% % 
-% % 
-% % 
-% % 
-% % 
-% % 
-% % 
-% % 
-% % 
-% % 
-% % 
-% % 
-% % 
-% % 
-% % 
-% % 
-% % 
-% % 
-% % %% Operant only plots:
-% % figure
-% % subplot(5,1,1);
-% % histogram(op_licks_hist, 1000);
-% % hold on
-% % plot([0,0], [0, 100], 'g-');
-% % 
-% % plot([time_target,time_target], [0, 100], 'r-');
-% % plot([time_abort_min,time_abort_min], [0, 100], 'b--');
-% % plot([time_abort_max,time_abort_max], [0, 100], 'b--');
-% % plot([time_min_interval,time_min_interval], [0, 100], 'g--');
-% % plot([time_max_interval,time_max_interval], [0, 100], 'g--');
-% % plot([time_trial_duration,time_trial_duration], [0, 100], 'c--');
-% % ylim([0,op_max]);
-% % xlim([min(min(licks_by_trial_relative_to_cue)) - 500, max(max(licks_by_trial_relative_to_cue)) + 500]);
-% % ylabel('number of licks');
-% % xlabel('time relative to cue on (ms)');
-% % title('Operant Trials');
-% % 
-% % %% Plot PSTH: Op Correct Trials Only
-% % % figure
-% % subplot(5,1,2);
-% % histogram(op_correct_licks_hist, 1000);
-% % hold on
-% % plot([0,0], [0, 100], 'g-');
-% % 
-% % plot([time_target,time_target], [0, 100], 'r-');
-% % plot([time_abort_min,time_abort_min], [0, 100], 'b--');
-% % plot([time_abort_max,time_abort_max], [0, 100], 'b--');
-% % plot([time_min_interval,time_min_interval], [0, 100], 'g--');
-% % plot([time_max_interval,time_max_interval], [0, 100], 'g--');
-% % plot([time_trial_duration,time_trial_duration], [0, 100], 'c--');
-% % ylim([0,op_max]);
-% % xlim([min(min(licks_by_trial_relative_to_cue)) - 500, max(max(licks_by_trial_relative_to_cue)) + 500]);
-% % ylabel('number of licks');
-% % xlabel('time relative to cue on (ms)');
-% % title('Operant Correct Trials');
-% % 
-% % %% Plot PSTH: Op Early Trials Only
-% % % figure
-% % subplot(5,1,3);
-% % histogram(op_early_licks_hist, 1000);
-% % hold on
-% % plot([0,0], [0, 100], 'g-');
-% % 
-% % plot([time_target,time_target], [0, 100], 'r-');
-% % plot([time_abort_min,time_abort_min], [0, 100], 'b--');
-% % plot([time_abort_max,time_abort_max], [0, 100], 'b--');
-% % plot([time_min_interval,time_min_interval], [0, 100], 'g--');
-% % plot([time_max_interval,time_max_interval], [0, 100], 'g--');
-% % plot([time_trial_duration,time_trial_duration], [0, 100], 'c--');
-% % ylim([0,op_max]);
-% % xlim([min(min(licks_by_trial_relative_to_cue)) - 500, max(max(licks_by_trial_relative_to_cue)) + 500]);
-% % ylabel('number of licks');
-% % xlabel('time relative to cue on (ms)');
-% % title('Operant Early Abort Trials');
-% % 
-% % %% Plot PSTH: Op Late Trials Only
-% % % figure
-% % subplot(5,1,4);
-% % histogram(op_late_licks_hist, 1000);
-% % hold on
-% % plot([0,0], [0, 100], 'g-');
-% % 
-% % plot([time_target,time_target], [0, 100], 'r-');
-% % plot([time_abort_min,time_abort_min], [0, 100], 'b--');
-% % plot([time_abort_max,time_abort_max], [0, 100], 'b--');
-% % plot([time_min_interval,time_min_interval], [0, 100], 'g--');
-% % plot([time_max_interval,time_max_interval], [0, 100], 'g--');
-% % plot([time_trial_duration,time_trial_duration], [0, 100], 'c--');
-% % ylim([0,op_max]);
-% % xlim([min(min(licks_by_trial_relative_to_cue)) - 500, max(max(licks_by_trial_relative_to_cue)) + 500]);
-% % ylabel('number of licks');
-% % xlabel('time relative to cue on (ms)');
-% % title('Operant Late Abort Trials');
-% % 
-% % %% Plot PSTH: Op No Lick Trials Only
-% % % figure
-% % subplot(5,1,5);
-% % histogram(op_no_licks_hist, 1000);
-% % hold on
-% % plot([0,0], [0, 100], 'g-');
-% % 
-% % plot([time_target,time_target], [0, 100], 'r-');
-% % plot([time_abort_min,time_abort_min], [0, 100], 'b--');
-% % plot([time_abort_max,time_abort_max], [0, 100], 'b--');
-% % plot([time_min_interval,time_min_interval], [0, 100], 'g--');
-% % plot([time_max_interval,time_max_interval], [0, 100], 'g--');
-% % plot([time_trial_duration,time_trial_duration], [0, 100], 'c--');
-% % ylim([0,10]);
-% % xlim([min(min(licks_by_trial_relative_to_cue)) - 500, max(max(licks_by_trial_relative_to_cue)) + 500]);
-% % ylabel('number of licks');
-% % xlabel('time relative to cue on (ms)');
-% % title('Operant No Licks Trials');
-% 
-% 
-% 
-% 
-% 
-% 
-% 
-% %% Hybrid only plots
+% title('Operant No Licks Trials');
+
+
+
+
+
+
+
+%% Hybrid only plots
+figure
+subplot(3,1,1);
+histogram(hybrid_licks_hist, 1000);
+hold on
+plot([0,0], [0, 100], 'g-');
+
+plot([time_target,time_target], [0, 100], 'r-');
+plot([time_abort_min,time_abort_min], [0, 100], 'b--');
+plot([time_abort_max,time_abort_max], [0, 100], 'b--');
+plot([time_min_interval,time_min_interval], [0, 100], 'g--');
+plot([time_max_interval,time_max_interval], [0, 100], 'g--');
+plot([time_trial_duration,time_trial_duration], [0, 100], 'c--');
+ylim([0,op_max]);
+xlim([min(min(licks_by_trial_relative_to_cue)) - 500, max(max(licks_by_trial_relative_to_cue)) + 500]);
+ylabel('number of licks');
+xlabel('time relative to cue on (ms)');
+title('Hyrbid Trials');
+
+%% Plot PSTH: Hyrbid Correct Trials Only
 % figure
-% subplot(3,1,1);
-% histogram(hybrid_licks_hist, 1000);
-% hold on
-% plot([0,0], [0, 100], 'g-');
-% 
-% plot([time_target,time_target], [0, 100], 'r-');
-% plot([time_abort_min,time_abort_min], [0, 100], 'b--');
-% plot([time_abort_max,time_abort_max], [0, 100], 'b--');
-% plot([time_min_interval,time_min_interval], [0, 100], 'g--');
-% plot([time_max_interval,time_max_interval], [0, 100], 'g--');
-% plot([time_trial_duration,time_trial_duration], [0, 100], 'c--');
-% ylim([0,op_max]);
-% xlim([min(min(licks_by_trial_relative_to_cue)) - 500, max(max(licks_by_trial_relative_to_cue)) + 500]);
-% ylabel('number of licks');
-% xlabel('time relative to cue on (ms)');
-% title('Hyrbid Trials');
-% 
-% %% Plot PSTH: Hyrbid Correct Trials Only
-% % figure
-% subplot(3,1,2);
-% histogram(hybrid_correct_licks_hist, 1000);
-% hold on
-% plot([0,0], [0, 100], 'g-');
-% 
-% plot([time_target,time_target], [0, 100], 'r-');
-% plot([time_abort_min,time_abort_min], [0, 100], 'b--');
-% plot([time_abort_max,time_abort_max], [0, 100], 'b--');
-% plot([time_min_interval,time_min_interval], [0, 100], 'g--');
-% plot([time_max_interval,time_max_interval], [0, 100], 'g--');
-% plot([time_trial_duration,time_trial_duration], [0, 100], 'c--');
-% ylim([0,op_max]);
-% xlim([min(min(licks_by_trial_relative_to_cue)) - 500, max(max(licks_by_trial_relative_to_cue)) + 500]);
-% ylabel('number of licks');
-% xlabel('time relative to cue on (ms)');
-% title('Hyrbid Correct Trials');
-% 
-% %% Plot PSTH: Hybrid Early Trials Only
-% % figure
-% subplot(3,1,3);
-% histogram(hybrid_early_licks_hist, 1000);
-% hold on
-% plot([0,0], [0, 100], 'g-');
-% 
-% plot([time_target,time_target], [0, 100], 'r-');
-% plot([time_abort_min,time_abort_min], [0, 100], 'b--');
-% plot([time_abort_max,time_abort_max], [0, 100], 'b--');
-% plot([time_min_interval,time_min_interval], [0, 100], 'g--');
-% plot([time_max_interval,time_max_interval], [0, 100], 'g--');
-% plot([time_trial_duration,time_trial_duration], [0, 100], 'c--');
-% ylim([0,op_max]);
-% xlim([min(min(licks_by_trial_relative_to_cue)) - 500, max(max(licks_by_trial_relative_to_cue)) + 500]);
-% ylabel('number of licks');
-% xlabel('time relative to cue on (ms)');
-% title('Hybrid Early Abort Trials');
+subplot(3,1,2);
+histogram(hybrid_correct_licks_hist, 1000);
+hold on
+plot([0,0], [0, 100], 'g-');
+
+plot([time_target,time_target], [0, 100], 'r-');
+plot([time_abort_min,time_abort_min], [0, 100], 'b--');
+plot([time_abort_max,time_abort_max], [0, 100], 'b--');
+plot([time_min_interval,time_min_interval], [0, 100], 'g--');
+plot([time_max_interval,time_max_interval], [0, 100], 'g--');
+plot([time_trial_duration,time_trial_duration], [0, 100], 'c--');
+ylim([0,op_max]);
+xlim([min(min(licks_by_trial_relative_to_cue)) - 500, max(max(licks_by_trial_relative_to_cue)) + 500]);
+ylabel('number of licks');
+xlabel('time relative to cue on (ms)');
+title('Hyrbid Correct Trials');
+
+%% Plot PSTH: Hybrid Early Trials Only
+% figure
+subplot(3,1,3);
+histogram(hybrid_early_licks_hist, 1000);
+hold on
+plot([0,0], [0, 100], 'g-');
+
+plot([time_target,time_target], [0, 100], 'r-');
+plot([time_abort_min,time_abort_min], [0, 100], 'b--');
+plot([time_abort_max,time_abort_max], [0, 100], 'b--');
+plot([time_min_interval,time_min_interval], [0, 100], 'g--');
+plot([time_max_interval,time_max_interval], [0, 100], 'g--');
+plot([time_trial_duration,time_trial_duration], [0, 100], 'c--');
+ylim([0,op_max]);
+xlim([min(min(licks_by_trial_relative_to_cue)) - 500, max(max(licks_by_trial_relative_to_cue)) + 500]);
+ylabel('number of licks');
+xlabel('time relative to cue on (ms)');
+title('Hybrid Early Abort Trials');
 
 
 
@@ -1196,137 +1196,89 @@ disp(['# Hybrid Early: ', num2str(hybrid_early_index - 1), ' | ', num2str(round(
 % xlabel('time relative to cue on (ms)');
 % title('Operant Combined First licks');
 
-% 
-% 
-% %--------------------------------------------------------------------------------------------------------------------------
-% % Hybrid First Licks
-% 
-% figure
-% subplot(5,1,1);
-% histogram(hybrid_times_1st_post_cue_lick, 1000);
-% hold on
-% plot([0,0], [0, 100], 'g-');
-% 
-% plot([time_target,time_target], [0, 100], 'r-');
-% plot([time_abort_min,time_abort_min], [0, 100], 'b--');
-% plot([time_abort_max,time_abort_max], [0, 100], 'b--');
-% plot([time_min_interval,time_min_interval], [0, 100], 'g--');
-% plot([time_max_interval,time_max_interval], [0, 100], 'g--');
-% plot([time_trial_duration,time_trial_duration], [0, 100], 'c--');
-% ylim([0,10]);
-% xlim([min(min(licks_by_trial_relative_to_cue)) - 500, max(max(licks_by_trial_relative_to_cue)) + 500]);
-% ylabel('number of licks');
-% xlabel('time relative to cue on (ms)');
-% title('Hybrid First lick after cue');
-% 
-% 
-% %% Early lick Abort window licks:
-% subplot(5,1,2);
-% histogram(hybrid_times_1st_lick_no_lick_period, 1000);
-% hold on
-% plot([0,0], [0, 100], 'g-');
-% 
-% plot([time_target,time_target], [0, 100], 'r-');
-% plot([time_abort_min,time_abort_min], [0, 100], 'b--');
-% plot([time_abort_max,time_abort_max], [0, 100], 'b--');
-% plot([time_min_interval,time_min_interval], [0, 100], 'g--');
-% plot([time_max_interval,time_max_interval], [0, 100], 'g--');
-% plot([time_trial_duration,time_trial_duration], [0, 100], 'c--');
-% ylim([0,10]);
-% xlim([min(min(licks_by_trial_relative_to_cue)) - 500, max(max(licks_by_trial_relative_to_cue)) + 500]);
-% ylabel('number of licks');
-% xlabel('time relative to cue on (ms)');
-% title('Hyrbid First lick in abort window');
-% 
-% 
-% %% Reward window first lick:
-% subplot(5,1,3);
-% histogram(hybrid_times_1st_lick_reward, 1000);
-% hold on
-% plot([0,0], [0, 100], 'g-');
-% 
-% plot([time_target,time_target], [0, 100], 'r-');
-% plot([time_abort_min,time_abort_min], [0, 100], 'b--');
-% plot([time_abort_max,time_abort_max], [0, 100], 'b--');
-% plot([time_min_interval,time_min_interval], [0, 100], 'g--');
-% plot([time_max_interval,time_max_interval], [0, 100], 'g--');
-% plot([time_trial_duration,time_trial_duration], [0, 100], 'c--');
-% ylim([0,10]);
-% xlim([min(min(licks_by_trial_relative_to_cue)) - 500, max(max(licks_by_trial_relative_to_cue)) + 500]);
-% ylabel('number of licks');
-% xlabel('time relative to cue on (ms)');
-% title('Hybrid First lick in REWARD window');
-% 
-% 
-% %% Late window licks:
-% subplot(5,1,4);
-% histogram(hybrid_times_1st_late_lick, 1000);
-% hold on
-% plot([0,0], [0, 100], 'g-');
-% 
-% plot([time_target,time_target], [0, 100], 'r-');
-% plot([time_abort_min,time_abort_min], [0, 100], 'b--');
-% plot([time_abort_max,time_abort_max], [0, 100], 'b--');
-% plot([time_min_interval,time_min_interval], [0, 100], 'g--');
-% plot([time_max_interval,time_max_interval], [0, 100], 'g--');
-% plot([time_trial_duration,time_trial_duration], [0, 100], 'c--');
-% ylim([0,10]);
-% xlim([min(min(licks_by_trial_relative_to_cue)) - 500, max(max(licks_by_trial_relative_to_cue)) + 500]);
-% ylabel('number of licks');
-% xlabel('time relative to cue on (ms)');
-% title('Hybrid First lick in post-reward window');
-% 
-% 
-% %% All hybrid 1st licks:
-% subplot(5,1,5);
-% histogram([hybrid_times_1st_post_cue_lick, hybrid_times_1st_lick_no_lick_period, pre_hybrid_times_1st_lick_reward, hybrid_times_1st_lick_reward, hybrid_times_1st_late_lick],...
-%     100);
-% hold on
-% histogram([hybrid_times_1st_post_cue_lick, hybrid_times_1st_lick_no_lick_period, pre_hybrid_times_1st_lick_reward, hybrid_times_1st_lick_reward, hybrid_times_1st_late_lick],...
-%     200);
-% histogram([hybrid_times_1st_post_cue_lick, hybrid_times_1st_lick_no_lick_period, pre_hybrid_times_1st_lick_reward, hybrid_times_1st_lick_reward, hybrid_times_1st_late_lick],...
-%     500);
-% histogram([hybrid_times_1st_post_cue_lick, hybrid_times_1st_lick_no_lick_period, pre_hybrid_times_1st_lick_reward, hybrid_times_1st_lick_reward, hybrid_times_1st_late_lick],...
-%     500);
-% histogram([hybrid_times_1st_post_cue_lick, hybrid_times_1st_lick_no_lick_period, pre_hybrid_times_1st_lick_reward, hybrid_times_1st_lick_reward, hybrid_times_1st_late_lick],...
-%     500);
-% hold on
-% plot([0,0], [0, 100], 'g-'); 
-% 
-% plot([time_target,time_target], [0, 100], 'r-');
-% plot([time_abort_min,time_abort_min], [0, 100], 'b--');
-% plot([time_abort_max,time_abort_max], [0, 100], 'b--');
-% plot([time_min_interval,time_min_interval], [0, 100], 'g--');
-% plot([time_max_interval,time_max_interval], [0, 100], 'g--');
-% plot([time_trial_duration,time_trial_duration], [0, 100], 'c--');
-% ylim([0,10]);
-% xlim([min(min(licks_by_trial_relative_to_cue)) - 500, max(max(licks_by_trial_relative_to_cue)) + 500]);
-% ylabel('number of licks');
-% xlabel('time relative to cue on (ms)');
-% title('Hybrid Combined First licks');
-% 
 
 
+%--------------------------------------------------------------------------------------------------------------------------
+% Hybrid First Licks
 
-
-%% Single combined hybrid 1st licks fig
-
-figure 
-histogram([hybrid_times_1st_post_cue_lick, hybrid_times_1st_lick_no_lick_period, pre_hybrid_times_1st_lick_reward, hybrid_times_1st_lick_reward, hybrid_times_1st_late_lick],...
-    20);
+figure
+subplot(5,1,1);
+histogram(hybrid_times_1st_post_cue_lick, 1000);
 hold on
-histogram([hybrid_times_1st_post_cue_lick, hybrid_times_1st_lick_no_lick_period, pre_hybrid_times_1st_lick_reward, hybrid_times_1st_lick_reward, hybrid_times_1st_late_lick],...
-    50);
+plot([0,0], [0, 100], 'g-');
+
+plot([time_target,time_target], [0, 100], 'r-');
+plot([time_abort_min,time_abort_min], [0, 100], 'b--');
+plot([time_abort_max,time_abort_max], [0, 100], 'b--');
+plot([time_min_interval,time_min_interval], [0, 100], 'g--');
+plot([time_max_interval,time_max_interval], [0, 100], 'g--');
+plot([time_trial_duration,time_trial_duration], [0, 100], 'c--');
+ylim([0,10]);
+xlim([min(min(licks_by_trial_relative_to_cue)) - 500, max(max(licks_by_trial_relative_to_cue)) + 500]);
+ylabel('number of licks');
+xlabel('time relative to cue on (ms)');
+title('Hybrid First lick after cue');
+
+
+%% Early lick Abort window licks:
+subplot(5,1,2);
+histogram(hybrid_times_1st_lick_no_lick_period, 1000);
 hold on
-histogram([hybrid_times_1st_post_cue_lick, hybrid_times_1st_lick_no_lick_period, pre_hybrid_times_1st_lick_reward, hybrid_times_1st_lick_reward, hybrid_times_1st_late_lick],...
-    100);
+plot([0,0], [0, 100], 'g-');
+
+plot([time_target,time_target], [0, 100], 'r-');
+plot([time_abort_min,time_abort_min], [0, 100], 'b--');
+plot([time_abort_max,time_abort_max], [0, 100], 'b--');
+plot([time_min_interval,time_min_interval], [0, 100], 'g--');
+plot([time_max_interval,time_max_interval], [0, 100], 'g--');
+plot([time_trial_duration,time_trial_duration], [0, 100], 'c--');
+ylim([0,10]);
+xlim([min(min(licks_by_trial_relative_to_cue)) - 500, max(max(licks_by_trial_relative_to_cue)) + 500]);
+ylabel('number of licks');
+xlabel('time relative to cue on (ms)');
+title('Hyrbid First lick in abort window');
+
+
+%% Reward window first lick:
+subplot(5,1,3);
+histogram(hybrid_times_1st_lick_reward, 1000);
 hold on
-histogram([hybrid_times_1st_post_cue_lick, hybrid_times_1st_lick_no_lick_period, pre_hybrid_times_1st_lick_reward, hybrid_times_1st_lick_reward, hybrid_times_1st_late_lick],...
-    200);
-histogram([hybrid_times_1st_post_cue_lick, hybrid_times_1st_lick_no_lick_period, pre_hybrid_times_1st_lick_reward, hybrid_times_1st_lick_reward, hybrid_times_1st_late_lick],...
-    500);
-histogram([hybrid_times_1st_post_cue_lick, hybrid_times_1st_lick_no_lick_period, pre_hybrid_times_1st_lick_reward, hybrid_times_1st_lick_reward, hybrid_times_1st_late_lick],...
-    500);
+plot([0,0], [0, 100], 'g-');
+
+plot([time_target,time_target], [0, 100], 'r-');
+plot([time_abort_min,time_abort_min], [0, 100], 'b--');
+plot([time_abort_max,time_abort_max], [0, 100], 'b--');
+plot([time_min_interval,time_min_interval], [0, 100], 'g--');
+plot([time_max_interval,time_max_interval], [0, 100], 'g--');
+plot([time_trial_duration,time_trial_duration], [0, 100], 'c--');
+ylim([0,10]);
+xlim([min(min(licks_by_trial_relative_to_cue)) - 500, max(max(licks_by_trial_relative_to_cue)) + 500]);
+ylabel('number of licks');
+xlabel('time relative to cue on (ms)');
+title('Hybrid First lick in REWARD window');
+
+
+%% Late window licks:
+subplot(5,1,4);
+histogram(hybrid_times_1st_late_lick, 1000);
+hold on
+plot([0,0], [0, 100], 'g-');
+
+plot([time_target,time_target], [0, 100], 'r-');
+plot([time_abort_min,time_abort_min], [0, 100], 'b--');
+plot([time_abort_max,time_abort_max], [0, 100], 'b--');
+plot([time_min_interval,time_min_interval], [0, 100], 'g--');
+plot([time_max_interval,time_max_interval], [0, 100], 'g--');
+plot([time_trial_duration,time_trial_duration], [0, 100], 'c--');
+ylim([0,10]);
+xlim([min(min(licks_by_trial_relative_to_cue)) - 500, max(max(licks_by_trial_relative_to_cue)) + 500]);
+ylabel('number of licks');
+xlabel('time relative to cue on (ms)');
+title('Hybrid First lick in post-reward window');
+
+
+%% All hybrid 1st licks:
+subplot(5,1,5);
 histogram([hybrid_times_1st_post_cue_lick, hybrid_times_1st_lick_no_lick_period, pre_hybrid_times_1st_lick_reward, hybrid_times_1st_lick_reward, hybrid_times_1st_late_lick],...
     500);
 hold on
