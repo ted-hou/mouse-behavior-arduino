@@ -1197,7 +1197,8 @@ classdef MouseBehaviorInterface < handle
 			];
 
 			lastTrialResultText.Position = trialCountText.Position;
-			lastTrialResultText.Position(2) = trialCountText.Position(2) - 1.2*u.TextHeight;
+			lastTrialResultText.Position(2) = trialCountText.Position(2) - 2.4*u.TextHeight;
+			lastTrialResultText.Position(4) = 2.4*trialCountText.Position(4);
 
 			% Raster plot tab
 			plotOptionWidth = (rightPanel.Position(3) - 4*u.PanelMargin)/3;
