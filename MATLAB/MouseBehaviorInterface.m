@@ -229,6 +229,18 @@ classdef MouseBehaviorInterface < handle
 			);
 			dlg.UserData.Ctrl.TrialCountText = trialCountText;
 
+			% Text: Result of last trial
+			lastTrialResultText = uicontrol(...
+				'Parent', leftPanel,...
+				'Style', 'text',...
+				'String', 'Last trial: ',...
+				'TooltipString', 'Result of previous trial.',...
+				'HorizontalAlignment', 'left',...
+				'Units', 'pixels',...
+				'FontSize', 13 ...
+			);
+			dlg.UserData.Ctrl.LastTrialResultText = lastTrialResultText;
+
 			%----------------------------------------------------
 			%		Right panel
 			%----------------------------------------------------
@@ -558,6 +570,10 @@ classdef MouseBehaviorInterface < handle
 				% Update the "Trials Completed" counter.
 				t = obj.Rsc.Monitor.UserData.Ctrl.TrialCountText;
 				t.String = sprintf('Trials completed: %d', iTrial);
+
+				% Show result of last trial
+				t = obj.Rsc.Monitor.UserData.Ctrl.LastTrialResultText;
+				t.String = sprintf('Last trial: %s', obj.Arduino.Trials(iTrial).CodeName);
 
 				% When a new trial is completed
 				ax = obj.Rsc.Monitor.UserData.Ctrl.Ax;
@@ -1124,6 +1140,8 @@ classdef MouseBehaviorInterface < handle
 			leftPanel = dlg.UserData.Ctrl.LeftPanel;
 			rightPanel = dlg.UserData.Ctrl.RightPanel;
 			trialCountText = dlg.UserData.Ctrl.TrialCountText;
+			lastTrialResultText = dlg.UserData.Ctrl.LastTrialResultText;
+
 
 			text_eventTrialStart_raster = dlg.UserData.Ctrl.Text_EventTrialStart_Raster;
 			popup_eventTrialStart_raster = dlg.UserData.Ctrl.Popup_EventTrialStart_Raster;
@@ -1177,6 +1195,9 @@ classdef MouseBehaviorInterface < handle
 				max([0, leftPanel.Position(3) - 2*u.PanelMargin]),...
 				u.TextHeight...
 			];
+
+			lastTrialResultText.Position = trialCountText.Position;
+			lastTrialResultText.Position(2) = trialCountText.Position(2) - 1.2*u.TextHeight;
 
 			% Raster plot tab
 			plotOptionWidth = (rightPanel.Position(3) - 4*u.PanelMargin)/3;
