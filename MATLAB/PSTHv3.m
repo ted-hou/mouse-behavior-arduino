@@ -7,15 +7,12 @@ all_trials_max = 45;
 pav_max = 45;
 op_max = 30;
 
-
-
-
-
-
 % takes obj.EventMarkers, parces it to set all the time stamps, then plots
 % PSTH
 
 % Note: This version compatible with hybrid and mixed pav-op
+% Note: Now ignores first licks in abort window within first 200 ms that were preceeded by a lick in the post-cue allowed window
+%   In test file, found 0 instances of first 200 ms licks not being preceeded by a lick train in the pre-abort window
 
 %% Fetch Relevant Data From Exp Object:
 
@@ -172,16 +169,20 @@ for ievent = 1:length(events)
         end
         % check for first abort window lick:
         if first_abort_window_lick == false && events(ievent, 2) - cue_on_time_by_trial(trial_index) - start_time > time_abort_min && events(ievent, 2) - cue_on_time_by_trial(trial_index) - start_time < time_abort_max
-            times_1st_lick_no_lick_period(length(times_1st_lick_no_lick_period)+1) = events(ievent, 2) - cue_on_time_by_trial(trial_index) - start_time;
-            first_abort_window_lick = true;
-            if pav_or_op_by_trial(trial_index) == 0   % for a pavlovian trial...
-                pav_times_1st_lick_no_lick_period(length(times_1st_lick_no_lick_period)+1) = events(ievent, 2) - cue_on_time_by_trial(trial_index) - start_time;
-            end
-            if pav_or_op_by_trial(trial_index) == 1   % for an operant trial...
-                op_times_1st_lick_no_lick_period(length(op_times_1st_lick_no_lick_period)+1) = events(ievent, 2) - cue_on_time_by_trial(trial_index) - start_time;
-            end
-            if hybrid_by_trial(trial_index) == 1      % for hybrid trial...
-                hybrid_times_1st_lick_no_lick_period(length(hybrid_times_1st_lick_no_lick_period)+1) = events(ievent, 2) - cue_on_time_by_trial(trial_index) - start_time;
+            if events(ievent, 2) - cue_on_time_by_trial(trial_index) - start_time < time_abort_min + 200 && first_post_cue_lick == true, % If the lick occurred within the first 200 ms of the abort window AND a post-cue lick was detected...
+                disp(['train of licks to abort window @ trial ', num2str(trial_index), '. Not including in first licks!']);
+            else
+                times_1st_lick_no_lick_period(length(times_1st_lick_no_lick_period)+1) = events(ievent, 2) - cue_on_time_by_trial(trial_index) - start_time;
+                first_abort_window_lick = true;
+                if pav_or_op_by_trial(trial_index) == 0   % for a pavlovian trial...
+                    pav_times_1st_lick_no_lick_period(length(times_1st_lick_no_lick_period)+1) = events(ievent, 2) - cue_on_time_by_trial(trial_index) - start_time;
+                end
+                if pav_or_op_by_trial(trial_index) == 1   % for an operant trial...
+                    op_times_1st_lick_no_lick_period(length(op_times_1st_lick_no_lick_period)+1) = events(ievent, 2) - cue_on_time_by_trial(trial_index) - start_time;
+                end
+                if hybrid_by_trial(trial_index) == 1      % for hybrid trial...
+                    hybrid_times_1st_lick_no_lick_period(length(hybrid_times_1st_lick_no_lick_period)+1) = events(ievent, 2) - cue_on_time_by_trial(trial_index) - start_time;
+                end
             end
         end
         % check for pre-reward window lick if trial not aborted:
