@@ -6,7 +6,7 @@
 	State System Architecture             - Lingfeng Hou (lingfenghou@g.harvard.edu)
 
 	Created       9/16/16 - ahamilos
-	Last Modified 11/12/16 - ahamilos
+	Last Modified 11/18/16 - ahamilos
 	
 	(prior version: PAV_OP_QUININE)
 	New to this version: Make quinine or enforced no lick more flexible - 
@@ -17,6 +17,7 @@
 	--> Added an event marker to track whether trial is pavlovian or operant
 	--> Mixed trial type now decided at TRIAL INIT
 	--> Added new Hybrid Pav-Op state - is op if lick before target, is pav if wait beyond target. (AH 11/12/16)
+  --> Add event markers for first lick in window (1st lick abort, 1st lick reward, 1st reward late)
 	------------------------------------------------------------------
 	COMPATIBILITY REPORT:
 		Matlab HOST: Matlab 2016a - FileName = MouseBehaviorInterface.m (depends on ArduinoConnection.m)
@@ -26,7 +27,7 @@
 	------------------------------------------------------------------
 	Reserved:
 		
-		Event Markers: 0-15
+		Event Markers: 0-16
 		States:        0-8
 		Result Codes:  0-3
 		Parameters:    0-24
@@ -54,6 +55,7 @@
 		-  Quinine dispensed    (event marker = 10)
 		-  Waiting for ITI      (event marker = 11)   - enters this state if trial aborted by behavioral error, House lamps ON
 		-  Correct Lick         (event marker = 12)   - first correct lick in the window
+    -  1st Lick             (event marker = 16)   - first relevant lick in trial
 
 	Trial Type Markers:
 		-  Pavlovian            (event marker = 13)   - marks current trial as Pavlovian
@@ -228,6 +230,7 @@ enum EventMarkers
 	EVENT_PAVLOVIAN,        // Marks trial as Pavlovian
 	EVENT_OPERANT,          // Marks trial as Operant
 	EVENT_HYBRID,           // Marks trial as Hybrid
+  EVENT_FIRST_LICK,       // Marks first relevant lick in trial (abort, reward, or late)
 	_NUM_OF_EVENT_MARKERS
 };
 
@@ -248,7 +251,8 @@ static const char *_eventMarkerNames[] =    // * to define array of strings
 	"CORRECT_LICK",
 	"PAVLOVIAN",
 	"OPERANT",
-	"HYBRID"
+	"HYBRID",
+  "FIRST_LICK"
 };
 
 /*****************************************************
@@ -389,11 +393,11 @@ Other Global Variables
 *****************************************************/
 // Variables declared here can be carried to the next loop, AND read/written in function scope as well as main scope
 // (previously defined):
-static long _eventMarkerTimer = 0;
-static long _trialTimer = 0;
-static long _resultCode = -1;        // Result code number. -1 if there is no result.
-static long _random_delay_timer = 0;    // Random delay timer
-static long _single_loop_timer = 0;     // Timer
+static long _eventMarkerTimer        = 0;
+static long _trialTimer              = 0;
+static long _resultCode              = -1;       // Result code number. -1 if there is no result.
+static long _random_delay_timer      = 0;        // Random delay timer
+static long _single_loop_timer       = 0;        // Timer
 static State _state                  = _INIT;    // This variable (current _state) get passed into a _state function, which determines what the next _state should be, and updates it to the next _state.
 static State _prevState              = _INIT;    // Remembers the previous _state from the last loop (actions should only be executed when you enter a _state for the first time, comparing currentState vs _prevState helps us keep track of that).
 static char _command                 = ' ';      // Command char received from host, resets on each loop
@@ -402,19 +406,20 @@ static bool _lick_state              = false;    // True when lick detected, Fal
 static bool _pre_window_elapsed      = false;    // Track if pre_window time has elapsed
 static bool _reached_target          = false;    // Track if target time reached
 static bool _late_lick_detected      = false;    // Track if late lick detected
-static long _exp_timer      = 0;        // Experiment timer, reset to signedMillis() at every soft reset
-static long _lick_time      = 0;        // Tracks most recent lick time
-static long _cue_on_time    = 0;        // Tracks time cue has been displayed for
-static long _response_window_timer = 0; // Tracks time in response window state
-static long _reward_timer   = 0;        // Tracks time in reward state
-static long _quinine_timer  = 0;        // Tracks time since last quinine delivery
-static long _abort_timer    = 0;        // Tracks time in abort state
-static long _ITI_timer      = 0;        // Tracks time in ITI state
-static long _preCueDelay    = 0;        // Initialize _preCueDelay var
+static long _exp_timer               = 0;        // Experiment timer, reset to signedMillis() at every soft reset
+static long _lick_time               = 0;        // Tracks most recent lick time
+static long _cue_on_time             = 0;        // Tracks time cue has been displayed for
+static long _response_window_timer   = 0;        // Tracks time in response window state
+static long _reward_timer            = 0;        // Tracks time in reward state
+static long _quinine_timer           = 0;        // Tracks time since last quinine delivery
+static long _abort_timer             = 0;        // Tracks time in abort state
+static long _ITI_timer               = 0;        // Tracks time in ITI state
+static long _preCueDelay             = 0;        // Initialize _preCueDelay var
 static bool _reward_dispensed_complete = false;  // init tracker of reward dispensal
 static bool _shock_trigger_on        = false;    // Shock trigger default is off
-static long _dice_roll       = 0;        // Randomly select if trial will be pav or op
+static long _dice_roll               = 0;        // Randomly select if trial will be pav or op
 static bool _mixed_is_pavlovian      = true;     // Track if current mixed trial is pavlovian
+static bool _first_lick_received     = false;    // Track if first lick received for a trial
 
 
 /*****************************************************
@@ -549,7 +554,7 @@ void mySetup()
 	_pre_window_elapsed     	= false;    // Track if pre_window time has elapsed
 	_reached_target         	= false;    // Track if target time reached
 	_late_lick_detected     	= false;    // Track if late lick detected
-	_exp_timer		        	= signedMillis();	// Experiment timer, reset to signedMillis() at every soft reset
+	_exp_timer		        	  = signedMillis();	// Experiment timer, reset to signedMillis() at every soft reset
 	_lick_time              	= 0;        // Tracks most recent lick time
 	_cue_on_time            	= 0;        // Tracks time cue has been displayed for
 	_response_window_timer  	= 0;        // Tracks time in response window state
@@ -557,10 +562,11 @@ void mySetup()
 	_abort_timer            	= 0;        // Tracks time in abort state
 	_ITI_timer              	= 0;        // Tracks time in ITI state
 	_preCueDelay            	= 0;        // Initialize _preCueDelay var
-	_reward_dispensed_complete 	= false; // init tracker of reward dispensal
+	_reward_dispensed_complete= false;    // init tracker of reward dispensal
 	_shock_trigger_on       	= false;    // Shock trigger default is off
-	_dice_roll       			= 0;        // Randomly select if trial will be pav or op
+	_dice_roll       			    = 0;        // Randomly select if trial will be pav or op
 	_mixed_is_pavlovian     	= true;     // Track if current mixed trial is pavlovian
+  _first_lick_received      = false;    // Reset first lick detector
 
 
 	// Tell PC that we're running by sending '~' message:
@@ -605,6 +611,7 @@ void idle_state() {
 		_late_lick_detected = false;                  // Reset late lick detector
 		_reward_dispensed_complete = false;           // Reset tracker of reward dispensal
 		_resultCode = -1;                             // Clear previously registered result code
+    _first_lick_received = false;                 // Clear previously registered first lick
 
 		//------------------------DEBUG MODE--------------------------//
 		if (_params[_DEBUG]) {
@@ -788,12 +795,19 @@ void pre_window() { //**********************************************************
 				// Send a event marker (lick) to HOST with timestamp
 				sendMessage("&" + String(EVENT_LICK) + " " + String(signedMillis() - _exp_timer));
 				_lick_state = true;                            // Halt lick detection
+        //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~Check for first lick~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~//
+          if (!_first_lick_received) {
+            // If it's the first lick in the trial, send event marker:
+            sendMessage("&" + String(EVENT_FIRST_LICK) + " " + String(signedMillis() - _exp_timer));
+            _first_lick_received = true;
+          }
+
 				//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~Check for Quinine Window~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~//
-				//~~~~~~~~~~~~~~~~~~~~~~~~~Deliver Quinine if Prior Quinine has elapsed~~~~~~~~~~~~~~~~~~~~~~~~//            
-				if (signedMillis() - _quinine_timer >= _params[QUININE_TIMEOUT] && signedMillis() - _cue_on_time > _params[QUININE_MIN] && signedMillis()-_cue_on_time < _params[QUININE_MAX]) { // If quinine window open
-					playSound(TONE_QUININE);                   // Dispense quinine for QUININE_DURATION
-					_quinine_timer = signedMillis();                 // Log time of last quinine deterrant
-				}
+  				//~~~~~~~~~~~~~~~~~~~~~~~~~Deliver Quinine if Prior Quinine has elapsed~~~~~~~~~~~~~~~~~~~~~~~~//            
+  				if (signedMillis() - _quinine_timer >= _params[QUININE_TIMEOUT] && signedMillis() - _cue_on_time > _params[QUININE_MIN] && signedMillis()-_cue_on_time < _params[QUININE_MAX]) { // If quinine window open
+  					playSound(TONE_QUININE);                   // Dispense quinine for QUININE_DURATION
+  					_quinine_timer = signedMillis();                 // Log time of last quinine deterrant
+  				}
 				//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~//
 				//------------------------DEBUG MODE--------------------------//
 					if (_params[_DEBUG]) {
@@ -885,6 +899,11 @@ void response_window() {
 				sendMessage("&" + String(EVENT_LICK) + " " + String(signedMillis() - _exp_timer));
 				// Send a event marker (correct lick) to HOST with timestamp
 				sendMessage("&" + String(EVENT_CORRECT_LICK) + " " + String(signedMillis() - _exp_timer));
+        if (!_first_lick_received) {
+          // If it's the first lick in the trial, send event marker:
+          sendMessage("&" + String(EVENT_FIRST_LICK) + " " + String(signedMillis() - _exp_timer));
+          _first_lick_received = true;
+        }
 				_lick_state = true;                            // Halts lick detection
 				//------------------------DEBUG MODE--------------------------//
 				if (_params[_DEBUG]) {
@@ -977,6 +996,11 @@ void response_window() {
 					sendMessage("&" + String(EVENT_LICK) + " " + String(signedMillis() - _exp_timer));
 					// Send a event marker (correct lick) to HOST with timestamp
 					sendMessage("&" + String(EVENT_CORRECT_LICK) + " " + String(signedMillis() - _exp_timer));
+          if (!_first_lick_received) {
+            // If it's the first lick in the trial, send event marker:
+            sendMessage("&" + String(EVENT_FIRST_LICK) + " " + String(signedMillis() - _exp_timer));
+            _first_lick_received = true;
+          }
 					_lick_state = true;                            // Halts lick detection
 					// Cycle back to Response Window state in Pavlovian Mode //
 					//------------------------DEBUG MODE--------------------------//
@@ -1069,6 +1093,11 @@ void response_window() {
 						sendMessage("&" + String(EVENT_LICK) + " " + String(signedMillis() - _exp_timer));
 						// Send a event marker (correct lick) to HOST with timestamp
 						sendMessage("&" + String(EVENT_CORRECT_LICK) + " " + String(signedMillis() - _exp_timer));
+            if (!_first_lick_received) {
+              // If it's the first lick in the trial, send event marker:
+              sendMessage("&" + String(EVENT_FIRST_LICK) + " " + String(signedMillis() - _exp_timer));
+              _first_lick_received = true;
+            }
 						_lick_state = true;                            // Halts lick detection
 						_state = REWARD;                               // Move -> REWARD
 						//------------------------DEBUG MODE--------------------------//
@@ -1102,6 +1131,11 @@ void response_window() {
 					sendMessage("&" + String(EVENT_LICK) + " " + String(signedMillis() - _exp_timer));
 					// Send a event marker (correct lick) to HOST with timestamp
 					sendMessage("&" + String(EVENT_CORRECT_LICK) + " " + String(signedMillis() - _exp_timer));
+          if (!_first_lick_received) {
+            // If it's the first lick in the trial, send event marker:
+            sendMessage("&" + String(EVENT_FIRST_LICK) + " " + String(signedMillis() - _exp_timer));
+            _first_lick_received = true;
+          }
 					_lick_state = true;                            // Halts lick detection
 					_state = REWARD;                               // Move -> REWARD
 					//------------------------DEBUG MODE--------------------------//
@@ -1189,6 +1223,11 @@ void response_window() {
 						sendMessage("&" + String(EVENT_LICK) + " " + String(signedMillis() - _exp_timer));
 						// Send a event marker (correct lick) to HOST with timestamp
 						sendMessage("&" + String(EVENT_CORRECT_LICK) + " " + String(signedMillis() - _exp_timer));
+            if (!_first_lick_received) {
+              // If it's the first lick in the trial, send event marker:
+              sendMessage("&" + String(EVENT_FIRST_LICK) + " " + String(signedMillis() - _exp_timer));
+              _first_lick_received = true;
+            }
 						_lick_state = true;                            // Halts lick detection
 						// Cycle back to Response Window state in Pavlovian Mode //
 						//------------------------DEBUG MODE--------------------------//
@@ -1277,6 +1316,11 @@ void response_window() {
 						sendMessage("&" + String(EVENT_LICK) + " " + String(signedMillis() - _exp_timer));
 						// Send a event marker (correct lick) to HOST with timestamp
 						sendMessage("&" + String(EVENT_CORRECT_LICK) + " " + String(signedMillis() - _exp_timer));
+            if (!_first_lick_received) {
+              // If it's the first lick in the trial, send event marker:
+              sendMessage("&" + String(EVENT_FIRST_LICK) + " " + String(signedMillis() - _exp_timer));
+              _first_lick_received = true;
+            }
 						_lick_state = true;                            // Halts lick detection
 						_state = REWARD;                               // Move -> REWARD
 						//------------------------DEBUG MODE--------------------------//
@@ -1372,7 +1416,12 @@ void post_window() {
 		if (!_lick_state) {                              // If a new lick initiated
 			_lick_time = signedMillis() - _cue_on_time;          // Records lick wrt CUE ON
 			// Send a event marker (lick) to HOST with timestamp
-			sendMessage("&" + String(EVENT_LICK) + " " + String(signedMillis() - _exp_timer));    
+			sendMessage("&" + String(EVENT_LICK) + " " + String(signedMillis() - _exp_timer));   
+      if (!_first_lick_received) {
+        // If it's the first lick in the trial, send event marker:
+        sendMessage("&" + String(EVENT_FIRST_LICK) + " " + String(signedMillis() - _exp_timer));
+        _first_lick_received = true;
+      } 
 			_lick_state = true;                            // Halts lick detection
 			if (!_late_lick_detected) {                    // If this is first lick in post window
 				_resultCode = CODE_LATE_LICK;                // Register result code      
@@ -1585,6 +1634,7 @@ void intertrial() {
 		_reached_target = false;                      // Reset target time tracker
 		_late_lick_detected = false;                  // Reset late lick detector
 		_reward_dispensed_complete = false;           // Reset tracker of reward dispensal
+    _first_lick_received = false;                 // Reset tracker of first licks
 
 		//=================== INIT HOST COMMUNICATION=================//
 		isParamsUpdateStarted = false;                      // Initialize HOST param message monitor Start
