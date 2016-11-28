@@ -324,6 +324,7 @@ enum ParamID
 	ABORT_MIN,                      // Miminum time post cue before lick causes abort (ms)
 	ABORT_MAX,                      // Maximum time post cue before abort unavailable (ms)
 	PERCENT_PAVLOVIAN,              // Percent of mixed trials that are pavlovian (decimal)
+	PLAY_PAV_REWARD_TONE,			// 0 to disable reward tone for pavlovian trials
 	_NUM_PARAMS                     // (Private) Used to count how many parameters there are so we can initialize the param array with the correct size. Insert additional parameters before this.
 }; //**** BE SURE TO ADD NEW PARAMS TO THE NAMES LIST BELOW!*****//
 
@@ -355,7 +356,8 @@ static const char *_paramNames[] =
 	"EARLY_LICK_ABORT",
 	"ABORT_MIN",
 	"ABORT_MAX",
-	"PERCENT_PAVLOVIAN"
+	"PERCENT_PAVLOVIAN",
+	"PLAY_PAV_REWARD_TONE"
 }; //**** BE SURE TO INIT NEW PARAM VALUES BELOW!*****//
 
 // Initialize parameters
@@ -385,7 +387,8 @@ long _params[_NUM_PARAMS] =
 	0,                              // EARLY_LICK_ABORT
 	0,                              // ABORT_MIN
 	1250,                           // ABORT_MAX
-	1                               // PERCENT_PAVLOVIAN
+	1,                              // PERCENT_PAVLOVIAN
+	0								// PLAY_PAV_REWARD_TONE
 };
 
 /*****************************************************
@@ -848,11 +851,6 @@ void pre_window() { //**********************************************************
 		}
 	}
 
-
-
-
-
-
 	_state = PRE_WINDOW;                             // No Command --> Cycle back to PRE_WINDOW
 } // End PRE_WINDOW STATE ------------------------------------------------------------------------------------------------------------------------------------------
 
@@ -899,11 +897,11 @@ void response_window() {
 				sendMessage("&" + String(EVENT_LICK) + " " + String(signedMillis() - _exp_timer));
 				// Send a event marker (correct lick) to HOST with timestamp
 				sendMessage("&" + String(EVENT_CORRECT_LICK) + " " + String(signedMillis() - _exp_timer));
-        if (!_first_lick_received) {
-          // If it's the first lick in the trial, send event marker:
-          sendMessage("&" + String(EVENT_FIRST_LICK) + " " + String(signedMillis() - _exp_timer));
-          _first_lick_received = true;
-        }
+				if (!_first_lick_received) {
+					// If it's the first lick in the trial, send event marker:
+					sendMessage("&" + String(EVENT_FIRST_LICK) + " " + String(signedMillis() - _exp_timer));
+					_first_lick_received = true;
+				}
 				_lick_state = true;                            // Halts lick detection
 				//------------------------DEBUG MODE--------------------------//
 				if (_params[_DEBUG]) {
@@ -996,11 +994,11 @@ void response_window() {
 					sendMessage("&" + String(EVENT_LICK) + " " + String(signedMillis() - _exp_timer));
 					// Send a event marker (correct lick) to HOST with timestamp
 					sendMessage("&" + String(EVENT_CORRECT_LICK) + " " + String(signedMillis() - _exp_timer));
-          if (!_first_lick_received) {
-            // If it's the first lick in the trial, send event marker:
-            sendMessage("&" + String(EVENT_FIRST_LICK) + " " + String(signedMillis() - _exp_timer));
-            _first_lick_received = true;
-          }
+					if (!_first_lick_received) {
+						// If it's the first lick in the trial, send event marker:
+						sendMessage("&" + String(EVENT_FIRST_LICK) + " " + String(signedMillis() - _exp_timer));
+						_first_lick_received = true;
+					}
 					_lick_state = true;                            // Halts lick detection
 					// Cycle back to Response Window state in Pavlovian Mode //
 					//------------------------DEBUG MODE--------------------------//
@@ -1093,11 +1091,11 @@ void response_window() {
 						sendMessage("&" + String(EVENT_LICK) + " " + String(signedMillis() - _exp_timer));
 						// Send a event marker (correct lick) to HOST with timestamp
 						sendMessage("&" + String(EVENT_CORRECT_LICK) + " " + String(signedMillis() - _exp_timer));
-            if (!_first_lick_received) {
-              // If it's the first lick in the trial, send event marker:
-              sendMessage("&" + String(EVENT_FIRST_LICK) + " " + String(signedMillis() - _exp_timer));
-              _first_lick_received = true;
-            }
+						if (!_first_lick_received) {
+							// If it's the first lick in the trial, send event marker:
+							sendMessage("&" + String(EVENT_FIRST_LICK) + " " + String(signedMillis() - _exp_timer));
+							_first_lick_received = true;
+						}
 						_lick_state = true;                            // Halts lick detection
 						_state = REWARD;                               // Move -> REWARD
 						//------------------------DEBUG MODE--------------------------//
@@ -1223,11 +1221,11 @@ void response_window() {
 						sendMessage("&" + String(EVENT_LICK) + " " + String(signedMillis() - _exp_timer));
 						// Send a event marker (correct lick) to HOST with timestamp
 						sendMessage("&" + String(EVENT_CORRECT_LICK) + " " + String(signedMillis() - _exp_timer));
-            if (!_first_lick_received) {
-              // If it's the first lick in the trial, send event marker:
-              sendMessage("&" + String(EVENT_FIRST_LICK) + " " + String(signedMillis() - _exp_timer));
-              _first_lick_received = true;
-            }
+						if (!_first_lick_received) {
+							// If it's the first lick in the trial, send event marker:
+							sendMessage("&" + String(EVENT_FIRST_LICK) + " " + String(signedMillis() - _exp_timer));
+							_first_lick_received = true;
+						}
 						_lick_state = true;                            // Halts lick detection
 						// Cycle back to Response Window state in Pavlovian Mode //
 						//------------------------DEBUG MODE--------------------------//
@@ -1316,11 +1314,11 @@ void response_window() {
 						sendMessage("&" + String(EVENT_LICK) + " " + String(signedMillis() - _exp_timer));
 						// Send a event marker (correct lick) to HOST with timestamp
 						sendMessage("&" + String(EVENT_CORRECT_LICK) + " " + String(signedMillis() - _exp_timer));
-            if (!_first_lick_received) {
-              // If it's the first lick in the trial, send event marker:
-              sendMessage("&" + String(EVENT_FIRST_LICK) + " " + String(signedMillis() - _exp_timer));
-              _first_lick_received = true;
-            }
+						if (!_first_lick_received) {
+							// If it's the first lick in the trial, send event marker:
+							sendMessage("&" + String(EVENT_FIRST_LICK) + " " + String(signedMillis() - _exp_timer));
+							_first_lick_received = true;
+						}
 						_lick_state = true;                            // Halts lick detection
 						_state = REWARD;                               // Move -> REWARD
 						//------------------------DEBUG MODE--------------------------//
@@ -1417,11 +1415,11 @@ void post_window() {
 			_lick_time = signedMillis() - _cue_on_time;          // Records lick wrt CUE ON
 			// Send a event marker (lick) to HOST with timestamp
 			sendMessage("&" + String(EVENT_LICK) + " " + String(signedMillis() - _exp_timer));   
-      if (!_first_lick_received) {
-        // If it's the first lick in the trial, send event marker:
-        sendMessage("&" + String(EVENT_FIRST_LICK) + " " + String(signedMillis() - _exp_timer));
-        _first_lick_received = true;
-      } 
+			if (!_first_lick_received) {
+				// If it's the first lick in the trial, send event marker:
+				sendMessage("&" + String(EVENT_FIRST_LICK) + " " + String(signedMillis() - _exp_timer));
+				_first_lick_received = true;
+			} 
 			_lick_state = true;                            // Halts lick detection
 			if (!_late_lick_detected) {                    // If this is first lick in post window
 				_resultCode = CODE_LATE_LICK;                // Register result code      
@@ -1473,8 +1471,11 @@ void reward() {
 	~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
 	if (_state != _prevState) {                        // If ENTERTING REWARD:
 		_reward_timer = signedMillis();                        // Start _reward_timer
+		// Play reward tone, unless user disables reward tones in pavlovian trials
+		if !(_params[PLAY_PAV_REWARD_TONE] == 0 && (_resultCode == CODE_PAVLOV_HYBRID || _params[PAVLOVIAN] == 1)) {
+			playSound(TONE_REWARD);                             // Start reward tone    
+		}
 		setReward(true);                                    // Initiate reward delivery
-		playSound(TONE_REWARD);                             // Start reward tone    
 		// Send event marker (reward) to HOST with timestamp
 		sendMessage("&" + String(EVENT_REWARD) + " " + String(signedMillis() - _exp_timer));
 		if (_params[HYBRID] == 0) {                      // If NOT hybrid trial:
@@ -1634,7 +1635,7 @@ void intertrial() {
 		_reached_target = false;                      // Reset target time tracker
 		_late_lick_detected = false;                  // Reset late lick detector
 		_reward_dispensed_complete = false;           // Reset tracker of reward dispensal
-    _first_lick_received = false;                 // Reset tracker of first licks
+		_first_lick_received = false;                 // Reset tracker of first licks
 
 		//=================== INIT HOST COMMUNICATION=================//
 		isParamsUpdateStarted = false;                      // Initialize HOST param message monitor Start
