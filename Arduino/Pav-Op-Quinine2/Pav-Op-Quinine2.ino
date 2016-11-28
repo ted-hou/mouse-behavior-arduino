@@ -388,7 +388,7 @@ long _params[_NUM_PARAMS] =
 	0,                              // ABORT_MIN
 	1250,                           // ABORT_MAX
 	1,                              // PERCENT_PAVLOVIAN
-	0								// PLAY_PAV_REWARD_TONE
+	1								// PLAY_PAV_REWARD_TONE
 };
 
 /*****************************************************
@@ -1472,7 +1472,7 @@ void reward() {
 	if (_state != _prevState) {                        // If ENTERTING REWARD:
 		_reward_timer = signedMillis();                        // Start _reward_timer
 		// Play reward tone, unless user disables reward tones in pavlovian trials
-		if !(_params[PLAY_PAV_REWARD_TONE] == 0 && (_resultCode == CODE_PAVLOV_HYBRID || _params[PAVLOVIAN] == 1)) {
+		if (!(_params[PLAY_PAV_REWARD_TONE] == 0 && (_resultCode == CODE_PAVLOV_HYBRID || _params[PAVLOVIAN] == 1))) {
 			playSound(TONE_REWARD);                             // Start reward tone    
 		}
 		setReward(true);                                    // Initiate reward delivery
