@@ -286,10 +286,10 @@ Audio cue frequencies
 *****************************************************/
 enum SoundEventFrequencyEnum
 {
-	TONE_REWARD  = 5050,             // Correct tone: (prev C8 = 4186)
-	TONE_ABORT   = 440,              // Error tone: (prev C3 = 131)
-	TONE_CUE     = 3300,             // 'Start counting the interval' cue: (prev C6 = 1047)
-	TONE_ALERT   = 131,              // Reserved for system errors
+	TONE_REWARD  = 12000,             // Correct tone: (prev C8 = 4186)
+	TONE_ABORT   = 89,              // Error tone: (prev C3 = 131)
+	TONE_CUE     = 784,             // 'Start counting the interval' cue: (prev C6 = 1047)
+	TONE_ALERT   = 36,              // Reserved for system errors
 	TONE_QUININE = 10000             // Quinine delivery -- using tone so don't require own state to deliver for set time
 };
 
