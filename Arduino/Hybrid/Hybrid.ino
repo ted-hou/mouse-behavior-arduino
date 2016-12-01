@@ -1,146 +1,6 @@
 /*********************************************************************
-	Arduino state machine code for Pavlovian-Operant Training (mice)
-	
-	Training Paradigm and Architecture    - Allison Hamilos (ahamilos@g.harvard.edu)
-	Matlab Serial Communication Interface - Ofer
-	State System Architecture             - Lingfeng Hou (lingfenghou@g.harvard.edu)
-
-	Created       9/16/16 - ahamilos
-	Last Modified 11/18/16 - ahamilos
-	
-	(prior version: PAV_OP_QUININE)
-	New to this version: Make quinine or enforced no lick more flexible - 
-	can choose a separate enforced no lick window before the opening of the reward window
-	that is distinct from the prewindow opening
-	--> Create flexible shock and abort add ons
-	--> Create a joint pav-op condition in which a fixed % of trials are pav vs op
-	--> Added an event marker to track whether trial is pavlovian or operant
-	--> Mixed trial type now decided at TRIAL INIT
-	--> Added new Hybrid Pav-Op state - is op if lick before target, is pav if wait beyond target. (AH 11/12/16)
-  --> Add event markers for first lick in window (1st lick abort, 1st lick reward, 1st reward late)
-	------------------------------------------------------------------
-	COMPATIBILITY REPORT:
-		Matlab HOST: Matlab 2016a - FileName = MouseBehaviorInterface.m (depends on ArduinoConnection.m)
-		Arduino:
-			Default: TEENSY
-			Others:  UNO, TEENSY, DUE, MEGA
-	------------------------------------------------------------------
-	Reserved:
-		
-		Event Markers: 0-16
-		States:        0-8
-		Result Codes:  0-3
-		Parameters:    0-24
-	------------------------------------------------------------------
-	Task Architecture: Pavlovian-Operant
-
-	Init Trial                (event marker = 0)
-		-  House Lamp OFF       (event marker = 1)
-		-  Random delay
-	Trial Body
-		-  Cue presentation     (event marker = 2)
-		-  Pre-window interval
-		-  Window opens         (event marker = 3)
-		-  1st half response window
-		-  Target time          (event marker = 4)    - (Pavlovian-only) reward dispensed (event marker = 8)
-		-  2nd half response window
-		-  Window closes        (event marker = 5)
-		-  Post-window Interval                       - trial aborted at this point           
-	End Trial                 (event marker = 6)    - House lamps ON (if not already)
-		-  ITI                  (event marker = 7)
-
-	Behavioral Events:
-		-  Lick                 (event marker = 8)
-		-  Reward dispensed     (event marker = 9)
-		-  Quinine dispensed    (event marker = 10)
-		-  Waiting for ITI      (event marker = 11)   - enters this state if trial aborted by behavioral error, House lamps ON
-		-  Correct Lick         (event marker = 12)   - first correct lick in the window
-    -  1st Lick             (event marker = 16)   - first relevant lick in trial
-
-	Trial Type Markers:
-		-  Pavlovian            (event marker = 13)   - marks current trial as Pavlovian
-		-  Operant              (event marker = 14)   - marks current trial as Operant
-		-  Hybrid               (event marker = 15)   - marks current trial as Hybrid
-	--------------------------------------------------------------------
-	States:
-		0: _INIT                (private) 1st state in init loop, sets up communication to Matlab HOST
-		1: IDLE_STATE           Awaiting command from Matlab HOST to begin experiment
-		2: TRIAL_INIT           House lamp OFF, random delay before cue presentation
-		3: PRE_WINDOW           (+/-) Enforced no lick before response window opens
-		4: RESPONSE_WINDOW      First lick in this interval rewarded (operant). Reward delivered at target time (pavlov)
-		5: POST_WINDOW          Checking for late licks
-		6: REWARD               Dispense reward, wait for trial Timeout
-		7: ABORT_TRIAL          Behavioral Error - House lamps ON, await trial Timeout
-		8: INTERTRIAL           House lamps ON (if not already), write data to HOST and DISK
-	---------------------------------------------------------------------
-	Result Codes:
-		0: CODE_CORRECT         First lick within response window               
-		1: CODE_EARLY_LICK      Early lick -> Abort (Enforced No-Lick Only)
-		2: CODE_LATE_LICK       Late Lick  -> Abort (Operant Only)
-		3: CODE_NO_LICK         No Response -> Time Out
-	---------------------------------------------------------------------
-	Parameters:
-		0:  _DEBUG              (private) 1 to enable debug messages to HOST
-		1:  HYBRID              1 to overrule pav/op - is op if before target, pav if target reached
-		2:  PAVLOVIAN           1 to enable Pavlovian Mode
-		3:  OPERANT             1 to enable Operant Mode
-		4:  ENFORCE_NO_LICK     1 to enforce no lick in the pre-window interval
-		5:  INTERVAL_MIN        Time to start of reward window (ms)
-		6:  INTERVAL_MAX        Time to end of reward window (ms)
-		7:  TARGET              Target time (ms)
-		8:  TRIAL_DURATION      Total alloted time/trial (ms)
-		9:  ITI                 Intertrial interval duration (ms)
-		10:  RANDOM_DELAY_MIN    Minimum random pre-Cue delay (ms)
-		11: RANDOM_DELAY_MAX    Maximum random pre-Cue delay (ms)
-		12: CUE_DURATION        Duration of the cue tone and LED flash (ms)
-		13: REWARD_DURATION     Duration of reward dispensal (ms)
-		14: QUININE_DURATION    Duration of quinine dispensal (ms)
-		15: QUININE_TIMEOUT     Minimum time between quinine deterrants (ms)
-		16: QUININE_MIN         Minimum time after cue before quinine available (ms)
-		17: QUININE_MAX         Maximum time after cue before quinine turns off (ms)
-		18: SHOCK_ON            1 to connect tube shock circuit
-		19: SHOCK_MIN           Miminum time after cue before shock connected (ms)
-		20: SHOCK_MAX           Maxumum time after cue before shock disconnected (ms)
-		21: EARLY_LICK_ABORT    1 to abort trial with early lick
-		22: ABORT_MIN           Minimum time after cue before early lick aborts trial (ms)
-		23: ABORT_MAX           Maximum time after cue when abort available (ms)
-		24: PERCENT_PAVLOVIAN   Percent of mixed trials that should be pavlovian (decimal)
-
-	---------------------------------------------------------------------
-		Incoming Message Syntax: (received from Matlab HOST)
-			"(character)#"        -- a command
-			"(character int1 int2)# -- update parameter (int1) to new value (int2)"
-			Command characters:
-				P  -- parameter
-				O# -- HOST has received updated paramters, may resume trial
-				Q# -- quit and go to IDLE_STATE
-				G# -- begin trial (from IDLE_STATE)
-	---------------------------------------------------------------------
-		Outgoing Message Syntax: (delivered to Matlab HOST)
-			ONLINE:  
-				"~"                           Tells Matlab HOST arduino is running
-			STATES:
-				"@ (enum num) stateName"      Defines state names for Matlab HOST
-				"$(enum num) num num"         State-number, parameter, value
- -                                          param = 0: current time
- -                                          param = 1: result code (enum num)
-			EVENT MARKERS:
-				"+(enum num) eventMarker"     Defines event markers with string
-				"&(enum num) timestamp"       Event Marker with timestamp
-
-			RESULT CODES:
-			"* (enum num) result_code_name" Defines result code names with str 
-			"` (enum num of result_code)"   Send result code for trial to Matlab HOST
-
-			MESSAGE:
-				"string"                      String to Matlab HOST serial monitor (debugging) 
-	---------------------------------------------------------------------
-	STATE MACHINE
-		- States are written as individual functions
-		- The main loop calls the appropriate state function depending on current state.
-		- A state function consists of two parts
-		 - Action: executed once when first entering this state.
-		 - Transitions: evaluated on each loop and determines what the next state should be.
+	Arduino state machine
+	Based on Allison's hybrid task (Pav-Op-quinine_v2)
 *********************************************************************/
 
 
@@ -150,11 +10,11 @@
 *****************************************************/
 
 /*****************************************************
-Arduino Pin Outs (Mode: TEENSY)
+	Arduino Pin Outs (Mode: TEENSY)
 *****************************************************/
 
 // Digital OUT
-#define PIN_HOUSE_LAMP     6   // House Lamp Pin         (DUE = 34)  (MEGA = 34)  (UNO = 5?)  (TEENSY = 6?)
+#define PIN_HOUSE_LAMP     6   // House Lamp Pin         (DUE = 34)  (MEGA = 34)  (UNO = 5?)  (TEENSY = 6)
 #define PIN_LED_CUE        4   // Cue LED Pin            (DUE = 35)  (MEGA = 28)  (UNO =  4)  (TEENSY = 4)
 #define PIN_REWARD         7   // Reward Pin             (DUE = 37)  (MEGA = 52)  (UNO =  7)  (TEENSY = 7)
 
@@ -171,36 +31,36 @@ Enums - DEFINE States
 // All the states
 enum State
 {
-	_INIT,                // (Private) Initial state used on first loop. 
-	IDLE_STATE,           // Idle state. Wait for go signal from host.
-	INIT_TRIAL,           // House lamp OFF, random delay before cue presentation
-	PRE_WINDOW,           // (+/-) Enforced no lick before response window opens
-	RESPONSE_WINDOW,      // First lick in this interval rewarded (operant). Reward delivered at target time (pavlov)
-	POST_WINDOW,          // Check for late licks
-	REWARD,               // Dispense reward, wait for trial Timeout
-	ABORT_TRIAL,          // Behavioral Error - House lamps ON, await trial Timeout
-	INTERTRIAL,           // House lamps ON (if not already), write data to HOST and DISK, receive new params
-	_NUM_STATES           // (Private) Used to count number of states
+	_STATE_INIT,			// (Private) Initial state used on first loop. 
+	STATE_IDLE,				// Idle state. Wait for go signal from host.
+	STATE_TRIAL_START,		// House lamp OFF, random delay before cue presentation
+	STATE_PRE_WINDOW,		// (+/-) Enforced no lick before response window opens
+	STATE_RESPONSE_WINDOW,	// First lick in this interval rewarded (operant). Reward delivered at target time (pavlov)
+	STATE_POST_WINDOW,		// Check for late licks
+	STATE_REWARD,			// Dispense reward, wait for trial Timeout
+	STATE_ABORT,			// Behavioral Error - House lamps ON, await trial Timeout
+	STATE_INTERTRIAL,		// House lamps ON (if not already), write data to HOST and DISK, receive new params
+	_NUM_STATES				// (Private) Used to count number of states
 };
 
 // State names stored as strings, will be sent to host
 // Names cannot contain spaces!!!
 static const char *_stateNames[] = 
 {
-	"_INIT",
-	"IDLE_STATE",
-	"INIT_TRIAL",
+	"_STATE_INIT",
+	"IDLE",
+	"TRIAL_START",
 	"PRE_WINDOW",
 	"RESPONSE_WINDOW",
 	"POST_WINDOW",
 	"REWARD",
-	"ABORT_TRIAL",
+	"ABORT",
 	"INTERTRIAL"
 };
 
 // Define which states allow param update
 static const int _stateCanUpdateParams[] = {0,1,0,0,0,0,0,0,1}; 
-// Defined to allow Parameter upload from host during IDLE_STATE and INTERTRIAL
+// Defined to allow Parameter upload from host during STATE_IDLE and STATE_INTERTRIAL
 
 
 /*****************************************************
@@ -212,30 +72,29 @@ enum EventMarker
 		Times and trials will be defined by global time, 
 		which can be parsed later to validate time measurements */
 {
-	EVENT_TRIAL_INIT,       // New trial initiated
-	EVENT_HOUSE_LAMP_OFF,   // House lamp off - start random pre-cue delay
-	EVENT_CUE_ON,           // Begin cue presentation
-	EVENT_WINDOW_OPEN,      // Response window open
-	EVENT_TARGET_TIME,      // Target time
-	EVENT_WINDOW_CLOSED,    // Response window closed
-	EVENT_TRIAL_END,        // Trial end
-	EVENT_ITI,              // Enter ITI
-	EVENT_LICK,             // Lick detected
-	EVENT_REWARD,           // Reward dispensed
-	EVENT_QUININE,          // Quinine dispensed
-	EVENT_ABORT,            // Abort (behavioral error)
-	EVENT_CORRECT_LICK,     // Marks the "Peak" Lick (First within window)
-	EVENT_PAVLOVIAN,        // Marks trial as Pavlovian
-	EVENT_OPERANT,          // Marks trial as Operant
-	EVENT_HYBRID,           // Marks trial as Hybrid
-	EVENT_FIRST_LICK,       // Marks first relevant lick in trial (abort, reward, or late)
+	EVENT_TRIAL_START,				// New trial initiated
+	EVENT_CUE_ON,					// Begin cue presentation
+	EVENT_WINDOW_OPEN,				// Response window open
+	EVENT_TARGET_TIME,				// Target time
+	EVENT_WINDOW_CLOSED,			// Response window closed
+	EVENT_TRIAL_END,				// Trial end
+	EVENT_ITI,						// Enter ITI
+	EVENT_LICK,						// Lick onset
+	EVENT_LICK_OFF,					// Lick offset
+	EVENT_FIRST_LICK,				// First lick in trial since cue on
+	EVENT_FIRST_LICK_EARLY,			// First lick in trial since cue on (if it occurred before window)
+	EVENT_FIRST_LICK_CORRECT,		// First lick in trial since cue on (if it occurred during window)
+	EVENT_FIRST_LICK_LATE,			// First lick in trial since cue on (if it occurred after window)
+	EVENT_FIRST_LICK_PAVLOVIAN,		// First lick in trial since cue on (if it occurred after pavlovian reward)
+	EVENT_REWARD_ON,				// Reward, juice valve on
+	EVENT_REWARD_OFF,				// Reward, juice valve off
+	EVENT_ABORT,					// Trial aborted
 	_NUM_OF_EVENT_MARKERS
 };
 
 static const char *_eventMarkerNames[] =    // * to define array of strings
 {
-	"TRIAL_INIT",
-	"HOUSE_LAMP_OFF",
+	"STATE_TRIAL_START",
 	"CUE_ON",
 	"WINDOW_OPEN",
 	"TARGET_TIME",
@@ -243,14 +102,15 @@ static const char *_eventMarkerNames[] =    // * to define array of strings
 	"TRIAL_END",
 	"ITI",
 	"LICK",
-	"REWARD",
-	"QUININE",
-	"ABORT",
-	"CORRECT_LICK",
-	"PAVLOVIAN",
-	"OPERANT",
-	"HYBRID",
-	"FIRST_LICK"
+	"LICK_OFF",
+	"FIRST_LICK",
+	"FIRST_LICK_EARLY",
+	"FIRST_LICK_CORRECT",
+	"FIRST_LICK_LATE",
+	"FIRST_LICK_PAVLOVIAN",
+	"REWARD_ON",
+	"REWARD_OFF",
+	"ABORT"
 };
 
 /*****************************************************
@@ -317,7 +177,7 @@ enum ParamID
 	PERCENT_PAVLOVIAN,              // Percent of mixed trials that are pavlovian (decimal)
 	PLAY_PAV_REWARD_TONE,			// 0 to disable reward tone for pavlovian trials
 	_NUM_PARAMS                     // (Private) Used to count how many parameters there are so we can initialize the param array with the correct size. Insert additional parameters before this.
-}; //**** BE SURE TO ADD NEW PARAMS TO THE NAMES LIST BELOW!*****//
+};
 
 // Store parameter names as strings, will be sent to host
 // Names cannot contain spaces!!!
@@ -342,7 +202,7 @@ static const char *_paramNames[] =
 	"ABORT_MAX",
 	"PERCENT_PAVLOVIAN",
 	"PLAY_PAV_REWARD_TONE"
-}; //**** BE SURE TO INIT NEW PARAM VALUES BELOW!*****//
+};
 
 // Initialize parameters
 long _params[_NUM_PARAMS] = 
@@ -373,14 +233,13 @@ Other Global Variables
 *****************************************************/
 // Variables declared here can be carried to the next loop, AND read/written in function scope as well as main scope
 // (previously defined):
-static long _eventMarkerTimer        = 0;
-static long _time_global             = 0;		// Reset to signedMillis() at every soft reset
-static long _time_trial              = 0;		// Reset to 0 at start of trial
-static long _resultCode              = -1;      // Result code. -1 if there is no result.
-static State _state                  = _INIT;   // This variable (current _state) get passed into a _state function, which determines what the next _state should be, and updates it to the next _state.
-static State _prevState              = _INIT;   // Remembers the previous _state from the last loop (actions should only be executed when you enter a _state for the first time, comparing currentState vs _prevState helps us keep track of that).
-static char _command                 = ' ';     // Command char received from host, resets on each loop
-static int _arguments[2]             = {0};     // Two integers received from host , resets on each loop
+static long _time_global		= 0;		// Reset to signedMillis() at every soft reset
+static long _time_trial			= 0;		// Reset to 0 at start of trial
+static long _resultCode			= -1;		// Result code. -1 if there is no result.
+static State _state				= _STATE_INIT;	// This variable (current _state) get passed into a _state function, which determines what the next _state should be, and updates it to the next _state.
+static State _prevState			= _STATE_INIT;	// Remembers the previous _state from the last loop (actions should only be executed when you enter a _state for the first time, comparing currentState vs _prevState helps us keep track of that).
+static char _command			= ' ';		// Command char received from host, resets on each loop
+static int _arguments[2]		= {0};		// Two integers received from host , resets on each loop
 
 
 /*****************************************************
@@ -388,23 +247,16 @@ static int _arguments[2]             = {0};     // Two integers received from ho
 *****************************************************/
 void setup()
 {
-	//--------------------I/O initialization------------------//
-	// OUTPUTS
-	pinMode(PIN_HOUSE_LAMP, OUTPUT);            // LED for illumination (trial cue)
+	// Init pins
+	pinMode(PIN_HOUSE_LAMP, OUTPUT);            // LED for illumination
 	pinMode(PIN_LED_CUE, OUTPUT);               // LED for 'start' cue
-	pinMode(PIN_SPEAKER, OUTPUT);               // Speaker for cue/correct/error tone
-	pinMode(PIN_REWARD, OUTPUT);                // Reward OUT
-	// INPUTS
+	pinMode(PIN_SPEAKER, OUTPUT);               // Speaker for cue tone
+	pinMode(PIN_REWARD, OUTPUT);                // Reward, set to HIGH to open juice valve
 	pinMode(PIN_LICK, INPUT);                   // Lick detector
-	//--------------------------------------------------------//
 
-
-
-	//------------------------Serial Comms--------------------//
+	// Serial comms
 	Serial.begin(115200);                       // Set up USB communication at 115200 baud 
-
-} // End Initialization Loop -----------------------------------------------------------------------------------------------------
-
+}
 
 /*****************************************************
 	MAIN LOOP
@@ -421,27 +273,33 @@ void loop()
 			Step 1: Read USB MESSAGE from HOST (if available)
 		~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
 		// 1) Check USB for MESSAGE from HOST, if available. String is read byte by byte. (Each character is a byte, so reads e/a character)
-		static String usbMessage  = "";             // Initialize usbMessage to empty string, only happens once on first loop (thanks to static!)
-		_command = ' ';                              // Initialize _command to a SPACE
-		_arguments[0] = 0;                           // Initialize 1st integer argument
-		_arguments[1] = 0;                           // Initialize 2nd integer argument
+		// Initialize usbMessage to empty string, only happens once on first loop (thanks to static!)
+		static String usbMessage  = "";
+		_command = ' ';
+		_arguments[0] = 0;
+		_arguments[1] = 0;
 
-		if (Serial.available() > 0)  {              // If there's something in the SERIAL INPUT BUFFER (i.e., if another character from host is waiting in the queue to be read)
-			char inByte = Serial.read();                  // Read next character
-			
-			// The pound sign ('#') indicates a complete message!------------------------
-			if (inByte == '#')  {                         // If # received, terminate the message
+		if (Serial.available() > 0)
+		{
+			char inByte = Serial.read();
+			// The pound sign ('#') indicates a complete message
+			if (inByte == '#')  
+			{
 				// Parse the string, and updates `_command`, and `_arguments`
-				_command = getCommand(usbMessage);               // getCommand pulls out the character from the message for the _command         
-				getArguments(usbMessage, _arguments);            // getArguments pulls out the integer values from the usbMessage
-				usbMessage = "";                                // Clear message buffer (resets to prepare for next message)
-				if (_command == 'R') {
+				_command = getCommand(usbMessage);         
+				getArguments(usbMessage, _arguments);
+				// Clear message buffer (resets to prepare for next message)
+				usbMessage = "";
+				// "R" triggers a soft reset
+				if (_command == 'R') 
+				{
 					break;
 				}
 			}
-			else {
+			else 
+			{
 				// append character to message buffer
-				usbMessage = usbMessage + inByte;       // Appends the next character from the queue to the usbMessage string
+				usbMessage = usbMessage + inByte;
 			}
 		}
 
@@ -452,41 +310,18 @@ void loop()
 			Step 2: Update the State Machine
 		~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
 		// Depending on what _state we're in , call the appropriate _state function, which will evaluate the transition conditions, and update `_state` to what the next _state should be
-		switch (_state) {
-			case _INIT:
+		switch (_state) 
+		{
+			case _STATE_INIT:
 				idle_state();
 				break;
 
-			case IDLE_STATE:
+			case STATE_IDLE:
 				idle_state();
 				break;
 			
-			case INIT_TRIAL:
-				init_trial();
-				break;
-			
-			case PRE_WINDOW:    
-				pre_window();
-				break;
-			
-			case RESPONSE_WINDOW:         
-				response_window();
-				break;
-			
-			case POST_WINDOW:         
-				post_window();
-				break;
-
-			case REWARD: 
-				reward();
-				break;
-			
-			case ABORT_TRIAL:
-				abort_trial();
-				break;
-			
-			case INTERTRIAL:
-				intertrial();
+			case STATE_TRIAL_START:
+				trial_start();
 				break;
 		} // End switch statement--------------------------
 	}
@@ -502,35 +337,10 @@ void mySetup()
 	setCueLED(false);                            // Cue LED OFF
 
 	//---------------------------Reset a bunch of variables---------------------------//
-	_eventMarkerTimer       	= 0;
-	_time_trial             	= 0;
-	_resultCode             	= -1; 
-	_random_delay_timer     	= 0;        // Random delay timer
-	_single_loop_timer      	= 0;        // Timer
-	_state                  	= _INIT;    // This variable (current _state) get passed into a _state function, which determines what the next _state should be, and updates it to the next _state.
-	_prevState              	= _INIT;    // Remembers the previous _state from the last loop (actions should only be executed when you enter a _state for the first time, comparing currentState vs _prevState helps us keep track of that).
-	_command                	= ' ';      // Command char received from host, resets on each loop
-	_arguments[0]           	= 0;        // Two integers received from host , resets on each loop
-	_arguments[1]           	= 0;        // Two integers received from host , resets on each loop
-	_pre_window_elapsed     	= false;    // Track if pre_window time has elapsed
-	_reached_target         	= false;    // Track if target time reached
-	_late_lick_detected     	= false;    // Track if late lick detected
-	_time_global					= signedMillis();	// Experiment timer, reset to signedMillis() at every soft reset
-	_lick_time              	= 0;        // Tracks most recent lick time
-	_cue_on_time            	= 0;        // Tracks time cue has been displayed for
-	_response_window_timer  	= 0;        // Tracks time in response window state
-	_reward_timer           	= 0;        // Tracks time in reward state
-	_abort_timer            	= 0;        // Tracks time in abort state
-	_ITI_timer              	= 0;        // Tracks time in ITI state
-	_preCueDelay            	= 0;        // Initialize _preCueDelay var
-	_reward_dispensed_complete	= false;    // init tracker of reward dispensal
-	_dice_roll					= 0;        // Randomly select if trial will be pav or op
-	_mixed_is_pavlovian     	= true;     // Track if current mixed trial is pavlovian
-	_first_lick_received		= false;    // Reset first lick detector
 
 
-	// Tell PC that we're running by sending '~' message:
-	hostInit();                         // Sends all parameters, states and error codes to Matlab (LF Function)    
+	// Sends all parameters, states and error codes to Matlab, then tell PC that we're running by sending '~' message:
+	hostInit();
 }
 
 
@@ -572,10 +382,10 @@ void idle_state() {
 	/*****************************************************
 		TRANSITION LIST
 	*****************************************************/
-	// GO signal from host --> INIT_TRIAL
+	// GO signal from host --> STATE_TRIAL_START
 	if (_command == 'G') 
 	{                           
-		_state = INIT_TRIAL;
+		_state = STATE_TRIAL_START;
 		return;
 	}
 	
@@ -583,18 +393,18 @@ void idle_state() {
 	if (_command == 'P') 
 	{                           
 		_params[_arguments[0]] = _arguments[1];
-		_state = IDLE_STATE;
+		_state = STATE_IDLE;
 		return;
 	}
 
-	_state = IDLE_STATE;
+	_state = STATE_IDLE;
 }
 
 
 /*****************************************************
-	INIT_TRIAL - Trial started
+	STATE_TRIAL_START - Trial started
 *****************************************************/
-void idle_state() {
+void trial_start() {
 	/*****************************************************
 		ACTION LIST
 	*****************************************************/
@@ -605,10 +415,7 @@ void idle_state() {
 		sendState(_state);
 
 		// Reset output
-		setHouseLamp(true);
-		setCueLED(false);
-		noTone(PIN_SPEAKER);
-		setReward(false);
+		setHouseLamp(false);
 		
 		// Reset variables
 		_resultCode = -1;	// Reset result code to -1: no result
@@ -617,10 +424,10 @@ void idle_state() {
 	/*****************************************************
 		TRANSITION LIST
 	*****************************************************/
-	// GO signal from host --> INIT_TRIAL
+	// GO signal from host --> STATE_TRIAL_START
 	if (_command == 'G') 
 	{                           
-		_state = INIT_TRIAL;
+		_state = STATE_TRIAL_START;
 		return;
 	}
 	
@@ -628,986 +435,12 @@ void idle_state() {
 	if (_command == 'P') 
 	{                           
 		_params[_arguments[0]] = _arguments[1];
-		_state = IDLE_STATE;
+		_state = STATE_IDLE;
 		return;
 	}
 
-	_state = IDLE_STATE;
+	_state = STATE_IDLE;
 }
-
-
-
-
-/*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-	INIT_TRIAL - Trial started. House Lamp OFF, Awaiting lick
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
-void init_trial() {
-	/*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-		ACTION LIST -- initialize the new state
-	~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
-	if (_state != _prevState) {                       // If ENTERTING READY STATE:
-		/*---------Decide Pav vs Op for mixed trials before starting the trial:---------*/
-		if (_params[OPERANT] == 1 && _params[PAVLOVIAN] == 1 && _params[HYBRID] == 0)  {
-			_dice_roll = random(1,100);                   // Random # between 1-100
-			if (_dice_roll <= _params[PERCENT_PAVLOVIAN]) {             // If dice_roll <= the percent of trials that should be pavlovian
-				_mixed_is_pavlovian = true;                                 // Set this trial to pavlovian
-				// Send event marker (pavlovian trial) to HOST with timestamp
-				sendMessage("&" + String(EVENT_PAVLOVIAN) + " " + String(signedMillis() - _time_global));
-				if (_params[_DEBUG]) {sendMessage("-----PAVLOVIAN-----");}
-			}
-			else {                                                     // If dice_roll > percent of trials that should be pavlovian
-				_mixed_is_pavlovian = false;                                // Set this trial to operant
-				// Send event marker (operant trial) to HOST with timestamp
-				sendMessage("&" + String(EVENT_OPERANT) + " " + String(signedMillis() - _time_global));
-				if (_params[_DEBUG]) {sendMessage("-----OPERANT-----");}
-			}
-		}
-		/*---------Decide if trial is HYBRID before starting the trial:---------*/
-		if (_params[HYBRID] == 1)  {
-			// Send event marker (hybrid trial) to HOST with timestamp
-			sendMessage("&" + String(EVENT_HYBRID) + " " + String(signedMillis() - _time_global));
-			if (_params[_DEBUG]) {sendMessage("-----HYBRID-----");}
-		}
-
-		//-----------------INIT TRIAL CLOCKS and OUTPUTS--------------//
-		_time_trial = signedMillis();                             // Start _time_trial
-		// Send event marker (trial_init) to HOST with timestamp
-		sendMessage("&" + String(EVENT_TRIAL_INIT) + " " + String(signedMillis() - _time_global));
-		_prevState = _state;                                // Assign _prevState to READY _state
-		sendMessage("$" + String(_state));                  // Send  HOST _state entry -- $2 (Ready State)
-		setHouseLamp(false);                                // House Lamp OFF
-		// Send event marker (house_lamp_off) to HOST with timestamp
-		sendMessage("&" + String(EVENT_HOUSE_LAMP_OFF) + " " + String(signedMillis() - _time_global));
-		
-		_random_delay_timer = signedMillis();                     // Start _random_delay_timer
-		_preCueDelay = random(_params[RANDOM_DELAY_MIN], _params[RANDOM_DELAY_MAX]);     // Choose random delay time
-	
-		if (_params[_DEBUG]) {
-			sendMessage("Trial Started. Random Pre-Cue Delay in Progress...(" + String(_preCueDelay) + "ms delay)");
-		}
-	}
-
-
-	/*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-		TRANSITION LIST -- checks conditions, moves to next state
-	~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
-	if (_command == 'Q')  {                          // HOST: "QUIT" -> IDLE_STATE
-		_state = IDLE_STATE;                                 // Set IDLE_STATE
-		return;                                              // Exit Function
-	}
-
-	if (getLickState()) {                            // MOUSE: "Licked"
-		if (!_lick_state) {                              // If a new lick initiated
-			_lick_time = signedMillis() - _time_trial;           // Records _lick_time relative to trial start
-			
-			// Send a event marker (lick) to HOST with timestamp
-			sendMessage("&" + String(EVENT_LICK) + " " + String(signedMillis() - _time_global));
-			_lick_state = true;                            // Halts lick detection
-			
-			if (_params[_DEBUG]) {sendMessage("Pre-cue lick detected, tallying lick @ " + String(_lick_time - _preCueDelay) + "ms wrt Cue ON");}
-		}
-	}
-
-
-	if (!getLickState()) {                           // MOUSE: "No lick"
-		if (_lick_state) {                               // If lick just ended                            
-			_lick_state = false;                           // Resets lick detector
-		}
-	}
-
-
-	if (signedMillis() - _random_delay_timer >= _preCueDelay) {// Pre-Cue Delay elapsed -> PRE_WINDOW
-		if (_params[_DEBUG]) {sendMessage("Pre-cue delay successfully completed.");}
-		_state = PRE_WINDOW;                              // Move to PRE_WINDOW state
-		return;                                           // Exit Fx
-	}
-
-
-
-	_state = INIT_TRIAL;                            // No Command --> Cycle back to INIT_TRIAL
-} // End INIT_TRIAL STATE ------------------------------------------------------------------------------------------------------------------------------------------
-
-
-
-/*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-	PRE_WINDOW - Timing Interval (Cue presentation to opening of Reward Response Window)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
-void pre_window() { //***********************************************************************************************go back and do quinine*****************************
-	/*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-		ACTION LIST -- initialize the new state
-	~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
-	if (_state != _prevState) {                      // If ENTERTING PRE_WINDOW:
-		setCueLED(true);                                 // Cue LED ON
-		playSound(TONE_CUE);                             // Cue tone ON
-		_cue_on_time = signedMillis();                         // Start Cue ON timer
-		// Send event marker (cue_on) to HOST with timestamp
-		sendMessage("&" + String(EVENT_CUE_ON) + " " + String(signedMillis() - _time_global));
-		_prevState = _state;                                // Assign _prevState to PRE_WINDOW state
-		sendMessage("$" + String(_state));                  // Send HOST $3 (pre_window State)
-		if (_params[_DEBUG]) {sendMessage("Cue on. Lick accepted between " + String(_params[INTERVAL_MIN]) + " - " + String(_params[INTERVAL_MAX]) + " ms");} 
-	}
-
-	/*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-		TRANSITION LIST -- checks conditions, moves to next state
-	~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
-	if (_command == 'Q')  {                          // HOST: "QUIT" -> IDLE_STATE
-		_state = IDLE_STATE;                                 // Set IDLE_STATE
-		return;                                              // Exit Function
-	}
-
-	if (signedMillis() - _cue_on_time >= _params[CUE_DURATION]) {// Time to turn off Cue
-		setCueLED(false);                                   // Turn Cue LED OFF
-	}
-
-	if (!_pre_window_elapsed && signedMillis() - _cue_on_time >= _params[INTERVAL_MIN]) { // If prewindow elapsed, break to response window
-		// Send event marker (target time) to HOST with timestamp relative to trial start
-		_pre_window_elapsed = true;                    // Indicate prewindow elapsed
-		_state = RESPONSE_WINDOW;                            // Move -> RESPONSE_WINDOW
-		if (_params[_DEBUG]) {
-			sendMessage("Prewindow successfully elapsed at " + String(signedMillis() - _cue_on_time) +"ms wrt cue onset.");
-		}
-		return;                                        // Break to RESPONSE_WINDOW
-	}
-
-
-	if (getLickState()) {                            // MOUSE: "Licked"
-		if (!_lick_state) {                              // If new lick
-			//======================ENFORCED NO LICK=========================//
-			if (_params[ENFORCE_NO_LICK] == 1) {
-				_lick_time = signedMillis() - _cue_on_time;          // Records lick wrt CUE ON
-				// Send a event marker (lick) to HOST with timestamp
-				sendMessage("&" + String(EVENT_LICK) + " " + String(signedMillis() - _time_global));
-				_lick_state = true;                            // Halt lick detection
-			//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~Check for first lick~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~//
-				if (!_first_lick_received) {
-					// If it's the first lick in the trial, send event marker:
-					sendMessage("&" + String(EVENT_FIRST_LICK) + " " + String(signedMillis() - _time_global));
-					_first_lick_received = true;
-				}
-
-				//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~Check for Quinine Window~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~//
-  				//~~~~~~~~~~~~~~~~~~~~~~~~~Deliver Quinine if Prior Quinine has elapsed~~~~~~~~~~~~~~~~~~~~~~~~//            
-  				if (signedMillis() - _quinine_timer >= _params[QUININE_TIMEOUT] && signedMillis() - _cue_on_time > _params[QUININE_MIN] && signedMillis()-_cue_on_time < _params[QUININE_MAX]) { // If quinine window open
-  					playSound(TONE_QUININE);                   // Dispense quinine for QUININE_DURATION
-  					_quinine_timer = signedMillis();                 // Log time of last quinine deterrant
-  				}
-				//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~//
-				//------------------------DEBUG MODE--------------------------//
-					if (_params[_DEBUG]) {
-						sendMessage("Early pre-window lick detected @ " + String(_lick_time) + "ms. Dispensing Quinine: No lick IS enforced.");
-					}
-				//----------------------end DEBUG MODE------------------------//
-				if (_params[EARLY_LICK_ABORT] == 1 && signedMillis() - _cue_on_time > _params[ABORT_MIN] && signedMillis()-_cue_on_time < _params[ABORT_MAX]) { // If abort window open
-					_resultCode = CODE_EARLY_LICK;                 // Register result code      
-					_state = ABORT_TRIAL;                          // Move to ABORT state
-					return;
-				}
-				return;                                              // Exit Fx -> ABORT OR IDLE
-			}
-		
-			//=======================NON-ENFORCED============================//
-			else
-				_lick_time = signedMillis() - _cue_on_time;          // Records lick wrt CUE ON
-				// Send a event marker (lick) to HOST with timestamp
-				sendMessage("&" + String(EVENT_LICK) + " " + String(signedMillis() - _time_global));
-				_lick_state = true;                            // Halts lick detection
-				_state = PRE_WINDOW;                           // Returns to Pre-window
-				//------------------------DEBUG MODE--------------------------//
-				if (_params[_DEBUG]) {
-					sendMessage("New pre-window lick detected, tallying lick @ " + String(signedMillis() - _cue_on_time) + "ms wrt cue onset. No lick NOT enforced, continuing...");
-				}
-				 //----------------------end DEBUG MODE------------------------//
-			}
-		}
-
-
-
-	if (!getLickState()) {                           // MOUSE: "No lick"
-		if (_lick_state) {                               // If lick just ended                            
-			_lick_state = false;                           // Resets lick detector
-		//------------------------DEBUG MODE--------------------------//  
-			if (_params[_DEBUG]) {sendMessage("Lick state reset (not licked anymore) ");} 
-		//----------------------end DEBUG MODE------------------------//
-		}
-	}
-
-	_state = PRE_WINDOW;                             // No Command --> Cycle back to PRE_WINDOW
-} // End PRE_WINDOW STATE ------------------------------------------------------------------------------------------------------------------------------------------
-
-
-
-
-/*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-	RESPONSE_WINDOW - Rewards first lick
-	-Note: this state is divided into several possibilities for the trial (pav, op, mixed or hybrid)
-	-First will check if trial is hybrid, then will check for other possibilities
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
-void response_window() {
-		//(((((((((((((((((((((((((((((((((((((( -------- HYBRID --------- )))))))))))))))))))))))))))))))))))))))))))))))))))))//
-	if (_params[HYBRID] == 1) 
-	{
-		/*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-			ACTION LIST -- initialize the new state
-		~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
-		if (_state != _prevState) {                        // If ENTERTING RESPONSE_WINDOW:
-			// Set state clocks.....................
-			_response_window_timer = signedMillis();                  // Start _response_window_timer
-			_prevState = _state;                                // Assign _prevState to RESPONSE_WINDOW state
-			sendMessage("$" + String(_state));                  // Send a message to host upon _state entry -- $4 (response_window State)
-			// Send event marker (window open) to HOST with timestamp
-			sendMessage("&" + String(EVENT_WINDOW_OPEN) + " " + String(signedMillis() - _time_global)); // relative to cue onset
-			//------------------------DEBUG MODE--------------------------//  
-			if (_params[_DEBUG]) {
-				sendMessage("HYBRID: Entered response window at " + String(_response_window_timer - _cue_on_time) +"ms, awaiting lick.");
-			}
-			//----------------------end DEBUG MODE------------------------//
-		}
-
-		/*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-			TRANSITION LIST -- checks conditions, moves to next state
-		~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
-		if (_command == 'Q')  {                          // HOST: "QUIT" -> IDLE_STATE
-			_state = IDLE_STATE;                                 // Set IDLE_STATE
-			return;                                              // Exit Fx
-		}
-
-		if (getLickState()) {                            // MOUSE: "Licked" -> Stay in RESPONSE_WINDOW
-			if (!_lick_state) {                              // If a new lick initiated
-				// Send a event marker (lick) to HOST with timestamp
-				sendMessage("&" + String(EVENT_LICK) + " " + String(signedMillis() - _time_global));
-				// Send a event marker (correct lick) to HOST with timestamp
-				sendMessage("&" + String(EVENT_CORRECT_LICK) + " " + String(signedMillis() - _time_global));
-				if (!_first_lick_received) {
-					// If it's the first lick in the trial, send event marker:
-					sendMessage("&" + String(EVENT_FIRST_LICK) + " " + String(signedMillis() - _time_global));
-					_first_lick_received = true;
-				}
-				_lick_state = true;                            // Halts lick detection
-				//------------------------DEBUG MODE--------------------------//
-				if (_params[_DEBUG]) {
-					sendMessage("CORRECT Hybrid-Operant lick detected, tallying lick @ " + String(signedMillis() - _cue_on_time) + "ms");
-				}
-				//----------------------end DEBUG MODE------------------------//        
-				// Before target, licks are operant. Go to Reward //
-				_state = REWARD;                               // -> REWARD
-				_resultCode = CODE_CORRECT_OP_HYBRID;          // Mark as operant correct for hybrid
-				return;                                        // Exit Fx
-			}
-		}
-		if (!getLickState()) {                           // MOUSE: "No lick"
-			if (_lick_state) {                               // If lick just ended                            
-				_lick_state = false;                           // Resets lick detector
-			}
-		}
-
-		long current_time = signedMillis() - _cue_on_time; //****Changed to be wrt cue onset (not total trial time)
-		if (!_reached_target && current_time >= _params[TARGET]) { // TARGET -> REWARD
-			// Send event marker (target time) to HOST with timestamp
-			sendMessage("&" + String(EVENT_TARGET_TIME) + " " + String(signedMillis() - _time_global));
-			_reached_target = true;                        // Indicate target reached
-			//------------------------DEBUG MODE--------------------------//  
-			if (_params[_DEBUG]) {
-				sendMessage("Reached Target Time at " + String(current_time) +"ms. Pavlovian reward.");
-			}
-			//----------------------end DEBUG MODE------------------------//
-			_state = REWARD;                               // Move -> REWARD (Pavlovian only)
-			_resultCode = CODE_PAVLOV_HYBRID;              // Mark as reaching target before lick for hybrid
-			return;                                        // Exit fx
-		}
-
-		if (current_time >= _params[INTERVAL_MAX]) {     // Window Closed -> IDLE_STATE **** NEVER SHOULD HAPPEN FOR PAVLOVIAN!
-			setHouseLamp(true);                               // House Lamp ON (to indicate error)
-			playSound(TONE_ALERT);
-			// Send event marker (window closed) to HOST with timestamp
-			sendMessage("&" + String(EVENT_WINDOW_CLOSED) + " " + String(signedMillis() - _time_global));
-			//------------------------DEBUG MODE--------------------------//  
-			if (_params[_DEBUG]) {
-				sendMessage("PAVLOVIAN ERROR: Reward window closed at " + String(current_time) +"ms.");
-			}
-			//----------------------end DEBUG MODE------------------------//
-			_state = IDLE_STATE;                            // Move -> IDLE_STATE (Pavlovian Only) - post_window for operant
-			return;                                         // Exit Fx
-		}
-
-		_state = RESPONSE_WINDOW;                        // Return to response window
-		return;                                          // Exit function
-	}
-	else 
-	{ // If this trial is NOT hybrid:
-		//(((((((((((((((((((((((((((((((((((((( -------- PAVLOVIAN --------- )))))))))))))))))))))))))))))))))))))))))))))))))))))//
-		if (_params[PAVLOVIAN] == 1 && _params[OPERANT] == 0) {
-			/*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-				ACTION LIST -- initialize the new state
-			~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
-			if (_state != _prevState) {                        // If ENTERTING RESPONSE_WINDOW:
-				// Send event marker (pavlovian trial) to HOST with timestamp
-				sendMessage("&" + String(EVENT_PAVLOVIAN) + " " + String(signedMillis() - _time_global));
-				// Set state clocks.....................
-				_response_window_timer = signedMillis();                  // Start _response_window_timer
-				_prevState = _state;                                // Assign _prevState to RESPONSE_WINDOW state
-				sendMessage("$" + String(_state));                  // Send a message to host upon _state entry -- $4 (response_window State)
-				// Send event marker (window open) to HOST with timestamp
-				sendMessage("&" + String(EVENT_WINDOW_OPEN) + " " + String(signedMillis() - _time_global)); // relative to cue onset
-				//------------------------DEBUG MODE--------------------------//  
-				if (_params[_DEBUG]) {
-					sendMessage("Entered response window at " + String(_response_window_timer - _cue_on_time) +"ms, awaiting lick.");
-				}
-				//----------------------end DEBUG MODE------------------------//
-			}
-
-			/*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-				TRANSITION LIST -- checks conditions, moves to next state
-			~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
-			if (getLickState()) {                            // MOUSE: "Licked" -> Stay in RESPONSE_WINDOW
-				if (!_lick_state) {                              // If a new lick initiated
-					_lick_time = signedMillis() - _cue_on_time;          // Records lick wrt CUE ON
-					// Send a event marker (lick) to HOST with timestamp
-					sendMessage("&" + String(EVENT_LICK) + " " + String(signedMillis() - _time_global));
-					// Send a event marker (correct lick) to HOST with timestamp
-					sendMessage("&" + String(EVENT_CORRECT_LICK) + " " + String(signedMillis() - _time_global));
-					if (!_first_lick_received) {
-						// If it's the first lick in the trial, send event marker:
-						sendMessage("&" + String(EVENT_FIRST_LICK) + " " + String(signedMillis() - _time_global));
-						_first_lick_received = true;
-					}
-					_lick_state = true;                            // Halts lick detection
-					// Cycle back to Response Window state in Pavlovian Mode //
-					//------------------------DEBUG MODE--------------------------//
-					if (_params[_DEBUG]) {
-						sendMessage("CORRECT lick detected, tallying lick @ " + String(_lick_time) + "ms");
-					}
-					//----------------------end DEBUG MODE------------------------//      
-					return;                                        // Exit Fx
-				}
-			}
-			if (!getLickState()) {                           // MOUSE: "No lick"
-				if (_lick_state) {                               // If lick just ended                            
-					_lick_state = false;                           // Resets lick detector
-				}
-			}
-
-			if (_command == 'Q')  {                          // HOST: "QUIT" -> IDLE_STATE
-				_state = IDLE_STATE;                                 // Set IDLE_STATE
-				return;                                              // Exit Fx
-			}
-
-			long current_time = signedMillis() - _cue_on_time; //****Changed to be wrt cue onset (not total trial time)
-			if (!_reached_target && current_time >= _params[TARGET]) { // TARGET -> REWARD
-				// Send event marker (target time) to HOST with timestamp
-				sendMessage("&" + String(EVENT_TARGET_TIME) + " " + String(signedMillis() - _time_global));
-				_reached_target = true;                        // Indicate target reached
-				_state = REWARD;                               // Move -> REWARD (Pavlovian only)
-				//------------------------DEBUG MODE--------------------------//  
-				if (_params[_DEBUG]) {
-					sendMessage("Reached Target Time at " + String(current_time) +"ms.");
-				}
-				//----------------------end DEBUG MODE------------------------//
-			}
-
-			if (current_time >= _params[INTERVAL_MAX]) {      // Window Closed -> IDLE_STATE **** NEVER SHOULD HAPPEN FOR PAVLOVIAN!
-				setHouseLamp(true);                               // House Lamp ON (to indicate error)
-				playSound(TONE_ALERT);
-				// Send event marker (window closed) to HOST with timestamp
-				sendMessage("&" + String(EVENT_WINDOW_CLOSED) + " " + String(signedMillis() - _time_global));
-				//------------------------DEBUG MODE--------------------------//  
-				if (_params[_DEBUG]) {
-					sendMessage("PAVLOVIAN ERROR: Reward window closed at " + String(current_time) +"ms.");
-				}
-				//----------------------end DEBUG MODE------------------------//
-				_state = IDLE_STATE;                            // Move -> IDLE_STATE (Pavlovian Only) - post_window for operant
-				return;                                         // Exit Fx
-			}
-		}
-
-		//(((((((((((((((((((((((((((((((((((((( -------- OPERANT  --------- ))))))))))))))))))))))))))))))))))))))=====================//
-		else if (_params[OPERANT] == 1 && _params[PAVLOVIAN] == 0)  {
-			/*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-				ACTION LIST -- initialize the new state
-			~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
-			if (_state != _prevState) {                        // If ENTERTING RESPONSE_WINDOW:
-				// Send event marker (operant trial) to HOST with timestamp
-				sendMessage("&" + String(EVENT_OPERANT) + " " + String(signedMillis() - _time_global));
-				// Set state clocks...
-				_response_window_timer = signedMillis();                  // Start _response_window_timer
-				_prevState = _state;                                // Assign _prevState to RESPONSE_WINDOW state
-				sendMessage("$" + String(_state));                  // Send a message to host upon _state entry -- $4 (response_window State)
-				// Send event marker (window open) to HOST with timestamp
-				sendMessage("&" + String(EVENT_WINDOW_OPEN) + " " + String(signedMillis() - _time_global));
-				//------------------------DEBUG MODE--------------------------//  
-				if (_params[_DEBUG]) {
-					sendMessage("Entered response window at " + String(_response_window_timer - _cue_on_time) +"ms wrt cue on, awaiting lick.");
-				}
-				//----------------------end DEBUG MODE------------------------//
-
-				if (getLickState()) {                            // MOUSE: "Licked" -> REWARD
-					if (!_lick_state) {                              // If a new lick initiated
-						_lick_time = signedMillis() - _cue_on_time;          // Records lick wrt CUE ON
-						// Send a event marker (lick) to HOST with timestamp
-						sendMessage("&" + String(EVENT_LICK) + " " + String(signedMillis() - _time_global));
-						// Send a event marker (correct lick) to HOST with timestamp
-						sendMessage("&" + String(EVENT_CORRECT_LICK) + " " + String(signedMillis() - _time_global));
-						if (!_first_lick_received) {
-							// If it's the first lick in the trial, send event marker:
-							sendMessage("&" + String(EVENT_FIRST_LICK) + " " + String(signedMillis() - _time_global));
-							_first_lick_received = true;
-						}
-						_lick_state = true;                            // Halts lick detection
-						_state = REWARD;                               // Move -> REWARD
-						//------------------------DEBUG MODE--------------------------//
-							if (_params[_DEBUG]) {
-								sendMessage("CORRECT lick detected, tallying lick @ " + String(signedMillis()-_cue_on_time) + "ms wrt Cue ON.");
-							}
-						//----------------------end DEBUG MODE------------------------//
-						return;                                        // Exit Fx
-					
-					}
-				}
-				if (!getLickState()) {                           // MOUSE: "No lick"
-					if (_lick_state) {                               // If lick just ended                            
-						_lick_state = false;                           // Resets lick detector
-					}
-				}
-			}
-
-			/*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-				TRANSITION LIST -- checks conditions, moves to next state
-			~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
-			if (_command == 'Q')  {                           // HOST: "QUIT" -> IDLE_STATE
-				_state = IDLE_STATE;                                 // Set IDLE_STATE
-				return;                                              // Exit Fx
-			}
-
-			if (getLickState()) {                             // MOUSE: "Licked" -> REWARD
-				if (!_lick_state) {                              // If a new lick initiated
-					_lick_time = signedMillis() - _cue_on_time;          // Records lick wrt CUE ON
-					// Send a event marker (lick) to HOST with timestamp
-					sendMessage("&" + String(EVENT_LICK) + " " + String(signedMillis() - _time_global));
-					// Send a event marker (correct lick) to HOST with timestamp
-					sendMessage("&" + String(EVENT_CORRECT_LICK) + " " + String(signedMillis() - _time_global));
-					if (!_first_lick_received) {
-						// If it's the first lick in the trial, send event marker:
-						sendMessage("&" + String(EVENT_FIRST_LICK) + " " + String(signedMillis() - _time_global));
-						_first_lick_received = true;
-					}
-					_lick_state = true;                            // Halts lick detection
-					_state = REWARD;                               // Move -> REWARD
-					//------------------------DEBUG MODE--------------------------//
-					if (_params[_DEBUG]) {
-						sendMessage("CORRECT lick detected, tallying lick @ " + String(signedMillis()-_cue_on_time) + "ms wrt Cue ON.");
-					}
-					//----------------------end DEBUG MODE------------------------//
-					return;                                        // Exit Fx
-				}
-			}
-			if (!getLickState()) {                            // MOUSE: "No lick"
-				if (_lick_state) {                               // If lick just ended                            
-					_lick_state = false;                           // Resets lick detector
-				}
-			}
-
-			long current_time = signedMillis() - _cue_on_time; // WRT cue onset
-			if (!_reached_target && current_time >= _params[TARGET]) { // If now is target time...record but stay in state (Operant only)
-				// Send event marker (target time) to HOST with timestamp
-				sendMessage("&" + String(EVENT_TARGET_TIME) + " " + String(signedMillis() - _time_global));
-				_reached_target = true;                        // Indicate target reached
-				//------------------------DEBUG MODE--------------------------//  
-				if (_params[_DEBUG]) {
-					sendMessage("Reached Target Time at " + String(current_time) +"ms wrt Cue ON.");
-				}
-				//----------------------end DEBUG MODE------------------------//
-			}
-
-			if (current_time >= _params[INTERVAL_MAX]) {      // Window Closed -> POST_WINDOW
-				setHouseLamp(true);                               // House Lamp ON (to indicate error)
-				playSound(TONE_ALERT);
-				// Send event marker (window closed) to HOST with timestamp
-				sendMessage("&" + String(EVENT_WINDOW_CLOSED) + " " + String(signedMillis() - _time_global));
-				//------------------------DEBUG MODE--------------------------//  
-				if (_params[_DEBUG]) {
-					sendMessage("Reward window closed at " + String(current_time) +"ms wrt Cue ON.");
-				}
-				//----------------------end DEBUG MODE------------------------//
-				_state = POST_WINDOW;                           // Move -> POST_WINDOW
-				return;                                         // Exit Fx
-			}
-		}
-
-		//(((((((((((((((((((((((((((((((((((((( -------- MIXED PAVLOVIAN-OPERANT  --------- ))))))))))))))))))))))))))))))))))))))=====================//
-		else if (_params[OPERANT] == 1 && _params[PAVLOVIAN] == 1)  {
-			//----------------------------- Mixed: PAVLOVIAN -----------------------------------//
-			if (_mixed_is_pavlovian) {
-				/*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-					ACTION LIST -- initialize the new state
-				~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
-				if (_state != _prevState) {                        // If ENTERTING RESPONSE_WINDOW:
-					_response_window_timer = signedMillis();                  // Start _response_window_timer
-					_prevState = _state;                                // Assign _prevState to RESPONSE_WINDOW state
-					sendMessage("$" + String(_state));                  // Send a message to host upon _state entry -- $4 (response_window State)
-					// Send event marker (window open) to HOST with timestamp
-					sendMessage("&" + String(EVENT_WINDOW_OPEN) + " " + String(signedMillis() - _time_global)); // relative to cue onset
-					//------------------------DEBUG MODE--------------------------//  
-					if (_params[_DEBUG]) {
-						sendMessage("Entered response window at " + String(_response_window_timer - _cue_on_time) +"ms, awaiting lick.");
-					}
-					//----------------------end DEBUG MODE------------------------//
-				}
-
-				/*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-					TRANSITION LIST -- checks conditions, moves to next state
-				~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
-				if (_command == 'Q')  {                          // HOST: "QUIT" -> IDLE_STATE
-					_state = IDLE_STATE;                                 // Set IDLE_STATE
-					return;                                              // Exit Fx
-				}
-
-				if (getLickState()) {                            // MOUSE: "Licked" -> Stay in RESPONSE_WINDOW
-					if (!_lick_state) {                              // If a new lick initiated
-						_lick_time = signedMillis() - _cue_on_time;          // Records lick wrt CUE ON
-						// Send a event marker (lick) to HOST with timestamp
-						sendMessage("&" + String(EVENT_LICK) + " " + String(signedMillis() - _time_global));
-						// Send a event marker (correct lick) to HOST with timestamp
-						sendMessage("&" + String(EVENT_CORRECT_LICK) + " " + String(signedMillis() - _time_global));
-						if (!_first_lick_received) {
-							// If it's the first lick in the trial, send event marker:
-							sendMessage("&" + String(EVENT_FIRST_LICK) + " " + String(signedMillis() - _time_global));
-							_first_lick_received = true;
-						}
-						_lick_state = true;                            // Halts lick detection
-						// Cycle back to Response Window state in Pavlovian Mode //
-						//------------------------DEBUG MODE--------------------------//
-						if (_params[_DEBUG]) {
-							sendMessage("CORRECT lick detected, tallying lick @ " + String(_lick_time) + "ms");
-						}
-						//----------------------end DEBUG MODE------------------------//
-						return;                                        // Exit Fx
-					}
-				}
-
-				if (!getLickState()) {                           // MOUSE: "No lick"
-					if (_lick_state) {                               // If lick just ended                            
-						_lick_state = false;                           // Resets lick detector
-					}
-				}
-
-				long current_time = signedMillis() - _cue_on_time; //****Changed to be wrt cue onset (not total trial time)
-				if (!_reached_target && current_time >= _params[TARGET]) { // TARGET -> REWARD
-					// Send event marker (target time) to HOST with timestamp
-					sendMessage("&" + String(EVENT_TARGET_TIME) + " " + String(signedMillis() - _time_global));
-					_reached_target = true;                        // Indicate target reached
-					_state = REWARD;                               // Move -> REWARD (Pavlovian only)
-					//------------------------DEBUG MODE--------------------------//  
-					if (_params[_DEBUG]) {
-						sendMessage("Reached Target Time at " + String(current_time) +"ms.");
-					}
-					//----------------------end DEBUG MODE------------------------//
-				}
-
-				if (current_time >= _params[INTERVAL_MAX]) {      // Window Closed -> IDLE_STATE **** NEVER SHOULD HAPPEN FOR PAVLOVIAN!
-					setHouseLamp(true);                               // House Lamp ON (to indicate error)
-					playSound(TONE_ALERT);
-					// Send event marker (window closed) to HOST with timestamp
-					sendMessage("&" + String(EVENT_WINDOW_CLOSED) + " " + String(signedMillis() - _time_global));
-					//------------------------DEBUG MODE--------------------------//  
-					if (_params[_DEBUG]) {
-						sendMessage("PAVLOVIAN ERROR: Reward window closed at " + String(current_time) +"ms.");
-					}
-					//----------------------end DEBUG MODE------------------------//
-					_state = IDLE_STATE;                            // Move -> IDLE_STATE (Pavlovian Only) - post_window for operant
-					return;                                         // Exit Fx
-				}
-			}
-		
-
-				// -------------------------------- Mixed: OPERANT  --------------------------------//
-			else {
-				/*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-					ACTION LIST -- initialize the new state
-				~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
-				if (_state != _prevState) {                        // If ENTERTING RESPONSE_WINDOW:
-					_response_window_timer = signedMillis();                  // Start _response_window_timer
-					_prevState = _state;                                // Assign _prevState to RESPONSE_WINDOW state
-					sendMessage("$" + String(_state));                  // Send a message to host upon _state entry -- $4 (response_window State)
-					// Send event marker (window open) to HOST with timestamp
-					sendMessage("&" + String(EVENT_WINDOW_OPEN) + " " + String(signedMillis() - _time_global));
-					//------------------------DEBUG MODE--------------------------//  
-					if (_params[_DEBUG]) {
-						sendMessage("Entered response window at " + String(_response_window_timer - _cue_on_time) +"ms wrt cue on, awaiting lick.");
-					}
-					//----------------------end DEBUG MODE------------------------//
-				}
-
-				/*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-					TRANSITION LIST -- checks conditions, moves to next state
-				~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
-				if (_command == 'Q')  {                           // HOST: "QUIT" -> IDLE_STATE
-					_state = IDLE_STATE;                                 // Set IDLE_STATE
-					return;                                              // Exit Fx
-				}
-
-				if (getLickState()) {                             // MOUSE: "Licked" -> REWARD
-					if (!_lick_state) {                              // If a new lick initiated
-						_lick_time = signedMillis() - _cue_on_time;          // Records lick wrt CUE ON
-						// Send a event marker (lick) to HOST with timestamp
-						sendMessage("&" + String(EVENT_LICK) + " " + String(signedMillis() - _time_global));
-						// Send a event marker (correct lick) to HOST with timestamp
-						sendMessage("&" + String(EVENT_CORRECT_LICK) + " " + String(signedMillis() - _time_global));
-						if (!_first_lick_received) {
-							// If it's the first lick in the trial, send event marker:
-							sendMessage("&" + String(EVENT_FIRST_LICK) + " " + String(signedMillis() - _time_global));
-							_first_lick_received = true;
-						}
-						_lick_state = true;                            // Halts lick detection
-						_state = REWARD;                               // Move -> REWARD
-						//------------------------DEBUG MODE--------------------------//
-						if (_params[_DEBUG]) {
-							sendMessage("CORRECT lick detected, tallying lick @ " + String(signedMillis()-_cue_on_time) + "ms wrt Cue ON.");
-						}
-						//----------------------end DEBUG MODE------------------------//
-						return;                                        // Exit Fx
-					}
-				}
-
-				if (!getLickState()) {                            // MOUSE: "No lick"
-					if (_lick_state) {                               // If lick just ended                            
-						_lick_state = false;                           // Resets lick detector
-					}
-				}
-
-				long current_time = signedMillis()-_cue_on_time; // WRT cue onset
-				if (!_reached_target && current_time >= _params[TARGET]) { // If now is target time...record but stay in state (Operant only)
-					// Send event marker (target time) to HOST with timestamp
-					sendMessage("&" + String(EVENT_TARGET_TIME) + " " + String(signedMillis() - _time_global));
-					_reached_target = true;                        // Indicate target reached
-					//------------------------DEBUG MODE--------------------------//  
-					if (_params[_DEBUG]) {
-						sendMessage("Reached Target Time at " + String(current_time) +"ms wrt Cue ON.");
-					}
-					//----------------------end DEBUG MODE------------------------//
-				}
-
-				if (current_time >= _params[INTERVAL_MAX]) {      // Window Closed -> POST_WINDOW
-					setHouseLamp(true);                               // House Lamp ON (to indicate error)
-					playSound(TONE_ALERT);
-					// Send event marker (window closed) to HOST with timestamp
-					sendMessage("&" + String(EVENT_WINDOW_CLOSED) + " " + String(signedMillis() - _time_global));
-					//------------------------DEBUG MODE--------------------------//  
-					if (_params[_DEBUG]) {
-						sendMessage("Reward window closed at " + String(current_time) +"ms wrt Cue ON.");
-					}
-					//----------------------end DEBUG MODE------------------------//
-					_state = POST_WINDOW;                           // Move -> POST_WINDOW
-					return;                                         // Exit Fx
-				}
-			}
-
-
-
-
-		} // End mixed pav-op condition----------------------------------------------------------------------
-		//((((((((((((((((((((((((==================== TASK CONDITIONS ERROR =====================)))))))))))))))))))))//
-		else {
-			playSound(TONE_ABORT);
-			sendMessage("ERROR - Task must be either Pavlovian or Operant or both. Fix Parameters and Restart");
-			_state = IDLE_STATE;
-		}
-	}   
-} // End RESPONSE_WINDOW STATE ------------------------------------------------------------------------------------------------------------------------------------------
-
-
-
-
-/*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-	POST_WINDOW - Checking for late licks (effectively an abort state)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
-void post_window() {
-	/*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-		ACTION LIST -- initialize the new state
-	~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
-	if (_state != _prevState) {                        // If ENTERTING POST_WINDOW:  
-		_prevState = _state;                                // Assign _prevState to POST_WINDOW state
-		sendMessage("$" + String(_state));                  // Send HOST $4 (post_window State)
-		// Send event marker (window closed) to HOST with timestamp
-		sendMessage("&" + String(EVENT_WINDOW_CLOSED) + " " + String(signedMillis() - _time_global));
-	}
-
-	/*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-		TRANSITION LIST -- checks conditions, moves to next state
-	~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
-	if (_command == 'Q')  {                          // HOST: "QUIT" -> IDLE_STATE
-		_state = IDLE_STATE;                             // Set IDLE_STATE
-		return;                                          // Exit Fx
-	}
-
-	if (getLickState()) {                            // MOUSE: "Licked"
-		if (!_lick_state) {                              // If a new lick initiated
-			_lick_time = signedMillis() - _cue_on_time;          // Records lick wrt CUE ON
-			// Send a event marker (lick) to HOST with timestamp
-			sendMessage("&" + String(EVENT_LICK) + " " + String(signedMillis() - _time_global));   
-			if (!_first_lick_received) {
-				// If it's the first lick in the trial, send event marker:
-				sendMessage("&" + String(EVENT_FIRST_LICK) + " " + String(signedMillis() - _time_global));
-				_first_lick_received = true;
-			} 
-			_lick_state = true;                            // Halts lick detection
-			if (!_late_lick_detected) {                    // If this is first lick in post window
-				_resultCode = CODE_LATE_LICK;                // Register result code      
-				_late_lick_detected  = true;                 // Don't send Result Code on next lick
-			}
-			//------------------------DEBUG MODE--------------------------//
-			if (_params[_DEBUG]) {sendMessage("Late lick detected, tallying lick @ " + String(signedMillis()-_cue_on_time) + "ms wrt Cue ON.");}
-			//----------------------end DEBUG MODE------------------------//
-			return;                                        // Exit Fx
-		}
-	}
-
-	if (!getLickState()) {                           // MOUSE: "No lick"
-		if (_lick_state) {                               // If lick just ended                            
-			_lick_state = false;                           // Resets lick detector
-		}
-	}  
-
-	if (signedMillis() - _cue_on_time >= _params[TRIAL_DURATION]) {  // TRIAL END -> ITI
-		// Send event marker (trial end) to HOST with timestamp
-		sendMessage("&" + String(EVENT_TRIAL_END) + " " + String(signedMillis() - _time_global));
-		_state = INTERTRIAL;                                      // Move to ITI
-		if (!_late_lick_detected) {                    // If this is first lick in post window
-			_resultCode = CODE_NO_LICK;                  // Register result code      
-		}
-		return;                                                   // Exit Fx
-	}  
-
-	_state = POST_WINDOW;                             // No Command: Cycle -> POST_WINDOW
-} // End POST_WINDOW STATE ------------------------------------------------------------------------------------------------------------------------------------------
-
-
-
-/*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-	REWARD - Deliver reward and wait for trial timeout while tracking licks
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
-void reward() {
-	/*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-		ACTION LIST -- initialize the new state
-	~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
-	if (_state != _prevState) {                        // If ENTERTING REWARD:
-		_reward_timer = signedMillis();                        // Start _reward_timer
-		// Play reward tone, unless user disables reward tones in pavlovian trials
-		if (!(_params[PLAY_PAV_REWARD_TONE] == 0 && (_resultCode == CODE_PAVLOV_HYBRID || _params[PAVLOVIAN] == 1))) {
-			playSound(TONE_REWARD);                             // Start reward tone    
-		}
-		setReward(true);                                    // Initiate reward delivery
-		// Send event marker (reward) to HOST with timestamp
-		sendMessage("&" + String(EVENT_REWARD) + " " + String(signedMillis() - _time_global));
-		if (_params[HYBRID] == 0) {                      // If NOT hybrid trial:
-			_resultCode = CODE_CORRECT;                         // Register result code      
-		}
-		_prevState = _state;                                // Assign _prevState to REWARD _state
-		sendMessage("$" + String(_state));                  // Send HOST $6 (reward State)  
-		//------------------------DEBUG MODE--------------------------//  
-		if (_params[_DEBUG]) {sendMessage("Dispensing reward.");}
-		//----------------------end DEBUG MODE------------------------//
-	}
-
- 	/*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-		TRANSITION LIST -- checks conditions, moves to next state
-	~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
-	if (_command == 'Q')  {                          // HOST: "QUIT" -> IDLE_STATE
-		_state = IDLE_STATE;                                      // Set IDLE_STATE
-		return;                                                   // Exit Function
-	}
-
-	if (signedMillis() - _reward_timer >= _params[REWARD_DURATION] && !_reward_dispensed_complete) { // Reward duration elapsed...terminate reward
-		setReward(false);                                   // Stop delivery
-		_reward_dispensed_complete = true;                  // track completion
-		if (_params[_DEBUG]) {
-			sendMessage("Reward terminated at " + String(signedMillis() - _reward_timer) + "ms wrt reward initiation.");
-		}
-	}
-
-	if (getLickState()) {                            // MOUSE: "Licked"
-		if (!_lick_state) {                              // If a new lick initiated
-			_lick_time = signedMillis() - _cue_on_time;          // Records lick wrt CUE ON
-			// Send a event marker (lick) to HOST with timestamp
-			sendMessage("&" + String(EVENT_LICK) + " " + String(signedMillis() - _time_global));
-			_lick_state = true;                            // Halts lick detection
-			if (_params[_DEBUG]) {
-				sendMessage("Lick detected, tallying lick @ " + String(_lick_time) + "ms");
-			}
-			return;                                        // Exit Fx
-		}
-	}
-
-	if (!getLickState()) {                           // MOUSE: "No lick"
-		if (_lick_state) {                               // If lick just ended                            
-			_lick_state = false;                           // Resets lick detector
-		}
-	}
-
-	if (signedMillis() - _time_trial - _preCueDelay >= _params[TRIAL_DURATION]) {  // TRIAL END -> ITI
-		// Send event marker (trial end) to HOST with timestamp
-		sendMessage("&" + String(EVENT_TRIAL_END) + " " + String(signedMillis() - _time_global));
-		_state = INTERTRIAL;                                // Move to ITI
-		return;                                             // Exit Fx
-	}
-
-	_state = REWARD;                                  // No Command --> Cycle back to REWARD
-} // End REWARD STATE ------------------------------------------------------------------------------------------------------------------------------------------
-
-
-
-/*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-	ABORT_TRIAL - Presents error and waits for Trial Timeout
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
-void abort_trial() {
-	/*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-		ACTION LIST -- initialize the new state
-	~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
-	if (_state != _prevState) {                        // If ENTERTING ABORT:
-		_abort_timer = signedMillis();                           // Start _abort_timer
-		_prevState = _state;                               // Assign _prevState to ABORT_TRIAL _state
-		setHouseLamp(true);                                // House Lamp ON
-		playSound(TONE_ABORT);                             // Error Tone
-
-		sendMessage("$" + String(_state));                 // Send HOST -- $7 (abort State) 
-		// Send event marker (abort) to HOST with timestamp
-		sendMessage("&" + String(EVENT_ABORT) + " " + String(signedMillis() - _time_global));
-		
-		//------------------------DEBUG MODE--------------------------//  
-		if (_params[_DEBUG]) {sendMessage("Incorrect: Trial aborted.");}
-		//----------------------end DEBUG MODE------------------------//
-	}
-
-	/*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-		TRANSITION LIST -- checks conditions, moves to next state
-	~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
-	if (_command == 'Q')  {                             // HOST: "QUIT" -> IDLE_STATE
-		_state = IDLE_STATE;                                 // Set IDLE_STATE
-		return;                                              // Exit Function
-	}
-
-	if (getLickState()) {                               // MOUSE: "Licked"
-		if (!_lick_state) {                                 // If a new lick initiated
-			_lick_time = signedMillis() - _cue_on_time;          // Records lick wrt CUE ON
-			// Send a event marker (lick) to HOST with timestamp
-			sendMessage("&" + String(EVENT_LICK) + " " + String(signedMillis() - _time_global));
-			_lick_state = true;                               // Halts lick detection
-			if (_params[_DEBUG]) {sendMessage("Lick detected, tallying lick @ " + String(_lick_time) + "ms");}
-			return;                                           // Exit Fx: Cycle => ABORT
-		}
-	}
-
-	if (!getLickState()) {                              // MOUSE: "No lick"
-		if (_lick_state) {                               // If lick just ended                            
-			_lick_state = false;                           // Resets lick detector
-		}
-	}
-
-	if (signedMillis() - _time_trial - _preCueDelay >= _params[TRIAL_DURATION]) { // Trial Timeout -> ITI
-		// Send event marker (trial end) to HOST with timestamp
-		sendMessage("&" + String(EVENT_TRIAL_END) + " " + String(signedMillis() - _time_global));
-		_state = INTERTRIAL;                                      // Move to ITI
-		return;                                                   // Exit Fx
-	}
-
-	_state = ABORT_TRIAL;                               // No Command: Cycle -> ABORT_TRIAL
-} // End ABORT_TRIAL STATE ---------------------------------------------------------------------------------------------------------------------
-
-
-
-/*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-	INTERTRIAL - Enforced ITI with Data Writing and Initialization of new parameters delivered from host
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
-void intertrial() {
-	/*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-		ACTION LIST -- initialize the new state
-	~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
-	static bool isParamsUpdateStarted;              // Initialize tracker of new param reception from HOST - true when new params received
-	static bool isParamsUpdateDone;                 // Set to true upon receiving confirmation signal from HOST ("Over")
-	if (_state != _prevState) {                     // If ENTERTING ITI:
-		_ITI_timer = signedMillis();                           // Start ITI timer
-		setHouseLamp(true);                              // House Lamp ON (if not already)
-		setCueLED(false);                                // Cue LED OFF
-		setReward(false);                                // Stop reward if still going
-		_prevState = _state;                             // Assign _prevState to ITI _state
-		sendMessage("$" + String(_state));               // Send HOST $7 (ITI State)
-		// Send event marker (ITI) to HOST with timestamp
-		sendMessage("&" + String(EVENT_ITI) + " " + String(signedMillis() - _time_global));
-		
-		// Reset variables
-		isParamsUpdateStarted = false;
-		isParamsUpdateDone = false; 
-
-		//=================== SEND RESULT CODE=================//
-		if (_resultCode > -1) {                       // If result code exists...
-			sendMessage("`" + String(_resultCode));           // Send result to HOST
-			_resultCode = -1;                                 // Reset result code to null state
-		}
-
-		//------------------------DEBUG MODE--------------------------//  
-			if (_params[_DEBUG]) {sendMessage("Intertrial.");}
-		//----------------------end DEBUG MODE------------------------//
-	}
-
-
-	/*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-		TRANSITION LIST -- checks conditions, moves to next state
-	~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
-	if (_command == 'Q')  {                             // HOST: "QUIT" -> IDLE_STATE
-		_state = IDLE_STATE;                                 // Set IDLE_STATE
-		return;                                              // Exit Function
-	}
-
-	if (_command == 'P') {                          // Received new param from HOST: format "P _paramID _newValue" ('P' for Parameters)
-		isParamsUpdateStarted = true;                   // Mark transmission start. Don't start next trial until we've finished.
-		_params[_arguments[0]] = _arguments[1];         // Update parameter. Serial input "P 0 1000" changes the 1st parameter to 1000.
-		_state = INTERTRIAL;                            // Return -> ITI
-		if (_params[_DEBUG]) {
-				sendMessage("Parameter " + String(_arguments[0]) + " changed to " + String(_arguments[1]));
-		} 
-		return;                                         // Exit Fx
-	}
-	
-
-	if (_command == 'O') {                          // HOST transmission complete: HOST sends 'O' for Over.
-		isParamsUpdateDone = true;                      // Mark transmission complete.
-		_state = INTERTRIAL;                            // Return -> ITI
-		return;                                         // Exit Fx
-	}
-
-	if (getLickState()) {                               // MOUSE: "Licked"
-		if (!_lick_state) {                                 // If a new lick initiated
-			_lick_time = signedMillis() - _cue_on_time;          // Records lick wrt CUE ON
-			// Send a event marker (lick) to HOST with timestamp
-			sendMessage("&" + String(EVENT_LICK) + " " + String(signedMillis() - _time_global));
-			_lick_state = true;                               // Halts lick detection
-			//------------------------DEBUG MODE--------------------------//
-				if (_params[_DEBUG]) {sendMessage("Lick detected, tallying lick @ " + String(_lick_time) + "ms");}
-			//----------------------end DEBUG MODE------------------------//
-			return;                                           // Exit Fx: Cycle => ABORT
-		}
-	}
-
-	if (!getLickState()) {                              // MOUSE: "No lick"
-		if (_lick_state) {                               // If lick just ended                            
-			_lick_state = false;                           // Resets lick detector
-		}
-	} 
-	
-	if (signedMillis() - _ITI_timer >= _params[ITI] && (isParamsUpdateDone || !isParamsUpdateStarted))  { // End when ITI ends. If param update initiated, should also wait for update completion signal from HOST ('O' for Over).
-		_state = INIT_TRIAL;                                 // Move -> READY state
-		return;                                         // Exit Fx
-	}
-
-	_state = INTERTRIAL;                            // No Command -> Cycle back to ITI
-} // End ITI---------------------------------------------------------------------------------------------------------------------
-
-
-
-
-
-
-
-
-
 
 
 /*****************************************************
@@ -1695,7 +528,7 @@ void playSound(SoundEventFrequencyEnum soundEventFrequency) {
 } // end Play Sound---------------------------------------------------------------------------------------------------------------------
 
 /*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-	SET REWARD (Deliver or turn off reward)
+	SET STATE_REWARD (Deliver or turn off reward)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
 void setReward(bool turnOn) {
 	if (turnOn)                                                       
