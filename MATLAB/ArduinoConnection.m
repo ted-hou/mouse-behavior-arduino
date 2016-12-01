@@ -91,7 +91,7 @@ classdef ArduinoConnection < handle
 			parameterValues = obj.ParamValues; 		% store parameter values
 
 			% Prompt user to select save path
-			[filename, filepath] = uiputfile(['parameters_', datestr(now, 'yyyymmdd_HHMM'), '.mat'], 'Save current parameters to file');
+			[filename, filepath] = uiputfile(['parameters_', datestr(now, 'yyyymmdd'), '.mat'], 'Save current parameters to file');
 			% Exit if no file selected
 			if ~(ischar(filename) && ischar(filepath))
 				return
@@ -160,7 +160,7 @@ classdef ArduinoConnection < handle
 		end
 
 		function SaveAsExperiment(obj)
-			[filename, filepath] = uiputfile(['exp_name_',datestr(now, 'yyyymmdd_HHMM'),'.mat'],'Save Experiment As New File');
+			[filename, filepath] = uiputfile(['exp_name_',datestr(now, 'yyyymmdd'),'.mat'],'Save Experiment As New File');
 			% Exit if no file selected
 			if ~(ischar(filename) && ischar(filepath))
 				return
