@@ -157,11 +157,9 @@ Arduino Pin Outs (Mode: TEENSY)
 #define PIN_HOUSE_LAMP     6   // House Lamp Pin         (DUE = 34)  (MEGA = 34)  (UNO = 5?)  (TEENSY = 6?)
 #define PIN_LED_CUE        4   // Cue LED Pin            (DUE = 35)  (MEGA = 28)  (UNO =  4)  (TEENSY = 4)
 #define PIN_REWARD         7   // Reward Pin             (DUE = 37)  (MEGA = 52)  (UNO =  7)  (TEENSY = 7)
-#define PIN_SHOCK          3   // Shock Trigger Pin                  (MEGA = 22)              (TEENSY = 3)
 
 // PWM OUT
 #define PIN_SPEAKER        5   // Speaker Pin            (DUE =  2)  (MEGA =  8)  (UNO =  9)  (TEENSY = 5)
-#define PIN_QUININE        8   // Quinine Pin            (DUE = 22)  (MEGA =  9)  (UNO =  8)  (TEENSY = 8) ** Must be PWM
 
 // Digital IN
 #define PIN_LICK           2   // Lick Pin               (DUE = 36)  (MEGA =  2)  (UNO =  2)  (TEENSY = 2)
@@ -208,7 +206,7 @@ static const int _stateCanUpdateParams[] = {0,1,0,0,0,0,0,0,1};
 /*****************************************************
 Event Markers
 *****************************************************/
-enum EventMarkers
+enum EventMarker
 /* You may define as many event markers as you like.
 		Assign event markers to any IN/OUT event
 		Times and trials will be defined by global time, 
@@ -313,13 +311,6 @@ enum ParamID
 	RANDOM_DELAY_MAX,               // Maximum random pre-Cue delay (ms)
 	CUE_DURATION,                   // Duration of the cue tone and LED flash (ms)
 	REWARD_DURATION,                // Duration of reward dispensal (ms)
-	QUININE_DURATION,               // Duration of quinine dispensal (ms)
-	QUININE_TIMEOUT,                // Minimum time between quinine dispensals (ms)
-	QUININE_MIN,                    // Minimum time post cue before quinine available (ms)
-	QUININE_MAX,                    // Maximum time post cue before quinine not available (ms)
-	SHOCK_ON,                       // 1 to enable Shock Mode
-	SHOCK_MIN,                      // Minimum time post cue before shock ckt connected (ms)
-	SHOCK_MAX,                      // Maximum time post cue before shock ckt disconnected (ms)
 	EARLY_LICK_ABORT,               // 1 to Abort with Early Licks in window (ms)
 	ABORT_MIN,                      // Miminum time post cue before lick causes abort (ms)
 	ABORT_MAX,                      // Maximum time post cue before abort unavailable (ms)
@@ -346,13 +337,6 @@ static const char *_paramNames[] =
 	"RANDOM_DELAY_MAX",
 	"CUE_DURATION",
 	"REWARD_DURATION",
-	"QUININE_DURATION",
-	"QUININE_TIMEOUT",
-	"QUININE_MIN",
-	"QUININE_MAX",
-	"SHOCK_ON",
-	"SHOCK_MIN",
-	"SHOCK_MAX",
 	"EARLY_LICK_ABORT",
 	"ABORT_MIN",
 	"ABORT_MAX",
@@ -377,13 +361,6 @@ long _params[_NUM_PARAMS] =
 	1500,                           // RANDOM_DELAY_MAX
 	100,                            // CUE_DURATION
 	35,                             // REWARD_DURATION
-	30,                             // QUININE_DURATION
-	400,                            // QUININE_TIMEOUT
-	0,                              // QUININE_MIN
-	1250,                           // QUININE_MAX
-	0,                              // SHOCK_ON
-	0,                              // SHOCK_MIN
-	1250,                           // SHOCK_MAX
 	0,                              // EARLY_LICK_ABORT
 	0,                              // ABORT_MIN
 	1250,                           // ABORT_MAX
@@ -397,32 +374,13 @@ Other Global Variables
 // Variables declared here can be carried to the next loop, AND read/written in function scope as well as main scope
 // (previously defined):
 static long _eventMarkerTimer        = 0;
-static long _trialTimer              = 0;
-static long _resultCode              = -1;       // Result code number. -1 if there is no result.
-static long _random_delay_timer      = 0;        // Random delay timer
-static long _single_loop_timer       = 0;        // Timer
-static State _state                  = _INIT;    // This variable (current _state) get passed into a _state function, which determines what the next _state should be, and updates it to the next _state.
-static State _prevState              = _INIT;    // Remembers the previous _state from the last loop (actions should only be executed when you enter a _state for the first time, comparing currentState vs _prevState helps us keep track of that).
-static char _command                 = ' ';      // Command char received from host, resets on each loop
-static int _arguments[2]             = {0};      // Two integers received from host , resets on each loop
-static bool _lick_state              = false;    // True when lick detected, False when no lick
-static bool _pre_window_elapsed      = false;    // Track if pre_window time has elapsed
-static bool _reached_target          = false;    // Track if target time reached
-static bool _late_lick_detected      = false;    // Track if late lick detected
-static long _exp_timer               = 0;        // Experiment timer, reset to signedMillis() at every soft reset
-static long _lick_time               = 0;        // Tracks most recent lick time
-static long _cue_on_time             = 0;        // Tracks time cue has been displayed for
-static long _response_window_timer   = 0;        // Tracks time in response window state
-static long _reward_timer            = 0;        // Tracks time in reward state
-static long _quinine_timer           = 0;        // Tracks time since last quinine delivery
-static long _abort_timer             = 0;        // Tracks time in abort state
-static long _ITI_timer               = 0;        // Tracks time in ITI state
-static long _preCueDelay             = 0;        // Initialize _preCueDelay var
-static bool _reward_dispensed_complete = false;  // init tracker of reward dispensal
-static bool _shock_trigger_on        = false;    // Shock trigger default is off
-static long _dice_roll               = 0;        // Randomly select if trial will be pav or op
-static bool _mixed_is_pavlovian      = true;     // Track if current mixed trial is pavlovian
-static bool _first_lick_received     = false;    // Track if first lick received for a trial
+static long _time_global             = 0;		// Reset to signedMillis() at every soft reset
+static long _time_trial              = 0;		// Reset to 0 at start of trial
+static long _resultCode              = -1;      // Result code. -1 if there is no result.
+static State _state                  = _INIT;   // This variable (current _state) get passed into a _state function, which determines what the next _state should be, and updates it to the next _state.
+static State _prevState              = _INIT;   // Remembers the previous _state from the last loop (actions should only be executed when you enter a _state for the first time, comparing currentState vs _prevState helps us keep track of that).
+static char _command                 = ' ';     // Command char received from host, resets on each loop
+static int _arguments[2]             = {0};     // Two integers received from host , resets on each loop
 
 
 /*****************************************************
@@ -436,8 +394,6 @@ void setup()
 	pinMode(PIN_LED_CUE, OUTPUT);               // LED for 'start' cue
 	pinMode(PIN_SPEAKER, OUTPUT);               // Speaker for cue/correct/error tone
 	pinMode(PIN_REWARD, OUTPUT);                // Reward OUT
-	pinMode(PIN_QUININE, OUTPUT);               // Quinine OUT
-	pinMode(PIN_SHOCK, OUTPUT);                 // Shock Trigger OUT
 	// INPUTS
 	pinMode(PIN_LICK, INPUT);                   // Lick detector
 	//--------------------------------------------------------//
@@ -488,6 +444,9 @@ void loop()
 				usbMessage = usbMessage + inByte;       // Appends the next character from the queue to the usbMessage string
 			}
 		}
+
+		// 2) Check lick state
+		static bool _lick_state = false;
 
 		/*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 			Step 2: Update the State Machine
@@ -544,7 +503,7 @@ void mySetup()
 
 	//---------------------------Reset a bunch of variables---------------------------//
 	_eventMarkerTimer       	= 0;
-	_trialTimer             	= 0;
+	_time_trial             	= 0;
 	_resultCode             	= -1; 
 	_random_delay_timer     	= 0;        // Random delay timer
 	_single_loop_timer      	= 0;        // Timer
@@ -553,11 +512,10 @@ void mySetup()
 	_command                	= ' ';      // Command char received from host, resets on each loop
 	_arguments[0]           	= 0;        // Two integers received from host , resets on each loop
 	_arguments[1]           	= 0;        // Two integers received from host , resets on each loop
-	_lick_state             	= false;    // True when lick detected, False when no lick
 	_pre_window_elapsed     	= false;    // Track if pre_window time has elapsed
 	_reached_target         	= false;    // Track if target time reached
 	_late_lick_detected     	= false;    // Track if late lick detected
-	_exp_timer		        	  = signedMillis();	// Experiment timer, reset to signedMillis() at every soft reset
+	_time_global					= signedMillis();	// Experiment timer, reset to signedMillis() at every soft reset
 	_lick_time              	= 0;        // Tracks most recent lick time
 	_cue_on_time            	= 0;        // Tracks time cue has been displayed for
 	_response_window_timer  	= 0;        // Tracks time in response window state
@@ -565,11 +523,10 @@ void mySetup()
 	_abort_timer            	= 0;        // Tracks time in abort state
 	_ITI_timer              	= 0;        // Tracks time in ITI state
 	_preCueDelay            	= 0;        // Initialize _preCueDelay var
-	_reward_dispensed_complete= false;    // init tracker of reward dispensal
-	_shock_trigger_on       	= false;    // Shock trigger default is off
-	_dice_roll       			    = 0;        // Randomly select if trial will be pav or op
+	_reward_dispensed_complete	= false;    // init tracker of reward dispensal
+	_dice_roll					= 0;        // Randomly select if trial will be pav or op
 	_mixed_is_pavlovian     	= true;     // Track if current mixed trial is pavlovian
-  _first_lick_received      = false;    // Reset first lick detector
+	_first_lick_received		= false;    // Reset first lick detector
 
 
 	// Tell PC that we're running by sending '~' message:
@@ -588,64 +545,96 @@ void mySetup()
 /*****************************************************
 	States for the State Machine
 *****************************************************/
-/* New states are initialized by the ACTION LIST
- In the main loop after state runs, Arduino checks for new parameters and switches the state */
 
-
-/*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-	IDLE STATE - awaiting start cue from Matlab HOST
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
+/*****************************************************
+	IDLE - await GO command from host
+*****************************************************/
 void idle_state() {
-	/*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-		ACTION LIST -- initialize the new state
-	~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
-	if (_state != _prevState) {                       // If ENTERTING IDLE_STATE:
-		_prevState = _state;                              // Assign _prevState to idle _state
-		sendMessage("$" + String(_state));                // Send a message to host upon _state entry -- $1 (Idle State)
-		setHouseLamp(true);                               // Turn House Lamp ON
-		setCueLED(false);                                 // Kill Cue LED
-		noTone(PIN_SPEAKER);                              // Kill tone
-		noTone(PIN_QUININE);                              // Kill quinine
-		setShockTrigger(false);                           // Kill shock ckt
-		setReward(false);                                 // Kill reward
-		// Reset state variables
-		_pre_window_elapsed = false;                  // Reset pre_window time tracker
-		_reached_target = false;                      // Reset target time tracker
-		_late_lick_detected = false;                  // Reset late lick detector
-		_reward_dispensed_complete = false;           // Reset tracker of reward dispensal
-		_resultCode = -1;                             // Clear previously registered result code
-    _first_lick_received = false;                 // Clear previously registered first lick
+	/*****************************************************
+		ACTION LIST
+	*****************************************************/
+	if (_state != _prevState) 
+	{
+		// Register new state
+		_prevState = _state;
+		sendState(_state);
 
-		//------------------------DEBUG MODE--------------------------//
-		if (_params[_DEBUG]) {
-			sendMessage("Idle.");
-		}  
-		//----------------------end DEBUG MODE------------------------//
+		// Reset output
+		setHouseLamp(true);
+		setCueLED(false);
+		noTone(PIN_SPEAKER);
+		setReward(false);
+		
+		// Reset variables
+		_resultCode = -1;	// Reset result code to -1: no result
 	}
 
-	/*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-		TRANSITION LIST -- checks conditions, moves to next state
-	~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
+	/*****************************************************
+		TRANSITION LIST
+	*****************************************************/
+	// GO signal from host --> INIT_TRIAL
+	if (_command == 'G') 
+	{                           
+		_state = INIT_TRIAL;
+		return;
+	}
 	
-	if (_command == 'G') {                           // If Received GO signal from HOST ---transition to---> READY
-		_state = INIT_TRIAL;                              // State set to INIT_TRIAL
-		return;                                           // Exit function
+	// Received new param from host: format "P _paramID _newValue" ('P' for Parameters)
+	if (_command == 'P') 
+	{                           
+		_params[_arguments[0]] = _arguments[1];
+		_state = IDLE_STATE;
+		return;
 	}
 
+	_state = IDLE_STATE;
+}
+
+
+/*****************************************************
+	INIT_TRIAL - Trial started
+*****************************************************/
+void idle_state() {
+	/*****************************************************
+		ACTION LIST
+	*****************************************************/
+	if (_state != _prevState) 
+	{
+		// Register new state
+		_prevState = _state;
+		sendState(_state);
+
+		// Reset output
+		setHouseLamp(true);
+		setCueLED(false);
+		noTone(PIN_SPEAKER);
+		setReward(false);
+		
+		// Reset variables
+		_resultCode = -1;	// Reset result code to -1: no result
+	}
+
+	/*****************************************************
+		TRANSITION LIST
+	*****************************************************/
+	// GO signal from host --> INIT_TRIAL
+	if (_command == 'G') 
+	{                           
+		_state = INIT_TRIAL;
+		return;
+	}
 	
-	if (_command == 'P') {                           // Received new param from host: format "P _paramID _newValue" ('P' for Parameters)
-		//----------------------DEBUG MODE------------------------// 
-		if (_params[_DEBUG]) {sendMessage("Parameter " + String(_arguments[0]) + " changed to " + String(_arguments[1]));
-		} 
-		//-------------------end DEBUG MODE--- -------------------//
-
-		_params[_arguments[0]] = _arguments[1];           // Update parameter. Serial input "P 0 1000" changes the 1st parameter to 1000.
-		_state = IDLE_STATE;                              // State returns to IDLE_STATE
-		return;                                           // Exit function
+	// Received new param from host: format "P _paramID _newValue" ('P' for Parameters)
+	if (_command == 'P') 
+	{                           
+		_params[_arguments[0]] = _arguments[1];
+		_state = IDLE_STATE;
+		return;
 	}
 
-	_state = IDLE_STATE;                             // Return to IDLE_STATE
-} // End IDLE_STATE ------------------------------------------------------------------------------------------------------------------------------------------
+	_state = IDLE_STATE;
+}
+
 
 
 
@@ -663,32 +652,32 @@ void init_trial() {
 			if (_dice_roll <= _params[PERCENT_PAVLOVIAN]) {             // If dice_roll <= the percent of trials that should be pavlovian
 				_mixed_is_pavlovian = true;                                 // Set this trial to pavlovian
 				// Send event marker (pavlovian trial) to HOST with timestamp
-				sendMessage("&" + String(EVENT_PAVLOVIAN) + " " + String(signedMillis() - _exp_timer));
+				sendMessage("&" + String(EVENT_PAVLOVIAN) + " " + String(signedMillis() - _time_global));
 				if (_params[_DEBUG]) {sendMessage("-----PAVLOVIAN-----");}
 			}
 			else {                                                     // If dice_roll > percent of trials that should be pavlovian
 				_mixed_is_pavlovian = false;                                // Set this trial to operant
 				// Send event marker (operant trial) to HOST with timestamp
-				sendMessage("&" + String(EVENT_OPERANT) + " " + String(signedMillis() - _exp_timer));
+				sendMessage("&" + String(EVENT_OPERANT) + " " + String(signedMillis() - _time_global));
 				if (_params[_DEBUG]) {sendMessage("-----OPERANT-----");}
 			}
 		}
 		/*---------Decide if trial is HYBRID before starting the trial:---------*/
 		if (_params[HYBRID] == 1)  {
 			// Send event marker (hybrid trial) to HOST with timestamp
-			sendMessage("&" + String(EVENT_HYBRID) + " " + String(signedMillis() - _exp_timer));
+			sendMessage("&" + String(EVENT_HYBRID) + " " + String(signedMillis() - _time_global));
 			if (_params[_DEBUG]) {sendMessage("-----HYBRID-----");}
 		}
 
 		//-----------------INIT TRIAL CLOCKS and OUTPUTS--------------//
-		_trialTimer = signedMillis();                             // Start _trialTimer
+		_time_trial = signedMillis();                             // Start _time_trial
 		// Send event marker (trial_init) to HOST with timestamp
-		sendMessage("&" + String(EVENT_TRIAL_INIT) + " " + String(signedMillis() - _exp_timer));
+		sendMessage("&" + String(EVENT_TRIAL_INIT) + " " + String(signedMillis() - _time_global));
 		_prevState = _state;                                // Assign _prevState to READY _state
 		sendMessage("$" + String(_state));                  // Send  HOST _state entry -- $2 (Ready State)
 		setHouseLamp(false);                                // House Lamp OFF
 		// Send event marker (house_lamp_off) to HOST with timestamp
-		sendMessage("&" + String(EVENT_HOUSE_LAMP_OFF) + " " + String(signedMillis() - _exp_timer));
+		sendMessage("&" + String(EVENT_HOUSE_LAMP_OFF) + " " + String(signedMillis() - _time_global));
 		
 		_random_delay_timer = signedMillis();                     // Start _random_delay_timer
 		_preCueDelay = random(_params[RANDOM_DELAY_MIN], _params[RANDOM_DELAY_MAX]);     // Choose random delay time
@@ -709,10 +698,10 @@ void init_trial() {
 
 	if (getLickState()) {                            // MOUSE: "Licked"
 		if (!_lick_state) {                              // If a new lick initiated
-			_lick_time = signedMillis() - _trialTimer;           // Records _lick_time relative to trial start
+			_lick_time = signedMillis() - _time_trial;           // Records _lick_time relative to trial start
 			
 			// Send a event marker (lick) to HOST with timestamp
-			sendMessage("&" + String(EVENT_LICK) + " " + String(signedMillis() - _exp_timer));
+			sendMessage("&" + String(EVENT_LICK) + " " + String(signedMillis() - _time_global));
 			_lick_state = true;                            // Halts lick detection
 			
 			if (_params[_DEBUG]) {sendMessage("Pre-cue lick detected, tallying lick @ " + String(_lick_time - _preCueDelay) + "ms wrt Cue ON");}
@@ -752,7 +741,7 @@ void pre_window() { //**********************************************************
 		playSound(TONE_CUE);                             // Cue tone ON
 		_cue_on_time = signedMillis();                         // Start Cue ON timer
 		// Send event marker (cue_on) to HOST with timestamp
-		sendMessage("&" + String(EVENT_CUE_ON) + " " + String(signedMillis() - _exp_timer));
+		sendMessage("&" + String(EVENT_CUE_ON) + " " + String(signedMillis() - _time_global));
 		_prevState = _state;                                // Assign _prevState to PRE_WINDOW state
 		sendMessage("$" + String(_state));                  // Send HOST $3 (pre_window State)
 		if (_params[_DEBUG]) {sendMessage("Cue on. Lick accepted between " + String(_params[INTERVAL_MIN]) + " - " + String(_params[INTERVAL_MAX]) + " ms");} 
@@ -768,15 +757,6 @@ void pre_window() { //**********************************************************
 
 	if (signedMillis() - _cue_on_time >= _params[CUE_DURATION]) {// Time to turn off Cue
 		setCueLED(false);                                   // Turn Cue LED OFF
-	}
-
-	if (_params[SHOCK_ON] == 1) {                   // If shock circuit enforced
-		if (!_shock_trigger_on && signedMillis() - _cue_on_time > _params[SHOCK_MIN] && signedMillis()-_cue_on_time < _params[SHOCK_MAX]) { // If shock window is open
-			setShockTrigger(true);                          // Connect the shock ckt        
-		}
-		else if (_shock_trigger_on) {               // Otherwise, if shock is on, but we're in the wrong window...                                            
-			setShockTrigger(false);                           // Disconnect shock ckt
-		}
 	}
 
 	if (!_pre_window_elapsed && signedMillis() - _cue_on_time >= _params[INTERVAL_MIN]) { // If prewindow elapsed, break to response window
@@ -796,14 +776,14 @@ void pre_window() { //**********************************************************
 			if (_params[ENFORCE_NO_LICK] == 1) {
 				_lick_time = signedMillis() - _cue_on_time;          // Records lick wrt CUE ON
 				// Send a event marker (lick) to HOST with timestamp
-				sendMessage("&" + String(EVENT_LICK) + " " + String(signedMillis() - _exp_timer));
+				sendMessage("&" + String(EVENT_LICK) + " " + String(signedMillis() - _time_global));
 				_lick_state = true;                            // Halt lick detection
-        //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~Check for first lick~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~//
-          if (!_first_lick_received) {
-            // If it's the first lick in the trial, send event marker:
-            sendMessage("&" + String(EVENT_FIRST_LICK) + " " + String(signedMillis() - _exp_timer));
-            _first_lick_received = true;
-          }
+			//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~Check for first lick~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~//
+				if (!_first_lick_received) {
+					// If it's the first lick in the trial, send event marker:
+					sendMessage("&" + String(EVENT_FIRST_LICK) + " " + String(signedMillis() - _time_global));
+					_first_lick_received = true;
+				}
 
 				//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~Check for Quinine Window~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~//
   				//~~~~~~~~~~~~~~~~~~~~~~~~~Deliver Quinine if Prior Quinine has elapsed~~~~~~~~~~~~~~~~~~~~~~~~//            
@@ -829,7 +809,7 @@ void pre_window() { //**********************************************************
 			else
 				_lick_time = signedMillis() - _cue_on_time;          // Records lick wrt CUE ON
 				// Send a event marker (lick) to HOST with timestamp
-				sendMessage("&" + String(EVENT_LICK) + " " + String(signedMillis() - _exp_timer));
+				sendMessage("&" + String(EVENT_LICK) + " " + String(signedMillis() - _time_global));
 				_lick_state = true;                            // Halts lick detection
 				_state = PRE_WINDOW;                           // Returns to Pre-window
 				//------------------------DEBUG MODE--------------------------//
@@ -875,7 +855,7 @@ void response_window() {
 			_prevState = _state;                                // Assign _prevState to RESPONSE_WINDOW state
 			sendMessage("$" + String(_state));                  // Send a message to host upon _state entry -- $4 (response_window State)
 			// Send event marker (window open) to HOST with timestamp
-			sendMessage("&" + String(EVENT_WINDOW_OPEN) + " " + String(signedMillis() - _exp_timer)); // relative to cue onset
+			sendMessage("&" + String(EVENT_WINDOW_OPEN) + " " + String(signedMillis() - _time_global)); // relative to cue onset
 			//------------------------DEBUG MODE--------------------------//  
 			if (_params[_DEBUG]) {
 				sendMessage("HYBRID: Entered response window at " + String(_response_window_timer - _cue_on_time) +"ms, awaiting lick.");
@@ -894,12 +874,12 @@ void response_window() {
 		if (getLickState()) {                            // MOUSE: "Licked" -> Stay in RESPONSE_WINDOW
 			if (!_lick_state) {                              // If a new lick initiated
 				// Send a event marker (lick) to HOST with timestamp
-				sendMessage("&" + String(EVENT_LICK) + " " + String(signedMillis() - _exp_timer));
+				sendMessage("&" + String(EVENT_LICK) + " " + String(signedMillis() - _time_global));
 				// Send a event marker (correct lick) to HOST with timestamp
-				sendMessage("&" + String(EVENT_CORRECT_LICK) + " " + String(signedMillis() - _exp_timer));
+				sendMessage("&" + String(EVENT_CORRECT_LICK) + " " + String(signedMillis() - _time_global));
 				if (!_first_lick_received) {
 					// If it's the first lick in the trial, send event marker:
-					sendMessage("&" + String(EVENT_FIRST_LICK) + " " + String(signedMillis() - _exp_timer));
+					sendMessage("&" + String(EVENT_FIRST_LICK) + " " + String(signedMillis() - _time_global));
 					_first_lick_received = true;
 				}
 				_lick_state = true;                            // Halts lick detection
@@ -920,19 +900,10 @@ void response_window() {
 			}
 		}
 
-		if (_params[SHOCK_ON] == 1) {                    // If shock circuit enforced
-			if (!_shock_trigger_on && signedMillis() - _cue_on_time > _params[SHOCK_MIN] && signedMillis()-_cue_on_time < _params[SHOCK_MAX]) { // If shock window is open
-				setShockTrigger(true);                          // Connect the shock ckt        
-			}
-			else if (_shock_trigger_on) {               // Otherwise, if shock is on, but we're in the wrong window...                                            
-				setShockTrigger(false);                           // Disconnect shock ckt
-			}
-		}
-
 		long current_time = signedMillis() - _cue_on_time; //****Changed to be wrt cue onset (not total trial time)
 		if (!_reached_target && current_time >= _params[TARGET]) { // TARGET -> REWARD
 			// Send event marker (target time) to HOST with timestamp
-			sendMessage("&" + String(EVENT_TARGET_TIME) + " " + String(signedMillis() - _exp_timer));
+			sendMessage("&" + String(EVENT_TARGET_TIME) + " " + String(signedMillis() - _time_global));
 			_reached_target = true;                        // Indicate target reached
 			//------------------------DEBUG MODE--------------------------//  
 			if (_params[_DEBUG]) {
@@ -948,7 +919,7 @@ void response_window() {
 			setHouseLamp(true);                               // House Lamp ON (to indicate error)
 			playSound(TONE_ALERT);
 			// Send event marker (window closed) to HOST with timestamp
-			sendMessage("&" + String(EVENT_WINDOW_CLOSED) + " " + String(signedMillis() - _exp_timer));
+			sendMessage("&" + String(EVENT_WINDOW_CLOSED) + " " + String(signedMillis() - _time_global));
 			//------------------------DEBUG MODE--------------------------//  
 			if (_params[_DEBUG]) {
 				sendMessage("PAVLOVIAN ERROR: Reward window closed at " + String(current_time) +"ms.");
@@ -970,13 +941,13 @@ void response_window() {
 			~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
 			if (_state != _prevState) {                        // If ENTERTING RESPONSE_WINDOW:
 				// Send event marker (pavlovian trial) to HOST with timestamp
-				sendMessage("&" + String(EVENT_PAVLOVIAN) + " " + String(signedMillis() - _exp_timer));
+				sendMessage("&" + String(EVENT_PAVLOVIAN) + " " + String(signedMillis() - _time_global));
 				// Set state clocks.....................
 				_response_window_timer = signedMillis();                  // Start _response_window_timer
 				_prevState = _state;                                // Assign _prevState to RESPONSE_WINDOW state
 				sendMessage("$" + String(_state));                  // Send a message to host upon _state entry -- $4 (response_window State)
 				// Send event marker (window open) to HOST with timestamp
-				sendMessage("&" + String(EVENT_WINDOW_OPEN) + " " + String(signedMillis() - _exp_timer)); // relative to cue onset
+				sendMessage("&" + String(EVENT_WINDOW_OPEN) + " " + String(signedMillis() - _time_global)); // relative to cue onset
 				//------------------------DEBUG MODE--------------------------//  
 				if (_params[_DEBUG]) {
 					sendMessage("Entered response window at " + String(_response_window_timer - _cue_on_time) +"ms, awaiting lick.");
@@ -991,12 +962,12 @@ void response_window() {
 				if (!_lick_state) {                              // If a new lick initiated
 					_lick_time = signedMillis() - _cue_on_time;          // Records lick wrt CUE ON
 					// Send a event marker (lick) to HOST with timestamp
-					sendMessage("&" + String(EVENT_LICK) + " " + String(signedMillis() - _exp_timer));
+					sendMessage("&" + String(EVENT_LICK) + " " + String(signedMillis() - _time_global));
 					// Send a event marker (correct lick) to HOST with timestamp
-					sendMessage("&" + String(EVENT_CORRECT_LICK) + " " + String(signedMillis() - _exp_timer));
+					sendMessage("&" + String(EVENT_CORRECT_LICK) + " " + String(signedMillis() - _time_global));
 					if (!_first_lick_received) {
 						// If it's the first lick in the trial, send event marker:
-						sendMessage("&" + String(EVENT_FIRST_LICK) + " " + String(signedMillis() - _exp_timer));
+						sendMessage("&" + String(EVENT_FIRST_LICK) + " " + String(signedMillis() - _time_global));
 						_first_lick_received = true;
 					}
 					_lick_state = true;                            // Halts lick detection
@@ -1020,19 +991,10 @@ void response_window() {
 				return;                                              // Exit Fx
 			}
 
-			if (_params[SHOCK_ON] == 1) {                   // If shock circuit enforced
-				if (!_shock_trigger_on && signedMillis() - _cue_on_time > _params[SHOCK_MIN] && signedMillis()-_cue_on_time < _params[SHOCK_MAX]) { // If shock window is open
-						setShockTrigger(true);                          // Connect the shock ckt        
-				}
-				else if (_shock_trigger_on) {               // Otherwise, if shock is on, but we're in the wrong window...                                            
-					setShockTrigger(false);                           // Disconnect shock ckt
-				}
-			}
-
 			long current_time = signedMillis() - _cue_on_time; //****Changed to be wrt cue onset (not total trial time)
 			if (!_reached_target && current_time >= _params[TARGET]) { // TARGET -> REWARD
 				// Send event marker (target time) to HOST with timestamp
-				sendMessage("&" + String(EVENT_TARGET_TIME) + " " + String(signedMillis() - _exp_timer));
+				sendMessage("&" + String(EVENT_TARGET_TIME) + " " + String(signedMillis() - _time_global));
 				_reached_target = true;                        // Indicate target reached
 				_state = REWARD;                               // Move -> REWARD (Pavlovian only)
 				//------------------------DEBUG MODE--------------------------//  
@@ -1046,7 +1008,7 @@ void response_window() {
 				setHouseLamp(true);                               // House Lamp ON (to indicate error)
 				playSound(TONE_ALERT);
 				// Send event marker (window closed) to HOST with timestamp
-				sendMessage("&" + String(EVENT_WINDOW_CLOSED) + " " + String(signedMillis() - _exp_timer));
+				sendMessage("&" + String(EVENT_WINDOW_CLOSED) + " " + String(signedMillis() - _time_global));
 				//------------------------DEBUG MODE--------------------------//  
 				if (_params[_DEBUG]) {
 					sendMessage("PAVLOVIAN ERROR: Reward window closed at " + String(current_time) +"ms.");
@@ -1064,36 +1026,29 @@ void response_window() {
 			~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
 			if (_state != _prevState) {                        // If ENTERTING RESPONSE_WINDOW:
 				// Send event marker (operant trial) to HOST with timestamp
-				sendMessage("&" + String(EVENT_OPERANT) + " " + String(signedMillis() - _exp_timer));
+				sendMessage("&" + String(EVENT_OPERANT) + " " + String(signedMillis() - _time_global));
 				// Set state clocks...
 				_response_window_timer = signedMillis();                  // Start _response_window_timer
 				_prevState = _state;                                // Assign _prevState to RESPONSE_WINDOW state
 				sendMessage("$" + String(_state));                  // Send a message to host upon _state entry -- $4 (response_window State)
 				// Send event marker (window open) to HOST with timestamp
-				sendMessage("&" + String(EVENT_WINDOW_OPEN) + " " + String(signedMillis() - _exp_timer));
+				sendMessage("&" + String(EVENT_WINDOW_OPEN) + " " + String(signedMillis() - _time_global));
 				//------------------------DEBUG MODE--------------------------//  
 				if (_params[_DEBUG]) {
 					sendMessage("Entered response window at " + String(_response_window_timer - _cue_on_time) +"ms wrt cue on, awaiting lick.");
 				}
 				//----------------------end DEBUG MODE------------------------//
-				if (_params[SHOCK_ON] == 1) {                   // If shock circuit enforced
-						if (!_shock_trigger_on && signedMillis() - _cue_on_time > _params[SHOCK_MIN] && signedMillis()-_cue_on_time < _params[SHOCK_MAX]) { // If shock window is open
-								setShockTrigger(true);                          // Connect the shock ckt        
-						}
-						else if (_shock_trigger_on) {                // Otherwise, if shock is on, but we're in the wrong window...                                            
-							setShockTrigger(false);                           // Disconnect shock ckt
-						}
-				}
+
 				if (getLickState()) {                            // MOUSE: "Licked" -> REWARD
 					if (!_lick_state) {                              // If a new lick initiated
 						_lick_time = signedMillis() - _cue_on_time;          // Records lick wrt CUE ON
 						// Send a event marker (lick) to HOST with timestamp
-						sendMessage("&" + String(EVENT_LICK) + " " + String(signedMillis() - _exp_timer));
+						sendMessage("&" + String(EVENT_LICK) + " " + String(signedMillis() - _time_global));
 						// Send a event marker (correct lick) to HOST with timestamp
-						sendMessage("&" + String(EVENT_CORRECT_LICK) + " " + String(signedMillis() - _exp_timer));
+						sendMessage("&" + String(EVENT_CORRECT_LICK) + " " + String(signedMillis() - _time_global));
 						if (!_first_lick_received) {
 							// If it's the first lick in the trial, send event marker:
-							sendMessage("&" + String(EVENT_FIRST_LICK) + " " + String(signedMillis() - _exp_timer));
+							sendMessage("&" + String(EVENT_FIRST_LICK) + " " + String(signedMillis() - _time_global));
 							_first_lick_received = true;
 						}
 						_lick_state = true;                            // Halts lick detection
@@ -1126,14 +1081,14 @@ void response_window() {
 				if (!_lick_state) {                              // If a new lick initiated
 					_lick_time = signedMillis() - _cue_on_time;          // Records lick wrt CUE ON
 					// Send a event marker (lick) to HOST with timestamp
-					sendMessage("&" + String(EVENT_LICK) + " " + String(signedMillis() - _exp_timer));
+					sendMessage("&" + String(EVENT_LICK) + " " + String(signedMillis() - _time_global));
 					// Send a event marker (correct lick) to HOST with timestamp
-					sendMessage("&" + String(EVENT_CORRECT_LICK) + " " + String(signedMillis() - _exp_timer));
-          if (!_first_lick_received) {
-            // If it's the first lick in the trial, send event marker:
-            sendMessage("&" + String(EVENT_FIRST_LICK) + " " + String(signedMillis() - _exp_timer));
-            _first_lick_received = true;
-          }
+					sendMessage("&" + String(EVENT_CORRECT_LICK) + " " + String(signedMillis() - _time_global));
+					if (!_first_lick_received) {
+						// If it's the first lick in the trial, send event marker:
+						sendMessage("&" + String(EVENT_FIRST_LICK) + " " + String(signedMillis() - _time_global));
+						_first_lick_received = true;
+					}
 					_lick_state = true;                            // Halts lick detection
 					_state = REWARD;                               // Move -> REWARD
 					//------------------------DEBUG MODE--------------------------//
@@ -1150,19 +1105,10 @@ void response_window() {
 				}
 			}
 
-			if (_params[SHOCK_ON] == 1) {                   // If shock circuit enforced
-				if (!_shock_trigger_on && signedMillis() - _cue_on_time > _params[SHOCK_MIN] && signedMillis()-_cue_on_time < _params[SHOCK_MAX]) { // If shock window is open
-					setShockTrigger(true);                          // Connect the shock ckt  
-				}      
-				else if (_shock_trigger_on) {               // Otherwise, if shock is on, but we're in the wrong window...                                            
-					setShockTrigger(false);                           // Disconnect shock ckt
-				}
-			}
-
 			long current_time = signedMillis() - _cue_on_time; // WRT cue onset
 			if (!_reached_target && current_time >= _params[TARGET]) { // If now is target time...record but stay in state (Operant only)
 				// Send event marker (target time) to HOST with timestamp
-				sendMessage("&" + String(EVENT_TARGET_TIME) + " " + String(signedMillis() - _exp_timer));
+				sendMessage("&" + String(EVENT_TARGET_TIME) + " " + String(signedMillis() - _time_global));
 				_reached_target = true;                        // Indicate target reached
 				//------------------------DEBUG MODE--------------------------//  
 				if (_params[_DEBUG]) {
@@ -1175,7 +1121,7 @@ void response_window() {
 				setHouseLamp(true);                               // House Lamp ON (to indicate error)
 				playSound(TONE_ALERT);
 				// Send event marker (window closed) to HOST with timestamp
-				sendMessage("&" + String(EVENT_WINDOW_CLOSED) + " " + String(signedMillis() - _exp_timer));
+				sendMessage("&" + String(EVENT_WINDOW_CLOSED) + " " + String(signedMillis() - _time_global));
 				//------------------------DEBUG MODE--------------------------//  
 				if (_params[_DEBUG]) {
 					sendMessage("Reward window closed at " + String(current_time) +"ms wrt Cue ON.");
@@ -1198,7 +1144,7 @@ void response_window() {
 					_prevState = _state;                                // Assign _prevState to RESPONSE_WINDOW state
 					sendMessage("$" + String(_state));                  // Send a message to host upon _state entry -- $4 (response_window State)
 					// Send event marker (window open) to HOST with timestamp
-					sendMessage("&" + String(EVENT_WINDOW_OPEN) + " " + String(signedMillis() - _exp_timer)); // relative to cue onset
+					sendMessage("&" + String(EVENT_WINDOW_OPEN) + " " + String(signedMillis() - _time_global)); // relative to cue onset
 					//------------------------DEBUG MODE--------------------------//  
 					if (_params[_DEBUG]) {
 						sendMessage("Entered response window at " + String(_response_window_timer - _cue_on_time) +"ms, awaiting lick.");
@@ -1218,12 +1164,12 @@ void response_window() {
 					if (!_lick_state) {                              // If a new lick initiated
 						_lick_time = signedMillis() - _cue_on_time;          // Records lick wrt CUE ON
 						// Send a event marker (lick) to HOST with timestamp
-						sendMessage("&" + String(EVENT_LICK) + " " + String(signedMillis() - _exp_timer));
+						sendMessage("&" + String(EVENT_LICK) + " " + String(signedMillis() - _time_global));
 						// Send a event marker (correct lick) to HOST with timestamp
-						sendMessage("&" + String(EVENT_CORRECT_LICK) + " " + String(signedMillis() - _exp_timer));
+						sendMessage("&" + String(EVENT_CORRECT_LICK) + " " + String(signedMillis() - _time_global));
 						if (!_first_lick_received) {
 							// If it's the first lick in the trial, send event marker:
-							sendMessage("&" + String(EVENT_FIRST_LICK) + " " + String(signedMillis() - _exp_timer));
+							sendMessage("&" + String(EVENT_FIRST_LICK) + " " + String(signedMillis() - _time_global));
 							_first_lick_received = true;
 						}
 						_lick_state = true;                            // Halts lick detection
@@ -1243,19 +1189,10 @@ void response_window() {
 					}
 				}
 
-				if (_params[SHOCK_ON] == 1) {                   // If shock circuit enforced
-					if (!_shock_trigger_on && signedMillis() - _cue_on_time > _params[SHOCK_MIN] && signedMillis()-_cue_on_time < _params[SHOCK_MAX]) { // If shock window is open
-						setShockTrigger(true);                          // Connect the shock ckt        
-					}
-					else if (_shock_trigger_on) {               // Otherwise, if shock is on, but we're in the wrong window...                                            
-						setShockTrigger(false);                           // Disconnect shock ckt
-					}
-				}
-
 				long current_time = signedMillis() - _cue_on_time; //****Changed to be wrt cue onset (not total trial time)
 				if (!_reached_target && current_time >= _params[TARGET]) { // TARGET -> REWARD
 					// Send event marker (target time) to HOST with timestamp
-					sendMessage("&" + String(EVENT_TARGET_TIME) + " " + String(signedMillis() - _exp_timer));
+					sendMessage("&" + String(EVENT_TARGET_TIME) + " " + String(signedMillis() - _time_global));
 					_reached_target = true;                        // Indicate target reached
 					_state = REWARD;                               // Move -> REWARD (Pavlovian only)
 					//------------------------DEBUG MODE--------------------------//  
@@ -1269,7 +1206,7 @@ void response_window() {
 					setHouseLamp(true);                               // House Lamp ON (to indicate error)
 					playSound(TONE_ALERT);
 					// Send event marker (window closed) to HOST with timestamp
-					sendMessage("&" + String(EVENT_WINDOW_CLOSED) + " " + String(signedMillis() - _exp_timer));
+					sendMessage("&" + String(EVENT_WINDOW_CLOSED) + " " + String(signedMillis() - _time_global));
 					//------------------------DEBUG MODE--------------------------//  
 					if (_params[_DEBUG]) {
 						sendMessage("PAVLOVIAN ERROR: Reward window closed at " + String(current_time) +"ms.");
@@ -1291,7 +1228,7 @@ void response_window() {
 					_prevState = _state;                                // Assign _prevState to RESPONSE_WINDOW state
 					sendMessage("$" + String(_state));                  // Send a message to host upon _state entry -- $4 (response_window State)
 					// Send event marker (window open) to HOST with timestamp
-					sendMessage("&" + String(EVENT_WINDOW_OPEN) + " " + String(signedMillis() - _exp_timer));
+					sendMessage("&" + String(EVENT_WINDOW_OPEN) + " " + String(signedMillis() - _time_global));
 					//------------------------DEBUG MODE--------------------------//  
 					if (_params[_DEBUG]) {
 						sendMessage("Entered response window at " + String(_response_window_timer - _cue_on_time) +"ms wrt cue on, awaiting lick.");
@@ -1311,12 +1248,12 @@ void response_window() {
 					if (!_lick_state) {                              // If a new lick initiated
 						_lick_time = signedMillis() - _cue_on_time;          // Records lick wrt CUE ON
 						// Send a event marker (lick) to HOST with timestamp
-						sendMessage("&" + String(EVENT_LICK) + " " + String(signedMillis() - _exp_timer));
+						sendMessage("&" + String(EVENT_LICK) + " " + String(signedMillis() - _time_global));
 						// Send a event marker (correct lick) to HOST with timestamp
-						sendMessage("&" + String(EVENT_CORRECT_LICK) + " " + String(signedMillis() - _exp_timer));
+						sendMessage("&" + String(EVENT_CORRECT_LICK) + " " + String(signedMillis() - _time_global));
 						if (!_first_lick_received) {
 							// If it's the first lick in the trial, send event marker:
-							sendMessage("&" + String(EVENT_FIRST_LICK) + " " + String(signedMillis() - _exp_timer));
+							sendMessage("&" + String(EVENT_FIRST_LICK) + " " + String(signedMillis() - _time_global));
 							_first_lick_received = true;
 						}
 						_lick_state = true;                            // Halts lick detection
@@ -1336,19 +1273,10 @@ void response_window() {
 					}
 				}
 
-				if (_params[SHOCK_ON] == 1) {					// If shock circuit enforced
-					if (!_shock_trigger_on && signedMillis() - _cue_on_time > _params[SHOCK_MIN] && signedMillis()-_cue_on_time < _params[SHOCK_MAX]) { // If shock window is open
-						setShockTrigger(true);					// Connect the shock ckt  
-					}
-					else if (_shock_trigger_on) {				// Otherwise, if shock is on, but we're in the wrong window...                                            
-						setShockTrigger(false);					// Disconnect shock ckt
-					}
-				}
-
 				long current_time = signedMillis()-_cue_on_time; // WRT cue onset
 				if (!_reached_target && current_time >= _params[TARGET]) { // If now is target time...record but stay in state (Operant only)
 					// Send event marker (target time) to HOST with timestamp
-					sendMessage("&" + String(EVENT_TARGET_TIME) + " " + String(signedMillis() - _exp_timer));
+					sendMessage("&" + String(EVENT_TARGET_TIME) + " " + String(signedMillis() - _time_global));
 					_reached_target = true;                        // Indicate target reached
 					//------------------------DEBUG MODE--------------------------//  
 					if (_params[_DEBUG]) {
@@ -1361,7 +1289,7 @@ void response_window() {
 					setHouseLamp(true);                               // House Lamp ON (to indicate error)
 					playSound(TONE_ALERT);
 					// Send event marker (window closed) to HOST with timestamp
-					sendMessage("&" + String(EVENT_WINDOW_CLOSED) + " " + String(signedMillis() - _exp_timer));
+					sendMessage("&" + String(EVENT_WINDOW_CLOSED) + " " + String(signedMillis() - _time_global));
 					//------------------------DEBUG MODE--------------------------//  
 					if (_params[_DEBUG]) {
 						sendMessage("Reward window closed at " + String(current_time) +"ms wrt Cue ON.");
@@ -1399,7 +1327,7 @@ void post_window() {
 		_prevState = _state;                                // Assign _prevState to POST_WINDOW state
 		sendMessage("$" + String(_state));                  // Send HOST $4 (post_window State)
 		// Send event marker (window closed) to HOST with timestamp
-		sendMessage("&" + String(EVENT_WINDOW_CLOSED) + " " + String(signedMillis() - _exp_timer));
+		sendMessage("&" + String(EVENT_WINDOW_CLOSED) + " " + String(signedMillis() - _time_global));
 	}
 
 	/*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -1414,10 +1342,10 @@ void post_window() {
 		if (!_lick_state) {                              // If a new lick initiated
 			_lick_time = signedMillis() - _cue_on_time;          // Records lick wrt CUE ON
 			// Send a event marker (lick) to HOST with timestamp
-			sendMessage("&" + String(EVENT_LICK) + " " + String(signedMillis() - _exp_timer));   
+			sendMessage("&" + String(EVENT_LICK) + " " + String(signedMillis() - _time_global));   
 			if (!_first_lick_received) {
 				// If it's the first lick in the trial, send event marker:
-				sendMessage("&" + String(EVENT_FIRST_LICK) + " " + String(signedMillis() - _exp_timer));
+				sendMessage("&" + String(EVENT_FIRST_LICK) + " " + String(signedMillis() - _time_global));
 				_first_lick_received = true;
 			} 
 			_lick_state = true;                            // Halts lick detection
@@ -1432,15 +1360,6 @@ void post_window() {
 		}
 	}
 
-	if (_params[SHOCK_ON] == 1) {                   // If shock circuit enforced
-		if (!_shock_trigger_on && signedMillis() - _cue_on_time > _params[SHOCK_MIN] && signedMillis()-_cue_on_time < _params[SHOCK_MAX]) { // If shock window is open
-			setShockTrigger(true);                          // Connect the shock ckt        
-		}
-		else if (_shock_trigger_on) {               // Otherwise, if shock is on, but we're in the wrong window...                                            
-			setShockTrigger(false);                           // Disconnect shock ckt
-		}
-	}
-
 	if (!getLickState()) {                           // MOUSE: "No lick"
 		if (_lick_state) {                               // If lick just ended                            
 			_lick_state = false;                           // Resets lick detector
@@ -1449,7 +1368,7 @@ void post_window() {
 
 	if (signedMillis() - _cue_on_time >= _params[TRIAL_DURATION]) {  // TRIAL END -> ITI
 		// Send event marker (trial end) to HOST with timestamp
-		sendMessage("&" + String(EVENT_TRIAL_END) + " " + String(signedMillis() - _exp_timer));
+		sendMessage("&" + String(EVENT_TRIAL_END) + " " + String(signedMillis() - _time_global));
 		_state = INTERTRIAL;                                      // Move to ITI
 		if (!_late_lick_detected) {                    // If this is first lick in post window
 			_resultCode = CODE_NO_LICK;                  // Register result code      
@@ -1477,7 +1396,7 @@ void reward() {
 		}
 		setReward(true);                                    // Initiate reward delivery
 		// Send event marker (reward) to HOST with timestamp
-		sendMessage("&" + String(EVENT_REWARD) + " " + String(signedMillis() - _exp_timer));
+		sendMessage("&" + String(EVENT_REWARD) + " " + String(signedMillis() - _time_global));
 		if (_params[HYBRID] == 0) {                      // If NOT hybrid trial:
 			_resultCode = CODE_CORRECT;                         // Register result code      
 		}
@@ -1504,20 +1423,11 @@ void reward() {
 		}
 	}
 
-	if (_params[SHOCK_ON] == 1) {                   // If shock circuit enforced
-		if (!_shock_trigger_on && signedMillis() - _cue_on_time > _params[SHOCK_MIN] && signedMillis()-_cue_on_time < _params[SHOCK_MAX]) { // If shock window is open
-			setShockTrigger(true);                          // Connect the shock ckt        
-		}
-		else if (_shock_trigger_on) {               // Otherwise, if shock is on, but we're in the wrong window...                                            
-			setShockTrigger(false);                           // Disconnect shock ckt
-		}
-	}
-
 	if (getLickState()) {                            // MOUSE: "Licked"
 		if (!_lick_state) {                              // If a new lick initiated
 			_lick_time = signedMillis() - _cue_on_time;          // Records lick wrt CUE ON
 			// Send a event marker (lick) to HOST with timestamp
-			sendMessage("&" + String(EVENT_LICK) + " " + String(signedMillis() - _exp_timer));
+			sendMessage("&" + String(EVENT_LICK) + " " + String(signedMillis() - _time_global));
 			_lick_state = true;                            // Halts lick detection
 			if (_params[_DEBUG]) {
 				sendMessage("Lick detected, tallying lick @ " + String(_lick_time) + "ms");
@@ -1532,9 +1442,9 @@ void reward() {
 		}
 	}
 
-	if (signedMillis() - _trialTimer - _preCueDelay >= _params[TRIAL_DURATION]) {  // TRIAL END -> ITI
+	if (signedMillis() - _time_trial - _preCueDelay >= _params[TRIAL_DURATION]) {  // TRIAL END -> ITI
 		// Send event marker (trial end) to HOST with timestamp
-		sendMessage("&" + String(EVENT_TRIAL_END) + " " + String(signedMillis() - _exp_timer));
+		sendMessage("&" + String(EVENT_TRIAL_END) + " " + String(signedMillis() - _time_global));
 		_state = INTERTRIAL;                                // Move to ITI
 		return;                                             // Exit Fx
 	}
@@ -1559,7 +1469,7 @@ void abort_trial() {
 
 		sendMessage("$" + String(_state));                 // Send HOST -- $7 (abort State) 
 		// Send event marker (abort) to HOST with timestamp
-		sendMessage("&" + String(EVENT_ABORT) + " " + String(signedMillis() - _exp_timer));
+		sendMessage("&" + String(EVENT_ABORT) + " " + String(signedMillis() - _time_global));
 		
 		//------------------------DEBUG MODE--------------------------//  
 		if (_params[_DEBUG]) {sendMessage("Incorrect: Trial aborted.");}
@@ -1574,19 +1484,11 @@ void abort_trial() {
 		return;                                              // Exit Function
 	}
 
-	if (_params[SHOCK_ON] == 1) {                   // If shock circuit enforced
-		if (!_shock_trigger_on && signedMillis() - _cue_on_time > _params[SHOCK_MIN] && signedMillis()-_cue_on_time < _params[SHOCK_MAX]) { // If shock window is open
-			setShockTrigger(true);                          // Connect the shock ckt        
-		}
-		else if (_shock_trigger_on) {               // Otherwise, if shock is on, but we're in the wrong window...                                            
-			setShockTrigger(false);                           // Disconnect shock ckt
-		}
-	}
 	if (getLickState()) {                               // MOUSE: "Licked"
 		if (!_lick_state) {                                 // If a new lick initiated
 			_lick_time = signedMillis() - _cue_on_time;          // Records lick wrt CUE ON
 			// Send a event marker (lick) to HOST with timestamp
-			sendMessage("&" + String(EVENT_LICK) + " " + String(signedMillis() - _exp_timer));
+			sendMessage("&" + String(EVENT_LICK) + " " + String(signedMillis() - _time_global));
 			_lick_state = true;                               // Halts lick detection
 			if (_params[_DEBUG]) {sendMessage("Lick detected, tallying lick @ " + String(_lick_time) + "ms");}
 			return;                                           // Exit Fx: Cycle => ABORT
@@ -1599,9 +1501,9 @@ void abort_trial() {
 		}
 	}
 
-	if (signedMillis() - _trialTimer - _preCueDelay >= _params[TRIAL_DURATION]) { // Trial Timeout -> ITI
+	if (signedMillis() - _time_trial - _preCueDelay >= _params[TRIAL_DURATION]) { // Trial Timeout -> ITI
 		// Send event marker (trial end) to HOST with timestamp
-		sendMessage("&" + String(EVENT_TRIAL_END) + " " + String(signedMillis() - _exp_timer));
+		sendMessage("&" + String(EVENT_TRIAL_END) + " " + String(signedMillis() - _time_global));
 		_state = INTERTRIAL;                                      // Move to ITI
 		return;                                                   // Exit Fx
 	}
@@ -1628,18 +1530,11 @@ void intertrial() {
 		_prevState = _state;                             // Assign _prevState to ITI _state
 		sendMessage("$" + String(_state));               // Send HOST $7 (ITI State)
 		// Send event marker (ITI) to HOST with timestamp
-		sendMessage("&" + String(EVENT_ITI) + " " + String(signedMillis() - _exp_timer));
+		sendMessage("&" + String(EVENT_ITI) + " " + String(signedMillis() - _time_global));
 		
-		// Reset state variables
-		_pre_window_elapsed = false;                  // Reset pre_window time tracker
-		_reached_target = false;                      // Reset target time tracker
-		_late_lick_detected = false;                  // Reset late lick detector
-		_reward_dispensed_complete = false;           // Reset tracker of reward dispensal
-		_first_lick_received = false;                 // Reset tracker of first licks
-
-		//=================== INIT HOST COMMUNICATION=================//
-		isParamsUpdateStarted = false;                      // Initialize HOST param message monitor Start
-		isParamsUpdateDone = false;                         // Initialize HOST param message monitor End  
+		// Reset variables
+		isParamsUpdateStarted = false;
+		isParamsUpdateDone = false; 
 
 		//=================== SEND RESULT CODE=================//
 		if (_resultCode > -1) {                       // If result code exists...
@@ -1678,20 +1573,11 @@ void intertrial() {
 		return;                                         // Exit Fx
 	}
 
-	if (_params[SHOCK_ON] == 1) {                   // If shock circuit enforced
-		if (!_shock_trigger_on && signedMillis() - _cue_on_time > _params[SHOCK_MIN] && signedMillis()-_cue_on_time < _params[SHOCK_MAX]) { // If shock window is open
-			setShockTrigger(true);                          // Connect the shock ckt        
-		}
-		else if (_shock_trigger_on) {               // Otherwise, if shock is on, but we're in the wrong window...                                            
-			setShockTrigger(false);                           // Disconnect shock ckt
-		}
-	}
-
 	if (getLickState()) {                               // MOUSE: "Licked"
 		if (!_lick_state) {                                 // If a new lick initiated
 			_lick_time = signedMillis() - _cue_on_time;          // Records lick wrt CUE ON
 			// Send a event marker (lick) to HOST with timestamp
-			sendMessage("&" + String(EVENT_LICK) + " " + String(signedMillis() - _exp_timer));
+			sendMessage("&" + String(EVENT_LICK) + " " + String(signedMillis() - _time_global));
 			_lick_state = true;                               // Halts lick detection
 			//------------------------DEBUG MODE--------------------------//
 				if (_params[_DEBUG]) {sendMessage("Lick detected, tallying lick @ " + String(_lick_time) + "ms");}
@@ -1755,14 +1641,32 @@ void setCueLED(bool turnOn) {
 /*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 	GET LEVER STATE (True/False - Boolean)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
-bool getLickState() {
-	if (digitalRead(PIN_LICK) == HIGH) {
+bool getLickState() 
+{
+	if (digitalRead(PIN_LICK) == HIGH) 
+	{
 		return true;
 	}
-	else {
+	else 
+	{
 		return false;
 	}
 } // end Get Lever State---------------------------------------------------------------------------------------------------------------------
+
+void handleLick() 
+{
+	if (getLickState() && !_lick_state)
+	{
+		_lick_state = true;
+
+		sendEventMarker(EVENT_LICK);
+	}
+
+	if (!getLickState() && _lick_state)
+	{
+		_lick_state = false;
+	}
+}
 
 /*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 	PLAY SOUND (Choose event from Enum list and input the frequency for that event)
@@ -1788,11 +1692,6 @@ void playSound(SoundEventFrequencyEnum soundEventFrequency) {
 		tone(PIN_SPEAKER, soundEventFrequency, 2000);     // Play Alert Tone (default 2000 ms)
 		return;                                           // Exit Fx
 	}
-	if (soundEventFrequency == TONE_QUININE) {       // DETERRANT: QUININE delivery
-		noTone(PIN_QUININE);                              // Turn off current quinine (if any)
-		tone(PIN_QUININE, soundEventFrequency, _params[QUININE_DURATION]);     // Deliver Quinine (default 30 ms)
-		return;                                           // Exit Fx
-	}
 } // end Play Sound---------------------------------------------------------------------------------------------------------------------
 
 /*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -1816,35 +1715,6 @@ void setReward(bool turnOn) {
 } // end Set Reward---------------------------------------------------------------------------------------------------------------------
 
 
-/*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-	SET SHOCK TRIGGER (Connect the shock ckt)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
-void setShockTrigger(bool turnOn) {
-	if (turnOn)                                                       
-	{                                                                 // MOUSE: Deliver SHOCK = TRUE
-		digitalWrite(PIN_SHOCK, HIGH);                                    // Shock Pin HIGH
-		_shock_trigger_on = true;                                         // Shock trigger true
-		//------------------------DEBUG MODE--------------------------//  
-			if (_params[_DEBUG]) {sendMessage("Shock ckt connected");}
-		//----------------------end DEBUG MODE------------------------//
-	}
-	else
-	{                                                                 // MOUSE: Stop SHOCK
-		digitalWrite(PIN_SHOCK, LOW);                                     // Shock Pin LOW
-		_shock_trigger_on = false;                                        // Update shock trigger state
-		//------------------------DEBUG MODE--------------------------// 
-			if (_params[_DEBUG]) {sendMessage("Shock ckt offline");}
-		//----------------------end DEBUG MODE------------------------//
-	}
-} // end Set Shock Trigger--------------------------------------------------------------------------------------------------------------
-
-
-
-
-
-
-
-
 /*****************************************************
 	SERIAL COMMUNICATION TO HOST
 *****************************************************/
@@ -1856,6 +1726,16 @@ void sendMessage(String message)   // Capital (String) because is defining messa
 {
 	Serial.println(message);
 } // end Send Message---------------------------------------------------------------------------------------------------------------------
+
+void sendEventMarker(EventMarker eventMarker)
+{
+	sendMessage("&" + String(eventMarker) + " " + String(signedMillis() - _time_global));
+}
+
+void sendState(State state)
+{
+	sendMessage("$" + String(state));
+}
 
 /*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 	GET COMMAND FROM HOST (single character)
@@ -1939,92 +1819,3 @@ long signedMillis()
 	long time = (long)(millis());
 	return time;
 }
-
-
-
-
-
-
-
-
-
-// /*****************************************************
-//   Tone generator for Due -- not used in other Arduino modes
-// *****************************************************/
-//   /*
-//   Tone generator
-//   v1  use timer, and toggle any digital pin in ISR
-//      funky duration from arduino version
-//      TODO use FindMckDivisor?
-//      timer selected will preclude using associated pins for PWM etc.
-//     could also do timer/pwm hardware toggle where caller controls duration
-//   */
-
-
-//   // timers TC0 TC1 TC2   channels 0-2 ids 0-2  3-5  6-8     AB 0 1
-//   // use TC1 channel 0 
-//   #define TONE_TIMER TC1
-//   #define TONE_CHNL 0
-//   #define TONE_IRQ TC3_IRQn
-
-//   // TIMER_CLOCK4   84MHz/128 with 16 bit counter give 10 Hz to 656KHz
-//   //  piano 27Hz to 4KHz
-
-//   static uint8_t pinEnabled[PINS_COUNT];
-//   static uint8_t TCChanEnabled = 0;
-//   static boolean pin_state = false ;
-//   static Tc *chTC = TONE_TIMER;
-//   static uint32_t chNo = TONE_CHNL;
-
-//   volatile static int32_t toggle_count;
-//   static uint32_t tone_pin;
-
-//   // frequency (in hertz) and duration (in milliseconds).
-
-//   void tone(uint32_t ulPin, uint32_t frequency, int32_t duration)
-//   {
-//       const uint32_t rc = VARIANT_MCK / 256 / frequency; 
-//       tone_pin = ulPin;
-//       toggle_count = 0;  // strange  wipe out previous duration
-//       if (duration > 0 ) toggle_count = 2 * frequency * duration / 1000;
-//        else toggle_count = -1;
-
-//       if (!TCChanEnabled) {
-//         pmc_set_writeprotect(false);
-//         pmc_enable_periph_clk((uint32_t)TONE_IRQ);
-//         TC_Configure(chTC, chNo,
-//           TC_CMR_TCCLKS_TIMER_CLOCK4 |
-//           TC_CMR_WAVE |         // Waveform mode
-//           TC_CMR_WAVSEL_UP_RC ); // Counter running up and reset when equals to RC
-		
-//         chTC->TC_CHANNEL[chNo].TC_IER=TC_IER_CPCS;  // RC compare interrupt
-//         chTC->TC_CHANNEL[chNo].TC_IDR=~TC_IER_CPCS;
-//         NVIC_EnableIRQ(TONE_IRQ);
-//                TCChanEnabled = 1;
-//       }
-//       if (!pinEnabled[ulPin]) {
-//         pinMode(ulPin, OUTPUT);
-//         pinEnabled[ulPin] = 1;
-//       }
-//       TC_Stop(chTC, chNo);
-//       TC_SetRC(chTC, chNo, rc);    // set frequency
-//       TC_Start(chTC, chNo);
-//   }
-
-//   void noTone(uint32_t ulPin)
-//   {
-//     TC_Stop(chTC, chNo);  // stop timer
-//     digitalWrite(ulPin,LOW);  // no signal on pin
-//   }
-
-//   // timer ISR  TC1 ch 0
-//   void TC3_Handler ( void ) {
-//     TC_GetStatus(TC1, 0);
-//     if (toggle_count != 0){
-//       // toggle pin  TODO  better
-//       digitalWrite(tone_pin,pin_state= !pin_state);
-//       if (toggle_count > 0) toggle_count--;
-//     } else {
-//       noTone(tone_pin);
-//     }
-//   }
