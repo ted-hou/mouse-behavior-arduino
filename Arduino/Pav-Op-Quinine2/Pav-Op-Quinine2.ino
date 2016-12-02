@@ -324,7 +324,7 @@ enum ParamID
 	ABORT_MIN,                      // Miminum time post cue before lick causes abort (ms)
 	ABORT_MAX,                      // Maximum time post cue before abort unavailable (ms)
 	PERCENT_PAVLOVIAN,              // Percent of mixed trials that are pavlovian (decimal)
-	PLAY_PAV_REWARD_TONE,			// 0 to disable reward tone for pavlovian trials
+	PLAY_REWARD_TONE,			// 0 to disable reward tone for pavlovian trials
 	_NUM_PARAMS                     // (Private) Used to count how many parameters there are so we can initialize the param array with the correct size. Insert additional parameters before this.
 }; //**** BE SURE TO ADD NEW PARAMS TO THE NAMES LIST BELOW!*****//
 
@@ -357,7 +357,7 @@ static const char *_paramNames[] =
 	"ABORT_MIN",
 	"ABORT_MAX",
 	"PERCENT_PAVLOVIAN",
-	"PLAY_PAV_REWARD_TONE"
+	"PLAY_REWARD_TONE"
 }; //**** BE SURE TO INIT NEW PARAM VALUES BELOW!*****//
 
 // Initialize parameters
@@ -367,16 +367,16 @@ long _params[_NUM_PARAMS] =
 	1,                              // HYBRID
 	0,                              // PAVLOVIAN
 	0,                              // OPERANT
-	0,                              // ENFORCE_NO_LICK
-	1250,                           // INTERVAL_MIN
-	1750,                           // INTERVAL_MAX
-	1500,                           // TARGET
-	3000,                           // TRIAL_DURATION
-	5000,                           // ITI
+	1,                              // ENFORCE_NO_LICK
+	1500,                           // INTERVAL_MIN
+	4000,                           // INTERVAL_MAX
+	3000,                           // TARGET
+	5000,                           // TRIAL_DURATION
+	10000,                          // ITI
 	400,                            // RANDOM_DELAY_MIN
-	1500,                           // RANDOM_DELAY_MAX
+	3000,                           // RANDOM_DELAY_MAX
 	100,                            // CUE_DURATION
-	35,                             // REWARD_DURATION
+	150,                            // REWARD_DURATION
 	30,                             // QUININE_DURATION
 	400,                            // QUININE_TIMEOUT
 	0,                              // QUININE_MIN
@@ -384,11 +384,11 @@ long _params[_NUM_PARAMS] =
 	0,                              // SHOCK_ON
 	0,                              // SHOCK_MIN
 	1250,                           // SHOCK_MAX
-	0,                              // EARLY_LICK_ABORT
+	1,                              // EARLY_LICK_ABORT
 	0,                              // ABORT_MIN
-	1250,                           // ABORT_MAX
+	1500,                           // ABORT_MAX
 	1,                              // PERCENT_PAVLOVIAN
-	1								// PLAY_PAV_REWARD_TONE
+	0								// PLAY_REWARD_TONE
 };
 
 /*****************************************************
@@ -1472,7 +1472,7 @@ void reward() {
 	if (_state != _prevState) {                        // If ENTERTING REWARD:
 		_reward_timer = signedMillis();                        // Start _reward_timer
 		// Play reward tone, unless user disables reward tones in pavlovian trials
-		if (!(_params[PLAY_PAV_REWARD_TONE] == 0 && (_resultCode == CODE_PAVLOV_HYBRID || _params[PAVLOVIAN] == 1))) {
+		if (_params[PLAY_REWARD_TONE] > 0) {
 			playSound(TONE_REWARD);                             // Start reward tone    
 		}
 		setReward(true);                                    // Initiate reward delivery
