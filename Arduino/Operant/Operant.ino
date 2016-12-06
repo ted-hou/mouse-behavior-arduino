@@ -14,15 +14,15 @@
 *****************************************************/
 
 // Digital OUT
-#define PIN_HOUSE_LAMP     6   // House Lamp Pin         (DUE = 34)  (MEGA = 34)  (UNO = 5?)  (TEENSY = 6)
-#define PIN_LED_CUE        4   // Cue LED Pin            (DUE = 35)  (MEGA = 28)  (UNO =  4)  (TEENSY = 4)
-#define PIN_REWARD         7   // Reward Pin             (DUE = 37)  (MEGA = 52)  (UNO =  7)  (TEENSY = 7)
+#define PIN_HOUSE_LAMP	6
+#define PIN_LED_CUE		4
+#define PIN_REWARD		7
 
 // PWM OUT
-#define PIN_SPEAKER        5   // Speaker Pin            (DUE =  2)  (MEGA =  8)  (UNO =  9)  (TEENSY = 5)
+#define PIN_SPEAKER		5
 
 // Digital IN
-#define PIN_LICK           2   // Lick Pin               (DUE = 36)  (MEGA =  2)  (UNO =  2)  (TEENSY = 2)
+#define PIN_LICK		2
 
 
 /*****************************************************
@@ -33,14 +33,12 @@ enum State
 {
 	_STATE_INIT,			// (Private) Initial state used on first loop. 
 	STATE_IDLE,				// Idle state. Wait for go signal from host.
+	STATE_INTERTRIAL,		// House lamps ON (if not already), write data to HOST and DISK, receive new params
 	STATE_PRE_CUE,			// House lamp OFF, random delay before cue presentation
 	STATE_PRE_WINDOW,		// (+/-) Enforced no lick before response window opens
 	STATE_RESPONSE_WINDOW,	// First lick in this interval rewarded (operant). Reward delivered at target time (pavlov)
-	STATE_POST_WINDOW,		// Check for late licks
 	STATE_REWARD,			// Dispense reward, wait for trial timeout
-	STATE_PRE_CUE_ABORT,	// Pre cue lick -> House lamps ON, timeout, send virtual cue on event marker
-	STATE_PRE_WINDOW_ABORT,	// Pre window lick - House lamps ON, timeout
-	STATE_INTERTRIAL,		// House lamps ON (if not already), write data to HOST and DISK, receive new params
+	STATE_ABORT,			// Pre window lick - House lamps ON, timeout
 	_NUM_STATES				// (Private) Used to count number of states
 };
 
@@ -50,18 +48,16 @@ static const char *_stateNames[] =
 {
 	"_INIT",
 	"IDLE",
+	"INTERTRIAL",
 	"PRE_CUE",
 	"PRE_WINDOW",
 	"RESPONSE_WINDOW",
-	"POST_WINDOW",
 	"REWARD",
-	"PRE_CUE_ABORT",
-	"PRE_WINDOW_ABORT",
-	"INTERTRIAL"
+	"ABORT"
 };
 
 // Define which states allow param update
-static const int _stateCanUpdateParams[] = {0,1,0,0,0,0,0,0,0,1}; 
+static const int _stateCanUpdateParams[] = {0,1,1,0,0,0,0,0}; 
 // Defined to allow Parameter upload from host during STATE_IDLE and STATE_INTERTRIAL
 
 
@@ -78,11 +74,9 @@ enum EventMarker
 	EVENT_WINDOW_OPEN,				// Response window open
 	EVENT_TARGET_TIME,				// Target time
 	EVENT_WINDOW_CLOSED,			// Response window closed
-	EVENT_TRIAL_END,				// Trial end
 	EVENT_LICK,						// Lick onset
 	EVENT_LICK_OFF,					// Lick offset
-	EVENT_FIRST_LICK,				// First lick in trial
-	EVENT_FIRST_LICK_SINCE_CUE,		// First lick in trial since cue on (useful if pre-cue lick is allowed)
+	EVENT_FIRST_LICK,				// First lick in trial since cue on
 	EVENT_CUE_ON,					// Begin cue presentation
 	EVENT_CUE_OFF,					// Begin cue presentation
 	EVENT_HOUSELAMP_ON,				// House lamp on
@@ -90,31 +84,27 @@ enum EventMarker
 	EVENT_REWARD_ON,				// Reward, juice valve on
 	EVENT_REWARD_OFF,				// Reward, juice valve off
 	EVENT_ABORT,					// Trial aborted
-	EVENT_PRE_CUE_ABORT,			// Trial aborted due to early lick (before cue)
-	EVENT_PRE_WINDOW_ABORT,			// Trial aborted due to early lick (before window)
-	EVENT_POST_WINDOW_ABORT,		// Trial aborted due to late lick (after window)
+	EVENT_ITI,						// ITI
 	_NUM_OF_EVENT_MARKERS
 };
 
-static const char *_eventMarkerNames[] =    // * to define array of strings
+static const char *_eventMarkerNames[] =
 {
-	"TRIAL_START",
-	"CUE_ON",
-	"CUE_OFF",
-	"WINDOW_OPEN",
-	"TARGET_TIME",
-	"WINDOW_CLOSED",
-	"TRIAL_END",
-	"LICK",
-	"LICK_OFF",
-	"FIRST_LICK",
-	"FIRST_LICK_EARLY",
-	"FIRST_LICK_CORRECT",
-	"FIRST_LICK_LATE",
-	"FIRST_LICK_PAVLOVIAN",
-	"REWARD_ON",
-	"REWARD_OFF",
-	"ABORT"
+	"TRIAL_START",				// New trial initiated
+	"WINDOW_OPEN",				// Response window open
+	"TARGET_TIME",				// Target time
+	"WINDOW_CLOSED",			// Response window closed
+	"LICK",						// Lick onset
+	"LICK_OFF",					// Lick offset
+	"FIRST_LICK",				// First lick in trial since cue on
+	"CUE_ON",					// Begin cue presentation
+	"CUE_OFF",					// Begin cue presentation
+	"HOUSELAMP_ON",				// House lamp on
+	"HOUSELAMP_OFF",			// House lamp off
+	"REWARD_ON",				// Reward, juice valve on
+	"REWARD_OFF",				// Reward, juice valve off
+	"ABORT",					// Trial aborted
+	"ITI"						// ITI
 };
 
 /*****************************************************
@@ -122,13 +112,10 @@ static const char *_eventMarkerNames[] =    // * to define array of strings
 *****************************************************/
 enum ResultCode
 {
-	CODE_CORRECT,                              // Correct    (1st lick w/in window)
-	CODE_EARLY_LICK,                           // Early Lick (-> Abort in Enforced No-Lick)                         // NOTE: Early lick should be removed
-	CODE_LATE_LICK,                            // Late Lick  (-> Abort in Operant)
-	CODE_NO_LICK,                              // No Lick    (Timeout -> ITI)
-	CODE_CORRECT_OP_HYBRID,                    // Licked before target in window
-	CODE_PAVLOV_HYBRID,                        // Reached target time and dispensed before lick
-	_NUM_RESULT_CODES                          // (Private) Used to count how many codes there are.
+	CODE_CORRECT,			// Correct (1st lick w/in window)
+	CODE_EARLY_LICK,		// Early Lick (-> Abort in Enforced No-Lick)
+	CODE_NO_LICK,			// No Lick (Timeout -> ITI)
+	_NUM_RESULT_CODES		// (Private) Used to count how many codes there are.
 };
 
 // We'll send result code translations to MATLAB at startup
@@ -136,9 +123,7 @@ static const char *_resultCodeNames[] =
 {
 	"CORRECT",
 	"EARLY_LICK",
-	"LATE_LICK",
-	"NO_LICK",
-	"PAVLOV"
+	"NO_LICK"
 };
 
 
@@ -158,18 +143,17 @@ enum SoundEventFrequencyEnum
 enum ParamID
 {
 	_DEBUG,						// (Private) 1 to enable debug messages from HOST. Default 0.
-	PAVLOVIAN,					// 1 to enable Pavlovian Mode
-	ALLOW_PRE_CUE_LICK,			// 0 to abort trial if animal licks before cue
-	ALLOW_PRE_WINDOW_LICK,		// 0 to abort trial if animal licks after cue and before window
+	ALLOW_EARLY_LICK,			// 0 to abort trial if animal licks after in pre-window
+	INCREMENTAL_REWARD,			// 1 to give more reward if lick is closer to target time. 0 to always give MAX reward.
 	INTERVAL_MIN,				// Time to start of reward window (ms)
-	TARGET,						// Target time (ms)
+	INTERVAL_TARGET,			// Target time (ms)
 	INTERVAL_MAX,				// Time to end of reward window (ms)
-	TRIAL_DURATION,				// Total alloted time/trial (ms)
 	ITI,						// Intertrial interval duration (ms)
 	RANDOM_DELAY_MIN,			// Minimum random pre-Cue delay (ms)
 	RANDOM_DELAY_MAX,			// Maximum random pre-Cue delay (ms)
 	CUE_DURATION,				// Duration of the cue tone and LED flash (ms)
-	REWARD_DURATION,			// Duration of reward dispensal (ms)
+	REWARD_DURATION_MIN,		// Min duration of reward if INCREMENTAL_REWARD == 1 (ms)
+	REWARD_DURATION_MAX,		// Max duration of reward if INCREMENTAL_REWARD == 1 (ms)
 	_NUM_PARAMS					// (Private) Used to count how many parameters there are so we can initialize the param array with the correct size. Insert additional parameters before this.
 };
 
@@ -178,36 +162,34 @@ enum ParamID
 static const char *_paramNames[] = 
 {
 	"_DEBUG",
-	"PAVLOVIAN",
-	"ALLOW_PRE_CUE_LICK",
-	"ALLOW_PRE_WINDOW_LICK",
+	"ALLOW_EARLY_LICK",
+	"INCREMENTAL_REWARD",
 	"INTERVAL_MIN",
 	"INTERVAL_TARGET",
 	"INTERVAL_MAX",
-	"TRIAL_DURATION",
 	"ITI",
 	"RANDOM_DELAY_MIN",
 	"RANDOM_DELAY_MAX",
 	"CUE_DURATION",
-	"REWARD_DURATION"
+	"REWARD_DURATION_MIN",
+	"REWARD_DURATION_MAX"
 };
 
 // Initialize parameters
 long _params[_NUM_PARAMS] = 
 {
 	0,		// _DEBUG
-	0,		// PAVLOVIAN
-	0,		// ALLOW_PRE_CUE_LICK
-	0,		// ALLOW_PRE_WINDOW_LICK
+	0,		// ALLOW_EARLY_LICK
+	1,		// INCREMENTAL_REWARD
 	1500,	// INTERVAL_MIN
 	3000,	// INTERVAL_TARGET
-	4000,	// INTERVAL_MAX
-	5000,	// TRIAL_DURATION
+	4500,	// INTERVAL_MAX
 	10000,	// ITI
 	1000,	// RANDOM_DELAY_MIN
 	3000,	// RANDOM_DELAY_MAX
 	100,	// CUE_DURATION
-	150 	// REWARD_DURATION
+	50, 	// REWARD_DURATION_MIN
+	200 	// REWARD_DURATION_MAX
 };
 
 /*****************************************************
@@ -215,20 +197,16 @@ long _params[_NUM_PARAMS] =
 *****************************************************/
 // Variables declared here can be carried to the next loop, AND read/written in function scope as well as main scope
 // (previously defined):
-static long _timeReset						= 0;			// Reset to signedMillis() at every soft reset
-static long _timeTrialStart					= 0;			// Reset to 0 at start of trial
-static long _resultCode						= -1;			// Result code. -1 if there is no result.
-static State _state							= _STATE_INIT;	// This variable (current _state) get passed into a _state function, which determines what the next _state should be, and updates it to the next _state.
-static State _prevState						= _STATE_INIT;	// Remembers the previous _state from the last loop (actions should only be executed when you enter a _state for the first time, comparing currentState vs _prevState helps us keep track of that).
-static char _command						= ' ';			// Command char received from host, resets on each loop
-static int _arguments[2]					= {0};			// Two integers received from host , resets on each loop
-static bool _isLicking 						= false;		// True if the little dude is licking
-static bool _isLickOnset 					= false;		// True during lick onset
-static bool _firstLickRegistered 			= false;		// True when first lick is registered for this trial
-static bool _firstLickSinceCueRegistered 	= false;		// True when first lick (since cue on) is registered for this trial
-
-
-static long _preCueDelay 	= 0;			// Random wait (ms) between trial start and cue on
+static long _timeReset				= 0;			// Reset to signedMillis() at every soft reset
+static long _timeTrialStart			= 0;			// Reset to 0 at start of trial
+static long _resultCode				= -1;			// Result code. -1 if there is no result.
+static State _state					= _STATE_INIT;	// This variable (current _state) get passed into a _state function, which determines what the next _state should be, and updates it to the next _state.
+static State _prevState				= _STATE_INIT;	// Remembers the previous _state from the last loop (actions should only be executed when you enter a _state for the first time, comparing currentState vs _prevState helps us keep track of that).
+static char _command				= ' ';			// Command char received from host, resets on each loop
+static int _arguments[2]			= {0};			// Two integers received from host , resets on each loop
+static bool _isLicking 				= false;		// True if the little dude is licking
+static bool _isLickOnset 			= false;		// True during lick onset
+static bool _firstLickRegistered 	= false;		// True when first lick is registered for this trial
 
 /*****************************************************
 	Setup
@@ -254,6 +232,16 @@ void mySetup()
 	setCueLED(false);                            // Cue LED OFF
 
 	// Reset variables
+	_timeReset				= 0;			// Reset to signedMillis() at every soft reset
+	_timeTrialStart			= 0;			// Reset to 0 at start of trial
+	_resultCode				= -1;			// Result code. -1 if there is no result.
+	_state					= _STATE_INIT;	// This variable (current _state) get passed into a _state function, which determines what the next _state should be, and updates it to the next _state.
+	_prevState				= _STATE_INIT;	// Remembers the previous _state from the last loop (actions should only be executed when you enter a _state for the first time, comparing currentState vs _prevState helps us keep track of that).
+	_command				= ' ';			// Command char received from host, resets on each loop
+	_arguments[2]			= {0};			// Two integers received from host , resets on each loop
+	_isLicking 				= false;		// True if the little dude is licking
+	_isLickOnset 			= false;		// True during lick onset
+	_firstLickRegistered 	= false;		// True when first lick is registered for this trial
 
 	// Sends all parameters, states and error codes to Matlab, then tell PC that we're running by sending '~' message:
 	hostInit();
@@ -316,12 +304,28 @@ void loop()
 				state_idle();
 				break;
 			
+			case STATE_INTERTRIAL:
+				state_intertrial();
+				break;
+			
 			case STATE_PRE_CUE:
 				state_pre_cue();
 				break;
 			
 			case STATE_PRE_WINDOW:
 				state_pre_window();
+				break;
+			
+			case STATE_RESPONSE_WINDOW:
+				state_response_window();
+				break;
+			
+			case STATE_REWARD:
+				state_reward();
+				break;
+			
+			case STATE_ABORT:
+				state_abort();
 				break;
 		}
 	}
@@ -356,23 +360,24 @@ void state_idle()
 	}
 
 	/*****************************************************
+		OnEachLoop checks
+	*****************************************************/
+	// Received new param from host: format "P _paramID _newValue" ('P' for Parameters)
+	if (_command == 'P') 
+	{
+		_params[_arguments[0]] = _arguments[1];
+	}
+
+	/*****************************************************
 		TRANSITION LIST
 	*****************************************************/
 	// GO signal from host --> STATE_PRE_CUE
 	if (_command == 'G') 
-	{                           
+	{
 		_state = STATE_PRE_CUE;
 		return;
 	}
 	
-	// Received new param from host: format "P _paramID _newValue" ('P' for Parameters)
-	if (_command == 'P') 
-	{                           
-		_params[_arguments[0]] = _arguments[1];
-		_state = STATE_IDLE;
-		return;
-	}
-
 	_state = STATE_IDLE;
 }
 
@@ -382,6 +387,7 @@ void state_idle()
 *****************************************************/
 void state_pre_cue() 
 {
+	static long preCueDelay;
 	/*****************************************************
 		ACTION LIST
 	*****************************************************/
@@ -401,12 +407,11 @@ void state_pre_cue()
 		_timeTrialStart = signedMillis();
 
 		// Generate random interval length
-		_preCueDelay = random(_params[RANDOM_DELAY_MIN], _params[RANDOM_DELAY_MAX]);
+		preCueDelay = random(_params[RANDOM_DELAY_MIN], _params[RANDOM_DELAY_MAX]);
 
 		// Reset variables
 		_resultCode = -1;
 		_firstLickRegistered = false;
-		_firstLickSinceCueRegistered = false;
 	}
 
 	/*****************************************************
@@ -414,31 +419,13 @@ void state_pre_cue()
 	*****************************************************/
 	// Quit signal from host --> IDLE
 	if (_command == 'Q') 
-	{                           
+	{
 		_state = STATE_IDLE;
 		return;
 	}
 
-	// Lick detected
-	if (_isLickOnset)
-	{
-		// First lick registration
-		if (!_firstLickRegistered)
-		{
-			_firstLickRegistered = true;
-			sendEventMarker(EVENT_FIRST_LICK, -1);
-		}
-
-		// pre-cue lick not allowed --> PRE_CUE_ABORT
-		if (_params[ALLOW_PRE_CUE_LICK] == 0)
-		{
-			_state = STATE_PRE_CUE_ABORT;
-			return;
-		}
-	}
-
 	// Pre-cue delay completed --> PRE_WINDOW
-	if (getTimeSinceTrialStart() >= _preCueDelay)
+	if (getTimeSinceTrialStart() >= preCueDelay)
 	{
 		_state = STATE_PRE_WINDOW;
 		return;
@@ -471,11 +458,19 @@ void state_pre_window()
 	}
 
 	/*****************************************************
+		OnEachLoop checks
+	*****************************************************/
+	if (getTimeSinceCueOn() >= _params[CUE_DURATION])
+	{
+		setCueLED(false);
+	}
+
+	/*****************************************************
 		TRANSITION LIST
 	*****************************************************/
 	// Quit signal from host --> IDLE
 	if (_command == 'Q') 
-	{                           
+	{
 		_state = STATE_IDLE;
 		return;
 	}
@@ -489,16 +484,11 @@ void state_pre_window()
 			_firstLickRegistered = true;
 			sendEventMarker(EVENT_FIRST_LICK, -1);
 		}
-		// First post cue lick registration
-		if (!_firstLickSinceCueRegistered)
+		// pre-window lick not allowed --> ABORT
+		if (_params[ALLOW_EARLY_LICK] == 0)
 		{
-			_firstLickSinceCueRegistered = true;
-			sendEventMarker(EVENT_FIRST_LICK_SINCE_CUE, -1);
-		}
-		// pre-window lick not allowed --> PRE_WINDOW_ABORT
-		if (_params[ALLOW_PRE_WINDOW_LICK] == 0)
-		{
-			_state = STATE_PRE_WINDOW_ABORT;
+			setCueLED(false);
+			_state = STATE_ABORT;
 			return;
 		}
 	}
@@ -527,9 +517,6 @@ void state_response_window()
 		// Register new state
 		_prevState = _state;
 		sendState(_state);
-
-		// Register events
-		sendEventMarker(EVENT_WINDOW_OPEN, -1);
 	}
 
 	/*****************************************************
@@ -537,28 +524,239 @@ void state_response_window()
 	*****************************************************/
 	// Quit signal from host --> IDLE
 	if (_command == 'Q') 
-	{                           
+	{
 		_state = STATE_IDLE;
 		return;
 	}
 
-	// Lick detected & pre-window lick not allowed --> PRE_WINDOW_ABORT
-	if (_isLicking && _params[ALLOW_PRE_WINDOW_LICK] == 0)
+	// Correct lick --> REWARD
+	if (_isLickOnset)
 	{
-		_state = STATE_PRE_WINDOW_ABORT;
+		// First lick registration
+		if (!_firstLickRegistered)
+		{
+			_firstLickRegistered = true;
+			sendEventMarker(EVENT_FIRST_LICK, -1);
+		}
+
+		_state = STATE_REWARD;
 		return;
 	}
 
-	// Pre-window elapsed --> PRE_WINDOW
-	if (getTimeSinceCueOn() >= _params[INTERVAL_MIN])
+	// Response window elapsed --> ITI
+	if (getTimeSinceCueOn() >= _params[INTERVAL_MAX])
 	{
-		_state = STATE_RESPONSE_WINDOW;
+		_resultCode = CODE_NO_LICK;
+		_state = STATE_INTERTRIAL;
 		return;
 	}
 
-	_state = STATE_PRE_WINDOW;
+	_state = STATE_RESPONSE_WINDOW;
 }
 
+
+/*****************************************************
+	REWARD - Turn on juice valve for some time
+*****************************************************/
+void state_reward()
+{
+	static long rewardDuration;
+	static long timeRewardOn;
+	/*****************************************************
+		ACTION LIST
+	*****************************************************/
+	if (_state != _prevState) 
+	{
+		// Register new state
+		_prevState = _state;
+		sendState(_state);
+
+		// Register result
+		_resultCode = CODE_CORRECT;
+
+		// Register time of state entry
+		timeRewardOn = getTimeSinceCueOn();
+
+		// Determine reward duration
+		// Incremental reward:
+		if (_params[INCREMENTAL_REWARD])
+		{
+			// Lick before or at target
+			if (timeRewardOn <= _params[INTERVAL_TARGET])
+			{
+				rewardDuration = _params[REWARD_DURATION_MIN] + (timeRewardOn - _params[INTERVAL_MIN])*(_params[REWARD_DURATION_MAX] - _params[REWARD_DURATION_MIN])/(_params[INTERVAL_TARGET] - _params[INTERVAL_MIN]);
+			}
+			// Lick after target
+			else
+			{
+				rewardDuration = _params[REWARD_DURATION_MAX] + (timeRewardOn - _params[INTERVAL_TARGET])*(_params[REWARD_DURATION_MIN] - _params[REWARD_DURATION_MAX])/(_params[INTERVAL_MAX] - _params[INTERVAL_TARGET]);
+			}
+		}
+		// Fixed reward:
+		else
+		{
+			rewardDuration = _params[REWARD_DURATION_MAX];
+		}
+
+		// Turn on reward
+		if (rewardDuration > 0)
+		{
+			setReward(true);
+		}
+
+		// Houselamp on
+		setHouseLamp(true);
+	}
+
+	/*****************************************************
+		OnEachLoop checks
+	*****************************************************/
+	// Turn off reward
+	if (rewardDuration > 0 && getTimeSinceCueOn() - timeRewardOn >= rewardDuration)
+	{
+		setReward(false);
+	}
+
+	/*****************************************************
+		TRANSITION LIST
+	*****************************************************/
+	// Quit signal from host --> IDLE
+	if (_command == 'Q') 
+	{
+		_state = STATE_IDLE;
+		return;
+	}
+
+	// Trial duration elapsed and reward dispense complete --> INTERTRIAL
+	if (getTimeSinceCueOn() >= _params[INTERVAL_MAX] && (rewardDuration <= 0 || getTimeSinceCueOn() - timeRewardOn >= rewardDuration))
+	{
+		_state = STATE_INTERTRIAL;
+		return;
+	}
+
+	_state = STATE_REWARD;
+}
+
+
+/*****************************************************
+	ABORT - Early lick timeout
+*****************************************************/
+void state_abort()
+{
+	/*****************************************************
+		ACTION LIST
+	*****************************************************/
+	if (_state != _prevState) 
+	{
+		// Register new state
+		_prevState = _state;
+		sendState(_state);
+
+		// Register result
+		_resultCode = CODE_EARLY_LICK;
+
+		// Register events
+		sendEventMarker(EVENT_ABORT, -1);
+
+		// Play abort tone
+		playSound(TONE_ABORT);
+
+		// Houselamp on
+		setHouseLamp(true);
+	}
+
+	/*****************************************************
+		TRANSITION LIST
+	*****************************************************/
+	// Quit signal from host --> IDLE
+	if (_command == 'Q') 
+	{
+		_state = STATE_IDLE;
+		return;
+	}
+
+	// Trial duration elapsed --> INTERTRIAL
+	if (getTimeSinceCueOn() >= _params[INTERVAL_MAX])
+	{
+		_state = STATE_INTERTRIAL;
+		return;
+	}
+
+	_state = STATE_ABORT;
+}
+
+
+
+/*****************************************************
+	INTERTRIAL
+*****************************************************/
+void state_intertrial()
+{
+	static long timeIntertrial;
+	static bool isParamsUpdateStarted;
+	static bool isParamsUpdateDone;
+	/*****************************************************
+		ACTION LIST
+	*****************************************************/
+	if (_state != _prevState) 
+	{
+		// Register new state
+		_prevState = _state;
+		sendState(_state);
+
+		// Register events
+		sendEventMarker(EVENT_ITI, -1);
+
+		// Send results
+		sendResultCode(_resultCode);
+		_resultCode = -1;
+
+		// Houselamp on (if not already on)
+		setHouseLamp(true);
+
+		// Register time of state entry
+		timeIntertrial = getTimeSinceCueOn();
+
+		// Variables for handling parameter update
+		isParamsUpdateStarted = false;
+		isParamsUpdateDone = false;
+	}
+
+	/*****************************************************
+		OnEachLoop checks
+	*****************************************************/
+	// Received new param from HOST: format "P paramID newValue"
+	// Mark transmission start. Don't start next trial until we've finished.
+	if (_command == 'P') 
+	{
+		isParamsUpdateStarted = true;
+		_params[_arguments[0]] = _arguments[1];
+	}
+
+	// Parameter transmission complete:
+	if (_command == 'O') {
+		isParamsUpdateDone = true;
+	}
+
+	/*****************************************************
+		TRANSITION LIST
+	*****************************************************/
+	// Quit signal from host --> IDLE
+	if (_command == 'Q') 
+	{
+		_state = STATE_IDLE;
+		return;
+	}
+
+	// If ITI elapsed --> PRE_CUE
+	if (getTimeSinceCueOn() - timeIntertrial >= _params[ITI] && (isParamsUpdateDone || !isParamsUpdateStarted))
+	{
+		_state = STATE_PRE_CUE;
+		return;
+	}
+
+	_state = STATE_INTERTRIAL;
+}
 
 /*****************************************************
 	HARDWARE CONTROLS
@@ -662,7 +860,7 @@ void playSound(SoundEventFrequencyEnum soundEventFrequency) {
 void setReward(bool turnOn) 
 {
 	static bool rewardOn = false;
-	if (turnOn)                                                       
+	if (turnOn)
 	{
 		digitalWrite(PIN_REWARD, HIGH);
 		if (!rewardOn)
@@ -687,7 +885,7 @@ void setReward(bool turnOn)
 *****************************************************/
 
 //SEND MESSAGE to HOST
-void sendMessage(String message)   // Uses String object from arduino library
+void sendMessage(String message)	// Uses String object from arduino library
 {
 	Serial.println(message);
 }
@@ -711,11 +909,23 @@ void sendState(State state)
 	sendMessage("$" + String(state));
 }
 
+void sendResultCode(ResultCode resultCode)
+{
+	if (resultCode >= 0)
+	{
+		sendMessage("`" + String(resultCode));
+	}
+	else
+	{
+		sendMessage("ERROR: Invalid result code.");
+	}
+}
+
 // GET COMMAND FROM HOST (single character)
 char getCommand(String message)
 {
-	message.trim();                 // Remove leading and trailing white space
-	return message[0];              // 1st character in a message string is the command
+	message.trim();				// Remove leading and trailing white space
+	return message[0];			// 1st character in a message string is the command
 }
 
 // GET ARGUMENTS (of the command) from HOST (2 int array)
@@ -724,7 +934,7 @@ void getArguments(String message, int *_arguments)
 	_arguments[0] = 0;
 	_arguments[1] = 0;
 
-	message.trim();                 // Remove leading and trailing white space
+	message.trim();				// Remove leading and trailing white space
 
 	// Remove command (first character) from string
 	String parameters = message;
