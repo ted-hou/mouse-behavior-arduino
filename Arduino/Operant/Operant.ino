@@ -199,7 +199,8 @@ long _params[_NUM_PARAMS] =
 // (previously defined):
 static long _timeReset				= 0;			// Reset to signedMillis() at every soft reset
 static long _timeTrialStart			= 0;			// Reset to 0 at start of trial
-static long _resultCode				= -1;			// Result code. -1 if there is no result.
+static long _timeCueOn				= 0;			// Reset to 0 at cue on
+static int _resultCode				= -1;			// Result code. -1 if there is no result.
 static State _state					= _STATE_INIT;	// This variable (current _state) get passed into a _state function, which determines what the next _state should be, and updates it to the next _state.
 static State _prevState				= _STATE_INIT;	// Remembers the previous _state from the last loop (actions should only be executed when you enter a _state for the first time, comparing currentState vs _prevState helps us keep track of that).
 static char _command				= ' ';			// Command char received from host, resets on each loop
@@ -234,6 +235,7 @@ void mySetup()
 	// Reset variables
 	_timeReset				= 0;			// Reset to signedMillis() at every soft reset
 	_timeTrialStart			= 0;			// Reset to 0 at start of trial
+	_timeCueOn				= 0;
 	_resultCode				= -1;			// Result code. -1 if there is no result.
 	_state					= _STATE_INIT;	// This variable (current _state) get passed into a _state function, which determines what the next _state should be, and updates it to the next _state.
 	_prevState				= _STATE_INIT;	// Remembers the previous _state from the last loop (actions should only be executed when you enter a _state for the first time, comparing currentState vs _prevState helps us keep track of that).
@@ -591,6 +593,7 @@ void state_reward()
 			{
 				rewardDuration = _params[REWARD_DURATION_MAX] + (timeRewardOn - _params[INTERVAL_TARGET])*(_params[REWARD_DURATION_MIN] - _params[REWARD_DURATION_MAX])/(_params[INTERVAL_MAX] - _params[INTERVAL_TARGET]);
 			}
+			sendMessage("Reward duration: " + String(rewardDuration) + " ms.");
 		}
 		// Fixed reward:
 		else
@@ -909,7 +912,7 @@ void sendState(State state)
 	sendMessage("$" + String(state));
 }
 
-void sendResultCode(ResultCode resultCode)
+void sendResultCode(int resultCode)
 {
 	if (resultCode >= 0)
 	{
