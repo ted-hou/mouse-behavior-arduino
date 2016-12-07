@@ -7,15 +7,12 @@ all_trials_max = 45;
 pav_max = 45;
 op_max = 30;
 
-
-
-
-
-
 % takes obj.EventMarkers, parces it to set all the time stamps, then plots
 % PSTH
 
 % Note: This version compatible with hybrid and mixed pav-op
+% Note: Now ignores first licks in abort window within first 200 ms that were preceeded by a lick in the post-cue allowed window
+%   In test file, found 0 instances of first 200 ms licks not being preceeded by a lick train in the pre-abort window
 
 %% Fetch Relevant Data From Exp Object:
 
@@ -126,6 +123,10 @@ pav_index = 0;
 op_index = 0;
 hybrid_index = 0;
 
+allfirstlicks = []; % tracks all aborted and rewarded first licks discounting pavlovian and early train first licks
+rewarded_no_pav_firstlicks = []; % tracks all rewarded first licks discounting pavlovian trials
+abortedfirstlicks = []; % tracks aborted first licks, discounting early train first licks
+
 for ievent = 1:length(events)
     if events(ievent, 1) == 1             % if start new trial
         trial_index = trial_index + 1;
@@ -148,7 +149,7 @@ for ievent = 1:length(events)
             op_index = op_index + 1;
             op_cue_on_time_by_trial(op_index, 1) = cue_on_time_by_trial(trial_index);
         end
-        if hybrid_by_trial(trial_index) == 1   % for an operant trial...                                          % operant
+        if hybrid_by_trial(trial_index) == 1      % for an operant trial...                                          % operant
             hybrid_index = hybrid_index + 1;
             hybrid_cue_on_time_by_trial(hybrid_index, 1) = cue_on_time_by_trial(trial_index);
         end
@@ -172,22 +173,31 @@ for ievent = 1:length(events)
         end
         % check for first abort window lick:
         if first_abort_window_lick == false && events(ievent, 2) - cue_on_time_by_trial(trial_index) - start_time > time_abort_min && events(ievent, 2) - cue_on_time_by_trial(trial_index) - start_time < time_abort_max
-            times_1st_lick_no_lick_period(length(times_1st_lick_no_lick_period)+1) = events(ievent, 2) - cue_on_time_by_trial(trial_index) - start_time;
-            first_abort_window_lick = true;
-            if pav_or_op_by_trial(trial_index) == 0   % for a pavlovian trial...
-                pav_times_1st_lick_no_lick_period(length(times_1st_lick_no_lick_period)+1) = events(ievent, 2) - cue_on_time_by_trial(trial_index) - start_time;
-            end
-            if pav_or_op_by_trial(trial_index) == 1   % for an operant trial...
-                op_times_1st_lick_no_lick_period(length(op_times_1st_lick_no_lick_period)+1) = events(ievent, 2) - cue_on_time_by_trial(trial_index) - start_time;
-            end
-            if hybrid_by_trial(trial_index) == 1      % for hybrid trial...
-                hybrid_times_1st_lick_no_lick_period(length(hybrid_times_1st_lick_no_lick_period)+1) = events(ievent, 2) - cue_on_time_by_trial(trial_index) - start_time;
+            if events(ievent, 2) - cue_on_time_by_trial(trial_index) - start_time < time_abort_min + 200 && first_post_cue_lick == true, % If the lick occurred within the first 200 ms of the abort window AND a post-cue lick was detected...
+                disp(['train of licks to abort window @ trial ', num2str(trial_index), '. Not including in first licks!']);
+            else
+                times_1st_lick_no_lick_period(length(times_1st_lick_no_lick_period)+1) = events(ievent, 2) - cue_on_time_by_trial(trial_index) - start_time;
+                first_abort_window_lick = true;
+                if events(ievent, 2) - cue_on_time_by_trial(trial_index) - start_time - time_abort_min > 200
+                    allfirstlicks(length(allfirstlicks)+1) = events(ievent, 2) - cue_on_time_by_trial(trial_index) - start_time;
+                    abortedfirstlicks(length(abortedfirstlicks)+1) = events(ievent, 2) - cue_on_time_by_trial(trial_index) - start_time;
+                end
+                if pav_or_op_by_trial(trial_index) == 0   % for a pavlovian trial...
+                    pav_times_1st_lick_no_lick_period(length(times_1st_lick_no_lick_period)+1) = events(ievent, 2) - cue_on_time_by_trial(trial_index) - start_time;
+                end
+                if pav_or_op_by_trial(trial_index) == 1   % for an operant trial...
+                    op_times_1st_lick_no_lick_period(length(op_times_1st_lick_no_lick_period)+1) = events(ievent, 2) - cue_on_time_by_trial(trial_index) - start_time;
+                end
+                if hybrid_by_trial(trial_index) == 1      % for hybrid trial...
+                    hybrid_times_1st_lick_no_lick_period(length(hybrid_times_1st_lick_no_lick_period)+1) = events(ievent, 2) - cue_on_time_by_trial(trial_index) - start_time;
+                end
             end
         end
         % check for pre-reward window lick if trial not aborted:
         if pre_first_reward_lick == false && events(ievent, 2) - cue_on_time_by_trial(trial_index) - start_time > time_abort_max && events(ievent, 2) - cue_on_time_by_trial(trial_index) - start_time < time_min_interval && first_abort_window_lick == false;
             pre_times_1st_lick_reward(length(pre_times_1st_lick_reward)+1) = events(ievent, 2) - cue_on_time_by_trial(trial_index) - start_time;
             pre_first_reward_lick = true;
+            allfirstlicks(length(allfirstlicks)+1) = events(ievent, 2) - cue_on_time_by_trial(trial_index) - start_time;
             if pav_or_op_by_trial(trial_index) == 0   % for a pavlovian trial...
                 pre_pav_times_1st_lick_reward(length(pre_pav_times_1st_lick_reward)+1) = events(ievent, 2) - cue_on_time_by_trial(trial_index) - start_time;
             end
@@ -202,6 +212,10 @@ for ievent = 1:length(events)
         if first_reward_lick == false && events(ievent, 2) - cue_on_time_by_trial(trial_index) - start_time > time_min_interval && events(ievent, 2) - cue_on_time_by_trial(trial_index) - start_time < time_max_interval && first_abort_window_lick == false;
             times_1st_lick_reward(length(times_1st_lick_reward)+1) = events(ievent, 2) - cue_on_time_by_trial(trial_index) - start_time;
             first_reward_lick = true;
+            if events(ievent, 2) - cue_on_time_by_trial(trial_index) - start_time - time_target < 100 || events(ievent, 2) - cue_on_time_by_trial(trial_index) - start_time - time_target < 600, 
+                allfirstlicks(length(allfirstlicks)+1) = events(ievent, 2) - cue_on_time_by_trial(trial_index) - start_time;
+                rewarded_no_pav_firstlicks(length(rewarded_no_pav_firstlicks)+1) = events(ievent, 2) - cue_on_time_by_trial(trial_index) - start_time;
+            end
             if pav_or_op_by_trial(trial_index) == 0   % for a pavlovian trial...
                 pav_times_1st_lick_reward(length(pav_times_1st_lick_reward)+1) = events(ievent, 2) - cue_on_time_by_trial(trial_index) - start_time;
             end
@@ -216,6 +230,7 @@ for ievent = 1:length(events)
         if first_post_cue_lick == false && events(ievent, 2) - cue_on_time_by_trial(trial_index) - start_time > time_max_interval && first_abort_window_lick == false && first_reward_lick == false;
             times_1st_late_lick(length(times_1st_late_lick)+1) = events(ievent, 2) - cue_on_time_by_trial(trial_index) - start_time;
             first_post_window_lickrs = true;
+            allfirstlicks(length(allfirstlicks)+1) = events(ievent, 2) - cue_on_time_by_trial(trial_index) - start_time;
             if pav_or_op_by_trial(trial_index) == 0   % for a pavlovian trial...
                 pav_times_1st_late_lick(length(pav_times_1st_late_lick)+1) = events(ievent, 2) - cue_on_time_by_trial(trial_index) - start_time;
             end
@@ -1343,3 +1358,34 @@ xlim([min(min(licks_by_trial_relative_to_cue)) - 500, max(max(licks_by_trial_rel
 ylabel('number of licks');
 xlabel('time relative to cue on (ms)');
 title('Hybrid Combined First licks');
+
+
+
+
+
+%% Bar plots:
+figure
+subplot(4, 1, 1);
+bar([1:length(allfirstlicks)], allfirstlicks);
+title('all first lick times (by trial)');
+% excludes first part of abort window and pavlovian part of reward window. Check later that this is calc right
+
+subplot(4,1,2);
+bar([1:length(rewarded_no_pav_firstlicks)], rewarded_no_pav_firstlicks);
+title('NO PAV rewarded first lick times (by trial)')
+ylim([time_min_interval, time_max_interval]);
+% excludes pavlovian part of reward window. Check later that this is calc right
+
+xi = randperm(length(rewarded_no_pav_firstlicks));
+mixedrewarded = rewarded_no_pav_firstlicks(xi);
+subplot(4,1,3);
+bar([1:length(mixedrewarded)], mixedrewarded);
+title('SHUFFLED - NO PAV rewarded first lick times')
+ylim([time_min_interval, time_max_interval]);
+
+
+subplot(4,1,4);
+bar([1:length(abortedfirstlicks)], abortedfirstlicks);
+title('Aborted only first lick times')
+ylim([time_abort_min, time_abort_max]);
+% excludes first part of abort window. Check later that this is calc right
