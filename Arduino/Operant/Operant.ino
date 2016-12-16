@@ -18,6 +18,11 @@
 #define PIN_LED_CUE		4
 #define PIN_REWARD		7
 
+// Digital OUT to Nidaq
+#define PIN_NIDAQ_CUE		8
+#define PIN_NIDAQ_LICK		9
+#define PIN_NIDAQ_REWARD	10
+
 // PWM OUT
 #define PIN_SPEAKER		5
 
@@ -220,6 +225,10 @@ void setup()
 	pinMode(PIN_SPEAKER, OUTPUT);               // Speaker for cue tone
 	pinMode(PIN_REWARD, OUTPUT);                // Reward, set to HIGH to open juice valve
 	pinMode(PIN_LICK, INPUT);                   // Lick detector
+
+	pinMode(PIN_NIDAQ_CUE, OUTPUT);
+	pinMode(PIN_NIDAQ_LICK, OUTPUT);
+	pinMode(PIN_NIDAQ_REWARD, OUTPUT);
 
 	// Serial comms
 	Serial.begin(115200);                       // Set up USB communication at 115200 baud 
@@ -795,6 +804,7 @@ void setCueLED(bool turnOn)
 	if (turnOn) 
 	{
 		digitalWrite(PIN_LED_CUE, HIGH);
+		digitalWrite(PIN_NIDAQ_CUE, HIGH);
 		if (!cueLEDOn)
 		{
 			cueLEDOn = true;
@@ -804,6 +814,7 @@ void setCueLED(bool turnOn)
 	else 
 	{
 		digitalWrite(PIN_LED_CUE, LOW);
+		digitalWrite(PIN_NIDAQ_CUE, LOW);
 		if (cueLEDOn)
 		{
 			cueLEDOn = false;
@@ -830,6 +841,7 @@ void handleLick()
 {
 	if (getLickState() && !_isLicking)
 	{
+		digitalWrite(PIN_NIDAQ_LICK, HIGH);
 		_isLicking = true;
 		_isLickOnset = true;
 		sendEventMarker(EVENT_LICK, -1);
@@ -838,6 +850,7 @@ void handleLick()
 	{
 		if (!getLickState() && _isLicking)
 		{
+			digitalWrite(PIN_NIDAQ_LICK, LOW);
 			_isLicking = false;
 			sendEventMarker(EVENT_LICK_OFF, -1);
 		}
@@ -866,6 +879,7 @@ void setReward(bool turnOn)
 	if (turnOn)
 	{
 		digitalWrite(PIN_REWARD, HIGH);
+		digitalWrite(PIN_NIDAQ_REWARD, HIGH);
 		if (!rewardOn)
 		{
 			rewardOn = true;
@@ -875,6 +889,7 @@ void setReward(bool turnOn)
 	else
 	{
 		digitalWrite(PIN_REWARD, LOW);
+		digitalWrite(PIN_NIDAQ_REWARD, LOW);
 		if (rewardOn)
 		{
 			rewardOn = false;
