@@ -25,6 +25,7 @@ classdef ArduinoConnection < handle
 		State = []
 		ParamUpdateQueue = []
 		EventMarkersBuffer = []
+		Nidaq = []
 		Listeners
 	end
 
@@ -318,6 +319,11 @@ classdef ArduinoConnection < handle
 					% Debug message
 					if obj.DebugMode
 						fprintf('		EVENT: %s - %d\n', obj.EventMarkerNames{eventCode}, timeStamp)
+					end
+
+					% Nidaq
+					if (eventCode == 1) && (isobject(obj.Nidaq))
+						obj.Nidaq.ClearBuffer();
 					end
 				case '+'
 					% Arduino sent the name of an event marker - "+ 0 TRIAL_START"

@@ -4,7 +4,6 @@ classdef NidaqConnection < handle
 		BufferData = []
 		StartTime = []
 		Channels = []
-		ChannelNames = []
 	end
 
 	properties (Transient)	% These properties will be discarded when saving to file
@@ -12,8 +11,10 @@ classdef NidaqConnection < handle
 		Devices = []
 		DebugMode = false
 		Connected = false
+		Record = false
 		SavePath = ''
 		FileID = []
+		Ax = []
 		Listeners
 	end
 
@@ -35,7 +36,19 @@ classdef NidaqConnection < handle
 			s.IsContinuous = true;
 			obj.Session = s;
 			
-			addAnalogInputChannel(s, deviceName, obj.Channels, 'Voltage');
+			for iChannel = 1:length(obj.Channels)
+				channelId = obj.Channels(iChannel).Id;
+				channelName = obj.Channels(iChannel).Name;
+				channelType = obj.Channels(iChannel).Type;
+
+				if strcmp(channelType, 'Analog')
+					ch = addAnalogInputChannel(s, deviceName, channelId, 'Voltage');
+					ch.TerminalConfig = 'SingleEnded'; % 'SingleEnded' so BNC ground is used as ground. If the default 'Differential' mode is used, another analog channel is used as ground.
+				end
+				if strcmp(channelType, 'Digital')
+					addDigitalChannel(s, deviceName, channelId, 'InputOnly');
+				end
+			end
 
 			prepare(s)
 		end
@@ -57,11 +70,11 @@ classdef NidaqConnection < handle
 			numChannels = length(channelNames);
 			table_analogChannels = uitable(...
 				'Parent', dlg,...
-				'Data', [channelNames, repmat({false}, [numChannels, 1])],...
+				'Data', [channelNames, repmat({false}, [numChannels, 1]), repmat({'Analog'}, [numChannels, 1])],...
 				'RowName', channelNames,...
-				'ColumnName', {'Channel Description', 'Enable Channel'},...
-				'ColumnFormat', {'char', 'logical'},...
-				'ColumnEditable', [true, true]...
+				'ColumnName', {'Channel Description', 'Enable Channel', 'Type'},...
+				'ColumnFormat', {'char', 'logical', 'char'},...
+				'ColumnEditable', [true, true, false]...
 			);
 			% Set table pos
 			table_analogChannels.Position(2) = buttonHeight + 2*ctrlSpacing;
@@ -71,11 +84,11 @@ classdef NidaqConnection < handle
 			numChannels = length(channelNames);
 			table_digitalChannels = uitable(...
 				'Parent', dlg,...
-				'Data', [channelNames, repmat({false}, [numChannels, 1])],...
+				'Data', [channelNames, repmat({false}, [numChannels, 1]), repmat({'Digital'}, [numChannels, 1])],...
 				'RowName', channelNames,...
-				'ColumnName', {'Channel Description', 'Enable Channel'},...
-				'ColumnFormat', {'char', 'logical'},...
-				'ColumnEditable', [true, true]...
+				'ColumnName', {'Channel Description', 'Enable Channel', 'Type'},...
+				'ColumnFormat', {'char', 'logical', 'char'},...
+				'ColumnEditable', [true, true, false]...
 			);
 			% Set table pos
 			ctrlPosBase = table_analogChannels.Position;
@@ -88,17 +101,17 @@ classdef NidaqConnection < handle
 			% Confirm button
 			ctrlPosBase = table_analogChannels.Position;
 			ctrlPos = [...
-				ctrlPosBase(1) + ctrlPosBase(3) - 0.5*buttonWidth,...
+				ctrlPosBase(1) + ctrlPosBase(3) - 0.5*buttonWidth + 0.5*ctrlSpacing,...
 				ctrlPosBase(2) - buttonHeight - ctrlSpacing,...
 				buttonWidth,...	
 				buttonHeight...
-			];			
+			];
 			button_confirm = uicontrol(...
 				'Parent', dlg,...
 				'Style', 'pushbutton',...
 				'Position', ctrlPos,...
 				'String', 'Confirm',...
-				'Callback', {@obj.QueryChannels_OnConfirm, dlg, table_analogChannels}...
+				'Callback', {@obj.QueryChannels_OnConfirm, dlg, table_analogChannels, table_digitalChannels}...
 			);
 
 			% Adjust window size
@@ -112,16 +125,41 @@ classdef NidaqConnection < handle
 			uiwait(dlg)
 		end
 
-		function QueryChannels_OnConfirm(obj, ~, ~, dlg, table_analogChannels)
-			data = table_analogChannels.Data
-			channelIds = find(cell2mat(data(:, 2)));
-			obj.Channels = obj.Devices.Subsystems(1).ChannelNames(channelIds, 1);
-			obj.ChannelNames = data(channelIds, 1);
+		function QueryChannels_OnConfirm(obj, ~, ~, dlg, table_analogChannels, table_digitalChannels)
+			data_analog = table_analogChannels.Data;
+			data_digital = table_digitalChannels.Data;
+			channelIds_analog = find(cell2mat(data_analog(:, 2)));
+			channelIds_digital = find(cell2mat(data_digital(:, 2)));
+
+			i = 0;
+			for iChannel = channelIds_analog'
+				i = i + 1;
+				obj.Channels(i).Id = obj.Devices.Subsystems(1).ChannelNames{iChannel, 1};
+				obj.Channels(i).Name = data_analog{iChannel, 1};
+				obj.Channels(i).Type = data_analog{iChannel, 3};
+			end
+
+			for iChannel = channelIds_digital'
+				i = i + 1;
+				obj.Channels(i).Id = obj.Devices.Subsystems(3).ChannelNames{iChannel, 1};
+				obj.Channels(i).Name = data_digital{iChannel, 1};
+				obj.Channels(i).Type = data_digital{iChannel, 3};
+			end
+
 			delete(dlg)
 		end
 
 		% Called when data is available
 		function OnDataAvailable(obj, event)
+			% Log acquisition start time
+			if isempty(obj.StartTime)
+				obj.StartTime = event.TriggerTime;
+			end
+
+			if (~obj.Record)
+				obj.Record = true;
+			end
+
 			% Write to file
 			data = [event.TimeStamps, event.Data]';
 			fwrite(obj.FileID, data, 'double');			
@@ -130,26 +168,23 @@ classdef NidaqConnection < handle
 			obj.BufferTimeStamps = [obj.BufferTimeStamps; event.TimeStamps];
 			obj.BufferData = [obj.BufferData; event.Data];
 
-			% Log acquisition start time
-			if isempty(obj.StartTime)
-				obj.StartTime = event.TriggerTime;
-			end
-
 			% Update all plots
-			obj.Plot()
+			if ~isobject(obj.Ax)
+				f = figure('Name', 'NiDAQ', 'NumberTitle', 'off');
+				obj.Ax = axes('Parent', f);
+			end
+			obj.Plot(obj.Ax)
 		end
 
 		% Plot selected channels - to be called whenever data is available
-		function Plot(obj)
-			plot(obj.BufferTimeStamps, obj.BufferData)
-			legend(obj.ChannelNames)
+		function Plot(obj, ax)
+			plot(ax, obj.BufferTimeStamps, obj.BufferData)
+			legend({obj.Channels.Name})
 			xlabel('Time (s)')
 			ylabel('Voltage (V)')
 		end
 
-		function [timeStamps, data] = GetAndClearBuffer(obj)
-			timeStamps = obj.BufferTimeStamps;
-			data = obj.BufferData;
+		function ClearBuffer(obj)
 			obj.BufferTimeStamps = [];
 			obj.BufferData = [];
 		end
