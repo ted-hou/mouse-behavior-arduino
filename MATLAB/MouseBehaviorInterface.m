@@ -2,6 +2,7 @@
 classdef MouseBehaviorInterface < handle
 	properties
 		Arduino
+		Nidaq
 		UserData
 	end
 	properties (Transient)
@@ -563,6 +564,7 @@ classdef MouseBehaviorInterface < handle
 				MouseBehaviorInterface.ArduinoSaveExperiment([], [], obj.Arduino);
 			end
 
+			% Updated monitor window
 			if isvalid(obj.Rsc.Monitor)
 				% Count how many trials have been completed
 				iTrial = obj.Arduino.TrialsCompleted;
@@ -585,7 +587,12 @@ classdef MouseBehaviorInterface < handle
 
 				MouseBehaviorInterface.StackedBar(ax, resultCodeCounts, resultCodeNames);
 			end
-		
+			
+			% Register Nidaq data
+			if isobject(obj.Nidaq)
+				[obj.Arduino.Trials(iTrial).TimeStamps, obj.Arduino.Trials(iTrial).Data] = obj.Nidaq.GetAndClearBuffer();
+			end
+
 			drawnow
 		end
 
@@ -1044,7 +1051,7 @@ classdef MouseBehaviorInterface < handle
 				return
 			end
 
-			if (online)
+			if online
 				arduinoPortName = serialInfo.AvailableSerialPorts{selection};
 			else
 				arduinoPortName = '/offline';
@@ -1129,6 +1136,18 @@ classdef MouseBehaviorInterface < handle
 		function ArduinoLoadExperiment(~, ~, arduino)
 			arduino.LoadExperiment()
 		end
+
+		%----------------------------------------------------
+		%		Commmunicating with DAQ
+		%----------------------------------------------------
+		function NidaqStart(~, ~, nidaq)
+			nidaq.Start()
+		end
+
+		function NidaqStop(~, ~, nidaq)
+			nidaq.Stop()
+		end
+
 
 		%----------------------------------------------------
 		%		Dialog Resize callbacks
