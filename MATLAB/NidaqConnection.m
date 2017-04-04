@@ -1,6 +1,6 @@
 classdef NidaqConnection < handle
 	properties
-		BufferTimeStamps = []
+		BufferTimeStamps = []			% timestamps for each datapoint
 		BufferData = []
 		StartTime = []
 		Channels = []
@@ -28,32 +28,32 @@ classdef NidaqConnection < handle
 				deviceName = d.ID;
 			end
 
-			obj.QueryChannels();
+			obj.QueryChannels();		% creates object with all the NiDAQ channels
 
 			% Create daq session
-			s = daq.createSession('ni');
-			s.Rate = 1000;
-			s.IsContinuous = true;
-			obj.Session = s;
+			s = daq.createSession('ni');		% creates NiDAQ sesh
+			s.Rate = 1000;						% sets sampling rate to 1 kHz default
+			s.IsContinuous = true;				% DAQ records in continuous mode
+			obj.Session = s;					% Puts all the session info into a Session object (h.Session)
 			
-			for iChannel = 1:length(obj.Channels)
-				channelId = obj.Channels(iChannel).Id;
-				channelName = obj.Channels(iChannel).Name;
-				channelType = obj.Channels(iChannel).Type;
+			for iChannel = 1:length(obj.Channels)					% for each channel in NiDAQ
+				channelId = obj.Channels(iChannel).Id;					% get ID of the channel
+				channelName = obj.Channels(iChannel).Name;				% get name of channel
+				channelType = obj.Channels(iChannel).Type;				% get channel type
 
-				if strcmp(channelType, 'Analog')
+				if strcmp(channelType, 'Analog')						% If channel is ANALOG - configures channel to read input appropriately
 					ch = addAnalogInputChannel(s, deviceName, channelId, 'Voltage');
 					ch.TerminalConfig = 'SingleEnded'; % 'SingleEnded' so BNC ground is used as ground. If the default 'Differential' mode is used, another analog channel is used as ground.
 				end
-				if strcmp(channelType, 'Digital')
+				if strcmp(channelType, 'Digital')						% If channel is DIGITAL - configures channel to read input approp.
 					addDigitalChannel(s, deviceName, channelId, 'InputOnly');
 				end
 			end
 
-			prepare(s)
+			prepare(s)					% Prepares the session (must be a matlab fx)
 		end
 
-		function QueryChannels(obj)
+		function QueryChannels(obj)		% UI Choose which channels to pay attention to
 			% Size and position of controls
 			buttonWidth = 50; % Width of buttons
 			buttonHeight = 20; % Height of 
@@ -84,7 +84,7 @@ classdef NidaqConnection < handle
 			numChannels = length(channelNames);
 			table_digitalChannels = uitable(...
 				'Parent', dlg,...
-				'Data', [channelNames, repmat({false}, [numChannels, 1]), repmat({'Digital'}, [numChannels, 1])],...
+				'Data', [channelNames, repmat({false}, [numChannels, 1]), repmat({'Digital'}, [numChannels, 1])],... % inside the table: first column is the channel name, second is false for each cell, third column just says digital. the [numChannels, 1] just says that cell will be repeated for the length of numChannels
 				'RowName', channelNames,...
 				'ColumnName', {'Channel Description', 'Enable Channel', 'Type'},...
 				'ColumnFormat', {'char', 'logical', 'char'},...
@@ -112,7 +112,7 @@ classdef NidaqConnection < handle
 				'Position', ctrlPos,...
 				'String', 'Confirm',...
 				'Callback', {@obj.QueryChannels_OnConfirm, dlg, table_analogChannels, table_digitalChannels}...
-			);
+			);						% selects the channels will listen to @obj.QueryChannels_OnConfirm
 
 			% Adjust window size
 			dlg.Position(3:4) = [...
@@ -125,18 +125,21 @@ classdef NidaqConnection < handle
 			uiwait(dlg)
 		end
 
-		function QueryChannels_OnConfirm(obj, ~, ~, dlg, table_analogChannels, table_digitalChannels)
-			data_analog = table_analogChannels.Data;
+		function QueryChannels_OnConfirm(obj, ~, ~, dlg, table_analogChannels, table_digitalChannels) % Store which channels you listen to
+
+%table...Data: [channelNames in each row, true for ones you want, 'Digital or Analog']
+
+			data_analog = table_analogChannels.Data;					% Copies over table that tells which channels will be listened to
 			data_digital = table_digitalChannels.Data;
-			channelIds_analog = find(cell2mat(data_analog(:, 2)));
+			channelIds_analog = find(cell2mat(data_analog(:, 2)));		% Finds all the selected channels (each rep'd by a number, that's what you're finding. for ex, A0 = 1, A1 = 2...D0_2 = 56...)
 			channelIds_digital = find(cell2mat(data_digital(:, 2)));
 
 			i = 0;
-			for iChannel = channelIds_analog'
+			for iChannel = channelIds_analog'					% For each selex Analog channel #...
 				i = i + 1;
-				obj.Channels(i).Id = obj.Devices.Subsystems(1).ChannelNames{iChannel, 1};
-				obj.Channels(i).Name = data_analog{iChannel, 1};
-				obj.Channels(i).Type = data_analog{iChannel, 3};
+				obj.Channels(i).Id = obj.Devices.Subsystems(1).ChannelNames{iChannel, 1}; % get the channel's ID
+				obj.Channels(i).Name = data_analog{iChannel, 1};						  % get the channel's name (e.g., A0)
+				obj.Channels(i).Type = data_analog{iChannel, 3};						  % get the channel's type (analog)
 			end
 
 			for iChannel = channelIds_digital'
@@ -150,7 +153,7 @@ classdef NidaqConnection < handle
 		end
 
 		% Called when data is available
-		function OnDataAvailable(obj, event)
+		function OnDataAvailable(obj, event)    
 			% Log acquisition start time
 			if isempty(obj.StartTime)
 				obj.StartTime = event.TriggerTime;
@@ -161,8 +164,12 @@ classdef NidaqConnection < handle
 			end
 
 			% Write to file
-			data = [event.TimeStamps, event.Data]';
-			fwrite(obj.FileID, data, 'double');			
+			data = horzcat(event.TimeStamps, event.Data);
+			fwrite(obj.FileID, data, 'double');	
+
+			% % Write to file
+			% data = [event.TimeStamps, event.Data]';
+			% fwrite(obj.FileID, data, 'double');			
 
 			% Write to workspace
 			obj.BufferTimeStamps = [obj.BufferTimeStamps; event.TimeStamps];
@@ -191,7 +198,7 @@ classdef NidaqConnection < handle
 
 		% Start data acquisition
 		function Start(obj)
-			% DataAvailable callback function
+			% DataAvailable callback function - listens for when new datapoint on the DAQ
 			lh = addlistener(obj.Session, 'DataAvailable', @(src, event) obj.OnDataAvailable(event));
 			obj.Listeners.DataAvailable = lh;
 
@@ -201,7 +208,7 @@ classdef NidaqConnection < handle
 			end
 
 			% Create/reopen .bin file
-			obj.FileID = fopen([obj.SavePath, '.bin'], 'w');
+			obj.FileID = fopen([obj.SavePath, '.bin'], 'w');  %CAUTION!! 'w' means you'll erase and write over the filepath you put here!! Use 'r' to read!
 
 			% Begin daq session
 			startBackground(obj.Session);

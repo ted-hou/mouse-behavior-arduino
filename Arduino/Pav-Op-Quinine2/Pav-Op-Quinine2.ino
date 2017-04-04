@@ -153,18 +153,21 @@
 Arduino Pin Outs (Mode: TEENSY)
 *****************************************************/
 
+/*If operating in DUE, must scroll to end of program and enable tone generator*/
+// DUE MODE = TRUE
+
 // Digital OUT
-#define PIN_HOUSE_LAMP     6   // House Lamp Pin         (DUE = 34)  (MEGA = 34)  (UNO = 5?)  (TEENSY = 6?)
-#define PIN_LED_CUE        4   // Cue LED Pin            (DUE = 35)  (MEGA = 28)  (UNO =  4)  (TEENSY = 4)
-#define PIN_REWARD         7   // Reward Pin             (DUE = 37)  (MEGA = 52)  (UNO =  7)  (TEENSY = 7)
+#define PIN_HOUSE_LAMP     34   // House Lamp Pin         (DUE = 34)  (MEGA = 34)  (UNO = 5?)  (TEENSY = 6?)
+#define PIN_LED_CUE        35   // Cue LED Pin            (DUE = 35)  (MEGA = 28)  (UNO =  4)  (TEENSY = 4)
+#define PIN_REWARD         37   // Reward Pin             (DUE = 37)  (MEGA = 52)  (UNO =  7)  (TEENSY = 7)
 #define PIN_SHOCK          3   // Shock Trigger Pin                  (MEGA = 22)              (TEENSY = 3)
 
 // PWM OUT
-#define PIN_SPEAKER        5   // Speaker Pin            (DUE =  2)  (MEGA =  8)  (UNO =  9)  (TEENSY = 5)
-#define PIN_QUININE        8   // Quinine Pin            (DUE = 22)  (MEGA =  9)  (UNO =  8)  (TEENSY = 8) ** Must be PWM
+#define PIN_SPEAKER        2   // Speaker Pin            (DUE =  2)  (MEGA =  8)  (UNO =  9)  (TEENSY = 5)
+#define PIN_QUININE        22   // Quinine Pin            (DUE = 22)  (MEGA =  9)  (UNO =  8)  (TEENSY = 8) ** Must be PWM
 
 // Digital IN
-#define PIN_LICK           2   // Lick Pin               (DUE = 36)  (MEGA =  2)  (UNO =  2)  (TEENSY = 2)
+#define PIN_LICK           36   // Lick Pin               (DUE = 36)  (MEGA =  2)  (UNO =  2)  (TEENSY = 2)
 
 
 /*****************************************************
@@ -1947,83 +1950,83 @@ long signedMillis()
 
 
 
-// /*****************************************************
-//   Tone generator for Due -- not used in other Arduino modes
-// *****************************************************/
-//   /*
-//   Tone generator
-//   v1  use timer, and toggle any digital pin in ISR
-//      funky duration from arduino version
-//      TODO use FindMckDivisor?
-//      timer selected will preclude using associated pins for PWM etc.
-//     could also do timer/pwm hardware toggle where caller controls duration
-//   */
+/*****************************************************
+  Tone generator for Due -- not used in other Arduino modes
+*****************************************************/
+  /*
+  Tone generator
+  v1  use timer, and toggle any digital pin in ISR
+     funky duration from arduino version
+     TODO use FindMckDivisor?
+     timer selected will preclude using associated pins for PWM etc.
+    could also do timer/pwm hardware toggle where caller controls duration
+  */
 
 
-//   // timers TC0 TC1 TC2   channels 0-2 ids 0-2  3-5  6-8     AB 0 1
-//   // use TC1 channel 0 
-//   #define TONE_TIMER TC1
-//   #define TONE_CHNL 0
-//   #define TONE_IRQ TC3_IRQn
+  // timers TC0 TC1 TC2   channels 0-2 ids 0-2  3-5  6-8     AB 0 1
+  // use TC1 channel 0 
+  #define TONE_TIMER TC1
+  #define TONE_CHNL 0
+  #define TONE_IRQ TC3_IRQn
 
-//   // TIMER_CLOCK4   84MHz/128 with 16 bit counter give 10 Hz to 656KHz
-//   //  piano 27Hz to 4KHz
+  // TIMER_CLOCK4   84MHz/128 with 16 bit counter give 10 Hz to 656KHz
+  //  piano 27Hz to 4KHz
 
-//   static uint8_t pinEnabled[PINS_COUNT];
-//   static uint8_t TCChanEnabled = 0;
-//   static boolean pin_state = false ;
-//   static Tc *chTC = TONE_TIMER;
-//   static uint32_t chNo = TONE_CHNL;
+  static uint8_t pinEnabled[PINS_COUNT];
+  static uint8_t TCChanEnabled = 0;
+  static boolean pin_state = false ;
+  static Tc *chTC = TONE_TIMER;
+  static uint32_t chNo = TONE_CHNL;
 
-//   volatile static int32_t toggle_count;
-//   static uint32_t tone_pin;
+  volatile static int32_t toggle_count;
+  static uint32_t tone_pin;
 
-//   // frequency (in hertz) and duration (in milliseconds).
+  // frequency (in hertz) and duration (in milliseconds).
 
-//   void tone(uint32_t ulPin, uint32_t frequency, int32_t duration)
-//   {
-//       const uint32_t rc = VARIANT_MCK / 256 / frequency; 
-//       tone_pin = ulPin;
-//       toggle_count = 0;  // strange  wipe out previous duration
-//       if (duration > 0 ) toggle_count = 2 * frequency * duration / 1000;
-//        else toggle_count = -1;
+  void tone(uint32_t ulPin, uint32_t frequency, int32_t duration)
+  {
+      const uint32_t rc = VARIANT_MCK / 256 / frequency; 
+      tone_pin = ulPin;
+      toggle_count = 0;  // strange  wipe out previous duration
+      if (duration > 0 ) toggle_count = 2 * frequency * duration / 1000;
+       else toggle_count = -1;
 
-//       if (!TCChanEnabled) {
-//         pmc_set_writeprotect(false);
-//         pmc_enable_periph_clk((uint32_t)TONE_IRQ);
-//         TC_Configure(chTC, chNo,
-//           TC_CMR_TCCLKS_TIMER_CLOCK4 |
-//           TC_CMR_WAVE |         // Waveform mode
-//           TC_CMR_WAVSEL_UP_RC ); // Counter running up and reset when equals to RC
+      if (!TCChanEnabled) {
+        pmc_set_writeprotect(false);
+        pmc_enable_periph_clk((uint32_t)TONE_IRQ);
+        TC_Configure(chTC, chNo,
+          TC_CMR_TCCLKS_TIMER_CLOCK4 |
+          TC_CMR_WAVE |         // Waveform mode
+          TC_CMR_WAVSEL_UP_RC ); // Counter running up and reset when equals to RC
 		
-//         chTC->TC_CHANNEL[chNo].TC_IER=TC_IER_CPCS;  // RC compare interrupt
-//         chTC->TC_CHANNEL[chNo].TC_IDR=~TC_IER_CPCS;
-//         NVIC_EnableIRQ(TONE_IRQ);
-//                TCChanEnabled = 1;
-//       }
-//       if (!pinEnabled[ulPin]) {
-//         pinMode(ulPin, OUTPUT);
-//         pinEnabled[ulPin] = 1;
-//       }
-//       TC_Stop(chTC, chNo);
-//       TC_SetRC(chTC, chNo, rc);    // set frequency
-//       TC_Start(chTC, chNo);
-//   }
+        chTC->TC_CHANNEL[chNo].TC_IER=TC_IER_CPCS;  // RC compare interrupt
+        chTC->TC_CHANNEL[chNo].TC_IDR=~TC_IER_CPCS;
+        NVIC_EnableIRQ(TONE_IRQ);
+               TCChanEnabled = 1;
+      }
+      if (!pinEnabled[ulPin]) {
+        pinMode(ulPin, OUTPUT);
+        pinEnabled[ulPin] = 1;
+      }
+      TC_Stop(chTC, chNo);
+      TC_SetRC(chTC, chNo, rc);    // set frequency
+      TC_Start(chTC, chNo);
+  }
 
-//   void noTone(uint32_t ulPin)
-//   {
-//     TC_Stop(chTC, chNo);  // stop timer
-//     digitalWrite(ulPin,LOW);  // no signal on pin
-//   }
+  void noTone(uint32_t ulPin)
+  {
+    TC_Stop(chTC, chNo);  // stop timer
+    digitalWrite(ulPin,LOW);  // no signal on pin
+  }
 
-//   // timer ISR  TC1 ch 0
-//   void TC3_Handler ( void ) {
-//     TC_GetStatus(TC1, 0);
-//     if (toggle_count != 0){
-//       // toggle pin  TODO  better
-//       digitalWrite(tone_pin,pin_state= !pin_state);
-//       if (toggle_count > 0) toggle_count--;
-//     } else {
-//       noTone(tone_pin);
-//     }
-//   }
+  // timer ISR  TC1 ch 0
+  void TC3_Handler ( void ) {
+    TC_GetStatus(TC1, 0);
+    if (toggle_count != 0){
+      // toggle pin  TODO  better
+      digitalWrite(tone_pin,pin_state= !pin_state);
+      if (toggle_count > 0) toggle_count--;
+    } else {
+      noTone(tone_pin);
+    }
+  }
