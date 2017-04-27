@@ -214,6 +214,12 @@ static bool _isLicking 				= false;		// True if the little dude is licking
 static bool _isLickOnset 			= false;		// True during lick onset
 static bool _firstLickRegistered 	= false;		// True when first lick is registered for this trial
 
+// For white noise generator
+static bool _whiteNoiseIsPlaying 			= false;
+static unsigned long _whiteNoiseInterval 	= 50;	// Determines frequency (us)
+static unsigned long _whiteNoiseDuration 	= 200;	// Noise duration (ms)
+static unsigned long _whiteNoiseFirstClick 	= 0;	// (us)
+static unsigned long _whiteNoiseLastClick 	= 0;	// (us)
 /*****************************************************
 	Setup
 *****************************************************/
@@ -302,8 +308,11 @@ void loop()
 
 		// 2) Check for licks and update GVARS: _isLicking and _isLickOnset
 		handleLick();
+		
+		// 3) Play white noise if required
+		handleWhiteNoise();
 
-		// 3) Update state machine
+		// 4) Update state machine
 		// Depending on what _state we're in , call the appropriate _state function, which will evaluate the transition conditions, and update `_state` to what the next _state should be
 		switch (_state) 
 		{
@@ -671,7 +680,8 @@ void state_abort()
 		sendEventMarker(EVENT_ABORT, -1);
 
 		// Play abort tone
-		playSound(TONE_ABORT);
+		playWhiteNoise(50, 200);
+		// playSound(TONE_ABORT);
 
 		// Houselamp on
 		setHouseLamp(true);
@@ -860,7 +870,8 @@ void handleLick()
 }
 
 // Play a tone defined in SoundEventFrequencyEnum
-void playSound(SoundEventFrequencyEnum soundEventFrequency) {
+void playSound(SoundEventFrequencyEnum soundEventFrequency) 
+{
 	long duration = 200;
 
 	if (soundEventFrequency == TONE_CUE)
@@ -870,6 +881,35 @@ void playSound(SoundEventFrequencyEnum soundEventFrequency) {
 
 	noTone(PIN_SPEAKER);
 	tone(PIN_SPEAKER, soundEventFrequency, duration);
+}
+
+void playWhiteNoise(unsigned long frequency, unsigned long duration)
+{
+	_whiteNoiseDuration = duration;
+	_whiteNoiseFirstClick = micros();
+	_whiteNoiseLastClick = micros();
+}
+
+void handleWhiteNoise() 
+{
+	if (micros() - _whiteNoiseFirstClick < _whiteNoiseDuration*1000)
+	{
+		_whiteNoiseIsPlaying = true;
+		if ((micros() - _whiteNoiseLastClick) > _whiteNoiseInterval) 
+		{
+			_whiteNoiseLastClick = micros();
+			digitalWrite(PIN_SPEAKER, random(2));
+		}		
+	}
+	else
+	{
+		if (_whiteNoiseIsPlaying)
+		{
+			_whiteNoiseIsPlaying = false;
+			digitalWrite(PIN_SPEAKER, 0);
+		}
+	}
+
 }
 
 // Toggle juice valve, register event when state is changed
