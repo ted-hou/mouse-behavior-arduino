@@ -767,7 +767,7 @@ classdef MouseBehaviorInterface < handle
 			lgd.Orientation = 'horizontal';
 
 			ax.XLimMode 		= 'auto';
-			ax.XLim 			= [ax.XLim(1) - 100, ax.XLim(2) + 100];
+			ax.XLim 			= [-1500, 20000];%[ax.XLim(1) - 100, ax.XLim(2) + 100];
 			ax.YLim 			= [0, obj.Arduino.TrialsCompleted + 1];
 			ax.YDir				= 'reverse';
 			ax.XLabel.String 	= 'Time (ms)';
