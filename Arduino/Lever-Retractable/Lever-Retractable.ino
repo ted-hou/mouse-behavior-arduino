@@ -154,7 +154,7 @@ enum ParamID
 	_DEBUG,						// (Private) 1 to enable debug messages from HOST. Default 0.
 	USE_LEVER,					// 0 to use lick to trigger reward. 1 to use lever press.
 	ALLOW_EARLY_MOVE,			// 0 to abort trial if animal licks after in pre-window
-	INCREMENTAL_REWARD,			// 1 to give more reward if lick is closer to target time. 0 to always give MAX reward.
+	DELAY_REWARD,				// 0 to reward as soon as correct movement is made. 1 to give reward at end of trial.
 	INTERVAL_MIN,				// Time to start of reward window (ms)
 	INTERVAL_TARGET,			// Target time (ms)
 	INTERVAL_MAX,				// Time to end of reward window (ms)
@@ -173,6 +173,7 @@ static const char *_paramNames[] =
 	"_DEBUG",
 	"USE_LEVER",
 	"ALLOW_EARLY_MOVE",
+	"DELAY_REWARD",
 	"INTERVAL_MIN",
 	"INTERVAL_TARGET",
 	"INTERVAL_MAX",
@@ -189,6 +190,7 @@ long _params[_NUM_PARAMS] =
 	0,		// _DEBUG
 	0,		// USE_LEVER
 	0,		// ALLOW_EARLY_MOVE
+	0,		// DELAY_REWARD
 	1500,	// INTERVAL_MIN
 	3000,	// INTERVAL_TARGET
 	4500,	// INTERVAL_MAX
@@ -212,12 +214,14 @@ static State _state					= _STATE_INIT;	// This variable (current _state) get pas
 static State _prevState				= _STATE_INIT;	// Remembers the previous _state from the last loop (actions should only be executed when you enter a _state for the first time, comparing currentState vs _prevState helps us keep track of that).
 static char _command				= ' ';			// Command char received from host, resets on each loop
 static int _arguments[2]			= {0};			// Two integers received from host , resets on each loop
+
 static bool _isLicking 				= false;		// True if the little dude is licking
 static bool _isLickOnset 			= false;		// True during lick onset
+static bool _firstLickRegistered 	= false;		// True when first lick is registered for this trial
+
 static bool _isLeverPressed			= false;		// True as long as lever is pressed down
 static bool _isLeverPressOnset 		= false;		// True when lever first pressed
-static bool _isLeverRetracted 		= false;		// True when lever is retracted
-static bool _firstLickRegistered 	= false;		// True when first lick is registered for this trial
+static bool _isLeverDeployed 		= false;		// True when lever is deployed
 
 // For white noise generator
 static bool _whiteNoiseIsPlaying 			= false;
@@ -236,7 +240,10 @@ void setup()
 	pinMode(PIN_SPEAKER, OUTPUT);               // Speaker for cue tone
 	pinMode(PIN_REWARD, OUTPUT);                // Reward, set to HIGH to open juice valve
 	pinMode(PIN_LICK, INPUT);                   // Lick detector
-	pinMode(PIN_LEVER, INPUT);                  // Lick press detector
+	pinMode(PIN_LEVER, INPUT_PULLUP);			// Lever press detector
+
+	// Initiate servo
+	_servo.attach(PIN_SERVO);
 
 	// Serial comms
 	Serial.begin(115200);                       // Set up USB communication at 115200 baud 
@@ -249,9 +256,6 @@ void mySetup()
 	setHouseLamp(true);                          // House Lamp ON
 	setCueLED(false);                            // Cue LED OFF
 
-	// Initiate servo
-	_servo.attach(PIN_SERVO);
-
 	// Reset variables
 	_timeReset				= 0;			// Reset to signedMillis() at every soft reset
 	_timeTrialStart			= 0;			// Reset to 0 at start of trial
@@ -261,12 +265,20 @@ void mySetup()
 	_prevState				= _STATE_INIT;	// Remembers the previous _state from the last loop (actions should only be executed when you enter a _state for the first time, comparing currentState vs _prevState helps us keep track of that).
 	_command				= ' ';			// Command char received from host, resets on each loop
 	_arguments[2]			= {0};			// Two integers received from host , resets on each loop
+
 	_isLicking 				= false;		// True if the little dude is licking
 	_isLickOnset 			= false;		// True during lick onset
+	_firstLickRegistered 	= false;		// True when first lick is registered for this trial
+
 	_isLeverPressed			= false;		// True as long as lever is pressed down
 	_isLeverPressOnset 		= false;		// True when lever first pressed
-	_isLeverRetracted 		= false;		// True when lever is retracted
-	_firstLickRegistered 	= false;		// True when first lick is registered for this trial
+	_isLeverDeployed 		= false;		// True when lever is deployed
+
+	_whiteNoiseIsPlaying 	= false;
+	_whiteNoiseInterval 	= 50;			// Determines frequency (us)
+	_whiteNoiseDuration 	= 200;			// Noise duration (ms)
+	_whiteNoiseFirstClick 	= 0;			// (us)
+	_whiteNoiseLastClick 	= 0;			// (us)
 
 	// Sends all parameters, states and error codes to Matlab, then tell PC that we're running by sending '~' message:
 	hostInit();
@@ -384,6 +396,7 @@ void state_idle()
 		setCueLED(false);
 		noTone(PIN_SPEAKER);
 		setReward(false);
+		deployLever(false);
 	}
 
 	/*****************************************************
@@ -481,7 +494,10 @@ void state_pre_window()
 		playSound(TONE_CUE);
 
 		// Deploy lever
-		deployLever();
+		if (_params[USE_LEVER] == 1)
+		{
+			deployLever(true);
+		}
 
 		// Register cue on time
 		_timeCueOn = signedMillis();
@@ -514,8 +530,20 @@ void state_pre_window()
 			_firstLickRegistered = true;
 			sendEventMarker(EVENT_FIRST_LICK, -1);
 		}
-		// pre-window lick not allowed --> ABORT
-		if (_params[ALLOW_EARLY_MOVE] == 0)
+		// Using lick & early lick not allowed --> ABORT
+		if (_params[USE_LEVER] == 0 && _params[ALLOW_EARLY_MOVE] == 0)
+		{
+			setCueLED(false);
+			_state = STATE_ABORT;
+			return;
+		}
+	}
+
+	// Lever press detected
+	if (_isLeverPressOnset)
+	{
+		// Using lever & early press not allowed --> ABORT
+		if (_params[USE_LEVER] == 1 && _params[ALLOW_EARLY_MOVE] == 0)
 		{
 			setCueLED(false);
 			_state = STATE_ABORT;
@@ -559,7 +587,7 @@ void state_response_window()
 		return;
 	}
 
-	// Correct lick --> REWARD
+	// Lick detected
 	if (_isLickOnset)
 	{
 		// First lick registration
@@ -569,8 +597,23 @@ void state_response_window()
 			sendEventMarker(EVENT_FIRST_LICK, -1);
 		}
 
-		_state = STATE_REWARD;
-		return;
+		// Correct lick & Using lick to trigger reward --> REWARD
+		if (_params[USE_LEVER] == 0)
+		{
+			_state = STATE_REWARD;
+			return;
+		}
+	}
+
+	// Lever press detected
+	if (_isLeverPressOnset)
+	{
+		// Correct press & Using lever to trigger reward --> REWARD
+		if (_params[USE_LEVER] == 1)
+		{
+			_state = STATE_REWARD;
+			return;
+		}
 	}
 
 	// Response window elapsed --> ITI
@@ -590,8 +633,9 @@ void state_response_window()
 *****************************************************/
 void state_reward()
 {
-	static long rewardDuration;
 	static long timeRewardOn;
+	static bool isRewardOn;
+	static bool isRewardComplete;
 	/*****************************************************
 		ACTION LIST
 	*****************************************************/
@@ -604,48 +648,61 @@ void state_reward()
 		// Register result
 		_resultCode = CODE_CORRECT;
 
-		// Register time of state entry
-		timeRewardOn = getTimeSinceCueOn();
-
-		// Determine reward duration
-		// Incremental reward:
-		if (_params[INCREMENTAL_REWARD])
-		{
-			// Lick before or at target
-			if (timeRewardOn <= _params[INTERVAL_TARGET])
-			{
-				rewardDuration = _params[REWARD_DURATION_MIN] + (timeRewardOn - _params[INTERVAL_MIN])*(_params[REWARD_DURATION_MAX] - _params[REWARD_DURATION_MIN])/(_params[INTERVAL_TARGET] - _params[INTERVAL_MIN]);
-			}
-			// Lick after target
-			else
-			{
-				rewardDuration = _params[REWARD_DURATION_MAX] + (timeRewardOn - _params[INTERVAL_TARGET])*(_params[REWARD_DURATION_MIN] - _params[REWARD_DURATION_MAX])/(_params[INTERVAL_MAX] - _params[INTERVAL_TARGET]);
-			}
-			sendMessage("Reward duration: " + String(rewardDuration) + " ms.");
-		}
-		// Fixed reward:
-		else
-		{
-			rewardDuration = _params[REWARD_DURATION_MAX];
-		}
-
-		// Turn on reward
-		if (rewardDuration > 0)
-		{
-			setReward(true);
-		}
+		// Reset variables
+		timeRewardOn = 0;
+		isRewardOn = false;
+		isRewardComplete = false;
 
 		// Houselamp on
 		setHouseLamp(true);
+
+		// Retract lever
+		if (_params[USE_LEVER] == 1)
+		{
+			deployLever(false);
+		}
 	}
 
 	/*****************************************************
 		OnEachLoop checks
 	*****************************************************/
-	// Turn off reward
-	if (rewardDuration > 0 && getTimeSinceCueOn() - timeRewardOn >= rewardDuration)
+	// Immediate reward
+	if (_params[DELAY_REWARD] == 0)
 	{
-		setReward(false);
+		if (!isRewardOn && !isRewardComplete)
+		{
+			timeRewardOn = getTimeSinceCueOn();
+			isRewardOn = true;
+			if (_params[REWARD_DURATION] > 0)
+			{
+				setReward(true);
+			}			
+		}
+	}
+	// Delayed reward
+	else
+	{
+		// Start dispensing reward at end of trial
+		if (!isRewardOn && !isRewardComplete && getTimeSinceCueOn() >= _params[INTERVAL_MAX])
+		{
+			timeRewardOn = getTimeSinceCueOn();
+			isRewardOn = true;
+			if (_params[REWARD_DURATION] > 0)
+			{
+				setReward(true);
+			}
+		}
+	}
+
+	// Turn off reward when the time comes
+	if (isRewardOn && !isRewardComplete && getTimeSinceCueOn() - timeRewardOn >= _params[REWARD_DURATION])
+	{
+		isRewardOn = false;
+		isRewardComplete = true;
+		if (_params[REWARD_DURATION] > 0)
+		{
+			setReward(false);
+		}
 	}
 
 	/*****************************************************
@@ -659,7 +716,7 @@ void state_reward()
 	}
 
 	// Trial duration elapsed and reward dispense complete --> INTERTRIAL
-	if (getTimeSinceCueOn() >= _params[INTERVAL_MAX] && (rewardDuration <= 0 || getTimeSinceCueOn() - timeRewardOn >= rewardDuration))
+	if (isRewardComplete && getTimeSinceCueOn() >= _params[INTERVAL_MAX])
 	{
 		_state = STATE_INTERTRIAL;
 		return;
@@ -697,7 +754,10 @@ void state_abort()
 		setHouseLamp(true);
 
 		// Retract lever
-		retractLever();
+		if (_params[USE_LEVER] == 1)
+		{
+			deployLever(false);
+		}
 	}
 
 	/*****************************************************
@@ -750,7 +810,10 @@ void state_intertrial()
 		setHouseLamp(true);
 
 		// Retract lever
-		retractLever();
+		if (_params[USE_LEVER] == 1)
+		{
+			deployLever(false);
+		}
 
 		// Register time of state entry
 		timeIntertrial = getTimeSinceCueOn();
@@ -884,7 +947,7 @@ void handleLick()
 // Lever detection
 bool getLeverState() 
 {
-	if (digitalRead(PIN_LEVER) == HIGH) 
+	if (digitalRead(PIN_LEVER) == LOW) 
 	{
 		return true;
 	}
@@ -896,7 +959,7 @@ bool getLeverState()
 
 void handleLever() 
 {
-	if (_isLeverRetracted)
+	if (!_isLeverDeployed)
 	{
 		_isLeverPressed = false;
 		_isLeverPressOnset = false;
@@ -922,18 +985,26 @@ void handleLever()
 }
 
 // Use servo to retract/present lever to the little dude
-void retractLever()
+void deployLever(bool deploy)
 {
-	_servo.write(30);
-	_isLeverRetracted = true;
-	sendEventMarker(EVENT_LEVER_RETRACTED, -1);
-}
-
-void deployLever()
-{
-	_servo.write(0);
-	_isLeverRetracted = false;
-	sendEventMarker(EVENT_LEVER_DEPLOYED, -1);
+	if (deploy) 
+	{
+		_servo.write(0);
+		if (!_isLeverDeployed)
+		{
+			_isLeverDeployed = true;
+			sendEventMarker(EVENT_LEVER_DEPLOYED, -1);
+		}
+	}
+	else 
+	{
+		_servo.write(30);
+		if (_isLeverDeployed)
+		{
+			_isLeverDeployed = false;
+			sendEventMarker(EVENT_LEVER_RETRACTED, -1);
+		}
+	}
 }
 
 // Play a tone defined in SoundEventFrequencyEnum
