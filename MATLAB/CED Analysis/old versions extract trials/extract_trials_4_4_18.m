@@ -1,0 +1,165 @@
+%% Extract CED Data
+%	Created:		4-4-17	ahamilos
+%	Last Updated:	4-6-17	ahamilos
+%-----------------------------------------------------------------------------------------
+%% Open file:
+response = inputdlg('Enter CED filename (don''t include *_lick, etc)');
+filename = response{1};
+%-----------------------------------------------------------------------------------------
+%% Extract variables from file
+
+% Extract the lamp_off structure and timepoints
+lamp_off_struct = eval([filename, '_Lamp_OFF']);
+trial_start_times = lamp_off_struct.times;
+
+% Extract the cue_on structure and timepoints
+cue_on_struct = eval([filename, '_Start_Cu']);
+cue_on_times = cue_on_struct.times;
+
+% Number of trials:
+num_trials = length(trial_start_times);
+
+%------------------------------------DLS---------------------------------------------------
+% time resolution in 1000Hz rate is 0.001 sec
+% 	thus for each trial start time, take the value: time +/- 0.001 sec
+
+% Extract the DLS signal structure, timepoints and analog values
+DLS_struct = eval([filename, '_DLS']);
+DLS_values = DLS_struct.values;
+DLS_times = DLS_struct.times;
+
+% Find the DLS times when trial starting:
+DLS_trial_start_positions = []; % to track which positions should be the split points
+trial_num = 1;
+
+for i_starttime = 1:length(trial_start_times)
+	positions = find(DLS_times<trial_start_times(trial_num)+0.001 & DLS_times>trial_start_times(trial_num)-0.001);
+    DLS_trial_start_positions(trial_num) = positions(1);
+	trial_num = trial_num + 1;
+end
+
+% Find the DLS times when start cue on:
+DLS_cue_on_positions = []; % to track which positions should be the split points
+trial_num = 1;
+
+for i_starttime = 1:length(cue_on_times)
+	positions = find(DLS_times<cue_on_times(trial_num)+0.001 & DLS_times>cue_on_times(trial_num)-0.001);
+    DLS_cue_on_positions(trial_num) = positions(1);
+	trial_num = trial_num + 1;
+end
+
+
+% Trim DLS to remove non-trial data: delete all times before first trial start and after last trial start
+% first_trial_start_time = DLS_trial_start_positions(1);
+% last_trial_start_time = DLS_trial_start_positions(end); % don't include last incomplete trial
+
+DLS_times_trimmed = DLS_times(DLS_trial_start_positions(1):DLS_trial_start_positions(end)); %doesn't include the last incomplete trial
+DLS_values_trimmed = DLS_values(DLS_trial_start_positions(1):DLS_trial_start_positions(end));
+
+
+% Divide DLS into trials 
+%	Easiest way may be to make pre-cue and post-cue arrays so that it's aligned to the start cue
+
+% For 5 sec interval -> total post-cue length = 1000samples/s * (7 + 10) s = 17000 samples/trial
+% Precue delay: 400-1500 ms = 1.5 sec * 1000samples/s = 1500 samples/precue
+
+DLS_pre_cue_times_by_trial = NaN(num_trials, 1500);
+DLS_post_cue_times_by_trial = NaN(num_trials, 17000);
+
+DLS_pre_cue_values_by_trial = NaN(num_trials, 1500);
+DLS_post_cue_values_by_trial = NaN(num_trials, 17000);
+
+time_markers = abs(-1499:-1);
+trimmed_DLS_trial_start_positions = DLS_trial_start_positions - DLS_trial_start_positions(1) + 1;
+trimmed_DLS_cue_on_positions = DLS_cue_on_positions - DLS_trial_start_positions(1) + 1;
+
+DLS_position = 1;
+
+for i_trial = 0:length(trial_start_times - 2)
+	pastcue = false;
+	newtrial = false;
+	precue_position = 1;
+	for i_time = 1:18500 % fill the array from the end (1499:1)
+		if find(trimmed_DLS_trial_start_positions == DLS_position)
+			newtrial = true;
+			DLS_pre_cue_times_by_trial(i_trial + 1, 1500) = DLS_times_trimmed(DLS_position);
+			DLS_pre_cue_values_by_trial(i_trial + 1, 1500) = DLS_values_trimmed(DLS_position);
+			DLS_position = DLS_position + 1;
+			break
+		elseif find(trimmed_DLS_cue_on_positions == DLS_position)
+			pastcue = true;
+			dontupdate = true;
+            DLS_position = DLS_position + 1;
+		end
+
+		if ~pastcue && ~newtrial
+			DLS_pre_cue_times_by_trial(i_trial, time_markers(precue_position)) = DLS_times_trimmed(DLS_position);
+			DLS_pre_cue_values_by_trial(i_trial, time_markers(precue_position)) = DLS_values_trimmed(DLS_position);
+			DLS_position = DLS_position + 1;
+			precue_position = precue_position+1;
+        elseif dontupdate
+        % do nothing
+            dontupdate = false;
+        else
+			DLS_position = DLS_position + 1;
+		end
+		if DLS_position > length(DLS_times_trimmed)
+			break
+		end
+	end
+	if DLS_position > length(DLS_times_trimmed)
+		break
+	end
+end
+
+%for plotting:
+plot_precue_DLS_values = DLS_pre_cue_values_by_trial';
+
+% Generate a plot for each trial:
+figure
+for i_plot = 1:50
+	subplot(10, 5, i_plot)
+	plot(plot_precue_DLS_values(:,i_plot))
+	xlim([0,1500])
+end
+
+plotnum = 1;
+figure
+for i_plot = 51:100
+	subplot(10, 5, plotnum)
+	plot(plot_precue_DLS_values(:,i_plot))
+	xlim([0,1500])
+	plotnum = plotnum + 1;
+end
+plotnum = 1;
+figure
+for i_plot = 100:num_trials
+	subplot(10, 5, plotnum)
+	plot(plot_precue_DLS_values(:,i_plot))
+	xlim([0,1500])
+	plotnum = plotnum + 1;
+end
+
+% for each trial start time:
+% 	find the cell corresponding to that start time in the signal of interest
+% 	store that in an array
+% end
+
+% divide up the data
+
+% for ievent = 1:length(events)
+%     if events(ievent, 1) == 1              % If start new trial
+%     end
+%     if events(ievent, 1) == 14             % 0 for pavlovian
+%         pav_or_op_by_trial(trial_index) = 0;
+%         trial_index = trial_index + 1;
+%     end
+%     if events(ievent, 1) == 15             % 1 for operant
+%         pav_or_op_by_trial(trial_index) = 1;
+%         trial_index = trial_index + 1;
+%     end
+%     if events(ievent, 1) == 16             % 1 for hybrid
+%         hybrid_by_trial(trial_index) = 1;
+%         trial_index = trial_index + 1;
+%     end 
+% end
