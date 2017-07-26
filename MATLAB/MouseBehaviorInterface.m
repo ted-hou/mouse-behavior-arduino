@@ -762,6 +762,7 @@ classdef MouseBehaviorInterface < handle
 			hold(ax, 'off')
 
 			% Annotations
+			legend(ax, 'off');
 			lgd = legend(ax, 'Location', 'northoutside');
 			lgd.Interpreter = 'none';
 			lgd.Orientation = 'horizontal';
