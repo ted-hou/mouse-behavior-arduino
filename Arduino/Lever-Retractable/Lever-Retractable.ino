@@ -1,4 +1,4 @@
-#include <Servo.h>
+#include <VarSpeedServo.h>
 /*********************************************************************
 	Arduino state machine
 	Delayed lever press task (Lever retracts for error trials)
@@ -7,7 +7,7 @@
 /*****************************************************
 	Servo stuff
 *****************************************************/
-Servo _servo;
+VarSpeedServo _servo;
 
 /*****************************************************
 	Arduino Pin Outs (Mode: TEENSY)
@@ -165,6 +165,7 @@ enum ParamID
 	REWARD_DURATION,			// Reward duration (ms)
 	SERVO_POS_RETRACTED,		// Servo (lever) position when lever is retracted
 	SERVO_POS_DEPLOYED,			// Servo (lever) position when lever is deployed
+	SERVO_SPEED,				// Servo speed (0 for full speed, 1 - 255 slow to fast)
 	_NUM_PARAMS					// (Private) Used to count how many parameters there are so we can initialize the param array with the correct size. Insert additional parameters before this.
 };
 
@@ -185,7 +186,8 @@ static const char *_paramNames[] =
 	"CUE_DURATION",
 	"REWARD_DURATION",
 	"SERVO_POS_RETRACTED",
-	"SERVO_POS_DEPLOYED"
+	"SERVO_POS_DEPLOYED",
+	"SERVO_SPEED"
 };
 
 // Initialize parameters
@@ -204,7 +206,8 @@ long _params[_NUM_PARAMS] =
 	100,	// CUE_DURATION
 	50, 	// REWARD_DURATION
 	110,	// SERVO_POS_RETRACTED
-	90		// SERVO_POS_DEPLOYED
+	90,		// SERVO_POS_DEPLOYED
+	128		// SERVO_SPEED
 };
 
 /*****************************************************
@@ -995,7 +998,7 @@ void deployLever(bool deploy)
 {
 	if (deploy) 
 	{
-		_servo.write(_params[SERVO_POS_DEPLOYED]);
+		_servo.write(_params[SERVO_POS_DEPLOYED], _params[SERVO_SPEED]);
 		if (!_isLeverDeployed)
 		{
 			_isLeverDeployed = true;
@@ -1004,7 +1007,7 @@ void deployLever(bool deploy)
 	}
 	else 
 	{
-		_servo.write(_params[SERVO_POS_RETRACTED]);
+		_servo.write(_params[SERVO_POS_RETRACTED], _params[SERVO_SPEED]);
 		if (_isLeverDeployed)
 		{
 			_isLeverDeployed = false;
