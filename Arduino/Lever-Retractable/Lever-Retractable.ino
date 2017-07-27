@@ -165,6 +165,8 @@ enum ParamID
 	REWARD_DURATION,			// Reward duration (ms)
 	SERVO_POS_RETRACTED,		// Servo (lever) position when lever is retracted
 	SERVO_POS_DEPLOYED,			// Servo (lever) position when lever is deployed
+	SERVO_SPEED_DEPLOY,			// Servo (lever) rotation speed when deploying, 0 for max speed
+	SERVO_SPEED_RETRACT,			// Servo (lever) rotaiton speed when retracting, 0 for max speed
 	_NUM_PARAMS					// (Private) Used to count how many parameters there are so we can initialize the param array with the correct size. Insert additional parameters before this.
 };
 
@@ -185,7 +187,9 @@ static const char *_paramNames[] =
 	"CUE_DURATION",
 	"REWARD_DURATION",
 	"SERVO_POS_RETRACTED",
-	"SERVO_POS_DEPLOYED"
+	"SERVO_POS_DEPLOYED",
+	"SERVO_SPEED_DEPLOY",
+	"SERVO_SPEED_RETRACT"
 };
 
 // Initialize parameters
@@ -204,7 +208,9 @@ long _params[_NUM_PARAMS] =
 	100,	// CUE_DURATION
 	50, 	// REWARD_DURATION
 	110,	// SERVO_POS_RETRACTED
-	90		// SERVO_POS_DEPLOYED
+	90,		// SERVO_POS_DEPLOYED
+	360,	// SERVO_SPEED_DEPLOY
+	0		// SERVO_SPEED_RETRACT
 };
 
 /*****************************************************
@@ -228,6 +234,10 @@ static bool _firstLickRegistered 	= false;		// True when first lick is registere
 static bool _isLeverPressed			= false;		// True as long as lever is pressed down
 static bool _isLeverPressOnset 		= false;		// True when lever first pressed
 static bool _isLeverDeployed 		= false;		// True when lever is deployed
+
+static long _servoStartTime			= 0;			// When servo started moving retrieved using getTime()
+static long _servoSpeed				= 0;			// Speed of servo movement (deg/s)
+static long _servoTargetPos			= 0;			// Target position of servo
 
 // For white noise generator
 static bool _whiteNoiseIsPlaying 			= false;
@@ -255,7 +265,6 @@ void setup()
 	Serial.begin(115200);                       // Set up USB communication at 115200 baud 
 }
 
-
 void mySetup()
 {
 	// Reset output
@@ -279,6 +288,10 @@ void mySetup()
 	_isLeverPressed			= false;		// True as long as lever is pressed down
 	_isLeverPressOnset 		= false;		// True when lever first pressed
 	_isLeverDeployed 		= false;		// True when lever is deployed
+
+	_servoStartTime			= 0;			// When servo started moving retrieved using getTime()
+	_servoSpeed				= 0;			// Speed of servo movement (deg/s)
+	_servoTargetPos			= 0;			// Target position of servo`
 
 	_whiteNoiseIsPlaying 	= false;
 	_whiteNoiseInterval 	= 50;			// Determines frequency (us)
@@ -335,6 +348,7 @@ void loop()
 		// 2) Check for licks and lever pressed
 		handleLick();
 		handleLever();
+		handleServo();
 		
 		// 3) Play white noise if required
 		handleWhiteNoise();
@@ -377,7 +391,6 @@ void loop()
 		}
 	}
 }
-
 
 /*****************************************************
 	States for the State Machine
@@ -426,7 +439,6 @@ void state_idle()
 	
 	_state = STATE_IDLE;
 }
-
 
 /*****************************************************
 	PRE_CUE - First state in trial
@@ -479,7 +491,6 @@ void state_pre_cue()
 
 	_state = STATE_PRE_CUE;
 }
-
 
 /*****************************************************
 	PRE_WINDOW - Trial started
@@ -567,7 +578,6 @@ void state_pre_window()
 	_state = STATE_PRE_WINDOW;
 }
 
-
 /*****************************************************
 	RESPONSE_WINDOW - Licking triggers reward
 *****************************************************/
@@ -632,7 +642,6 @@ void state_response_window()
 
 	_state = STATE_RESPONSE_WINDOW;
 }
-
 
 /*****************************************************
 	REWARD - Turn on juice valve for some time
@@ -731,7 +740,6 @@ void state_reward()
 	_state = STATE_REWARD;
 }
 
-
 /*****************************************************
 	ABORT - Early lick timeout
 *****************************************************/
@@ -785,8 +793,6 @@ void state_abort()
 
 	_state = STATE_ABORT;
 }
-
-
 
 /*****************************************************
 	INTERTRIAL
@@ -995,7 +1001,9 @@ void deployLever(bool deploy)
 {
 	if (deploy) 
 	{
-		_servo.write(_params[SERVO_POS_DEPLOYED]);
+		_servoStartTime = getTime();
+		_servoSpeed = _params[SERVO_SPEED_DEPLOY];
+		_servoTargetPos = _params[SERVO_POS_DEPLOYED];
 		if (!_isLeverDeployed)
 		{
 			_isLeverDeployed = true;
@@ -1004,11 +1012,35 @@ void deployLever(bool deploy)
 	}
 	else 
 	{
-		_servo.write(_params[SERVO_POS_RETRACTED]);
+		_servoStartTime = getTime();
+		_servoSpeed = _params[SERVO_SPEED_RETRACT];
+		_servoTargetPos = _params[SERVO_POS_RETRACTED];
 		if (_isLeverDeployed)
 		{
 			_isLeverDeployed = false;
 			sendEventMarker(EVENT_LEVER_RETRACTED, -1);
+		}
+	}
+}
+
+void handleServo()
+{
+	if (_servoSpeed == 0)
+	{
+		_servo.write(_servoTargetPos);
+	}
+	else
+	{
+		if (_servo.read() < _servoTargetPos)
+		{
+			_servo.write(round(_servo.read() + _servoSpeed*(getTime() - _servoStartTime)/1000));
+		}
+		else
+		{
+			if (_servo.read() > _servoTargetPos)
+			{
+				_servo.write(round(_servoTargetPos - _servoSpeed*(getTime() - _servoStartTime)/1000));
+			}
 		}
 	}
 }
@@ -1190,7 +1222,6 @@ void hostInit()
 	}
 	sendMessage("~");	// Tells PC that Arduino is ready
 }
-
 
 /*****************************************************
 	MISC
