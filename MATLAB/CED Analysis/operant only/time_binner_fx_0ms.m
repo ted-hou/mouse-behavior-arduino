@@ -25,27 +25,29 @@
 cue_on_time = 1500;
 % The rest defined wrt cue-on=0, in ms:
 rxn_time = 500;
-buffer = 0;
+rxn_ok = 0;
+buffer = 500;
 op_rew_open = 3333;
 target_time = 5000;
 ITI_time = 7000;
+total_time = 17000;
 
 % % for debug:
 % nbins = 5;
-% f_licks = d17_f_ex1_lick_operant_rew;
+% f_licks = d23_f_ex1_lick_operant_rew;
 % % For op rew:
 % time_bound_1 = (cue_on_time + op_rew_open)/1000; % this is 3333 post cue
 % time_bound_2 = (cue_on_time + ITI_time)/1000; % this is 7000 post cue
-% DLS_vbt = d17_DLS_ex1_values_by_trial;%combined_DLS_values_by_trial;
-% SNc_vbt = d17_SNc_ex1_values_by_trial;%combined_SNc_values_by_trial;
+% DLS_vbt = d23_DLS_ex1_values_by_trial;%combined_DLS_values_by_trial;
+% SNc_vbt = d23_SNc_ex1_values_by_trial;%combined_SNc_values_by_trial;
 
 nbins = 5;
-f_licks = d17_f_ex1_lick_operant_no_rew;
+f_licks = d23_f_ex1_lick_operant_no_rew;
 % For op no rew:
-time_bound_1 = (cue_on_time + rxn_time + buffer)/1000; % this is 500 post cue
+time_bound_1 = (cue_on_time + rxn_ok + buffer)/1000; % this is 500 post cue
 time_bound_2 = (cue_on_time + op_rew_open)/1000; % this is 3333 post cue
-DLS_vbt = d17_DLS_ex1_values_by_trial;%combined_DLS_values_by_trial;
-SNc_vbt = d17_SNc_ex1_values_by_trial;%combined_SNc_values_by_trial;
+DLS_vbt = d23_DLS_ex1_values_by_trial;%combined_DLS_values_by_trial;
+SNc_vbt = d23_SNc_ex1_values_by_trial;%combined_SNc_values_by_trial;
 
 
 
@@ -62,13 +64,31 @@ SNc_vbt = d17_SNc_ex1_values_by_trial;%combined_SNc_values_by_trial;
 % nbins = 5;
 % f_licks = f_lick_operant_no_rew;
 % % For op no rew:
-% time_bound_1 = (cue_on_time + rxn_time + buffer)/1000; % this is 500 post cue
+% time_bound_1 = (cue_on_time + rxn_ok + buffer)/1000; % this is 500 post cue
 % time_bound_2 = (cue_on_time + op_rew_open)/1000; % this is 3333 post cue
 % DLS_vbt = DLS_values_by_trial;%combined_DLS_values_by_trial;
 % SNc_vbt = SNc_values_by_trial;%combined_SNc_values_by_trial;
 
 
+% nbins = 5;
+% f_licks = f_lick_rxn;
+% % For rxn licks:
+% time_bound_1 = (cue_on_time)/1000; % this is cue
+% time_bound_2 = (cue_on_time + rxn_time)/1000; % this is 500 post cue
+% DLS_vbt = DLS_values_by_trial;%combined_DLS_values_by_trial;
+% SNc_vbt = SNc_values_by_trial;%combined_SNc_values_by_trial;
 
+
+% There is no rxn train abort for 0ms
+
+
+% nbins = 5;
+% f_licks = f_lick_ITI;
+% % For ITI licks:
+% time_bound_1 = (cue_on_time + ITI_time)/1000; % this is 7000 post cue
+% time_bound_2 = (cue_on_time + total_time)/1000; % this is 17000 post cue
+% DLS_vbt = DLS_values_by_trial;%combined_DLS_values_by_trial;
+% SNc_vbt = SNc_values_by_trial;%combined_SNc_values_by_trial;
 
 
 
@@ -118,8 +138,8 @@ current_time_end = time_bound_1 + time_in_ea_bin;
 % we will do the min time inclusive:
 for i_bins = 1:nbins-1
     % Figure out how many trials will go in the bin:
-    DLS_ntrials_bin = length(find(sorted_times >= current_time_start & sorted_times < current_time_end));
-    SNc_ntrials_bin = length(find(sorted_times >= current_time_start & sorted_times < current_time_end));
+    DLS_ntrials_bin = length(find(sorted_times > current_time_start & sorted_times <= current_time_end));
+    SNc_ntrials_bin = length(find(sorted_times > current_time_start & sorted_times <= current_time_end));
     % Prep the containers for trials in this bin:
 	DLS_current_bin = NaN(DLS_ntrials_bin, size(DLS_vbt,2));
 	SNc_current_bin = NaN(SNc_ntrials_bin, size(SNc_vbt,2));
@@ -146,9 +166,9 @@ end
 
 % finally, do the last bin:
 
-% Figure out how many trials will go in the bin: (now inclusive on both side)
-DLS_ntrials_bin = length(find(sorted_times >= current_time_start & sorted_times <= current_time_end));
-SNc_ntrials_bin = length(find(sorted_times >= current_time_start & sorted_times <= current_time_end));
+% Figure out how many trials will go in the bin: (inclusivity fixed to match first_lick_grabber_fx 7-24-17)
+DLS_ntrials_bin = length(find(sorted_times > current_time_start & sorted_times <= current_time_end));
+SNc_ntrials_bin = length(find(sorted_times > current_time_start & sorted_times <= current_time_end));
 % Prep the containers for trials in this bin:
 DLS_current_bin = NaN(DLS_ntrials_bin, size(DLS_vbt,2));
 SNc_current_bin = NaN(SNc_ntrials_bin, size(SNc_vbt,2));

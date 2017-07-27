@@ -4,7 +4,7 @@ trials_with_rxn, trials_with_ITI, all_first_licks] = first_lick_grabber_operant_
 % Copy and paste after running lick_times_by_trial_fx:
 %   [f_lick_rxn, f_lick_operant_no_rew, f_lick_operant_rew, f_lick_ITI, trials_with_rxn, trials_with_ITI, all_first_licks] = first_lick_grabber_operant_fx_0msv(lick_times_by_trial, num_trials);
 % 
-%   [d17_f_ex1_lick_rxn, d17_f_ex1_lick_operant_no_rew, d17_f_ex1_lick_operant_rew, d17_f_ex1_lick_ITI, ~, ~, d17_all_ex1_first_licks] = first_lick_grabber_operant_fx_0msv(d17_lick_ex1_times_by_trial, num_trials);
+%   [d23_f_ex1_lick_rxn, d23_f_ex1_lick_operant_no_rew, d23_f_ex1_lick_operant_rew, d23_f_ex1_lick_ITI, ~, ~, d23_all_ex1_first_licks] = first_lick_grabber_operant_fx_0msv(d23_lick_ex1_times_by_trial, num_trials);
 % 
 % Update log:
 % 	7-21-17: realized a bug is causing program to not read first lick times correctly. Reworking. Need to rerun H4 and B3 data up till now

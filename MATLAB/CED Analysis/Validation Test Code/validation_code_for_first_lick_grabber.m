@@ -44,7 +44,7 @@ trials_with_rxn, trials_with_rxn_fail, trials_with_pav, trials_with_ITI, all_fir
 % Operant Test Case, 500 ms:
 [f_lick_rxn, f_lick_rxn_abort, f_lick_operant_no_rew, f_lick_operant_rew, f_lick_ITI, trials_with_rxn, trials_with_train, trials_with_ITI, all_first_licks] = first_lick_grabber_operant_fx(dummy_lick_times_by_trial, 7);
 % Correct interpretations-------------------------------------------------
-% Hybrid, 500ms rxn:
+% Operant, 500ms rxn:
 % Rxn 			= 1,3,5,6		   [1.6, 0, 1.99,   0, 1.62, 1.75,    0]
 % Rxn trainabort= 3 (train abort)  [  0, 0, 2.05,   0,    0,    0,    0]
 % Op, no rew 	= 4                [  0, 0,    0,4.01,    0,    0,    0]
@@ -59,7 +59,7 @@ trials_with_rxn, trials_with_rxn_fail, trials_with_pav, trials_with_ITI, all_fir
 % Operant Test Case, 300 ms:
 [f_lick_rxn, f_lick_rxn_fail, f_lick_rxn_abort, f_lick_operant_no_rew, f_lick_operant_rew, f_lick_ITI, trials_with_rxn, trials_with_train, trials_with_ITI, all_first_licks] = first_lick_grabber_operant_fx_300msv(dummy_lick_times_by_trial, 8);
 % Correct interpretations-------------------------------------------------
-% Hybrid, 500ms rxn:
+% Operant, 300ms rxn:
 % Rxn 			= 1,3,5,6		   [1.6, 0, 1.99,   0, 1.62, 1.75,    0, 1.790]
 % Rxn fail 		= 3 (fail)         [  0, 0, 1.99,   0,    0,    0,    0,     0]
 % Rxn trainabort= 8 (train)        [  0, 0,    0,   0,    0,    0,    0, 1.801]
@@ -75,7 +75,7 @@ trials_with_rxn, trials_with_rxn_fail, trials_with_pav, trials_with_ITI, all_fir
 % Operant Test Case, 0 ms:
 [f_lick_rxn, f_lick_operant_no_rew, f_lick_operant_rew, f_lick_ITI, trials_with_rxn, trials_with_ITI, all_first_licks] = first_lick_grabber_operant_fx_0msv(dummy_lick_times_by_trial, 8);
 % Correct interpretations-------------------------------------------------
-% Hybrid, 500ms rxn:
+% Operant, 0ms rxn:
 % Rxn(fail)     = 1,3,5,6		   [1.6, 0, 1.99,   0, 1.62, 1.75,    0, 1.790]
 % Op, no rew 	= 4                [  0, 0,    0,4.01,    0,    0,    0,     0]
 % Op, rew 		= 1,5,7            [  0, 0,    0,   0,    0,    0, 7.11,     0]

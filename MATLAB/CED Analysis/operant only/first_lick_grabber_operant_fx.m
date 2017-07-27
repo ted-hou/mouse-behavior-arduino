@@ -4,15 +4,16 @@ trials_with_rxn, trials_with_train, trials_with_ITI, all_first_licks] = first_li
 % Update 7-14-17: FOR 500 ms rxn window - 
 % Update 7-21-17: FOUND ERRORS - fixed with 300msv version. need to redo H4's + B3's data. Now is compatible with any rxn time
 % Update 7-24-17: swapped abort and train if statements so trains scored appropriately
+% 		 7-25-17 final verified version
 % 
 % Copy and paste after running lick_times_by_trial_fx:
 %       [f_lick_rxn, f_lick_rxn_abort, f_lick_operant_no_rew, f_lick_operant_rew, f_lick_ITI, trials_with_rxn, trials_with_train, trials_with_ITI, all_first_licks] = first_lick_grabber_operant_fx(lick_times_by_trial, num_trials);
-%   [d7_f_ex1_lick_rxn, d7_f_ex1_lick_rxn_abort, d7_f_ex1_lick_operant_no_rew, d7_f_ex1_lick_operant_rew, d7_f_ex1_lick_ITI,~,~,~,d7_all_ex1_first_licks] = first_lick_grabber_operant_fx(d7_lick_ex1_times_by_trial, num_trials)
+%   [d9_f_ex1_lick_rxn, d9_f_ex1_lick_rxn_abort, d9_f_ex1_lick_operant_no_rew, d9_f_ex1_lick_operant_rew, d9_f_ex1_lick_ITI,~,~,~,d9_all_ex1_first_licks] = first_lick_grabber_operant_fx(d9_lick_ex1_times_by_trial, num_trials)
 % 
 % 	
 % 
 %   Created:  4/10/17  - ahamilos
-% 	Modified: 7/14/17  - ahamilos
+% 	Modified: 7/25/17  - ahamilos
 % 
 % Lick times all wrt the analog data array! (t=1500 or 1.5 = cue on -- in SECONDS and +1.5 wrt cue on)
 % 

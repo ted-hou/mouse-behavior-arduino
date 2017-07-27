@@ -8,7 +8,7 @@
 % 
 % test with:
 %  lick_triggered_ave_fx(dummy_data, dummy_licks, num_trials, cue_position, num_trials)
-%  lick_triggered_ave_fx(d22_SNc_values_by_trial, d22_all_first_licks, num_trials, 1501)
+%  lick_triggered_ave_fx(d5_SNc_values_by_trial, d5_all_first_licks, num_trials, 1501)
 % 
 % 
 % Created  ahamilos 7-20-17
@@ -29,39 +29,31 @@
 %% Input data to use in line below: ------------------------------------------------------
 
 cue = 1501;
-DLS = d22_DLS_values_by_trial;
-SNc = d22_SNc_values_by_trial;
-num_trials = 615;
+DLS = d5_DLS_values_by_trial;
+SNc = d5_SNc_values_by_trial;
+num_trials = 419;
 backfilltime = 5000;
-range_ = [-4000,1000];
+% 
+% dummy_licks = d5_f_ex1_lick_rxn;
+% title_DLS = 'DLS rxn licks';
+% title_SNc = 'SNc rxn licks';
+% xlimits = [-4000,1000];
 
-dummy_licks = d22_f_ex1_lick_rxn;
-title_DLS = 'DLS rxn licks';
-title_SNc = 'SNc rxn licks';
-xlimits = [-4000,1000];
-%   rxn_DLS_lick_triggered_ave_ignore_NaN = DLS_lick_triggered_ave_ignore_NaN;
-%    rxn_SNc_lick_triggered_ave_ignore_NaN = SNc_lick_triggered_ave_ignore_NaN;
-
-% dummy_licks = d22_f_ex1_lick_operant_no_rew;
+% dummy_licks = d5_f_ex1_lick_operant_no_rew;
 % title_DLS = 'DLS op-early licks';
 % title_SNc = 'SNc op-early licks';
 % xlimits = [-4000,1000];
-%   early_DLS_lick_triggered_ave_ignore_NaN = DLS_lick_triggered_ave_ignore_NaN;
-%   early_SNc_lick_triggered_ave_ignore_NaN = SNc_lick_triggered_ave_ignore_NaN;
 
-% dummy_licks = d22_f_ex1_lick_operant_rew;
+% dummy_licks = d5_f_ex1_lick_operant_rew;
 % title_DLS = 'DLS op-rewarded licks';
 % title_SNc = 'SNc op-rewarded licks';
+% xlimits = [-7500,1000];
 % xlimits = [-4000,1000];
-  % rew_DLS_lick_triggered_ave_ignore_NaN = DLS_lick_triggered_ave_ignore_NaN;
-  % rew_SNc_lick_triggered_ave_ignore_NaN = SNc_lick_triggered_ave_ignore_NaN;
 
-% dummy_licks = d22_f_ex1_lick_pavlovian;
-% title_DLS = 'DLS pavlovian licks';
-% title_SNc = 'SNc pavlovian licks';
-% xlimits = [-4000,1000];
-%    pav_DLS_lick_triggered_ave_ignore_NaN = DLS_lick_triggered_ave_ignore_NaN;
-%    pav_SNc_lick_triggered_ave_ignore_NaN = SNc_lick_triggered_ave_ignore_NaN;
+dummy_licks = d5_f_ex1_lick_pavlovian;
+title_DLS = 'DLS pavlovian licks';
+title_SNc = 'SNc pavlovian licks';
+xlimits = [-4000,1000];
 
 
 % print(1,'-depsc','-painters','lta_rxn_ex1_h3.eps')

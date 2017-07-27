@@ -19,7 +19,7 @@ trials_with_rxn, trials_with_fail, trials_with_ITI, all_first_licks] = first_lic
 % Copy and paste after running lick_times_by_trial_fx:
 %       [f_lick_rxn, f_lick_rxn_fail, f_lick_rxn_abort, f_lick_operant_no_rew, f_lick_operant_rew, f_lick_ITI, ~, ~, ~, all_first_licks] = first_lick_grabber_operant_fx_300msv(lick_times_by_trial, num_trials);
 % 
-%   [d11_f_ex1_lick_rxn, d11_f_ex1_lick_rxn_fail, d11_f_ex1_lick_train_abort, d11_f_ex1_lick_operant_no_rew, d11_f_ex1_lick_operant_rew, d11_f_ex1_lick_ITI, ~, ~, ~, d11_all_ex1_first_licks] = first_lick_grabber_operant_fx_300msv(d11_lick_ex1_times_by_trial, num_trials);
+%   [d15_f_ex1_lick_rxn, d15_f_ex1_lick_rxn_fail, d15_f_ex1_lick_train_abort, d15_f_ex1_lick_operant_no_rew, d15_f_ex1_lick_operant_rew, d15_f_ex1_lick_ITI, ~, ~, ~, d15_all_ex1_first_licks] = first_lick_grabber_operant_fx_300msv(d15_lick_ex1_times_by_trial, num_trials);
 % 
 %   Created: 4/10/17   - ahamilos
 % 	Modified: 7/24/17  - ahamilos
