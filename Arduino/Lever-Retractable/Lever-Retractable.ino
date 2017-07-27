@@ -209,8 +209,8 @@ long _params[_NUM_PARAMS] =
 	50, 	// REWARD_DURATION
 	110,	// SERVO_POS_RETRACTED
 	90,		// SERVO_POS_DEPLOYED
-	360,	// SERVO_SPEED_DEPLOY
-	0		// SERVO_SPEED_RETRACT
+	30,		// SERVO_SPEED_DEPLOY
+	120		// SERVO_SPEED_RETRACT
 };
 
 /*****************************************************
@@ -236,8 +236,9 @@ static bool _isLeverPressOnset 		= false;		// True when lever first pressed
 static bool _isLeverDeployed 		= false;		// True when lever is deployed
 
 static long _servoStartTime			= 0;			// When servo started moving retrieved using getTime()
-static long _servoSpeed				= 0;			// Speed of servo movement (deg/s)
-static long _servoTargetPos			= 0;			// Target position of servo
+static long _servoSpeed				= 30;			// Speed of servo movement (deg/s)
+static long _servoStartPos			= 110;			// Starting position of servo when rotation begins
+static long _servoTargetPos			= 110;			// Target position of servo
 
 // For white noise generator
 static bool _whiteNoiseIsPlaying 			= false;
@@ -290,8 +291,9 @@ void mySetup()
 	_isLeverDeployed 		= false;		// True when lever is deployed
 
 	_servoStartTime			= 0;			// When servo started moving retrieved using getTime()
-	_servoSpeed				= 0;			// Speed of servo movement (deg/s)
-	_servoTargetPos			= 0;			// Target position of servo`
+	_servoSpeed				= 30;			// Speed of servo movement (deg/s)
+	_servoStartPos			= 110;			// Starting position of servo when rotation begins
+	_servoTargetPos			= 110;			// Target position of servo`
 
 	_whiteNoiseIsPlaying 	= false;
 	_whiteNoiseInterval 	= 50;			// Determines frequency (us)
@@ -1003,6 +1005,7 @@ void deployLever(bool deploy)
 	{
 		_servoStartTime = getTime();
 		_servoSpeed = _params[SERVO_SPEED_DEPLOY];
+		_servoStartPos = _servo.read();
 		_servoTargetPos = _params[SERVO_POS_DEPLOYED];
 		if (!_isLeverDeployed)
 		{
@@ -1014,6 +1017,7 @@ void deployLever(bool deploy)
 	{
 		_servoStartTime = getTime();
 		_servoSpeed = _params[SERVO_SPEED_RETRACT];
+		_servoStartPos = _servo.read();
 		_servoTargetPos = _params[SERVO_POS_RETRACTED];
 		if (_isLeverDeployed)
 		{
@@ -1025,6 +1029,7 @@ void deployLever(bool deploy)
 
 void handleServo()
 {
+	static long servoNewPos;
 	if (_servoSpeed == 0)
 	{
 		_servo.write(_servoTargetPos);
@@ -1033,13 +1038,21 @@ void handleServo()
 	{
 		if (_servo.read() < _servoTargetPos)
 		{
-			_servo.write(round(_servo.read() + _servoSpeed*(getTime() - _servoStartTime)/1000));
+			servoNewPos = round(_servoStartPos + _servoSpeed*(getTime() - _servoStartTime)/1000);
+			if (servoNewPos <= _servoTargetPos)
+			{
+				_servo.write(servoNewPos);
+			}
 		}
 		else
 		{
 			if (_servo.read() > _servoTargetPos)
 			{
-				_servo.write(round(_servoTargetPos - _servoSpeed*(getTime() - _servoStartTime)/1000));
+				servoNewPos = round(_servoStartPos - _servoSpeed*(getTime() - _servoStartTime)/1000);
+				if (servoNewPos >= _servoTargetPos)
+				{
+					_servo.write(servoNewPos);
+				}
 			}
 		}
 	}
