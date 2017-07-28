@@ -762,13 +762,12 @@ classdef MouseBehaviorInterface < handle
 			hold(ax, 'off')
 
 			% Annotations
-			legend(ax, 'off');
 			lgd = legend(ax, 'Location', 'northoutside');
 			lgd.Interpreter = 'none';
 			lgd.Orientation = 'horizontal';
 
 			ax.XLimMode 		= 'auto';
-			ax.XLim 			= [-1500, 20000];%[ax.XLim(1) - 100, ax.XLim(2) + 100];
+			ax.XLim 			= [max([-5000, ax.XLim(1) - 100]), ax.XLim(2) + 100];
 			ax.YLim 			= [0, obj.Arduino.TrialsCompleted + 1];
 			ax.YDir				= 'reverse';
 			ax.XLabel.String 	= 'Time (ms)';
