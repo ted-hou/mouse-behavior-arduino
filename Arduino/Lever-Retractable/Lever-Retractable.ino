@@ -463,6 +463,12 @@ void state_pre_cue()
 		// Turn off house lamp
 		setHouseLamp(false);
 
+		// Deploy lever
+		if (_params[USE_LEVER] == 1)
+		{
+			deployLever(true);
+		}
+
 		// Register trial start time
 		_timeTrialStart = signedMillis();
 
@@ -511,13 +517,7 @@ void state_pre_window()
 		// LED and audio cue
 		setCueLED(true);
 		playSound(TONE_CUE);
-
-		// Deploy lever
-		if (_params[USE_LEVER] == 1)
-		{
-			deployLever(true);
-		}
-
+		
 		// Register cue on time
 		_timeCueOn = signedMillis();
 	}
@@ -674,10 +674,10 @@ void state_reward()
 		setHouseLamp(true);
 
 		// Retract lever
-		if (_params[USE_LEVER] == 1)
-		{
-			deployLever(false);
-		}
+		// if (_params[USE_LEVER] == 1)
+		// {
+		// 	deployLever(false);
+		// }
 	}
 
 	/*****************************************************
