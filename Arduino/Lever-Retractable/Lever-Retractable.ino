@@ -163,6 +163,7 @@ enum ParamID
 	RANDOM_DELAY_MAX,			// Maximum random pre-Cue delay (ms)
 	CUE_DURATION,				// Duration of the cue tone and LED flash (ms)
 	REWARD_DURATION,			// Reward duration (ms)
+	REWARD_RETRACT_LEVER,		// 1 to retract lever when dispensing reward. 0 to keep it deployed till ITI
 	SERVO_POS_RETRACTED,		// Servo (lever) position when lever is retracted
 	SERVO_POS_DEPLOYED,			// Servo (lever) position when lever is deployed
 	SERVO_SPEED_DEPLOY,			// Servo (lever) rotation speed when deploying, 0 for max speed
@@ -186,6 +187,7 @@ static const char *_paramNames[] =
 	"RANDOM_DELAY_MAX",
 	"CUE_DURATION",
 	"REWARD_DURATION",
+	"REWARD_RETRACT_LEVER",
 	"SERVO_POS_RETRACTED",
 	"SERVO_POS_DEPLOYED",
 	"SERVO_SPEED_DEPLOY",
@@ -196,7 +198,7 @@ static const char *_paramNames[] =
 long _params[_NUM_PARAMS] = 
 {
 	0,		// _DEBUG
-	0,		// USE_LEVER
+	1,		// USE_LEVER
 	0,		// ALLOW_EARLY_MOVE
 	0,		// DELAY_REWARD
 	1500,	// INTERVAL_MIN
@@ -207,6 +209,7 @@ long _params[_NUM_PARAMS] =
 	3000,	// RANDOM_DELAY_MAX
 	100,	// CUE_DURATION
 	50, 	// REWARD_DURATION
+	1,		// REWARD_RETRACT_LEVER
 	110,	// SERVO_POS_RETRACTED
 	90,		// SERVO_POS_DEPLOYED
 	30,		// SERVO_SPEED_DEPLOY
@@ -517,7 +520,7 @@ void state_pre_window()
 		// LED and audio cue
 		setCueLED(true);
 		playSound(TONE_CUE);
-		
+
 		// Register cue on time
 		_timeCueOn = signedMillis();
 	}
@@ -674,10 +677,10 @@ void state_reward()
 		setHouseLamp(true);
 
 		// Retract lever
-		// if (_params[USE_LEVER] == 1)
-		// {
-		// 	deployLever(false);
-		// }
+		if (_params[USE_LEVER] == 1 && _params[REWARD_RETRACT_LEVER] == 1)
+		{
+			deployLever(false);
+		}
 	}
 
 	/*****************************************************
