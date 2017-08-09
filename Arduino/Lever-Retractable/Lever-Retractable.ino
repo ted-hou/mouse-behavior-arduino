@@ -494,10 +494,21 @@ void state_pre_cue()
 	}
 
 	// Pre-cue delay completed --> PRE_WINDOW
-	if (getTimeSinceTrialStart() >= preCueDelay)
+	if (_params[USE_LEVER] == 1)
 	{
-		_state = STATE_PRE_WINDOW;
-		return;
+		if (_servo.read() == _servoTargetPos && getTimeSinceTrialStart() >= preCueDelay)
+		{
+			_state = STATE_PRE_WINDOW;
+			return;
+		}
+	}
+	else
+	{
+		if (getTimeSinceTrialStart() >= preCueDelay)
+		{
+			_state = STATE_PRE_WINDOW;
+			return;
+		}
 	}
 
 	_state = STATE_PRE_CUE;
