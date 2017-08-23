@@ -158,7 +158,9 @@ enum ParamID
 	INTERVAL_MIN,				// Time to start of reward window (ms)
 	INTERVAL_TARGET,			// Target time (ms)
 	INTERVAL_MAX,				// Time to end of reward window (ms)
-	ITI,						// Intertrial interval duration (ms)
+	ITI_MIN,					// Intertrial interval duration, min (ms)
+	ITI_MAX,					// Intertrial interval duration, max (ms)
+	ITI_LICK_TIMEOUT,			// ITI ends if last lick was this many ms before, and ITI_MIN has expired (ms)
 	RANDOM_DELAY_MIN,			// Minimum random pre-Cue delay (ms)
 	RANDOM_DELAY_MAX,			// Maximum random pre-Cue delay (ms)
 	CUE_DURATION,				// Duration of the cue tone and LED flash (ms)
@@ -182,7 +184,9 @@ static const char *_paramNames[] =
 	"INTERVAL_MIN",
 	"INTERVAL_TARGET",
 	"INTERVAL_MAX",
-	"ITI",
+	"ITI_MIN",
+	"ITI_MAX",
+	"ITI_LICK_TIMEOUT",
 	"RANDOM_DELAY_MIN",
 	"RANDOM_DELAY_MAX",
 	"CUE_DURATION",
@@ -204,7 +208,9 @@ long _params[_NUM_PARAMS] =
 	1000,	// INTERVAL_MIN
 	3000,	// INTERVAL_TARGET
 	6500,	// INTERVAL_MAX
-	5000,	// ITI
+	2500,	// ITI_MIN
+	10000,	// ITI_MAX
+	1000,	// ITI_LICK_TIMEOUT
 	500,	// RANDOM_DELAY_MIN
 	1000,	// RANDOM_DELAY_MAX
 	50,		// CUE_DURATION
@@ -897,7 +903,7 @@ void state_intertrial()
 	// If ITI elapsed --> PRE_CUE
 	if (isParamsUpdateDone || !isParamsUpdateStarted)
 	{
-		if ((getTimeSinceCueOn() - timeIntertrial >= _params[ITI_MAX]) || (getTimeSinceCueOn() - timeIntertrial >= _params[ITI_MIN] && getTimeSinceLastLick() >= _params[ITI_LICK_TIME]))
+		if ((getTimeSinceCueOn() - timeIntertrial >= _params[ITI_MAX]) || (getTimeSinceCueOn() - timeIntertrial >= _params[ITI_MIN] && getTimeSinceLastLick() >= _params[ITI_LICK_TIMEOUT]))
 		{
 			_state = STATE_PRE_CUE;
 			return;
