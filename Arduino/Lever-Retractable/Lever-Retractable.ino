@@ -233,15 +233,17 @@ static int _arguments[2]			= {0};			// Two integers received from host , resets 
 static bool _isLicking 				= false;		// True if the little dude is licking
 static bool _isLickOnset 			= false;		// True during lick onset
 static bool _firstLickRegistered 	= false;		// True when first lick is registered for this trial
+static long _timeLastLick			= 0;			// Time (ms) when last lick occured
 
 static bool _isLeverPressed			= false;		// True as long as lever is pressed down
 static bool _isLeverPressOnset 		= false;		// True when lever first pressed
 static bool _isLeverDeployed 		= false;		// True when lever is deployed
+static long _timeLastLeverPress		= 0;			// Time (ms) when last lever press occured
 
 static long _servoStartTime			= 0;			// When servo started moving retrieved using getTime()
 static long _servoSpeed				= 30;			// Speed of servo movement (deg/s)
-static long _servoStartPos			= 110;			// Starting position of servo when rotation begins
-static long _servoTargetPos			= 110;			// Target position of servo
+static long _servoStartPos			= 130;			// Starting position of servo when rotation begins
+static long _servoTargetPos			= 130;			// Target position of servo
 
 // For white noise generator
 static bool _whiteNoiseIsPlaying 			= false;
@@ -288,10 +290,12 @@ void mySetup()
 	_isLicking 				= false;		// True if the little dude is licking
 	_isLickOnset 			= false;		// True during lick onset
 	_firstLickRegistered 	= false;		// True when first lick is registered for this trial
+	_timeLastLick			= 0;			// Time (ms) when last lick occured
 
 	_isLeverPressed			= false;		// True as long as lever is pressed down
 	_isLeverPressOnset 		= false;		// True when lever first pressed
 	_isLeverDeployed 		= false;		// True when lever is deployed
+	_timeLastLeverPress		= 0;			// Time (ms) when last lever press occured
 
 	_servoStartTime			= 0;			// When servo started moving retrieved using getTime()
 	_servoSpeed				= 30;			// Speed of servo movement (deg/s)
@@ -891,10 +895,13 @@ void state_intertrial()
 	}
 
 	// If ITI elapsed --> PRE_CUE
-	if (getTimeSinceCueOn() - timeIntertrial >= _params[ITI] && (isParamsUpdateDone || !isParamsUpdateStarted))
+	if (isParamsUpdateDone || !isParamsUpdateStarted)
 	{
-		_state = STATE_PRE_CUE;
-		return;
+		if ((getTimeSinceCueOn() - timeIntertrial >= _params[ITI_MAX]) || (getTimeSinceCueOn() - timeIntertrial >= _params[ITI_MIN] && getTimeSinceLastLick() >= _params[ITI_LICK_TIME]))
+		{
+			_state = STATE_PRE_CUE;
+			return;
+		}
 	}
 
 	_state = STATE_INTERTRIAL;
@@ -971,6 +978,7 @@ void handleLick()
 	{
 		_isLicking = true;
 		_isLickOnset = true;
+		_timeLastLick = getTime();
 		sendEventMarker(EVENT_LICK, -1);
 	}
 	else
@@ -1011,6 +1019,7 @@ void handleLever()
 			_isLeverPressed = true;
 			_isLeverPressOnset = true;
 			sendEventMarker(EVENT_LEVER_PRESSED, -1);
+			_timeLastLeverPress = getTime();
 		}
 		else
 		{
@@ -1290,5 +1299,19 @@ long getTimeSinceTrialStart()
 long getTimeSinceCueOn()
 {
 	long time = signedMillis() - _timeCueOn;
+	return time;
+}
+
+// Returns time since last lick in milliseconds
+long getTimeSinceLastLick()
+{
+	long time = signedMillis() - _timeLastLick;
+	return time;
+}
+
+// Returns time since last lever press in milliseconds
+long getTimeSinceLastLeverPress()
+{
+	long time = signedMillis() - _timeLastLeverPress;
 	return time;
 }
