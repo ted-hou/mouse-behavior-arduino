@@ -493,6 +493,18 @@ void state_pre_cue()
 		return;
 	}
 
+	// Early lever press detected --> ABORT
+	if (_isLeverPressOnset)
+	{
+		// Using lever & early press not allowed --> ABORT
+		if (_params[USE_LEVER] == 1 && _params[ALLOW_EARLY_MOVE] == 0)
+		{
+			setCueLED(false);
+			_state = STATE_ABORT;
+			return;
+		}
+	}
+
 	// Pre-cue delay completed --> PRE_WINDOW
 	if (_params[USE_LEVER] == 1)
 	{
