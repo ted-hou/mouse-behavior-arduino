@@ -1,8 +1,8 @@
-function [times_by_trial, values_by_trial] = put_data_into_trials_aligned_to_cue_on_fx(analog_times,...
+function [times_by_trial, values_by_trial] = put_data_into_trials_aligned_to_cue_on_fx_H5DAY13WEIRDFIX(analog_times,...
 																					 analog_values,...
 																					 trial_start_times,...
 																					 cue_on_times)
-% 
+% % 
 % Created 			4-24-17 - ahamilos
 % Last Modified 	4-24-17 - ahamilos
 % 
@@ -11,7 +11,7 @@ function [times_by_trial, values_by_trial] = put_data_into_trials_aligned_to_cue
 % Returns the CED timestamp at each point in the trial and the CED values at each point
 % 
 
-% %% Debug defaults:
+%% Debug defaults:
 % analog_times = DLS_times;
 % analog_values = DLS_values;
 % trial_start_times = trial_start_times;
@@ -24,7 +24,7 @@ function [times_by_trial, values_by_trial] = put_data_into_trials_aligned_to_cue
 % trial_start_times = trial_start_times;
 % cue_on_times = cue_on_times;
 
-
+ms_per_trial = 18000; % we will just make this huge so that there's no problems
 
 % Number of trials:
 num_trials_plus_1 = length(trial_start_times);
@@ -64,10 +64,10 @@ analog_values_trimmed = analog_values(analog_trial_start_positions(1):analog_tri
 % Precue delay: 400-1500 ms = 1.5 sec * 1000samples/s = 1500 samples/precue
 
 analog_pre_cue_times_by_trial = NaN(num_trials_plus_1-1, 1500);
-analog_post_cue_times_by_trial = NaN(num_trials_plus_1-1, 17001);		%NOTE: must leave an extra data point on end because of resolution mismatch between analog and digital lines - some trials have one extra datapoint
+analog_post_cue_times_by_trial = NaN(num_trials_plus_1-1, ms_per_trial);		%NOTE: must leave an extra data point on end because of resolution mismatch between analog and digital lines - some trials have one extra datapoint
 
 analog_pre_cue_values_by_trial = NaN(num_trials_plus_1-1, 1500);
-analog_post_cue_values_by_trial = NaN(num_trials_plus_1-1, 17001);
+analog_post_cue_values_by_trial = NaN(num_trials_plus_1-1, ms_per_trial);
 
 
 trimmed_analog_trial_start_positions = analog_trial_start_positions - analog_trial_start_positions(1) + 1;
@@ -131,8 +131,9 @@ end
 
 %% Now the postcue:
 analog_position = 1;
-positions_array = [1:17001];
+positions_array = [1:ms_per_trial];
 dontupdate = false;
+counter = 0;
 
 for i_trial = 0:(length(trial_start_times)-1)
 	pastcue = false;
@@ -152,10 +153,9 @@ for i_trial = 0:(length(trial_start_times)-1)
             postcue_position = postcue_position + 1;
         end
         
-%         if postcue_position == 17002
-%             disp(postcue_position)
-%             break
-%         end
+        if postcue_position == 17002
+            counter = counter+1;
+        end
         
         if pastcue && ~dontupdate
 			analog_post_cue_times_by_trial(i_trial, positions_array(postcue_position)) = analog_times_trimmed(analog_position);
@@ -176,6 +176,8 @@ for i_trial = 0:(length(trial_start_times)-1)
 		break
 	end
 end
+
+disp([num2str(counter), ' trials were ', num2str(ms_per_trial), 'ms long'])
 
 
 %% Combine into one vector:

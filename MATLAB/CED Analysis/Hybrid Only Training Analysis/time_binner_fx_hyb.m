@@ -1,5 +1,6 @@
 % function [DLS_binned_data, SNc_binned_data,ntrials_per_bin] = time_binner_test_fx(f_licks, nbins, DLS_vbt, SNc_vbt, lick_times_by_trial)%, DLS_values, SNc_values)
 % 
+% 8-07-17 update: Detected error in pav/oprew window cut off - should be 100ms, not 0.1 ms. Check other programs to fix
 % 7-24-17 update: Corrected to match other time_binner_fx updates from operant only (and new plot binned aves)
 % 6-30-17 update: Made specific for Hybrid trials - use for early experiments 
 % 
@@ -31,42 +32,33 @@ total_time = 17000;
 
 
 
-% % nbins = 5;
+% nbins = 5;
 % f_licks = d5_f_ex1_lick_operant_rew;
 % % For op rew:
 % time_bound_1 = (cue_on_time + op_rew_open)/1000; % this is 3333 post cue
-% time_bound_2 = (cue_on_time + target_time + 100)/1000; % this is 5100 post cue
+% time_bound_2 = (cue_on_time + target_time + 100)/1000; % this is 5100 post cue *** error fixed 8-7-17
 % DLS_vbt = d5_DLS_ex1_values_by_trial;%combined_DLS_values_by_trial;
 % SNc_vbt = d5_SNc_ex1_values_by_trial;%combined_SNc_values_by_trial;
 
+% nbins = 5;
+% f_licks = d5_f_ex1_lick_operant_no_rew;
+% % For op rew:
+% time_bound_1 = (cue_on_time + rxn_time + buffer)/1000; % this is 700 post cue
+% time_bound_2 = (cue_on_time + op_rew_open)/1000; % this is 3333 post cue
+% DLS_vbt = d5_DLS_ex1_values_by_trial;%combined_DLS_values_by_trial;
+% SNc_vbt = d5_SNc_ex1_values_by_trial;%combined_SNc_values_by_trial;
+
+
+
 nbins = 5;
-f_licks = d5_f_ex1_lick_operant_no_rew;
+f_licks = f_lick_operant_rew;
 % For op rew:
-time_bound_1 = (cue_on_time + rxn_time + buffer)/1000; % this is 700 post cue
-time_bound_2 = (cue_on_time + op_rew_open)/1000; % this is 3333 post cue
-DLS_vbt = d5_DLS_ex1_values_by_trial;%combined_DLS_values_by_trial;
-SNc_vbt = d5_SNc_ex1_values_by_trial;%combined_SNc_values_by_trial;
-
-% 
-% nbins = 5;
-% f_licks = f_lick_pavlovian;
-% % For op rew:
-% time_bound_1 = (cue_on_time + target_time + 100)/1000; % this is 5100 post cue
-% time_bound_2 = (cue_on_time + ITI_time)/1000; % this is 7000 post cue
-% DLS_vbt = DLS_values_by_trial;
-% SNc_vbt = SNc_values_by_trial;
+time_bound_1 = (cue_on_time + op_rew_open)/1000; % this is 3333 post cue
+time_bound_2 = (cue_on_time + target_time + 100)/1000; % this is 5100 post cue *** error fixed 8-7-17
+DLS_vbt = DLS_values_by_trial;
+SNc_vbt = SNc_values_by_trial;
 
 
-
-% nbins = 5;
-% f_licks = f_lick_operant_rew;
-% % For op rew:
-% time_bound_1 = (cue_on_time + op_rew_open)/1000; % this is 3333 post cue
-% time_bound_2 = (cue_on_time + target_time + 100)/1000; % this is 5100 post cue
-% DLS_vbt = DLS_values_by_trial;
-% SNc_vbt = SNc_values_by_trial;
-
-% 
 % nbins = 5;
 % f_licks = f_lick_operant_no_rew;
 % % For op rew:

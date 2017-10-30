@@ -41,7 +41,7 @@ cue_on_time = 1.5;
 rxn_window = 0.5; % need to score any rxn as rxn whether fail or not
 rxn_ok_window = 0.3;
 rxn_fail_window = 0.5; % end of what we will score as rxns, (e.g., 0.5s after cue, though within 0.3s is ok)
-rxn_train_abort = 0.2; % add onto rxn_ok_window
+rxn_train_abort = 0.2; % add onto rxn_ok_window -- only look at 700ms + for early lick
 op_win_open = 3.333;
 ITI_begin = 7;
 total_time = 17;
@@ -53,7 +53,7 @@ rxn_range_ok = [cue_on_time, cue_on_time + rxn_ok_window]; % this is the length 
 rxn_range_fail = [cue_on_time + rxn_ok_window, cue_on_time + rxn_fail_window]; % these trials were early lick aborts by trains, we will exclude if there was a rxn lick because could still be a rxn or train here, and this will eliminate trains
 %% Modified to add + + rxn_ok_window to rxn_aport check this!!!!!!!!
 rxn_range_train_abort = [cue_on_time + rxn_ok_window, cue_on_time + rxn_ok_window + rxn_train_abort]; 
-operant_no_rew_range = [cue_on_time + rxn_fail_window, cue_on_time + op_win_open]; % this is window of what we score as 1st lick in No-lick window till the target + 0.1 because is too fast for rxn
+operant_no_rew_range = [cue_on_time + rxn_fail_window + rxn_train_abort, cue_on_time + op_win_open]; % this is window of what we score as 1st lick in No-lick window till the target + 0.1 because is too fast for rxn
 operant_rew_range = [cue_on_time + op_win_open, cue_on_time + ITI_begin]; %1.5 + 3.5]
 post_ITI_range = [cue_on_time + ITI_begin, cue_on_time + total_time];
 % note this means that aborted trials with rxn train to the cue will have a find(rxn_range(position)) = true, but no other 1st licks
