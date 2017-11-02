@@ -109,7 +109,7 @@ todaysdate2 = datestr(datetime('now'), 'mm-dd-yy');
     elseif vta_on == 1
         heatmap_3_fx(VTA_ex_values_by_trial, lick_ex_times_by_trial, 1); % to check if exclusions good
     else
-        heatmap_3_fx(X_ex_values_by_trial, lick_ex_times_by_trial, 1); % to check if exclusions good
+        heatmap_3_fx(EMG_ex_values_by_trial, lick_ex_times_by_trial, 1); % to check if exclusions good
     end
 	disp('Excluded trials complete')
 
@@ -260,149 +260,210 @@ todaysdate2 = datestr(datetime('now'), 'mm-dd-yy');
 	disp('Plotting CTA and LTA up to first lick and saving figures')
 
 
-	if snc_on && dls_on
-		plot_to_lick_roadmapv1
+	if snc_on 
+		signalname = 'SNc';
+		Hz = 1000;
 
-		if strcmp(exptype_,'hyb') && rxnwin_ == 500
-			figure_counter = figure_counter+1;
-			print(figure_counter,'-depsc','-painters', ['CTA_ALLOP_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
-			saveas(figure_counter,['CTA_ALLOP_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
-			figure_counter = figure_counter+1;
-			print(figure_counter,'-depsc','-painters', ['CTA_ALLOP_points_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
-			saveas(figure_counter,['CTA_ALLOP_points_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
-			figure_counter = figure_counter+1;
-			print(figure_counter,'-depsc','-painters', ['LTA_ALLOP_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
-			saveas(figure_counter,['LTA_ALLOP_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
-		elseif strcmp(exptype_,'hyb') && rxnwin_ == 0
-			figure_counter = figure_counter+1;
-			print(figure_counter,'-depsc','-painters', ['CTA_ALLOP_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
-			saveas(figure_counter,['CTA_ALLOP_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
-			figure_counter = figure_counter+1;
-			print(figure_counter,'-depsc','-painters', ['CTA_ALLOP_points_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
-			saveas(figure_counter,['CTA_ALLOP_points_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
-			figure_counter = figure_counter+1;
-			print(figure_counter,'-depsc','-painters', ['LTA_ALLOP_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
-			saveas(figure_counter,['LTA_ALLOP_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
-		elseif strcmp(exptype_,'hyb') && rxnwin_ ~= 500 && rxnwin_ ~= 0
-			figure_counter = figure_counter+1;
-			print(figure_counter,'-depsc','-painters', ['CTA_ALLOP_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
-			saveas(figure_counter,['CTA_ALLOP_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
-			figure_counter = figure_counter+1;
-			print(figure_counter,'-depsc','-painters', ['CTA_ALLOP_points_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
-			saveas(figure_counter,['CTA_ALLOP_points_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
-			figure_counter = figure_counter+1;
-			print(figure_counter,'-depsc','-painters', ['LTA_ALLOP_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
-			saveas(figure_counter,['LTA_ALLOP_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
-		elseif strcmp(exptype_, 'op') && rxnwin_ == 500
-			figure_counter = figure_counter+1;
-			print(figure_counter,'-depsc','-painters', ['CTA_ALLOP_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
-			saveas(figure_counter,['CTA_ALLOP_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
-			figure_counter = figure_counter+1;
-			print(figure_counter,'-depsc','-painters', ['CTA_ALLOP_points_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
-			saveas(figure_counter,['CTA_ALLOP_points_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
-			figure_counter = figure_counter+1;
-			print(figure_counter,'-depsc','-painters', ['LTA_ALLOP_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
-			saveas(figure_counter,['LTA_ALLOP_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
-		elseif strcmp(exptype_, 'op') && rxnwin_ == 300
-			figure_counter = figure_counter+1;
-			print(figure_counter,'-depsc','-painters', ['CTA_ALLOP_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
-			saveas(figure_counter,['CTA_ALLOP_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
-			figure_counter = figure_counter+1;
-			print(figure_counter,'-depsc','-painters', ['CTA_ALLOP_points_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
-			saveas(figure_counter,['CTA_ALLOP_points_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
-			figure_counter = figure_counter+1;
-			print(figure_counter,'-depsc','-painters', ['LTA_ALLOP_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
-			saveas(figure_counter,['LTA_ALLOP_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
-		elseif strcmp(exptype_, 'op') && rxnwin_ == 0
-			figure_counter = figure_counter+1;
-			print(figure_counter,'-depsc','-painters', ['CTA_ALLOP_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
-			saveas(figure_counter,['CTA_ALLOP_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
-			figure_counter = figure_counter+1;
-			print(figure_counter,'-depsc','-painters', ['CTA_ALLOP_points_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
-			saveas(figure_counter,['CTA_ALLOP_points_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
-			figure_counter = figure_counter+1;
-			print(figure_counter,'-depsc','-painters', ['LTA_ALLOP_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
-			saveas(figure_counter,['LTA_ALLOP_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
-		end
+		[SNc_ex_values_up_to_lick] = plot_to_lick_roadmapv1_3_fx(SNc_ex_values_by_trial_fi_trim,Hz,all_ex_first_licks,time_array_1000hz, lick_triggered_trials_struct.SNc_lick_triggered_trials.early_SNc_lick_triggered_trials, lick_triggered_trials_struct.SNc_lick_triggered_trials.rew_SNc_lick_triggered_trials, f_lick_operant_no_rew, f_lick_operant_rew, signalname);
+		% plot_to_lick_roadmapv1
+		figure_counter = figure_counter+1;
+		print(figure_counter,'-depsc','-painters', ['SNc_CTA_ALLOP_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
+		saveas(figure_counter,['SNc_CTA_ALLOP_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
+		figure_counter = figure_counter+1;
+		print(figure_counter,'-depsc','-painters', ['SNc_CTA_ALLOP_points_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
+		saveas(figure_counter,['SNc_CTA_ALLOP_points_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
+		figure_counter = figure_counter+1;
+		print(figure_counter,'-depsc','-painters', ['SNc_LTA_ALLOP_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
+		saveas(figure_counter,['SNc_LTA_ALLOP_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
 	else
-		disp('No SNc/DLS signals to plot')
-		DLS_ex_values_up_to_lick =[];
+		disp('No SNc signals to plot')
 		SNc_ex_values_up_to_lick = [];
 	end
 
+	if dls_on 
+		signalname = 'DLS';
+		Hz = 1000;
 
-	if x_on && y_on && z_on && emg_on
-		plot_to_lick_roadmapv1 %&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
-
-		if strcmp(exptype_,'hyb') && rxnwin_ == 500
-			figure_counter = figure_counter+1;
-			print(figure_counter,'-depsc','-painters', ['Move_CTA_ALLOP_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
-			saveas(figure_counter,['Move_CTA_ALLOP_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
-			figure_counter = figure_counter+1;
-			print(figure_counter,'-depsc','-painters', ['Move_CTA_ALLOP_points_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
-			saveas(figure_counter,['Move_CTA_ALLOP_points_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
-			figure_counter = figure_counter+1;
-			print(figure_counter,'-depsc','-painters', ['Move_LTA_ALLOP_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
-			saveas(figure_counter,['Move_LTA_ALLOP_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
-		elseif strcmp(exptype_,'hyb') && rxnwin_ == 0
-			figure_counter = figure_counter+1;
-			print(figure_counter,'-depsc','-painters', ['Move_CTA_ALLOP_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
-			saveas(figure_counter,['Move_CTA_ALLOP_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
-			figure_counter = figure_counter+1;
-			print(figure_counter,'-depsc','-painters', ['Move_CTA_ALLOP_points_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
-			saveas(figure_counter,['Move_CTA_ALLOP_points_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
-			figure_counter = figure_counter+1;
-			print(figure_counter,'-depsc','-painters', ['Move_LTA_ALLOP_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
-			saveas(figure_counter,['Move_LTA_ALLOP_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
-		elseif strcmp(exptype_,'hyb') && rxnwin_ ~= 500 && rxnwin_ ~= 0
-			figure_counter = figure_counter+1;
-			print(figure_counter,'-depsc','-painters', ['Move_CTA_ALLOP_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
-			saveas(figure_counter,['Move_CTA_ALLOP_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
-			figure_counter = figure_counter+1;
-			print(figure_counter,'-depsc','-painters', ['Move_CTA_ALLOP_points_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
-			saveas(figure_counter,['Move_CTA_ALLOP_points_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
-			figure_counter = figure_counter+1;
-			print(figure_counter,'-depsc','-painters', ['Move_LTA_ALLOP_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
-			saveas(figure_counter,['Move_LTA_ALLOP_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
-		elseif strcmp(exptype_, 'op') && rxnwin_ == 500
-			figure_counter = figure_counter+1;
-			print(figure_counter,'-depsc','-painters', ['Move_CTA_ALLOP_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
-			saveas(figure_counter,['Move_CTA_ALLOP_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
-			figure_counter = figure_counter+1;
-			print(figure_counter,'-depsc','-painters', ['Move_CTA_ALLOP_points_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
-			saveas(figure_counter,['Move_CTA_ALLOP_points_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
-			figure_counter = figure_counter+1;
-			print(figure_counter,'-depsc','-painters', ['Move_LTA_ALLOP_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
-			saveas(figure_counter,['Move_LTA_ALLOP_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
-		elseif strcmp(exptype_, 'op') && rxnwin_ == 300
-			figure_counter = figure_counter+1;
-			print(figure_counter,'-depsc','-painters', ['Move_CTA_ALLOP_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
-			saveas(figure_counter,['Move_CTA_ALLOP_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
-			figure_counter = figure_counter+1;
-			print(figure_counter,'-depsc','-painters', ['Move_CTA_ALLOP_points_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
-			saveas(figure_counter,['Move_CTA_ALLOP_points_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
-			figure_counter = figure_counter+1;
-			print(figure_counter,'-depsc','-painters', ['Move_LTA_ALLOP_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
-			saveas(figure_counter,['Move_LTA_ALLOP_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
-		elseif strcmp(exptype_, 'op') && rxnwin_ == 0
-			figure_counter = figure_counter+1;
-			print(figure_counter,'-depsc','-painters', ['Move_CTA_ALLOP_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
-			saveas(figure_counter,['Move_CTA_ALLOP_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
-			figure_counter = figure_counter+1;
-			print(figure_counter,'-depsc','-painters', ['Move_CTA_ALLOP_points_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
-			saveas(figure_counter,['Move_CTA_ALLOP_points_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
-			figure_counter = figure_counter+1;
-			print(figure_counter,'-depsc','-painters', ['Move_LTA_ALLOP_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
-			saveas(figure_counter,['Move_LTA_ALLOP_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
-		end
+		[DLS_ex_values_up_to_lick] = plot_to_lick_roadmapv1_3_fx(DLS_ex_values_by_trial_fi_trim,Hz,all_ex_first_licks,time_array_1000hz, lick_triggered_trials_struct.DLS_lick_triggered_trials.early_DLS_lick_triggered_trials, lick_triggered_trials_struct.DLS_lick_triggered_trials.rew_DLS_lick_triggered_trials, f_lick_operant_no_rew, f_lick_operant_rew, signalname);
+		% plot_to_lick_roadmapv1
+		figure_counter = figure_counter+1;
+		print(figure_counter,'-depsc','-painters', ['DLS_CTA_ALLOP_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
+		saveas(figure_counter,['DLS_CTA_ALLOP_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
+		figure_counter = figure_counter+1;
+		print(figure_counter,'-depsc','-painters', ['DLS_CTA_ALLOP_points_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
+		saveas(figure_counter,['DLS_CTA_ALLOP_points_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
+		figure_counter = figure_counter+1;
+		print(figure_counter,'-depsc','-painters', ['DLS_LTA_ALLOP_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
+		saveas(figure_counter,['DLS_LTA_ALLOP_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
 	else
-		disp('No Movenent signals to plot')
-		X_ex_values_up_to_lick =[];
+		disp('No DLS signals to plot')
+		DLS_ex_values_up_to_lick = [];
+	end
+
+	if vta_on 
+		signalname = 'VTA';
+		Hz = 1000;
+
+		[VTA_ex_values_up_to_lick] = plot_to_lick_roadmapv1_3_fx(VTA_ex_values_by_trial_fi_trim,Hz,all_ex_first_licks,time_array_1000hz, lick_triggered_trials_struct.VTA_lick_triggered_trials.early_VTA_lick_triggered_trials, lick_triggered_trials_struct.VTA_lick_triggered_trials.rew_VTA_lick_triggered_trials, f_lick_operant_no_rew, f_lick_operant_rew, signalname);
+		% plot_to_lick_roadmapv1
+		figure_counter = figure_counter+1;
+		print(figure_counter,'-depsc','-painters', ['VTA_CTA_ALLOP_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
+		saveas(figure_counter,['VTA_CTA_ALLOP_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
+		figure_counter = figure_counter+1;
+		print(figure_counter,'-depsc','-painters', ['VTA_CTA_ALLOP_points_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
+		saveas(figure_counter,['VTA_CTA_ALLOP_points_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
+		figure_counter = figure_counter+1;
+		print(figure_counter,'-depsc','-painters', ['VTA_LTA_ALLOP_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
+		saveas(figure_counter,['VTA_LTA_ALLOP_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
+	else
+		disp('No VTA signals to plot')
+		VTA_ex_values_up_to_lick = [];
+	end
+
+
+
+	if sncred_on 
+		signalname = 'SNcred';
+		Hz = 1000;
+
+		[SNcred_ex_values_up_to_lick] = plot_to_lick_roadmapv1_3_fx(SNcred_ex_values_by_trial_fi_trim,Hz,all_ex_first_licks,time_array_1000hz, lick_triggered_trials_struct.SNcred_lick_triggered_trials.early_SNcred_lick_triggered_trials, lick_triggered_trials_struct.SNcred_lick_triggered_trials.rew_SNcred_lick_triggered_trials, f_lick_operant_no_rew, f_lick_operant_rew, signalname);
+		% plot_to_lick_roadmapv1
+		figure_counter = figure_counter+1;
+		print(figure_counter,'-depsc','-painters', ['SNcred_CTA_ALLOP_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
+		saveas(figure_counter,['SNcred_CTA_ALLOP_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
+		figure_counter = figure_counter+1;
+		print(figure_counter,'-depsc','-painters', ['SNcred_CTA_ALLOP_points_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
+		saveas(figure_counter,['SNcred_CTA_ALLOP_points_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
+		figure_counter = figure_counter+1;
+		print(figure_counter,'-depsc','-painters', ['SNcred_LTA_ALLOP_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
+		saveas(figure_counter,['SNcred_LTA_ALLOP_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
+	else
+		disp('No SNcred signals to plot')
+		SNcred_ex_values_up_to_lick = [];
+	end
+
+
+	if dlsred_on 
+		signalname = 'DLSred';
+		Hz = 1000;
+
+		[DLSred_ex_values_up_to_lick] = plot_to_lick_roadmapv1_3_fx(DLSred_ex_values_by_trial_fi_trim,Hz,all_ex_first_licks,time_array_1000hz, lick_triggered_trials_struct.DLSred_lick_triggered_trials.early_DLSred_lick_triggered_trials, lick_triggered_trials_struct.DLSred_lick_triggered_trials.rew_DLSred_lick_triggered_trials, f_lick_operant_no_rew, f_lick_operant_rew, signalname);
+		% plot_to_lick_roadmapv1
+		figure_counter = figure_counter+1;
+		print(figure_counter,'-depsc','-painters', ['CTA_ALLOP_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
+		saveas(figure_counter,['CTA_ALLOP_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
+		figure_counter = figure_counter+1;
+		print(figure_counter,'-depsc','-painters', ['CTA_ALLOP_points_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
+		saveas(figure_counter,['CTA_ALLOP_points_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
+		figure_counter = figure_counter+1;
+		print(figure_counter,'-depsc','-painters', ['LTA_ALLOP_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
+		saveas(figure_counter,['LTA_ALLOP_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
+	else
+		disp('No DLSred signals to plot')
+		DLSred_ex_values_up_to_lick = [];
+	end
+
+	if vtared_on 
+		signalname = 'VTAred';
+		Hz = 1000;
+
+		[VTAred_ex_values_up_to_lick] = plot_to_lick_roadmapv1_3_fx(VTAred_ex_values_by_trial_fi_trim,Hz,all_ex_first_licks,time_array_1000hz, lick_triggered_trials_struct.VTAred_lick_triggered_trials.early_VTAred_lick_triggered_trials, lick_triggered_trials_struct.VTAred_lick_triggered_trials.rew_VTAred_lick_triggered_trials, f_lick_operant_no_rew, f_lick_operant_rew, signalname);
+		% plot_to_lick_roadmapv1
+		figure_counter = figure_counter+1;
+		print(figure_counter,'-depsc','-painters', ['CTA_ALLOP_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
+		saveas(figure_counter,['CTA_ALLOP_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
+		figure_counter = figure_counter+1;
+		print(figure_counter,'-depsc','-painters', ['CTA_ALLOP_points_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
+		saveas(figure_counter,['CTA_ALLOP_points_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
+		figure_counter = figure_counter+1;
+		print(figure_counter,'-depsc','-painters', ['LTA_ALLOP_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
+		saveas(figure_counter,['LTA_ALLOP_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
+	else
+		disp('No VTAred signals to plot')
+		VTAred_ex_values_up_to_lick = [];
+	end
+
+
+	if x_on 
+		signalname = 'X';
+		Hz = 2000;
+
+		[X_ex_values_up_to_lick] = plot_to_lick_roadmapv1_3_fx(X_ex_values_by_trial_fi_trim,Hz,all_ex_first_licks,time_array_2000hz, lick_triggered_trials_struct.X_lick_triggered_trials.early_X_lick_triggered_trials, lick_triggered_trials_struct.X_lick_triggered_trials.rew_X_lick_triggered_trials, f_lick_operant_no_rew, f_lick_operant_rew, signalname);
+		% plot_to_lick_roadmapv1
+		figure_counter = figure_counter+1;
+		print(figure_counter,'-depsc','-painters', ['CTA_ALLOP_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
+		saveas(figure_counter,['CTA_ALLOP_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
+		figure_counter = figure_counter+1;
+		print(figure_counter,'-depsc','-painters', ['CTA_ALLOP_points_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
+		saveas(figure_counter,['CTA_ALLOP_points_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
+		figure_counter = figure_counter+1;
+		print(figure_counter,'-depsc','-painters', ['LTA_ALLOP_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
+		saveas(figure_counter,['LTA_ALLOP_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
+	else
+		disp('No X signals to plot')
+		X_ex_values_up_to_lick = [];
+	end
+
+	if y_on 
+		signalname = 'Y';
+		Hz = 2000;
+
+		[Y_ex_values_up_to_lick] = plot_to_lick_roadmapv1_3_fx(Y_ex_values_by_trial_fi_trim,Hz,all_ex_first_licks,time_array_2000hz, lick_triggered_trials_struct.Y_lick_triggered_trials.early_Y_lick_triggered_trials, lick_triggered_trials_struct.Y_lick_triggered_trials.rew_Y_lick_triggered_trials, f_lick_operant_no_rew, f_lick_operant_rew, signalname);
+		% plot_to_lick_roadmapv1
+		figure_counter = figure_counter+1;
+		print(figure_counter,'-depsc','-painters', ['CTA_ALLOP_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
+		saveas(figure_counter,['CTA_ALLOP_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
+		figure_counter = figure_counter+1;
+		print(figure_counter,'-depsc','-painters', ['CTA_ALLOP_points_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
+		saveas(figure_counter,['CTA_ALLOP_points_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
+		figure_counter = figure_counter+1;
+		print(figure_counter,'-depsc','-painters', ['LTA_ALLOP_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
+		saveas(figure_counter,['LTA_ALLOP_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
+	else
+		disp('No Y signals to plot')
 		Y_ex_values_up_to_lick = [];
-		Z_ex_values_up_to_lick = [];
-		EMG_ex_values_up_to_lick = [];
 	end
 	
+	if z_on 
+		signalname = 'Z';
+		Hz = 2000;
+
+		[Z_ex_values_up_to_lick] = plot_to_lick_roadmapv1_3_fx(Z_ex_values_by_trial_fi_trim,Hz,all_ex_first_licks,time_array_2000hz, lick_triggered_trials_struct.Z_lick_triggered_trials.early_Z_lick_triggered_trials, lick_triggered_trials_struct.Z_lick_triggered_trials.rew_Z_lick_triggered_trials, f_lick_operant_no_rew, f_lick_operant_rew, signalname);
+		% plot_to_lick_roadmapv1
+		figure_counter = figure_counter+1;
+		print(figure_counter,'-depsc','-painters', ['CTA_ALLOP_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
+		saveas(figure_counter,['CTA_ALLOP_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
+		figure_counter = figure_counter+1;
+		print(figure_counter,'-depsc','-painters', ['CTA_ALLOP_points_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
+		saveas(figure_counter,['CTA_ALLOP_points_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
+		figure_counter = figure_counter+1;
+		print(figure_counter,'-depsc','-painters', ['LTA_ALLOP_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
+		saveas(figure_counter,['LTA_ALLOP_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
+	else
+		disp('No Z signals to plot')
+		Z_ex_values_up_to_lick = [];
+	end
+	
+	if emg_on 
+		signalname = 'EMG';
+		Hz = 2000;
+
+		[EMG_ex_values_up_to_lick] = plot_to_lick_roadmapv1_3_fx(abs(EMG_ex_values_by_trial_fi_trim),Hz,all_ex_first_licks,time_array_2000hz, lick_triggered_trials_struct.EMG_lick_triggered_trials.early_EMG_lick_triggered_trials, lick_triggered_trials_struct.EMG_lick_triggered_trials.rew_EMG_lick_triggered_trials, f_lick_operant_no_rew, f_lick_operant_rew, signalname);
+		% plot_to_lick_roadmapv1
+		figure_counter = figure_counter+1;
+		print(figure_counter,'-depsc','-painters', ['CTA_ALLOP_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
+		saveas(figure_counter,['CTA_ALLOP_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
+		figure_counter = figure_counter+1;
+		print(figure_counter,'-depsc','-painters', ['CTA_ALLOP_points_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
+		saveas(figure_counter,['CTA_ALLOP_points_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
+		figure_counter = figure_counter+1;
+		print(figure_counter,'-depsc','-painters', ['LTA_ALLOP_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
+		saveas(figure_counter,['LTA_ALLOP_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
+	else
+		disp('No EMG signals to plot')
+		EMG_ex_values_up_to_lick = [];
+	end
+
 	disp('Plotting and saving complete')
 
 
