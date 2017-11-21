@@ -974,7 +974,7 @@
 
 
 
-			% LTA_EMGAC_extractor_overlay_hyb_roadmapv1_2
+% 			LTA_EMGAC_extractor_overlay_hyb_roadmapv1_2
 			figure_counter = figure_counter+1;
 			print(figure_counter,'-depsc','-painters',['X_LTA_pav_single_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
 			saveas(figure_counter,['X_LTA_pav_single_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
@@ -1042,21 +1042,21 @@
 	    		time_array_2000hz] = LTA_EMGAC_extractor_overlay_op_roadmapv1_3_fx(X_values_by_trial,num_trials,f_ex_lick_rxn,f_ex_lick_operant_no_rew,f_ex_lick_operant_rew,f_ex_lick_ITI, signalname);
 							  
 			% LTA_EMGAC_extractor_overlay_op_roadmapv1_2
-			figure_counter = figure_counter+1;
-			print(figure_counter,'-depsc','-painters',['X_LTA_rxn_single_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
-			saveas(figure_counter,['X_LTA_rxn_single_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
-			figure_counter = figure_counter+1;
-			print(figure_counter,'-depsc','-painters',['X_LTA_early_single_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
-			saveas(figure_counter,['X_LTA_early_single_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
-			figure_counter = figure_counter+1;
-			print(figure_counter,'-depsc','-painters',['X_LTA_oprew_single_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
-			saveas(figure_counter,['X_LTA_oprew_single_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
-			figure_counter = figure_counter+1;
-			print(figure_counter,'-depsc','-painters',['X_LTA_ITI_single_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
-			saveas(figure_counter,['X_LTA_ITI_single_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
-			figure_counter = figure_counter+1;
-			print(figure_counter,'-depsc','-painters',['X_LTA_overlay_noise_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
-			saveas(figure_counter,['X_LTA_overlay_noise_single_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
+% 			figure_counter = figure_counter+1;
+% 			print(figure_counter,'-depsc','-painters',['X_LTA_rxn_single_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
+% 			saveas(figure_counter,['X_LTA_rxn_single_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
+% 			figure_counter = figure_counter+1;
+% 			print(figure_counter,'-depsc','-painters',['X_LTA_early_single_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
+% 			saveas(figure_counter,['X_LTA_early_single_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
+% 			figure_counter = figure_counter+1;
+% 			print(figure_counter,'-depsc','-painters',['X_LTA_oprew_single_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
+% 			saveas(figure_counter,['X_LTA_oprew_single_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
+% 			figure_counter = figure_counter+1;
+% 			print(figure_counter,'-depsc','-painters',['X_LTA_ITI_single_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
+% 			saveas(figure_counter,['X_LTA_ITI_single_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
+% 			figure_counter = figure_counter+1;
+% 			print(figure_counter,'-depsc','-painters',['X_LTA_overlay_noise_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
+% 			saveas(figure_counter,['X_LTA_overlay_noise_single_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
 			figure_counter = figure_counter+1;
 			print(figure_counter,'-depsc','-painters',['X_LTA_overlay_smooth_single_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
 			saveas(figure_counter,['X_LTA_overlay_smooth_single_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
@@ -1179,21 +1179,21 @@
 	    		time_array_2000hz] = LTA_EMGAC_extractor_overlay_op_roadmapv1_3_fx(Y_values_by_trial,num_trials,f_ex_lick_rxn,f_ex_lick_operant_no_rew,f_ex_lick_operant_rew,f_ex_lick_ITI, signalname);
 							  
 			% LTA_EMGAC_extractor_overlay_op_roadmapv1_2
-			figure_counter = figure_counter+1;
-			print(figure_counter,'-depsc','-painters',['Y_LTA_rxn_single_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
-			saveas(figure_counter,['Y_LTA_rxn_single_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
-			figure_counter = figure_counter+1;
-			print(figure_counter,'-depsc','-painters',['Y_LTA_early_single_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
-			saveas(figure_counter,['Y_LTA_early_single_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
-			figure_counter = figure_counter+1;
-			print(figure_counter,'-depsc','-painters',['Y_LTA_oprew_single_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
-			saveas(figure_counter,['Y_LTA_oprew_single_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
-			figure_counter = figure_counter+1;
-			print(figure_counter,'-depsc','-painters',['Y_LTA_ITI_single_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
-			saveas(figure_counter,['Y_LTA_ITI_single_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
-			figure_counter = figure_counter+1;
-			print(figure_counter,'-depsc','-painters',['Y_LTA_overlay_noise_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
-			saveas(figure_counter,['Y_LTA_overlay_noise_single_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
+% 			figure_counter = figure_counter+1;
+% 			print(figure_counter,'-depsc','-painters',['Y_LTA_rxn_single_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
+% 			saveas(figure_counter,['Y_LTA_rxn_single_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
+% 			figure_counter = figure_counter+1;
+% 			print(figure_counter,'-depsc','-painters',['Y_LTA_early_single_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
+% 			saveas(figure_counter,['Y_LTA_early_single_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
+% 			figure_counter = figure_counter+1;
+% 			print(figure_counter,'-depsc','-painters',['Y_LTA_oprew_single_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
+% 			saveas(figure_counter,['Y_LTA_oprew_single_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
+% 			figure_counter = figure_counter+1;
+% 			print(figure_counter,'-depsc','-painters',['Y_LTA_ITI_single_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
+% 			saveas(figure_counter,['Y_LTA_ITI_single_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
+% 			figure_counter = figure_counter+1;
+% 			print(figure_counter,'-depsc','-painters',['Y_LTA_overlay_noise_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
+% 			saveas(figure_counter,['Y_LTA_overlay_noise_single_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
 			figure_counter = figure_counter+1;
 			print(figure_counter,'-depsc','-painters',['Y_LTA_overlay_smooth_single_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
 			saveas(figure_counter,['Y_LTA_overlay_smooth_single_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
@@ -1316,21 +1316,21 @@
 	    		time_array_2000hz] = LTA_EMGAC_extractor_overlay_op_roadmapv1_3_fx(Z_values_by_trial,num_trials,f_ex_lick_rxn,f_ex_lick_operant_no_rew,f_ex_lick_operant_rew,f_ex_lick_ITI, signalname);
 							  
 			% LTA_EMGAC_extractor_overlay_op_roadmapv1_2
-			figure_counter = figure_counter+1;
-			print(figure_counter,'-depsc','-painters',['Z_LTA_rxn_single_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
-			saveas(figure_counter,['Z_LTA_rxn_single_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
-			figure_counter = figure_counter+1;
-			print(figure_counter,'-depsc','-painters',['Z_LTA_early_single_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
-			saveas(figure_counter,['Z_LTA_early_single_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
-			figure_counter = figure_counter+1;
-			print(figure_counter,'-depsc','-painters',['Z_LTA_oprew_single_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
-			saveas(figure_counter,['Z_LTA_oprew_single_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
-			figure_counter = figure_counter+1;
-			print(figure_counter,'-depsc','-painters',['Z_LTA_ITI_single_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
-			saveas(figure_counter,['Z_LTA_ITI_single_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
-			figure_counter = figure_counter+1;
-			print(figure_counter,'-depsc','-painters',['Z_LTA_overlay_noise_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
-			saveas(figure_counter,['Z_LTA_overlay_noise_single_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
+% 			figure_counter = figure_counter+1;
+% 			print(figure_counter,'-depsc','-painters',['Z_LTA_rxn_single_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
+% 			saveas(figure_counter,['Z_LTA_rxn_single_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
+% 			figure_counter = figure_counter+1;
+% 			print(figure_counter,'-depsc','-painters',['Z_LTA_early_single_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
+% 			saveas(figure_counter,['Z_LTA_early_single_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
+% 			figure_counter = figure_counter+1;
+% 			print(figure_counter,'-depsc','-painters',['Z_LTA_oprew_single_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
+% 			saveas(figure_counter,['Z_LTA_oprew_single_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
+% 			figure_counter = figure_counter+1;
+% 			print(figure_counter,'-depsc','-painters',['Z_LTA_ITI_single_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
+% 			saveas(figure_counter,['Z_LTA_ITI_single_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
+% 			figure_counter = figure_counter+1;
+% 			print(figure_counter,'-depsc','-painters',['Z_LTA_overlay_noise_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
+% 			saveas(figure_counter,['Z_LTA_overlay_noise_single_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
 			figure_counter = figure_counter+1;
 			print(figure_counter,'-depsc','-painters',['Z_LTA_overlay_smooth_single_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
 			saveas(figure_counter,['Z_LTA_overlay_smooth_single_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
@@ -1454,21 +1454,21 @@
 	    		time_array_2000hz] = LTA_EMGAC_extractor_overlay_op_roadmapv1_3_fx(abs(EMG_values_by_trial),num_trials,f_ex_lick_rxn,f_ex_lick_operant_no_rew,f_ex_lick_operant_rew,f_ex_lick_ITI, signalname);
 							  
 			% LTA_EMGAC_extractor_overlay_op_roadmapv1_2
-			figure_counter = figure_counter+1;
-			print(figure_counter,'-depsc','-painters',['EMG_LTA_rxn_single_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
-			saveas(figure_counter,['EMG_LTA_rxn_single_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
-			figure_counter = figure_counter+1;
-			print(figure_counter,'-depsc','-painters',['EMG_LTA_early_single_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
-			saveas(figure_counter,['EMG_LTA_early_single_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
-			figure_counter = figure_counter+1;
-			print(figure_counter,'-depsc','-painters',['EMG_LTA_oprew_single_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
-			saveas(figure_counter,['EMG_LTA_oprew_single_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
-			figure_counter = figure_counter+1;
-			print(figure_counter,'-depsc','-painters',['EMG_LTA_ITI_single_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
-			saveas(figure_counter,['EMG_LTA_ITI_single_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
-			figure_counter = figure_counter+1;
-			print(figure_counter,'-depsc','-painters',['EMG_LTA_overlay_noise_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
-			saveas(figure_counter,['EMG_LTA_overlay_noise_single_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
+% 			figure_counter = figure_counter+1;
+% 			print(figure_counter,'-depsc','-painters',['EMG_LTA_rxn_single_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
+% 			saveas(figure_counter,['EMG_LTA_rxn_single_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
+% 			figure_counter = figure_counter+1;
+% 			print(figure_counter,'-depsc','-painters',['EMG_LTA_early_single_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
+% 			saveas(figure_counter,['EMG_LTA_early_single_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
+% 			figure_counter = figure_counter+1;
+% 			print(figure_counter,'-depsc','-painters',['EMG_LTA_oprew_single_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
+% 			saveas(figure_counter,['EMG_LTA_oprew_single_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
+% 			figure_counter = figure_counter+1;
+% 			print(figure_counter,'-depsc','-painters',['EMG_LTA_ITI_single_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
+% 			saveas(figure_counter,['EMG_LTA_ITI_single_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
+% 			figure_counter = figure_counter+1;
+% 			print(figure_counter,'-depsc','-painters',['EMG_LTA_overlay_noise_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
+% 			saveas(figure_counter,['EMG_LTA_overlay_noise_single_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
 			figure_counter = figure_counter+1;
 			print(figure_counter,'-depsc','-painters',['EMG_LTA_overlay_smooth_single_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
 			saveas(figure_counter,['EMG_LTA_overlay_smooth_single_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')

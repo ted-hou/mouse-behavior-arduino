@@ -1,9 +1,10 @@
 %% Extract CED Data using the gfitdF_F_fx.m
 %	Created:		6-3-17	ahamilos (from extract_trials_gfit_roadmapv1_2.m)
-%	Last Updated:	10-26-17	ahamilos
+%	Last Updated:	11-2-17	ahamilos
 %
 % Generic for any kind of trial type (hyb, op, etc)
 %
+%   11-2-17: modified to take input trial duration and target time
 %   10-26-17: modified to handle VTA photometry
 %   10-3-17: modfied to handle all possible types of analog data (photometry and movement)
 % 	9-22-17: modified for movement control only
@@ -213,20 +214,20 @@ else
 end
 
 if dls_on == 1
-    [DLS_times_by_trial, DLS_values_by_trial] = put_data_into_trials_aligned_to_cue_on_fx(DLS_times,...
+    [DLS_times_by_trial, DLS_values_by_trial] = put_data_into_trials_aligned_to_cue_on_fx_v1_3(DLS_times,...
 																					 gfit_DLS,...
 																					 trial_start_times,...
-																					 cue_on_times);
+																					 cue_on_times, trial_duration_);
 else
     DLS_times_by_trial = [];
     DLS_values_by_trial = [];
 end
 
 if snc_on == 1
-    [SNc_times_by_trial, SNc_values_by_trial] = put_data_into_trials_aligned_to_cue_on_fx(SNc_times,...
+    [SNc_times_by_trial, SNc_values_by_trial] = put_data_into_trials_aligned_to_cue_on_fx_v1_3(SNc_times,...
 																					 gfit_SNc,...
 																					 trial_start_times,...
-																					 cue_on_times);
+																					 cue_on_times, trial_duration_);
 else
     SNc_times_by_trial = [];
     SNc_values_by_trial = [];   
@@ -235,10 +236,10 @@ end
 
 
 if vta_on == 1
-    [VTA_times_by_trial, VTA_values_by_trial] = put_data_into_trials_aligned_to_cue_on_fx(VTA_times,...
+    [VTA_times_by_trial, VTA_values_by_trial] = put_data_into_trials_aligned_to_cue_on_fx_v1_3(VTA_times,...
 																					 gfit_VTA,...
 																					 trial_start_times,...
-																					 cue_on_times);
+																					 cue_on_times, trial_duration_);
 else
     VTA_times_by_trial = [];
     VTA_values_by_trial = [];   
@@ -246,30 +247,30 @@ end
        
 
 if dlsred_on == 1
-    [DLSred_times_by_trial, DLSred_values_by_trial] = put_data_into_trials_aligned_to_cue_on_fx(DLSred_times,...
+    [DLSred_times_by_trial, DLSred_values_by_trial] = put_data_into_trials_aligned_to_cue_on_fx_v1_3(DLSred_times,...
 																					 gfit_DLSred,...
 																					 trial_start_times,...
-																					 cue_on_times);
+																					 cue_on_times, trial_duration_);
 else
     DLSred_times_by_trial = [];
     DLSred_values_by_trial = [];   
 end
 
 if sncred_on == 1
-    [SNcred_times_by_trial, SNcred_values_by_trial] = put_data_into_trials_aligned_to_cue_on_fx(SNcred_times,...
+    [SNcred_times_by_trial, SNcred_values_by_trial] = put_data_into_trials_aligned_to_cue_on_fx_v1_3(SNcred_times,...
 																					 gfit_SNcred,...
 																					 trial_start_times,...
-																					 cue_on_times);
+																					 cue_on_times, trial_duration_);
 else
     SNcred_times_by_trial = [];
     SNcred_values_by_trial = [];   
 end
 
 if vtared_on == 1
-    [VTAred_times_by_trial, VTAred_values_by_trial] = put_data_into_trials_aligned_to_cue_on_fx(VTAred_times,...
+    [VTAred_times_by_trial, VTAred_values_by_trial] = put_data_into_trials_aligned_to_cue_on_fx_v1_3(VTAred_times,...
 																					 gfit_VTAred,...
 																					 trial_start_times,...
-																					 cue_on_times);
+																					 cue_on_times, trial_duration_);
 else
     VTAred_times_by_trial = [];
     VTAred_values_by_trial = [];   
@@ -282,7 +283,7 @@ if x_on == 1
 																					 X_values,...
 																					 trial_start_times,...
 																					 cue_on_times,...
-    																				 2000);
+    																				 2000, trial_duration_);
 else
     X_times_by_trial = [];
     X_values_by_trial = [];   
@@ -293,7 +294,7 @@ if y_on == 1
 																					 Y_values,...
 																					 trial_start_times,...
 																					 cue_on_times,...
-																					 2000);
+																					 2000, trial_duration_);
 else
     Y_times_by_trial = [];
     Y_values_by_trial = [];   
@@ -304,7 +305,7 @@ if z_on == 1
 																					 Z_values,...
 																					 trial_start_times,...
 																					 cue_on_times,...
-																					 2000);
+																					 2000, trial_duration_);
 else
     Z_times_by_trial = [];
     Z_values_by_trial = [];   
@@ -316,7 +317,7 @@ if emg_on == 1
 																					 EMG_values,...
 																					 trial_start_times,...
 																					 cue_on_times,...
-																					 2000);
+																					 2000, trial_duration_);
 else
     EMG_times_by_trial = [];
     EMG_values_by_trial = [];   

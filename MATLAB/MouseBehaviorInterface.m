@@ -1028,7 +1028,7 @@ classdef MouseBehaviorInterface < handle
 			ism = ismember(trialsOfInterest, trialsZero);
 			if (sum(ism) == 0)
 				return
-			end
+            end
 			trialsOfInterest = trialsOfInterest(ism);
 			eventsOfInterest = eventsOfInterest(ism);
 

@@ -25,8 +25,7 @@
 % 		7. LTA and plots saved
 % 		8. save ALL VARS
 %% ------------------------------------------------------------------------------------------- (section validated 10/26/17)
-% Modifiable trial structure vars:
-total_trial_duration_in_sec = 17;
+
 
 
 
@@ -36,19 +35,24 @@ todaysdate2 = datestr(datetime('now'), 'mm-dd-yy');
 
 % Start of run: Prompt user for needed variables-------------------------------------------- (section validated 10/26/17)
 	disp('Collecting user input...')
-	prompt = {'Day # prefix:','CED filename_ (don''t include *_lick, etc):', 'Header number:', 'Type of exp (hyb, op)', 'Rxn window (0, 300, 500)', 'Exclusion Criteria Version', 'Animal Name', 'Excluded Trials'};
+	prompt = {'Day # prefix:','CED filename_ (don''t include *_lick, etc):', 'Header number:', 'Type of exp (hyb, op)', 'Rxn window (0, 300, 500)', 'Trial Duration (ms)', 'Target (ms)', 'Exclusion Criteria Version', 'Animal Name', 'Excluded Trials'};
 	dlg_title = 'Inputs';
 	num_lines = 1;
-	defaultans = {'7','h6_day7_sncvta_dlsred','1', 'op', '500', '1', 'H6', '###'};
+	defaultans = {'7','h6_day7_sncvta_dlsred','1', 'op', '500', '17000', '5000', '1', 'H6', '###'};
 	answer_ = inputdlg(prompt,dlg_title,num_lines,defaultans);
 	daynum_ = answer_{1};
 	filename_ = answer_{2};
 	headernum_ = answer_{3};
 	exptype_ = answer_{4};
 	rxnwin_ = str2double(answer_{5});
-	exclusion_criteria_version_ = answer_{6};
-	mousename_ = answer_{7};
-	excludedtrials_ = answer_{8};
+    trial_duration_ = str2double(answer_{6});
+    target_ = str2double(answer_{7});
+	exclusion_criteria_version_ = answer_{8};
+	mousename_ = answer_{9};
+	excludedtrials_ = answer_{10};
+    
+% Modifiable trial structure vars:
+total_trial_duration_in_sec = trial_duration_/1000;
 
 
 	waiter = questdlg('WARNING: Need to close all figures before proceeding - ok?','Ready to plot?', 'No');
@@ -470,53 +474,54 @@ todaysdate2 = datestr(datetime('now'), 'mm-dd-yy');
 
 
 %% Split up rxn+ and rxn- trials for CTA/LTA-------------------------------------------------
-	disp('Plotting CTA and LTA split by rxn/no rxn and saving figures')
-	
-	if snc_on && dls_on
-		CTA_LTA_split_by_rxn_no_rxn
-
-		if strcmp(exptype_, 'hyb')
-			figure_counter = figure_counter+1;
-			print(figure_counter,'-depsc','-painters', ['CTA_w_wo_rxn_ALLOP_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
-			saveas(figure_counter,['CTA_w_wo_rxn_ALLOP_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
-			figure_counter = figure_counter+1;
-			print(figure_counter,'-depsc','-painters', ['LTA_w_wo_rxn_ALLOP_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
-			saveas(figure_counter,['LTA_w_wo_rxn_ALLOP_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
-		elseif strcmp(exptype_, 'op')
-			figure_counter = figure_counter+1;
-			print(figure_counter,'-depsc','-painters', ['CTA_w_wo_rxn_ALLOP_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
-			saveas(figure_counter,['CTA_w_wo_rxn_ALLOP_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
-			figure_counter = figure_counter+1;
-			print(figure_counter,'-depsc','-painters', ['LTA_w_wo_rxn_ALLOP_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
-			saveas(figure_counter,['LTA_w_wo_rxn_ALLOP_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
-		end
-	else
-		disp('No DLS/SNc CTA/LTA to plot')
-	end
-
-	if x_on && y_on && z_on && emg_on
-		CTA_LTA_split_by_rxn_no_rxn %&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
-
-		if strcmp(exptype_, 'hyb')
-			figure_counter = figure_counter+1;
-			print(figure_counter,'-depsc','-painters', ['Move_CTA_w_wo_rxn_ALLOP_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
-			saveas(figure_counter,['Move_CTA_w_wo_rxn_ALLOP_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
-			figure_counter = figure_counter+1;
-			print(figure_counter,'-depsc','-painters', ['Move_LTA_w_wo_rxn_ALLOP_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
-			saveas(figure_counter,['Move_LTA_w_wo_rxn_ALLOP_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
-		elseif strcmp(exptype_, 'op')
-			figure_counter = figure_counter+1;
-			print(figure_counter,'-depsc','-painters', ['Move_CTA_w_wo_rxn_ALLOP_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
-			saveas(figure_counter,['Move_CTA_w_wo_rxn_ALLOP_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
-			figure_counter = figure_counter+1;
-			print(figure_counter,'-depsc','-painters', ['Move_LTA_w_wo_rxn_ALLOP_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
-			saveas(figure_counter,['Move_LTA_w_wo_rxn_ALLOP_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
-		end
-	else
-		disp('No Movement CTA/LTA to plot')
-	end
-
-	disp('Saving figures complete.')
+% 	disp('Plotting CTA and LTA split by rxn/no rxn and saving figures')
+% %%%%%%%%%%%%%%THIS SECTION REQ DEBUG AND NOT DONE YET - USE CTA_LTA_split_by_rxn_no_rxn_Hz_v1_3(time_array, Hz, all_ex_first_licks, f_ex_lick_rxn, signal_ex_values_by_trial_fi_trim, early_signal_lick_triggered_trials, rew_signal_lick_triggered_trials, signalname)
+% % (11/15/17)
+% 	if snc_on && dls_on
+% 		CTA_LTA_split_by_rxn_no_rxn
+% 
+% 		if strcmp(exptype_, 'hyb')
+% 			figure_counter = figure_counter+1;
+% 			print(figure_counter,'-depsc','-painters', ['CTA_w_wo_rxn_ALLOP_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
+% 			saveas(figure_counter,['CTA_w_wo_rxn_ALLOP_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
+% 			figure_counter = figure_counter+1;
+% 			print(figure_counter,'-depsc','-painters', ['LTA_w_wo_rxn_ALLOP_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
+% 			saveas(figure_counter,['LTA_w_wo_rxn_ALLOP_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
+% 		elseif strcmp(exptype_, 'op')
+% 			figure_counter = figure_counter+1;
+% 			print(figure_counter,'-depsc','-painters', ['CTA_w_wo_rxn_ALLOP_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
+% 			saveas(figure_counter,['CTA_w_wo_rxn_ALLOP_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
+% 			figure_counter = figure_counter+1;
+% 			print(figure_counter,'-depsc','-painters', ['LTA_w_wo_rxn_ALLOP_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
+% 			saveas(figure_counter,['LTA_w_wo_rxn_ALLOP_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
+% 		end
+% 	else
+% 		disp('No DLS/SNc CTA/LTA to plot')
+% 	end
+% 
+% 	if x_on && y_on && z_on && emg_on
+% 		CTA_LTA_split_by_rxn_no_rxn %&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+% 
+% 		if strcmp(exptype_, 'hyb')
+% 			figure_counter = figure_counter+1;
+% 			print(figure_counter,'-depsc','-painters', ['Move_CTA_w_wo_rxn_ALLOP_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
+% 			saveas(figure_counter,['Move_CTA_w_wo_rxn_ALLOP_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
+% 			figure_counter = figure_counter+1;
+% 			print(figure_counter,'-depsc','-painters', ['Move_LTA_w_wo_rxn_ALLOP_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
+% 			saveas(figure_counter,['Move_LTA_w_wo_rxn_ALLOP_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
+% 		elseif strcmp(exptype_, 'op')
+% 			figure_counter = figure_counter+1;
+% 			print(figure_counter,'-depsc','-painters', ['Move_CTA_w_wo_rxn_ALLOP_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
+% 			saveas(figure_counter,['Move_CTA_w_wo_rxn_ALLOP_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
+% 			figure_counter = figure_counter+1;
+% 			print(figure_counter,'-depsc','-painters', ['Move_LTA_w_wo_rxn_ALLOP_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
+% 			saveas(figure_counter,['Move_LTA_w_wo_rxn_ALLOP_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
+% 		end
+% 	else
+% 		disp('No Movement CTA/LTA to plot')
+% 	end
+% 
+% 	disp('Saving figures complete.')
 
 %% Plot Hxgrams (note not saved!)-----------------------------------------------------------
 	disp('Plotting Hxgrams')

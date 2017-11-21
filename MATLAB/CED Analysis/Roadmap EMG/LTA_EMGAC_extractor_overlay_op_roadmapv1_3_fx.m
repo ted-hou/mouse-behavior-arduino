@@ -200,14 +200,15 @@ function [rxn_signal_lick_triggered_trials,...
     rxn_signal_lick_triggered_ave_ignore_NaN = signal_lick_triggered_ave_ignore_NaN;
    
     %% The plots:---------------------------------------------------------------------------
-        figure
-        ax_rxn = subplot(1,1,1); %***********************
-        axisarray(1) = ax_rxn;
-        plot([0,0], [1,2])
-        hold on
-        plot(time_array, gausssmooth(rxn_signal_lick_triggered_ave_ignore_NaN, smoothwin, 'gauss'), 'linewidth', 3)
-        xlim(xlimits)
-        title(title_signal)
+% SUPPRESSED 11/15/17
+    %         figure
+%         ax_rxn = subplot(1,1,1); %***********************
+%         axisarray(1) = ax_rxn;
+%         plot([0,0], [1,2])
+%         hold on
+%         plot(time_array, gausssmooth(rxn_signal_lick_triggered_ave_ignore_NaN, smoothwin, 'gauss'), 'linewidth', 3)
+%         xlim(xlimits)
+%         title(title_signal)
 
 
 
@@ -322,15 +323,17 @@ function [rxn_signal_lick_triggered_trials,...
    
     early_signal_lick_triggered_trials = signal_lick_triggered_trials;
     
-    %% The plots:---------------------------------------------------------------------------
-        figure
-        ax_early = subplot(1,1,1);%***********************
-        axisarray(end+1) = ax_early;
-        plot([0,0], [1,2])
-        hold on
-        plot(time_array, gausssmooth(early_signal_lick_triggered_ave_ignore_NaN, smoothwin, 'gauss'), 'linewidth', 3)
-        xlim(xlimits)
-        title(title_signal)
+%% The plots:---------------------------------------------------------------------------
+% SUPPRESSED 11/15/17
+
+%         figure
+%         ax_early = subplot(1,1,1);%***********************
+%         axisarray(end+1) = ax_early;
+%         plot([0,0], [1,2])
+%         hold on
+%         plot(time_array, gausssmooth(early_signal_lick_triggered_ave_ignore_NaN, smoothwin, 'gauss'), 'linewidth', 3)
+%         xlim(xlimits)
+%         title(title_signal)
 
 
 
@@ -445,14 +448,15 @@ function [rxn_signal_lick_triggered_trials,...
     rew_signal_lick_triggered_ave_ignore_NaN = signal_lick_triggered_ave_ignore_NaN;
  
     %% The plots:---------------------------------------------------------------------------
-        figure
-        ax_rew = subplot(1,1,1); %***********************
-        axisarray(end+1) = ax_rew;
-        plot([0,0], [1,2])
-        hold on
-        plot(time_array, gausssmooth(rew_signal_lick_triggered_ave_ignore_NaN, smoothwin, 'gauss'), 'linewidth', 3)
-        xlim(xlimits)
-        title(title_signal)
+% SUPPRESSED 11/15/17
+%         figure
+%         ax_rew = subplot(1,1,1); %***********************
+%         axisarray(end+1) = ax_rew;
+%         plot([0,0], [1,2])
+%         hold on
+%         plot(time_array, gausssmooth(rew_signal_lick_triggered_ave_ignore_NaN, smoothwin, 'gauss'), 'linewidth', 3)
+%         xlim(xlimits)
+%         title(title_signal)
 
 
 
@@ -566,20 +570,21 @@ function [rxn_signal_lick_triggered_trials,...
     ITI_signal_lick_triggered_ave_ignore_NaN = signal_lick_triggered_ave_ignore_NaN;
 
     %% The plots:---------------------------------------------------------------------------
-        figure
-        ax_ITI = subplot(1,1,1); %***********************
-        axisarray(end+1) = ax_ITI;
-        plot([0,0], [1,2])
-        hold on
-        plot(time_array, gausssmooth(ITI_signal_lick_triggered_ave_ignore_NaN, smoothwin, 'gauss'), 'linewidth', 3)
-        xlim(xlimits)
-        title(title_signal)
+% SUPPRESSED 11/15/17
+%         figure
+%         ax_ITI = subplot(1,1,1); %***********************
+%         axisarray(end+1) = ax_ITI;
+%         plot([0,0], [1,2])
+%         hold on
+%         plot(time_array, gausssmooth(ITI_signal_lick_triggered_ave_ignore_NaN, smoothwin, 'gauss'), 'linewidth', 3)
+%         xlim(xlimits)
+%         title(title_signal)
 
 
 
 
 %% Link plots:
-    linkaxes(axisarray,'xy') %***********************
+%     linkaxes(axisarray,'xy') %***********************
 
 
 
@@ -595,21 +600,21 @@ function [rxn_signal_lick_triggered_trials,...
 
 
 %% Plot the overlays:
-
+% SUPPRESSED 11/15/17
     axisarray2 = [];
-    figure
-    ax1 = subplot(1,1,1); % signal  %***********************
-    axisarray2(1) = ax1;
-    plot([0,0], [1,2], 'g-', 'linewidth', 2)
-    hold on
-    plot(time_array(pos1:pos2),N_rxn_signal(pos1:pos2), 'linewidth', 3)
-    plot(time_array(pos1:pos2),N_early_signal(pos1:pos2), 'linewidth', 3)
-    plot(time_array(pos1:pos2),N_rew_signal(pos1:pos2), 'linewidth', 3)
-    names = {'lick time','rxn', 'early', 'rew'};
-    % names = {'lick time', 'rxn', 'early', 'rew', 'pav'};
-    legend(names)
-    xlim(range_)
-    title(title_signal)
+%     figure
+%     ax1 = subplot(1,1,1); % signal  %***********************
+%     axisarray2(1) = ax1;
+%     plot([0,0], [1,2], 'g-', 'linewidth', 2)
+%     hold on
+%     plot(time_array(pos1:pos2),N_rxn_signal(pos1:pos2), 'linewidth', 3)
+%     plot(time_array(pos1:pos2),N_early_signal(pos1:pos2), 'linewidth', 3)
+%     plot(time_array(pos1:pos2),N_rew_signal(pos1:pos2), 'linewidth', 3)
+%     names = {'lick time','rxn', 'early', 'rew'};
+%     % names = {'lick time', 'rxn', 'early', 'rew', 'pav'};
+%     legend(names)
+%     xlim(range_)
+%     title(title_signal)
 
  
 

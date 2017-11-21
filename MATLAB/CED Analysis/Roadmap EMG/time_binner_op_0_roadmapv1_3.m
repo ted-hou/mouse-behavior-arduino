@@ -400,116 +400,116 @@ smoothwindow = 50;
 	ylabel('signal')
 
 
-%% ITI CASE--------------------------------------------------------------------------------------------
-	f_licks = f_licks_ITI*sample_scaling_factor;
-	time_bound_1 = (cue_on_time + ITI_time)/1000; % this is 7000 post cue
-	time_bound_2 = (cue_on_time + total_time)/1000; % this is 17000 post cue
-
-
-	% Add trial numbers to 2nd row to keep track of trial positions after sorting:
-	rxn_times_with_trial_markers = f_licks;
-	rxn_times_with_trial_markers(2, :) = (1:length(f_licks));
-
-	[sorted_times,trial_positions]=sort(rxn_times_with_trial_markers(1,:));
-
-	% first shave of the trials with no lick in the category: find the position of sorted times that is the last 0 in the array:
-	last_no_lick_position = max(find(sorted_times == 0));
-
-	% create the bin with trials with no licks in it:
-	for i_rxns = 1:last_no_lick_position
-		signal_no_lick_bin(i_rxns, 1:size(signal_vbt, 2)) =  signal_vbt(trial_positions(i_rxns), :);
-	end
-
-	no_lick_bin_trial_positions = trial_positions(1:last_no_lick_position);
-
-
-	% now figure out how to split the remaining trials:
-
-	% Determine time range of bin:
-	total_range = time_bound_2 - time_bound_1;
-	% Divide the range by nbins:
-	time_in_ea_bin = total_range / nbins;
-
-	signal_binned_data = {};
-	signal_binned_trial_positions = {};
-	signal_trial_positions_in_current_bin = {};
-	signal_pos_in_sorted_array = last_no_lick_position + 1;
-	% now split into nbins with cell array. Do all but the last bin in the first loop:
-	current_time_start = time_bound_1;
-	current_time_end = time_bound_1 + time_in_ea_bin;
-	% we will do the min time inclusive:
-	if nbins > 1
-		for i_bins = 1:nbins-1
-		    % Figure out how many trials will go in the bin:
-		    signal_ntrials_bin = length(find(sorted_times > current_time_start & sorted_times <= current_time_end));
-		    % Prep the containers for trials in this bin:
-			signal_current_bin = NaN(signal_ntrials_bin, size(signal_vbt,2));
-			
-			signal_trial_positions_in_current_bin = trial_positions(signal_pos_in_sorted_array:signal_pos_in_sorted_array+signal_ntrials_bin-1);
-			
-			for i_rxns = 1:signal_ntrials_bin
-				signal_current_bin(i_rxns, :) = signal_vbt(trial_positions(signal_pos_in_sorted_array), :);
-				signal_pos_in_sorted_array = signal_pos_in_sorted_array + 1;
-			end
-			signal_binned_data{i_bins} = signal_current_bin;
-			signal_binned_trial_positions{i_bins} = signal_trial_positions_in_current_bin;
-		    % Move to next time range:
-		    current_time_start = current_time_end;
-		    current_time_end = current_time_end + time_in_ea_bin;
-		end
-	end
-
-	% finally, do the last bin:
-
-	% Figure out how many trials will go in the bin: (inclusivity fixed to match first_lick_grabber_fx 7-24-17)
-	signal_ntrials_bin = length(find(sorted_times > current_time_start & sorted_times <= current_time_end));
-	% Prep the containers for trials in this bin:
-	signal_current_bin = NaN(signal_ntrials_bin, size(signal_vbt,2));
-	%% check this--(ok 7-21-17-------------------------------------------------------------------------------------
-	signal_binned_trial_positions{end+1} = trial_positions(signal_pos_in_sorted_array:end);
-	%%--------------------------------------------------------------------------------------------------
-	for i_rxns = 1:signal_ntrials_bin
-		signal_current_bin(i_rxns, :) = signal_vbt(trial_positions(signal_pos_in_sorted_array), :);
-		signal_pos_in_sorted_array = signal_pos_in_sorted_array + 1;
-	end
-	signal_binned_data{nbins} = signal_current_bin;
-
-
-	% Finally, take averages of binned data and plot:
-	signal_bin_aves = {};
-	for ibins = 1:nbins
-		signal_bin_aves{ibins} = nanmean(signal_binned_data{ibins},1);
-	end
-
-	% Name bins by times within
-	names = {};
-	names{1} = 'Cue On';
-	names{2} = 'Target Time';
-	% Create the legend names (times in each bin wrt cue on)
-	startpos = time_bound_1/sample_scaling_factor-1.5;
-	endpos = time_bound_1/sample_scaling_factor - 1.5 + time_in_ea_bin/sample_scaling_factor;
-	names{3} = [num2str(startpos*1000), ' - ', num2str(endpos*1000), ' ms'];
-	for i_bins = 2:nbins
-		startpos = startpos+time_in_ea_bin/sample_scaling_factor;
-		endpos = endpos + time_in_ea_bin/sample_scaling_factor;
-		names{end+1} = [num2str(startpos*1000), ' - ', num2str(endpos*1000), ' ms'];
-	end	
-
-	figure,
-	ax = subplot(1,1,1);
-	axisarray(end+1) = ax;
-	plot([cue_on_time/sample_scaling_factor, cue_on_time/sample_scaling_factor], [-1,1], 'r-', 'linewidth', 3)
-	hold on
-	plot([cue_on_time/sample_scaling_factor+target_time/sample_scaling_factor, cue_on_time/sample_scaling_factor+target_time/sample_scaling_factor], [-1,1], 'r-', 'linewidth', 3)
-	for ibins = 1:nbins
-		plot(time_array_in_ms,gausssmooth(signal_bin_aves{ibins}, smoothwindow, 'gauss'), 'linewidth', 3);
-	end
-	legend(names);
-	ylim([-1,1])
-	xlim([0,cue_on_time/sample_scaling_factor + total_time/sample_scaling_factor])
-	title(['CTA ITI - ', signalname,' binned averages']);
-	xlabel('time (ms)')
-	ylabel('signal')
+% %% ITI CASE--------------------------------------------------------------------------------------------
+% 	f_licks = f_licks_ITI*sample_scaling_factor;
+% 	time_bound_1 = (cue_on_time + ITI_time)/1000; % this is 7000 post cue
+% 	time_bound_2 = (cue_on_time + total_time)/1000; % this is 17000 post cue
+% 
+% 
+% 	% Add trial numbers to 2nd row to keep track of trial positions after sorting:
+% 	rxn_times_with_trial_markers = f_licks;
+% 	rxn_times_with_trial_markers(2, :) = (1:length(f_licks));
+% 
+% 	[sorted_times,trial_positions]=sort(rxn_times_with_trial_markers(1,:));
+% 
+% 	% first shave of the trials with no lick in the category: find the position of sorted times that is the last 0 in the array:
+% 	last_no_lick_position = max(find(sorted_times == 0));
+% 
+% 	% create the bin with trials with no licks in it:
+% 	for i_rxns = 1:last_no_lick_position
+% 		signal_no_lick_bin(i_rxns, 1:size(signal_vbt, 2)) =  signal_vbt(trial_positions(i_rxns), :);
+% 	end
+% 
+% 	no_lick_bin_trial_positions = trial_positions(1:last_no_lick_position);
+% 
+% 
+% 	% now figure out how to split the remaining trials:
+% 
+% 	% Determine time range of bin:
+% 	total_range = time_bound_2 - time_bound_1;
+% 	% Divide the range by nbins:
+% 	time_in_ea_bin = total_range / nbins;
+% 
+% 	signal_binned_data = {};
+% 	signal_binned_trial_positions = {};
+% 	signal_trial_positions_in_current_bin = {};
+% 	signal_pos_in_sorted_array = last_no_lick_position + 1;
+% 	% now split into nbins with cell array. Do all but the last bin in the first loop:
+% 	current_time_start = time_bound_1;
+% 	current_time_end = time_bound_1 + time_in_ea_bin;
+% 	% we will do the min time inclusive:
+% 	if nbins > 1
+% 		for i_bins = 1:nbins-1
+% 		    % Figure out how many trials will go in the bin:
+% 		    signal_ntrials_bin = length(find(sorted_times > current_time_start & sorted_times <= current_time_end));
+% 		    % Prep the containers for trials in this bin:
+% 			signal_current_bin = NaN(signal_ntrials_bin, size(signal_vbt,2));
+% 			
+% 			signal_trial_positions_in_current_bin = trial_positions(signal_pos_in_sorted_array:signal_pos_in_sorted_array+signal_ntrials_bin-1);
+% 			
+% 			for i_rxns = 1:signal_ntrials_bin
+% 				signal_current_bin(i_rxns, :) = signal_vbt(trial_positions(signal_pos_in_sorted_array), :);
+% 				signal_pos_in_sorted_array = signal_pos_in_sorted_array + 1;
+% 			end
+% 			signal_binned_data{i_bins} = signal_current_bin;
+% 			signal_binned_trial_positions{i_bins} = signal_trial_positions_in_current_bin;
+% 		    % Move to next time range:
+% 		    current_time_start = current_time_end;
+% 		    current_time_end = current_time_end + time_in_ea_bin;
+% 		end
+% 	end
+% 
+% 	% finally, do the last bin:
+% 
+% 	% Figure out how many trials will go in the bin: (inclusivity fixed to match first_lick_grabber_fx 7-24-17)
+% 	signal_ntrials_bin = length(find(sorted_times > current_time_start & sorted_times <= current_time_end));
+% 	% Prep the containers for trials in this bin:
+% 	signal_current_bin = NaN(signal_ntrials_bin, size(signal_vbt,2));
+% 	%% check this--(ok 7-21-17-------------------------------------------------------------------------------------
+% 	signal_binned_trial_positions{end+1} = trial_positions(signal_pos_in_sorted_array:end);
+% 	%%--------------------------------------------------------------------------------------------------
+% 	for i_rxns = 1:signal_ntrials_bin
+% 		signal_current_bin(i_rxns, :) = signal_vbt(trial_positions(signal_pos_in_sorted_array), :);
+% 		signal_pos_in_sorted_array = signal_pos_in_sorted_array + 1;
+% 	end
+% 	signal_binned_data{nbins} = signal_current_bin;
+% 
+% 
+% 	% Finally, take averages of binned data and plot:
+% 	signal_bin_aves = {};
+% 	for ibins = 1:nbins
+% 		signal_bin_aves{ibins} = nanmean(signal_binned_data{ibins},1);
+% 	end
+% 
+% 	% Name bins by times within
+% 	names = {};
+% 	names{1} = 'Cue On';
+% 	names{2} = 'Target Time';
+% 	% Create the legend names (times in each bin wrt cue on)
+% 	startpos = time_bound_1/sample_scaling_factor-1.5;
+% 	endpos = time_bound_1/sample_scaling_factor - 1.5 + time_in_ea_bin/sample_scaling_factor;
+% 	names{3} = [num2str(startpos*1000), ' - ', num2str(endpos*1000), ' ms'];
+% 	for i_bins = 2:nbins
+% 		startpos = startpos+time_in_ea_bin/sample_scaling_factor;
+% 		endpos = endpos + time_in_ea_bin/sample_scaling_factor;
+% 		names{end+1} = [num2str(startpos*1000), ' - ', num2str(endpos*1000), ' ms'];
+% 	end	
+% 
+% 	figure,
+% 	ax = subplot(1,1,1);
+% 	axisarray(end+1) = ax;
+% 	plot([cue_on_time/sample_scaling_factor, cue_on_time/sample_scaling_factor], [-1,1], 'r-', 'linewidth', 3)
+% 	hold on
+% 	plot([cue_on_time/sample_scaling_factor+target_time/sample_scaling_factor, cue_on_time/sample_scaling_factor+target_time/sample_scaling_factor], [-1,1], 'r-', 'linewidth', 3)
+% 	for ibins = 1:nbins
+% 		plot(time_array_in_ms,gausssmooth(signal_bin_aves{ibins}, smoothwindow, 'gauss'), 'linewidth', 3);
+% 	end
+% 	legend(names);
+% 	ylim([-1,1])
+% 	xlim([0,cue_on_time/sample_scaling_factor + total_time/sample_scaling_factor])
+% 	title(['CTA ITI - ', signalname,' binned averages']);
+% 	xlabel('time (ms)')
+% 	ylabel('signal')
 
 
 

@@ -97,9 +97,9 @@
 			figure_counter = figure_counter+1;
 			print(figure_counter,'-depsc','-painters', ['SNc_CTA_OPREW_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
 			saveas(figure_counter,['SNc_CTA_OPREW_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
-			figure_counter = figure_counter+1;
-			print(figure_counter,'-depsc','-painters', ['SNc_CTA_ITI_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
-			saveas(figure_counter,['SNc_CTA_ITI_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
+% 			figure_counter = figure_counter+1;
+% 			print(figure_counter,'-depsc','-painters', ['SNc_CTA_ITI_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
+% 			saveas(figure_counter,['SNc_CTA_ITI_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
 			
 		elseif strcmp(exptype_,'op')
 			h_alert2 = msgbox('Warning - not prepared to deal with an operant session with rxn window ~= 0, 300 or 500ms. Go to line 219 in roadmapv1 and debug');
@@ -199,9 +199,9 @@
 			figure_counter = figure_counter+1;
 			print(figure_counter,'-depsc','-painters', ['DLS_CTA_OPREW_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
 			saveas(figure_counter,['DLS_CTA_OPREW_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
-			figure_counter = figure_counter+1;
-			print(figure_counter,'-depsc','-painters', ['DLS_CTA_ITI_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
-			saveas(figure_counter,['DLS_CTA_ITI_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
+% 			figure_counter = figure_counter+1;
+% 			print(figure_counter,'-depsc','-painters', ['DLS_CTA_ITI_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
+% 			saveas(figure_counter,['DLS_CTA_ITI_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
 			
 		elseif strcmp(exptype_,'op')
 			h_alert2 = msgbox('Warning - not prepared to deal with an operant session with rxn window ~= 0, 300 or 500ms. Go to line 219 in roadmapv1 and debug');
@@ -302,9 +302,9 @@
 			figure_counter = figure_counter+1;
 			print(figure_counter,'-depsc','-painters', ['VTA_CTA_OPREW_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
 			saveas(figure_counter,['VTA_CTA_OPREW_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
-			figure_counter = figure_counter+1;
-			print(figure_counter,'-depsc','-painters', ['VTA_CTA_ITI_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
-			saveas(figure_counter,['VTA_CTA_ITI_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
+% 			figure_counter = figure_counter+1;
+% 			print(figure_counter,'-depsc','-painters', ['VTA_CTA_ITI_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
+% 			saveas(figure_counter,['VTA_CTA_ITI_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
 			
 		elseif strcmp(exptype_,'op')
 			h_alert2 = msgbox('Warning - not prepared to deal with an operant session with rxn window ~= 0, 300 or 500ms. Go to line 219 in roadmapv1 and debug');
@@ -405,9 +405,9 @@
 			figure_counter = figure_counter+1;
 			print(figure_counter,'-depsc','-painters', ['SNcred_CTA_OPREW_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
 			saveas(figure_counter,['SNcred_CTA_OPREW_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
-			figure_counter = figure_counter+1;
-			print(figure_counter,'-depsc','-painters', ['SNcred_CTA_ITI_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
-			saveas(figure_counter,['SNcred_CTA_ITI_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
+% 			figure_counter = figure_counter+1;
+% 			print(figure_counter,'-depsc','-painters', ['SNcred_CTA_ITI_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
+% 			saveas(figure_counter,['SNcred_CTA_ITI_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
 			
 		elseif strcmp(exptype_,'op')
 			h_alert2 = msgbox('Warning - not prepared to deal with an operant session with rxn window ~= 0, 300 or 500ms. Go to line 219 in roadmapv1 and debug');
@@ -506,9 +506,9 @@
 			figure_counter = figure_counter+1;
 			print(figure_counter,'-depsc','-painters', ['DLSred_CTA_OPREW_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
 			saveas(figure_counter,['DLSred_CTA_OPREW_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
-			figure_counter = figure_counter+1;
-			print(figure_counter,'-depsc','-painters', ['DLSred_CTA_ITI_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
-			saveas(figure_counter,['DLSred_CTA_ITI_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
+% 			figure_counter = figure_counter+1;
+% 			print(figure_counter,'-depsc','-painters', ['DLSred_CTA_ITI_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
+% 			saveas(figure_counter,['DLSred_CTA_ITI_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
 			
 		elseif strcmp(exptype_,'op')
 			h_alert2 = msgbox('Warning - not prepared to deal with an operant session with rxn window ~= 0, 300 or 500ms. Go to line 219 in roadmapv1 and debug');
@@ -608,9 +608,9 @@
 			figure_counter = figure_counter+1;
 			print(figure_counter,'-depsc','-painters', ['VTAred_CTA_OPREW_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
 			saveas(figure_counter,['VTAred_CTA_OPREW_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
-			figure_counter = figure_counter+1;
-			print(figure_counter,'-depsc','-painters', ['VTAred_CTA_ITI_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
-			saveas(figure_counter,['VTAred_CTA_ITI_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
+% 			figure_counter = figure_counter+1;
+% 			print(figure_counter,'-depsc','-painters', ['VTAred_CTA_ITI_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
+% 			saveas(figure_counter,['VTAred_CTA_ITI_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
 			
 		elseif strcmp(exptype_,'op')
 			h_alert2 = msgbox('Warning - not prepared to deal with an operant session with rxn window ~= 0, 300 or 500ms. Go to line 219 in roadmapv1 and debug');
@@ -716,9 +716,9 @@
 			figure_counter = figure_counter+1;
 			print(figure_counter,'-depsc','-painters', ['EMG_CTA_OPREW_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
 			saveas(figure_counter,['EMG_CTA_OPREW_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
-			figure_counter = figure_counter+1;
-			print(figure_counter,'-depsc','-painters', ['EMG_CTA_ITI_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
-			saveas(figure_counter,['EMG_CTA_ITI_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
+% 			figure_counter = figure_counter+1;
+% 			print(figure_counter,'-depsc','-painters', ['EMG_CTA_ITI_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
+% 			saveas(figure_counter,['EMG_CTA_ITI_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
 			
 		elseif strcmp(exptype_,'op')
 			h_alert2 = msgbox('Warning - not prepared to deal with an operant session with rxn window ~= 0, 300 or 500ms. Go to line 219 in roadmapv1 and debug');
@@ -822,9 +822,9 @@
 			figure_counter = figure_counter+1;
 			print(figure_counter,'-depsc','-painters', ['X_CTA_OPREW_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
 			saveas(figure_counter,['X_CTA_OPREW_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
-			figure_counter = figure_counter+1;
-			print(figure_counter,'-depsc','-painters', ['X_CTA_ITI_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
-			saveas(figure_counter,['X_CTA_ITI_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
+% 			figure_counter = figure_counter+1;
+% 			print(figure_counter,'-depsc','-painters', ['X_CTA_ITI_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
+% 			saveas(figure_counter,['X_CTA_ITI_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
 			
 		elseif strcmp(exptype_,'op')
 			h_alert2 = msgbox('Warning - not prepared to deal with an operant session with rxn window ~= 0, 300 or 500ms. Go to line 219 in roadmapv1 and debug');
@@ -929,9 +929,9 @@
 			figure_counter = figure_counter+1;
 			print(figure_counter,'-depsc','-painters', ['Y_CTA_OPREW_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
 			saveas(figure_counter,['Y_CTA_OPREW_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
-			figure_counter = figure_counter+1;
-			print(figure_counter,'-depsc','-painters', ['Y_CTA_ITI_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
-			saveas(figure_counter,['Y_CTA_ITI_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
+% 			figure_counter = figure_counter+1;
+% 			print(figure_counter,'-depsc','-painters', ['Y_CTA_ITI_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
+% 			saveas(figure_counter,['Y_CTA_ITI_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
 			
 		elseif strcmp(exptype_,'op')
 			h_alert2 = msgbox('Warning - not prepared to deal with an operant session with rxn window ~= 0, 300 or 500ms. Go to line 219 in roadmapv1 and debug');
@@ -1036,9 +1036,9 @@
 			figure_counter = figure_counter+1;
 			print(figure_counter,'-depsc','-painters', ['Z_CTA_OPREW_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
 			saveas(figure_counter,['Z_CTA_OPREW_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
-			figure_counter = figure_counter+1;
-			print(figure_counter,'-depsc','-painters', ['Z_CTA_ITI_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
-			saveas(figure_counter,['Z_CTA_ITI_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
+% 			figure_counter = figure_counter+1;
+% 			print(figure_counter,'-depsc','-painters', ['Z_CTA_ITI_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
+% 			saveas(figure_counter,['Z_CTA_ITI_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
 			
 		elseif strcmp(exptype_,'op')
 			h_alert2 = msgbox('Warning - not prepared to deal with an operant session with rxn window ~= 0, 300 or 500ms. Go to line 219 in roadmapv1 and debug');

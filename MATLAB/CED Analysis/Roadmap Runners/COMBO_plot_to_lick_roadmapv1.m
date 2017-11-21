@@ -14,8 +14,8 @@
 % 		-extract_values_up_to_lick_fx.m
 % 
 % 
-smooth_kernel = 100;
-nbins = 5;
+smooth_kernel = 200;
+nbins = 2;
 cue_on_time = 1500;
 
 time_bound_1_early = (cue_on_time + 700)/1000;
@@ -252,7 +252,7 @@ SNc_ex_values_up_to_lick = NaN(size(SNc_vbt));
 		posa = bin_ends(ibins, 1);
 		posb = bin_ends(ibins, 2);
 		fxn = DLS_bin_aves{ibins}(posa:posb);
-		plot([1:size(fxn, 2)] - 1500, smooth(fxn, smooth_kernel, 'gauss'), 'linewidth', 1);
+		plot([1:size(fxn, 2)] - 1500, gausssmooth(fxn, smooth_kernel, 'gauss'), 'linewidth', 1);
 	end
 	legend(names);
 	ylim([-1,1])
@@ -271,7 +271,7 @@ SNc_ex_values_up_to_lick = NaN(size(SNc_vbt));
 		posa = bin_ends(ibins, 1);
 		posb = bin_ends(ibins, 2);
 		fxn = SNc_bin_aves{ibins}(posa:posb);
-		plot([1:size(fxn, 2)] - 1500, smooth(fxn, smooth_kernel, 'gauss'), 'linewidth', 1);
+		plot([1:size(fxn, 2)] - 1500, gausssmooth(fxn, smooth_kernel, 'gauss'), 'linewidth', 1);
 	end
 	legend(names);
 	ylim([-1,1])
@@ -308,14 +308,14 @@ SNc_ex_values_up_to_lick = NaN(size(SNc_vbt));
 
 	for ibins = 1:nbins
 		DLS_holder_min = DLS_bin_aves{ibins}(1500:end);
-		DLS_holder_min = smooth(DLS_holder_min, smooth_kernel, 'gauss');
+		DLS_holder_min = gausssmooth(DLS_holder_min, smooth_kernel, 'gauss');
 		SNc_holder_min = SNc_bin_aves{ibins}(1500:end);
-		SNc_holder_min = smooth(SNc_holder_min, smooth_kernel, 'gauss');
+		SNc_holder_min = gausssmooth(SNc_holder_min, smooth_kernel, 'gauss');
 		
 		DLS_holder_max = DLS_bin_aves{ibins}(2000:end);
-		DLS_holder_max = smooth(DLS_holder_max, smooth_kernel, 'gauss');
+		DLS_holder_max = gausssmooth(DLS_holder_max, smooth_kernel, 'gauss');
 		SNc_holder_max = SNc_bin_aves{ibins}(2000:end);
-		SNc_holder_max = smooth(SNc_holder_max, smooth_kernel, 'gauss');
+		SNc_holder_max = gausssmooth(SNc_holder_max, smooth_kernel, 'gauss');
 
 
 		[~,DLS_minpos(ibins)] = min(DLS_holder_min);
@@ -523,7 +523,7 @@ SNc_ex_values_up_to_lick = NaN(size(SNc_vbt));
 	plot([xwin], [0,0], 'k-', 'linewidth', 1)
 	for ibins = 1:nbins
 		
-		plot((time_array(pos1:pos2)), smooth(DLS_bin_aves{ibins}(pos1:pos2), smooth_kernel, 'gauss'), 'linewidth', 1);
+		plot((time_array(pos1:pos2)), gausssmooth(DLS_bin_aves{ibins}(pos1:pos2), smooth_kernel, 'gauss'), 'linewidth', 1);
 		hold on;
 		% names{ibins+2} = ['Bin # ', num2str(ibins)];
 	end
@@ -541,7 +541,7 @@ SNc_ex_values_up_to_lick = NaN(size(SNc_vbt));
 	hold on
 	plot([xwin], [0,0], 'k-', 'linewidth', 1)
 	for ibins = 1:nbins
-		plot(time_array(pos1:pos2), smooth(SNc_bin_aves{ibins}(pos1:pos2), smooth_kernel, 'gauss'), 'linewidth', 1);
+		plot(time_array(pos1:pos2), gausssmooth(SNc_bin_aves{ibins}(pos1:pos2), smooth_kernel, 'gauss'), 'linewidth', 1);
 		hold on;
 		% names{ibins+2} = ['Bin # ', num2str(ibins)];
 	end
