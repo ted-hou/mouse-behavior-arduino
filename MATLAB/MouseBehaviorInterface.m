@@ -1,11 +1,4 @@
 %% MouseBehaviorInterface: construct graphical user interface to interact with arduino
-% 
-%   Last Modified: ahamilos 11-2-17 
-% 
-% Update log:
-%   11-2-17: updated histogram tab to allow UI of numBins (AH)
-% 
-% 
 
 classdef MouseBehaviorInterface < handle
 	properties
@@ -450,38 +443,33 @@ classdef MouseBehaviorInterface < handle
 				'HorizontalAlignment', 'left'...
 			);
 			dlg.UserData.Ctrl.Text_FigureName_Hist = text_figureName_hist;
-            
+			
 			if isempty(obj.Arduino.SerialConnection)
 				figName = 'Histogram';
 			else
 				figName = sprintf('Histogram (%s)', obj.Arduino.SerialConnection.Port);
-            end
-            edit_figureName_hist = uicontrol(...
+			end
+			edit_figureName_hist = uicontrol(...
 				'Parent', tab_hist,...
 				'Style', 'edit',...
 				'String', figName,...
 				'HorizontalAlignment', 'left'...
 			);
 			dlg.UserData.Ctrl.Edit_FigureName_Hist = edit_figureName_hist;
-            %----------AH 11-2-17
-            text_numBins_hist = uicontrol(...
+			text_numBins_hist = uicontrol(...
 				'Parent', tab_hist,...
 				'Style', 'text',...
 				'String', 'Number of Bins',...
 				'HorizontalAlignment', 'left'...
 			);
 			dlg.UserData.Ctrl.Text_NumBins_Hist = text_numBins_hist;
-            numBins = 10;
 			edit_numBins_hist = uicontrol(...
 				'Parent', tab_hist,...
 				'Style', 'edit',...
-				'String', numBins,...
+				'String', num2str(10),...
 				'HorizontalAlignment', 'left'...
 			);
 			dlg.UserData.Ctrl.Edit_NumBins_Hist = edit_numBins_hist;
-            %------------------------------------------------
-            
-
 
 			button_plot_hist = uicontrol(...
 				'Parent', tab_hist,...
@@ -941,24 +929,18 @@ classdef MouseBehaviorInterface < handle
 			eventCodeZero 		= ctrl.Popup_EventZero_Hist.Value;
 			eventCodeOfInterest = ctrl.Popup_EventOfInterest_Hist.Value;
 			figName 			= ctrl.Edit_FigureName_Hist.String;
-               %--------AH 11-2-17
-            numBins             = ctrl.Edit_NumBins_Hist.String;
+			numBins             = str2num(ctrl.Edit_NumBins_Hist.String);
 
 			obj.Hist(eventCodeTrialStart, eventCodeZero, eventCodeOfInterest, figName, numBins)
-                %-----------------
-        end
-        %----------AH 11-2-17
+		end
 		function Hist(obj, eventCodeTrialStart, eventCodeZero, eventCodeOfInterest, figName, numBins)
-            %---------------
 			% First column in data is eventCode, second column is timestamp (since trial start)
 			if nargin < 5
 				figName = '';
-            end
-            %------------AH 11-2-17
+			end
 			if nargin < 6
 				numBins = 10;
-            end
-            %-----------------------
+			end
 			% Create axes object
 			f = figure('Name', figName, 'NumberTitle', 'off');
 
@@ -978,9 +960,7 @@ classdef MouseBehaviorInterface < handle
 			ax.UserData.FigName				= figName;
 
 			% Plot it for the first time
-            %-------------AH 11/2
 			obj.Hist_Execute(figId, numBins);
-            %----------------------
 
 			% Plot again everytime an event of interest occurs
 			ax.UserData.Listener = addlistener(obj.Arduino, 'TrialsCompleted', 'PostSet', @(~, ~) obj.Hist_Execute(figId, numBins));
@@ -1044,11 +1024,7 @@ classdef MouseBehaviorInterface < handle
 			eventTimesOfInterest 	= eventTimesOfInterest - eventTimesZero;
 
 			% Plot histogram of selected event times
-            %----------- AH 11-2-17
-%             disp(numBins)
-%             disp(class(numBins))
-			histogram(ax, eventTimesOfInterest, str2double(numBins), 'DisplayName', obj.Arduino.EventMarkerNames{eventCodeOfInterest})
-            %----------------
+			histogram(ax, eventTimesOfInterest, numBins, 'DisplayName', obj.Arduino.EventMarkerNames{eventCodeOfInterest})
 			lgd = legend(ax, 'Location', 'northoutside');
 			lgd.Interpreter = 'none';
 			lgd.Orientation = 'horizontal';
@@ -1306,10 +1282,8 @@ classdef MouseBehaviorInterface < handle
 			text_eventOfInterest_hist = dlg.UserData.Ctrl.Text_EventOfInterest_Hist;
 			popup_eventOfInterest_hist = dlg.UserData.Ctrl.Popup_EventOfInterest_Hist;
 			text_figureName_hist = dlg.UserData.Ctrl.Text_FigureName_Hist;
-            %-----AH 11-2-17
-            text_numBins_hist = dlg.UserData.Ctrl.Text_NumBins_Hist;
-            edit_numBins_hist = dlg.UserData.Ctrl.Edit_NumBins_Hist;
-            %-----------------------------------
+			text_numBins_hist = dlg.UserData.Ctrl.Text_NumBins_Hist;
+			edit_numBins_hist = dlg.UserData.Ctrl.Edit_NumBins_Hist;
 			edit_figureName_hist = dlg.UserData.Ctrl.Edit_FigureName_Hist;
 			button_plot_hist = dlg.UserData.Ctrl.Button_Plot_Hist;
 
@@ -1407,12 +1381,11 @@ classdef MouseBehaviorInterface < handle
 			popup_eventOfInterest_hist.Position = popup_eventOfInterest_raster.Position;
 			text_figureName_hist.Position = text_figureName_raster.Position;
 			edit_figureName_hist.Position = edit_figureName_raster.Position;
-            %---------AH 11-2-17
-            text_numBins_hist.Position = text_figureName_raster.Position - [200,0,0,0];
-			edit_numBins_hist.Position = edit_figureName_raster.Position - [200, 0,0,0];
-            %---------------------------
+			text_numBins_hist.Position = text_figureName_hist.Position;
+			text_numBins_hist.Position(1) = text_figureName_hist.Position(1) - text_figureName_hist.Position(3) - u.PanelMargin;
+			edit_numBins_hist.Position = edit_figureName_raster.Position;
+			edit_numBins_hist.Position(1) = edit_figureName_raster.Position(1) - edit_figureName_raster.Position(3) - u.PanelMargin;
 			button_plot_hist.Position = button_plot_raster.Position;
-
 		end
 
 		function OnPlotOptionsTabResized(table)
