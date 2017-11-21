@@ -3,7 +3,6 @@
 classdef MouseBehaviorInterface < handle
 	properties
 		Arduino
-		Nidaq
 		UserData
 	end
 	properties (Transient)
@@ -527,96 +526,6 @@ classdef MouseBehaviorInterface < handle
 
 			% Stretch barchart When dialog window is resized
 			dlg.SizeChangedFcn = @MouseBehaviorInterface.OnMonitorDialogResized; 
-
-			% Unhide dialog now that all controls have been created
-			dlg.Visible = 'on';
-		end
-
-		function CreateDialog_Nidaq(obj)
-			% If object already exists, show window
-			if isfield(obj.Rsc, 'Nidaq')
-				if isvalid(obj.Rsc.Nidaq)
-					figure(obj.Rsc.Nidaq)
-					return
-				end
-			end
-
-			% Create the dialog
-			if isempty(obj.Arduino.SerialConnection)
-				port = 'OFFLINE';
-			else
-				port = obj.Arduino.SerialConnection.Port;
-			end
-			dlg = dialog(...
-				'Name', sprintf('NIDAQ (%s)', port),...
-				'WindowStyle', 'normal',...
-				'Position', [350, 450, 400, 200],...
-				'Units', 'pixels',...
-				'Resize', 'on',...
-				'Visible', 'off'... % Hide until all controls created
-			);
-
-			% Store the dialog handle
-			obj.Rsc.Nidaq = dlg;
-
-			% Size and position of controls
-			dlg.UserData.Spacing = 20;
-			dlg.UserData.TextHeight = 30;
-
-			u = dlg.UserData;
-
-			% delete object when you close the window
-			dlg.CloseRequestFcn = @(~, ~) (delete(gcbo));
-
-
-			%----------------------------------------------------
-			% 		Stacked bar chart for trial results
-			%----------------------------------------------------
-			ax = axes(...
-				'Parent', dlg,...
-				'Units', 'pixels',...
-				'XTickLabel', [],...
-				'YTickLabel', [],...
-				'XTick', [],...
-				'YTick', [],...
-				'Box', 'on'...
-			);
-			obj.Rsc.Monitor.UserData.Ctrl.Ax = ax;
-
-			% Update session summary everytime a new trial's results are registered by Arduino
-			obj.Arduino.Listeners.TrialRegistered = addlistener(obj.Arduino, 'TrialsCompleted', 'PostSet', @obj.OnTrialRegistered);
-
-
-			%----------------------------------------------------
-			% 		Menus
-			%----------------------------------------------------
-			menu_file = uimenu(dlg, 'Label', '&File');
-			uimenu(menu_file, 'Label', '&Save Plot Settings ...', 'Callback', @(~, ~) obj.SavePlotSettings, 'Accelerator', 's');
-			uimenu(menu_file, 'Label', '&Load Plot Settings ...', 'Callback', @(~, ~) obj.LoadPlotSettings, 'Accelerator', 'l');
-			menu_plot = uimenu(menu_file, 'Label', '&Plot Update', 'Separator', 'on');
-			menu_plot.UserData.Menu_Enable = uimenu(menu_plot, 'Label', '&Enabled', 'Callback', @(~, ~) obj.EnablePlotUpdate(menu_plot));
-			menu_plot.UserData.Menu_Disable = uimenu(menu_plot, 'Label', '&Disabled', 'Callback', @(~, ~) obj.DisablePlotUpdate(menu_plot));
-
-			if isfield(obj.UserData, 'UpdatePlot')
-				if obj.UserData.UpdatePlot
-					menu_plot.UserData.Menu_Enable.Checked = 'on';
-					menu_plot.UserData.Menu_Disable.Checked = 'off';
-				else
-					menu_plot.UserData.Menu_Enable.Checked = 'off';
-					menu_plot.UserData.Menu_Disable.Checked = 'on';
-				end
-			else
-				menu_plot.UserData.Menu_Enable.Checked = 'on';
-				menu_plot.UserData.Menu_Disable.Checked = 'off';
-				obj.UserData.UpdatePlot = true;
-			end
-
-			menu_window = uimenu(dlg, 'Label', '&Window');
-			uimenu(menu_window, 'Label', 'Experiment Control', 'Callback', @(~, ~) @obj.CreateDialog_ExperimentControl);
-			uimenu(menu_window, 'Label', 'Monitor', 'Callback', @(~, ~) obj.CreateDialog_Monitor);
-
-			% Stretch barchart When dialog window is resized
-			% dlg.SizeChangedFcn = @MouseBehaviorInterface.OnNiDaqDialogResized; 
 
 			% Unhide dialog now that all controls have been created
 			dlg.Visible = 'on';
@@ -1238,18 +1147,6 @@ classdef MouseBehaviorInterface < handle
 		function ArduinoLoadExperiment(~, ~, arduino)
 			arduino.LoadExperiment()
 		end
-
-		%----------------------------------------------------
-		%		Commmunicating with DAQ
-		%----------------------------------------------------
-		function NidaqStart(~, ~, nidaq)
-			nidaq.Start()
-		end
-
-		function NidaqStop(~, ~, nidaq)
-			nidaq.Stop()
-		end
-
 
 		%----------------------------------------------------
 		%		Dialog Resize callbacks
