@@ -1,2 +1,0 @@
-function [DLS_values_up_to_lick, SNc_values_up_to_lick] = extract_values_up_to_lick_fx(all_first_licks, times_by_trial, DLS_values_by_trial, SNc_values_by_trial)
-
