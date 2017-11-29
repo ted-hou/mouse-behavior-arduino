@@ -273,9 +273,9 @@ total_trial_duration_in_sec = trial_duration_/1000;
 		figure_counter = figure_counter+1;
 		print(figure_counter,'-depsc','-painters', ['SNc_CTA_ALLOP_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
 		saveas(figure_counter,['SNc_CTA_ALLOP_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
-		figure_counter = figure_counter+1;
-		print(figure_counter,'-depsc','-painters', ['SNc_CTA_ALLOP_points_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
-		saveas(figure_counter,['SNc_CTA_ALLOP_points_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
+% 		figure_counter = figure_counter+1;
+% 		print(figure_counter,'-depsc','-painters', ['SNc_CTA_ALLOP_points_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
+% 		saveas(figure_counter,['SNc_CTA_ALLOP_points_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
 		figure_counter = figure_counter+1;
 		print(figure_counter,'-depsc','-painters', ['SNc_LTA_ALLOP_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
 		saveas(figure_counter,['SNc_LTA_ALLOP_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
@@ -293,9 +293,9 @@ total_trial_duration_in_sec = trial_duration_/1000;
 		figure_counter = figure_counter+1;
 		print(figure_counter,'-depsc','-painters', ['DLS_CTA_ALLOP_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
 		saveas(figure_counter,['DLS_CTA_ALLOP_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
-		figure_counter = figure_counter+1;
-		print(figure_counter,'-depsc','-painters', ['DLS_CTA_ALLOP_points_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
-		saveas(figure_counter,['DLS_CTA_ALLOP_points_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
+% 		figure_counter = figure_counter+1;
+% 		print(figure_counter,'-depsc','-painters', ['DLS_CTA_ALLOP_points_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
+% 		saveas(figure_counter,['DLS_CTA_ALLOP_points_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
 		figure_counter = figure_counter+1;
 		print(figure_counter,'-depsc','-painters', ['DLS_LTA_ALLOP_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
 		saveas(figure_counter,['DLS_LTA_ALLOP_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
@@ -313,9 +313,9 @@ total_trial_duration_in_sec = trial_duration_/1000;
 		figure_counter = figure_counter+1;
 		print(figure_counter,'-depsc','-painters', ['VTA_CTA_ALLOP_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
 		saveas(figure_counter,['VTA_CTA_ALLOP_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
-		figure_counter = figure_counter+1;
-		print(figure_counter,'-depsc','-painters', ['VTA_CTA_ALLOP_points_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
-		saveas(figure_counter,['VTA_CTA_ALLOP_points_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
+% 		figure_counter = figure_counter+1;
+% 		print(figure_counter,'-depsc','-painters', ['VTA_CTA_ALLOP_points_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
+% 		saveas(figure_counter,['VTA_CTA_ALLOP_points_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
 		figure_counter = figure_counter+1;
 		print(figure_counter,'-depsc','-painters', ['VTA_LTA_ALLOP_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
 		saveas(figure_counter,['VTA_LTA_ALLOP_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
@@ -335,9 +335,9 @@ total_trial_duration_in_sec = trial_duration_/1000;
 		figure_counter = figure_counter+1;
 		print(figure_counter,'-depsc','-painters', ['SNcred_CTA_ALLOP_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
 		saveas(figure_counter,['SNcred_CTA_ALLOP_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
-		figure_counter = figure_counter+1;
-		print(figure_counter,'-depsc','-painters', ['SNcred_CTA_ALLOP_points_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
-		saveas(figure_counter,['SNcred_CTA_ALLOP_points_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
+% 		figure_counter = figure_counter+1;
+% 		print(figure_counter,'-depsc','-painters', ['SNcred_CTA_ALLOP_points_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
+% 		saveas(figure_counter,['SNcred_CTA_ALLOP_points_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
 		figure_counter = figure_counter+1;
 		print(figure_counter,'-depsc','-painters', ['SNcred_LTA_ALLOP_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
 		saveas(figure_counter,['SNcred_LTA_ALLOP_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
@@ -356,9 +356,9 @@ total_trial_duration_in_sec = trial_duration_/1000;
 		figure_counter = figure_counter+1;
 		print(figure_counter,'-depsc','-painters', ['CTA_ALLOP_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
 		saveas(figure_counter,['CTA_ALLOP_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
-		figure_counter = figure_counter+1;
-		print(figure_counter,'-depsc','-painters', ['CTA_ALLOP_points_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
-		saveas(figure_counter,['CTA_ALLOP_points_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
+% 		figure_counter = figure_counter+1;
+% 		print(figure_counter,'-depsc','-painters', ['CTA_ALLOP_points_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
+% 		saveas(figure_counter,['CTA_ALLOP_points_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
 		figure_counter = figure_counter+1;
 		print(figure_counter,'-depsc','-painters', ['LTA_ALLOP_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
 		saveas(figure_counter,['LTA_ALLOP_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
@@ -376,9 +376,9 @@ total_trial_duration_in_sec = trial_duration_/1000;
 		figure_counter = figure_counter+1;
 		print(figure_counter,'-depsc','-painters', ['CTA_ALLOP_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
 		saveas(figure_counter,['CTA_ALLOP_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
-		figure_counter = figure_counter+1;
-		print(figure_counter,'-depsc','-painters', ['CTA_ALLOP_points_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
-		saveas(figure_counter,['CTA_ALLOP_points_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
+% 		figure_counter = figure_counter+1;
+% 		print(figure_counter,'-depsc','-painters', ['CTA_ALLOP_points_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
+% 		saveas(figure_counter,['CTA_ALLOP_points_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
 		figure_counter = figure_counter+1;
 		print(figure_counter,'-depsc','-painters', ['LTA_ALLOP_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
 		saveas(figure_counter,['LTA_ALLOP_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
@@ -397,9 +397,9 @@ total_trial_duration_in_sec = trial_duration_/1000;
 		figure_counter = figure_counter+1;
 		print(figure_counter,'-depsc','-painters', ['CTA_ALLOP_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
 		saveas(figure_counter,['CTA_ALLOP_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
-		figure_counter = figure_counter+1;
-		print(figure_counter,'-depsc','-painters', ['CTA_ALLOP_points_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
-		saveas(figure_counter,['CTA_ALLOP_points_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
+% 		figure_counter = figure_counter+1;
+% 		print(figure_counter,'-depsc','-painters', ['CTA_ALLOP_points_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
+% 		saveas(figure_counter,['CTA_ALLOP_points_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
 		figure_counter = figure_counter+1;
 		print(figure_counter,'-depsc','-painters', ['LTA_ALLOP_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
 		saveas(figure_counter,['LTA_ALLOP_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
@@ -417,9 +417,9 @@ total_trial_duration_in_sec = trial_duration_/1000;
 		figure_counter = figure_counter+1;
 		print(figure_counter,'-depsc','-painters', ['CTA_ALLOP_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
 		saveas(figure_counter,['CTA_ALLOP_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
-		figure_counter = figure_counter+1;
-		print(figure_counter,'-depsc','-painters', ['CTA_ALLOP_points_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
-		saveas(figure_counter,['CTA_ALLOP_points_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
+% 		figure_counter = figure_counter+1;
+% 		print(figure_counter,'-depsc','-painters', ['CTA_ALLOP_points_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
+% 		saveas(figure_counter,['CTA_ALLOP_points_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
 		figure_counter = figure_counter+1;
 		print(figure_counter,'-depsc','-painters', ['LTA_ALLOP_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
 		saveas(figure_counter,['LTA_ALLOP_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
@@ -437,9 +437,9 @@ total_trial_duration_in_sec = trial_duration_/1000;
 		figure_counter = figure_counter+1;
 		print(figure_counter,'-depsc','-painters', ['CTA_ALLOP_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
 		saveas(figure_counter,['CTA_ALLOP_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
-		figure_counter = figure_counter+1;
-		print(figure_counter,'-depsc','-painters', ['CTA_ALLOP_points_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
-		saveas(figure_counter,['CTA_ALLOP_points_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
+% 		figure_counter = figure_counter+1;
+% 		print(figure_counter,'-depsc','-painters', ['CTA_ALLOP_points_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
+% 		saveas(figure_counter,['CTA_ALLOP_points_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
 		figure_counter = figure_counter+1;
 		print(figure_counter,'-depsc','-painters', ['LTA_ALLOP_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
 		saveas(figure_counter,['LTA_ALLOP_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
@@ -457,9 +457,9 @@ total_trial_duration_in_sec = trial_duration_/1000;
 		figure_counter = figure_counter+1;
 		print(figure_counter,'-depsc','-painters', ['CTA_ALLOP_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
 		saveas(figure_counter,['CTA_ALLOP_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
-		figure_counter = figure_counter+1;
-		print(figure_counter,'-depsc','-painters', ['CTA_ALLOP_points_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
-		saveas(figure_counter,['CTA_ALLOP_points_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
+% 		figure_counter = figure_counter+1;
+% 		print(figure_counter,'-depsc','-painters', ['CTA_ALLOP_points_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
+% 		saveas(figure_counter,['CTA_ALLOP_points_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
 		figure_counter = figure_counter+1;
 		print(figure_counter,'-depsc','-painters', ['LTA_ALLOP_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.eps'])
 		saveas(figure_counter,['LTA_ALLOP_5bin_ex', exclusion_criteria_version_, '_header', headernum_, '__', todaysdate, '_', mousename_ '.fig'],'fig')
@@ -524,10 +524,10 @@ total_trial_duration_in_sec = trial_duration_/1000;
 % 	disp('Saving figures complete.')
 
 %% Plot Hxgrams (note not saved!)-----------------------------------------------------------
-	disp('Plotting Hxgrams')
-	hxgram_single_roadmapv1
-	disp('Plotting complete.')
-
+% 	disp('Plotting Hxgrams')
+% 	hxgram_single_roadmapv1
+% 	disp('Plotting complete.')
+% 
 
 %% Generate all variables for the header: -- using new structure strategy
 	disp('Generating variables...')

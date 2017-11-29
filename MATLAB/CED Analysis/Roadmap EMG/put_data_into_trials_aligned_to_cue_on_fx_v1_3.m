@@ -103,12 +103,20 @@ for i_trial = rev_order_trials
 			if lasttrialdone == false
 				lasttrialdone = true;
                 analog_position = analog_position - 1;
-			else
-				newtrial = true;
-				analog_pre_cue_times_by_trial(i_trial, rev_order_time_markers(precue_position)) = rev_order_analog_times(analog_position);
-				analog_pre_cue_values_by_trial(i_trial, rev_order_time_markers(precue_position)) = rev_order_analog_values(analog_position);
-				analog_position = analog_position - 1;
-				break
+            else
+                try
+                    newtrial = true;
+                    analog_pre_cue_times_by_trial(i_trial, rev_order_time_markers(precue_position)) = rev_order_analog_times(analog_position);
+                    analog_pre_cue_values_by_trial(i_trial, rev_order_time_markers(precue_position)) = rev_order_analog_values(analog_position);
+                    analog_position = analog_position - 1;
+                    break
+                catch
+                    disp('caught error in put_data_into_trials_aligned... @ line 114')
+                    disp(i_trial)
+                    disp(rev_order_time_markers(precue_position))
+                    disp(analog_position)
+                    analog_position = analog_position - 1;
+                end
 			end
 		elseif find(trimmed_analog_cue_on_positions == analog_position)
 			pastcue = false;
@@ -119,10 +127,20 @@ for i_trial = rev_order_trials
 		if dontupdate
             dontupdate = false;
         elseif ~pastcue && ~newtrial
-			analog_pre_cue_times_by_trial(i_trial, rev_order_time_markers(precue_position)) = rev_order_analog_times(analog_position);
-			analog_pre_cue_values_by_trial(i_trial, rev_order_time_markers(precue_position)) = rev_order_analog_values(analog_position);
-			analog_position = analog_position - 1;
-			precue_position = precue_position+1;
+            try
+                analog_pre_cue_times_by_trial(i_trial, rev_order_time_markers(precue_position)) = rev_order_analog_times(analog_position);
+                analog_pre_cue_values_by_trial(i_trial, rev_order_time_markers(precue_position)) = rev_order_analog_values(analog_position);
+                analog_position = analog_position - 1;
+                precue_position = precue_position+1;
+            catch
+                disp('caught error in put_data_into_trials_aligned... @ line 128')
+                disp(i_trial)
+                disp(rev_order_time_markers(precue_position))
+                disp(analog_position)
+                analog_position = analog_position - 1;
+                precue_position = precue_position+1;
+            end
+                
         else
 			analog_position = analog_position - 1;
 		end
@@ -167,10 +185,19 @@ for i_trial = 0:(length(trial_start_times)-1)
 %         end
         
         if pastcue && ~dontupdate
-			analog_post_cue_times_by_trial(i_trial, positions_array(postcue_position)) = analog_times_trimmed(analog_position);
-			analog_post_cue_values_by_trial(i_trial, positions_array(postcue_position)) = analog_values_trimmed(analog_position);
-			analog_position = analog_position + 1;
-			postcue_position = postcue_position+1;
+            try    
+                analog_post_cue_times_by_trial(i_trial, positions_array(postcue_position)) = analog_times_trimmed(analog_position);
+                analog_post_cue_values_by_trial(i_trial, positions_array(postcue_position)) = analog_values_trimmed(analog_position);
+                analog_position = analog_position + 1;
+                postcue_position = postcue_position+1;
+            catch
+                disp('caught error in put_data_into_trials_aligned... @ line 186')
+                disp(i_trial)
+                disp(positions_array(postcue_position))
+                disp(analog_position)
+                analog_position = analog_position + 1;
+                postcue_position = postcue_position+1;
+            end
         elseif dontupdate
         % do nothing
             dontupdate = false;

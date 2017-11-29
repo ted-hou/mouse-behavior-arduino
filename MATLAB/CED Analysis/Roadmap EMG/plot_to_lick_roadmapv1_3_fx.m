@@ -290,21 +290,21 @@ signal_ex_values_up_to_lick = NaN(size(signal_vbt));
 	signal_maxpos = signal_maxpos + 2000;
 
 
-	figure,
-	ax = subplot(1,1,1);
-	axisarray(end+1) = ax;
-	plot([cue_on_time, cue_on_time], [-1,1], 'r-', 'linewidth', 1)
-	hold on
-	plot([cue_on_time+target_time, cue_on_time+target_time], [-1,1], 'r-', 'linewidth', 1)
-	for ibins = 1:nbins
-        plot([signal_minpos(ibins), signal_maxpos(ibins)], [signal_min_ave(ibins), signal_max_ave(ibins)], '.-', 'markersize', 30);
-	end
-	legend(names);
-	ylim([-1,1])
-	xlim([0,cue_on_time + total_time])
-	title(['CTA All Operants - ', signalname ' binned peak/trough averages']);
-	xlabel('time (ms)')
-	ylabel('signal')
+	% figure,
+	% ax = subplot(1,1,1);
+	% axisarray(end+1) = ax;
+	% plot([cue_on_time, cue_on_time], [-1,1], 'r-', 'linewidth', 1)
+	% hold on
+	% plot([cue_on_time+target_time, cue_on_time+target_time], [-1,1], 'r-', 'linewidth', 1)
+	% for ibins = 1:nbins
+ %        plot([signal_minpos(ibins), signal_maxpos(ibins)], [signal_min_ave(ibins), signal_max_ave(ibins)], '.-', 'markersize', 30);
+	% end
+	% legend(names);
+	% ylim([-1,1])
+	% xlim([0,cue_on_time + total_time])
+	% title(['CTA All Operants - ', signalname ' binned peak/trough averages']);
+	% xlabel('time (ms)')
+	% ylabel('signal')
 
 
 
