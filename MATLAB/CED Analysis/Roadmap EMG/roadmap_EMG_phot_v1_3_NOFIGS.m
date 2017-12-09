@@ -1,10 +1,10 @@
-%% Run Analysis Roadmap-------------------------------------------------------------------
+%% Run Analysis Roadmap-No Figures-------------------------------------------------------------------
 % 
 % 	Created 	8-01-17 ahamilos (roadmap v1)
 % 	Modified 	12-5-17 ahamilos
 % 
 % UPDATE LOG:
-% 		- 12-5-17: Updated to take more scripts for chunks so that file is consistent across versions (e.g., no lick)
+% 		- 12-5-17: Suppress output of all but most essential summary figures (plot to lick LTAs)
 % 		- 12-4-17: Fixed saving for red and VTA data - was not saved before. Also added Z-scoring and saving this as a separate data-file
 %       - 11-29-17: Allowed variable sampling rate input
 % 		- 10-28-17: Fixed LTA and CTA for generic inputs of any sampling rate, including updates to dependent fxs.
@@ -27,7 +27,7 @@
 % 		6. CTA and plots saved
 % 		7. LTA and plots saved
 % 		8. save ALL VARS
-%% ------------------------------------------------------------------------------------------- (section validated 10/26/17)
+%% ------------------------------------------------------------------------------------------- (section validated 12/5/17)
 
 
 
@@ -43,12 +43,11 @@
     extract_trials_gfit_roadmapv1_3
 	disp('Extracting trials complete')
 
+
 %% Save gfit immediately to header:---------------------------------------------------------- (?)
 	disp('Saving gfits immediately to header...')
 	handler_save_gfits_to_header
 	disp('gFits saved')
-	
-
 
 
 %% Extract lick_times_by_trial:-------------------------------------------------------------- (section validated 12/5/17)
@@ -93,7 +92,6 @@
 
 
 
-
 %% First lick grabber with exclusions------------------------------------------------------- (section validated ???)
 	disp('Grabbing first licks without excluded trials...')
 	first_lick_handler_exclusions_roadmap1_3
@@ -117,18 +115,18 @@
 
 
 
-%% Plot CTA and save figures---------------------------------------------------------------
-	disp('Plotting CTA and saving figures...')
-	roadmap_EMG_plotCTAsection_v1_3  % Just put into a script to make roadmapv1_3 more compact (10/30/17)
-	disp('Plotting CTA and saving figures complete.')
+%% SKIPPED: Plot CTA and save figures---------------------------------------------------------------
+	% disp('Plotting CTA and saving figures...')
+	% roadmap_EMG_plotCTAsection_v1_3  % Just put into a script to make roadmapv1_3 more compact (10/30/17)
+	% disp('Plotting CTA and saving figures complete.')
 
 
 
 
 %% Plot LTA and save figures---------------------------------------------------------------
-	disp('Plotting LTA and saving figures...')
-	roadmap_EMG_plotLTAsection_v1_3  % Just put into a script to make roadmapv1_3 more compact (10/30/17)
-	disp('Plotting LTA and saving figures complete.')
+	% disp('Plotting LTA and saving figures...')
+	NOFIGS_roadmap_EMG_plotLTAsection_v1_3  % Just put into a script to make roadmapv1_3 more compact (12/5/17)
+	% disp('Plotting LTA and saving figures complete.')
 
 
 %% Z score Lick-Aligned Data---------------------------------------------------------------- (section validated ???)
@@ -137,15 +135,18 @@
 	disp('Z-scoring Lick Aligned Data Complete');
 
 
+
 %% Now generate plots up until first lick:--------------------------------------------------- (section validated ???)
 	disp('Plotting CTA and LTA up to first lick and saving figures')
 	plot_to_first_lick_handler_roadmapv1_3
 	disp('Plotting and saving complete')
 
+
 %% Z score up-to-lick data (global variance and STD over the session):----------------------- (section validated ???)
 	disp('Z-scoring Lick-Aligned Data');
 	Z_score_data_up_to_lick_handler_roadmapv1_3
 	disp('Z-scoring Lick Aligned Data Complete');
+
 
 
 %% Split up rxn+ and rxn- trials for CTA/LTA-------------------------------------------------
@@ -208,6 +209,7 @@
 	disp('Generating variables...')
 	generate_variable_names_roadmap1_3
 	disp('Generating variables complete.')
+
 
 
 

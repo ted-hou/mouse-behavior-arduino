@@ -6,11 +6,14 @@
 	State System Architecture             - Lingfeng Hou (lingfenghou@g.harvard.edu)
 
 	Created       9/16/16 - ahamilos
-	Last Modified 11/28/17 - ahamilos
+	Last Modified 12/5/17 - ahamilos
 	
 	(prior version: Pav-Op-FIBER)
-	New to THIS version: 
-	--> Changed trigger to be a falling edge for IR LED
+	New to THIS version:
+	--> Added a IR houselamp on pin 0 
+	--> Added a falling edge for IR LED
+  --> Added a 3.3V src to power the camera I/O
+ (note had previously used Pav-Op-FIBER_emg on Rig 1/2 for emg/acc)
 
   --> Add trigger for Arduino to match Matlab and Arduino timestamps
   New to prior version: Make quinine or enforced no lick more flexible - 
@@ -161,8 +164,11 @@ Arduino Pin Outs (Mode: TEENSY)
 #define PIN_HOUSE_LAMP     6   // House Lamp Pin         (DUE = 34)  (MEGA = 34)  (UNO = 5?)  (TEENSY = 6?)
 #define PIN_LED_CUE        4   // Cue LED Pin            (DUE = 35)  (MEGA = 28)  (UNO =  4)  (TEENSY = 4)
 #define PIN_REWARD         7   // Reward Pin             (DUE = 37)  (MEGA = 52)  (UNO =  7)  (TEENSY = 7)
-#define PIN_SHOCK          9   // Shock Pin                          (MEGA = 22)              (TEENSY = 9)
+#define PIN_SHOCK          1   // Shock Pin                          (MEGA = 22)              (TEENSY = 9)
 #define PIN_TRIGGER        3   // Clock Trigger Pin                                           (TEENSY = 3)  ** Links CED time to Arduino/Matlab time
+#define PIN_IR_LED_TRIGGER 9   // IR LED Trigger Pin
+#define PIN_3_3            11  // 3.3V src
+#define PIN_IR_HOUSE	   0   // IR Houselamp for camera
 
 // PWM OUT
 #define PIN_SPEAKER        5   // Speaker Pin            (DUE =  2)  (MEGA =  8)  (UNO =  9)  (TEENSY = 5)
@@ -380,7 +386,7 @@ long _params[_NUM_PARAMS] =
 	400,                            // RANDOM_DELAY_MIN
 	1500,                           // RANDOM_DELAY_MAX
 	100,                            // CUE_DURATION
-	35,                             // REWARD_DURATION
+	100,                             // REWARD_DURATION
 	0,                              // QUININE_DURATION
 	400,                            // QUININE_TIMEOUT
 	0,                              // QUININE_MIN
@@ -441,7 +447,10 @@ void setup()
 	pinMode(PIN_REWARD, OUTPUT);                // Reward OUT
 	pinMode(PIN_QUININE, OUTPUT);               // Quinine OUT
 	pinMode(PIN_SHOCK, OUTPUT);                 // Shock OUT
-  pinMode(PIN_TRIGGER, OUTPUT);               // Trigger OUT
+ 	pinMode(PIN_TRIGGER, OUTPUT);               // Trigger OUT
+  	pinMode(PIN_IR_LED_TRIGGER, OUTPUT);        // IR LED Trigger
+  	pinMode(PIN_3_3, OUTPUT);                   // A 3.3V src
+  	pinMode(PIN_IR_HOUSE, OUTPUT);				// An IR Houselamp - always on
 	// INPUTS
 	pinMode(PIN_LICK, INPUT);                   // Lick detector
 	//--------------------------------------------------------//
@@ -546,6 +555,8 @@ void mySetup()
 	setHouseLamp(true);                          // House Lamp ON
 	setCueLED(false);                            // Cue LED OFF
 	setTriggerLED(true);						 // Trigger LED begins in ON config - camera detects falling edge
+  	digitalWrite(PIN_3_3, HIGH);				 // IR Trigger Reset
+  	digitalWrite(PIN_IR_HOUSE, HIGH);			 // Houselamp Always On
 
 	//---------------------------Reset a bunch of variables---------------------------//
 	_eventMarkerTimer       	= 0;
@@ -613,7 +624,7 @@ void idle_state() {
 		noTone(PIN_QUININE);                              // Kill quinine
 		setShockTrigger(false);                           // Kill shock ckt
 		setReward(false);                                 // Kill reward
-		setTriggerLED(false);							  // Reset Trigger IR LED
+		setTriggerLED(true);							  // Reset Trigger IR LED
 		// Reset state variables
 		_pre_window_elapsed = false;                  // Reset pre_window time tracker
 		_reached_target = false;                      // Reset target time tracker
@@ -636,7 +647,7 @@ void idle_state() {
 	if (_command == 'G') {                           // If Received GO signal from HOST ---transition to---> READY
     // Send Trigger Signal to the CED/NiDAQ:
 		// Note, in new version this turns IR LED to OFF state
-    	setTriggerLED(false)
+    	setTriggerLED(false);
     	// playSound(TONE_TRIGGER);                                                                                                                         ////////////////////////////////////////////////////////////////////////////////trigger///////////////////////////
 		_state = INIT_TRIAL;                              // State set to INIT_TRIAL
 		return;                                           // Exit function
@@ -1769,10 +1780,10 @@ void setCueLED(bool turnOn) {
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
 void setTriggerLED(bool turnOn) {
 	if (turnOn) {
-		digitalWrite(PIN_TRIGGER, HIGH);
+		digitalWrite(PIN_IR_LED_TRIGGER, HIGH);
 	}
 	else {
-		digitalWrite(PIN_TRIGGER, LOW);
+		digitalWrite(PIN_IR_LED_TRIGGER, LOW);
 	}
 } // end Set Trigger LED---------------------------------------------------------------------------------------------------------------------
 
