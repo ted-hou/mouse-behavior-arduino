@@ -43,7 +43,7 @@
 		eval([SNc_datastruct_name '.lick_triggered_trials_struct.SNc_lick_triggered_trials = lick_triggered_trials_struct.SNc_lick_triggered_trials;']);
 		eval([SNc_datastruct_name '.SNc_exZ = SNc_exZ;']);											% NOTE: this is backfilled and trimmed
 		eval([SNc_datastruct_name '.SNc_exZ_tolick = SNc_exZ_tolick;']);							% NOTE: this is backfilled and trimmed
-		eval([SNc_datastruct_name '.Z_scored_lick_triggered_structure.SNc_lick_triggered_trials = Z_scored_lick_triggered_structure.SNc_lick_triggered_trials;']);
+		eval([SNc_datastruct_name '.Z_scored_lick_triggered_structure.Z_scored_SNc_lick_triggered_trials = Z_scored_lick_triggered_structure.Z_scored_SNc_lick_triggered_trials;']);
 
 		% Common Data:
 		eval([SNc_datastruct_name '.lick_times_by_trial = lick_times_by_trial;']);
@@ -93,7 +93,7 @@
 		eval([DLS_datastruct_name '.lick_triggered_trials_struct.DLS_lick_triggered_trials = lick_triggered_trials_struct.DLS_lick_triggered_trials;']);
 		eval([DLS_datastruct_name '.DLS_exZ = DLS_exZ;']);											% NOTE: this is backfilled and trimmed
 		eval([DLS_datastruct_name '.DLS_exZ_tolick = DLS_exZ_tolick;']);							% NOTE: this is backfilled and trimmed
-		eval([DLS_datastruct_name '.Z_scored_lick_triggered_structure.DLS_lick_triggered_trials = Z_scored_lick_triggered_structure.DLS_lick_triggered_trials;']);
+		eval([DLS_datastruct_name '.Z_scored_lick_triggered_structure.Z_scored_DLS_lick_triggered_trials = Z_scored_lick_triggered_structure.Z_scored_DLS_lick_triggered_trials;']);
 
 		% Common Data:
 		eval([DLS_datastruct_name '.lick_times_by_trial = lick_times_by_trial;']);
@@ -144,7 +144,7 @@
 		eval([VTA_datastruct_name '.lick_triggered_trials_struct.VTA_lick_triggered_trials = lick_triggered_trials_struct.VTA_lick_triggered_trials;']);
 		eval([VTA_datastruct_name '.VTA_exZ = VTA_exZ;']);											% NOTE: this is backfilled and trimmed
 		eval([VTA_datastruct_name '.VTA_exZ_tolick = VTA_exZ_tolick;']);							% NOTE: this is backfilled and trimmed
-		eval([VTA_datastruct_name '.Z_scored_lick_triggered_structure.VTA_lick_triggered_trials = Z_scored_lick_triggered_structure.VTA_lick_triggered_trials;']);
+		eval([VTA_datastruct_name '.Z_scored_lick_triggered_structure.Z_scored_VTA_lick_triggered_trials = Z_scored_lick_triggered_structure.Z_scored_VTA_lick_triggered_trials;']);
 
 		% Common Data:
 		eval([VTA_datastruct_name '.lick_times_by_trial = lick_times_by_trial;']);
@@ -195,7 +195,7 @@
 		eval([SNcred_datastruct_name '.lick_triggered_trials_struct.SNcred_lick_triggered_trials = lick_triggered_trials_struct.SNcred_lick_triggered_trials;']);
 		eval([SNcred_datastruct_name '.SNcred_exZ = SNcred_exZ;']);											% NOTE: this is backfilled and trimmed
 		eval([SNcred_datastruct_name '.SNcred_exZ_tolick = SNcred_exZ_tolick;']);							% NOTE: this is backfilled and trimmed
-		eval([SNcred_datastruct_name '.Z_scored_lick_triggered_structure.SNcred_lick_triggered_trials = Z_scored_lick_triggered_structure.SNcred_lick_triggered_trials;']);
+		eval([SNcred_datastruct_name '.Z_scored_lick_triggered_structure.Z_scored_SNcred_lick_triggered_trials = Z_scored_lick_triggered_structure.Z_scored_SNcred_lick_triggered_trials;']);
 
 		% Common Data:
 		eval([SNcred_datastruct_name '.lick_times_by_trial = lick_times_by_trial;']);
@@ -248,7 +248,7 @@
 		eval([DLSred_datastruct_name '.lick_triggered_trials_struct.DLSred_lick_triggered_trials = lick_triggered_trials_struct.DLSred_lick_triggered_trials;']);
 		eval([DLSred_datastruct_name '.DLSred_exZ = DLSred_exZ;']);											% NOTE: this is backfilled and trimmed
 		eval([DLSred_datastruct_name '.DLSred_exZ_tolick = DLSred_exZ_tolick;']);							% NOTE: this is backfilled and trimmed
-		eval([DLSred_datastruct_name '.Z_scored_lick_triggered_structure.DLSred_lick_triggered_trials = Z_scored_lick_triggered_structure.DLSred_lick_triggered_trials;']);
+		eval([DLSred_datastruct_name '.Z_scored_lick_triggered_structure.Z_scored_DLSred_lick_triggered_trials = Z_scored_lick_triggered_structure.Z_scored_DLSred_lick_triggered_trials;']);
 
 		% Common Data:
 		eval([DLSred_datastruct_name '.lick_times_by_trial = lick_times_by_trial;']);
@@ -299,7 +299,7 @@
 		eval([VTAred_datastruct_name '.lick_triggered_trials_struct.VTAred_lick_triggered_trials = lick_triggered_trials_struct.VTAred_lick_triggered_trials;']);
 		eval([VTAred_datastruct_name '.VTAred_exZ = VTAred_exZ;']);											% NOTE: this is backfilled and trimmed
 		eval([VTAred_datastruct_name '.VTAred_exZ_tolick = VTAred_exZ_tolick;']);							% NOTE: this is backfilled and trimmed
-		eval([VTAred_datastruct_name '.Z_scored_lick_triggered_structure.VTAred_lick_triggered_trials = Z_scored_lick_triggered_structure.VTAred_lick_triggered_trials;']);
+		eval([VTAred_datastruct_name '.Z_scored_lick_triggered_structure.Z_scored_VTAred_lick_triggered_trials = Z_scored_lick_triggered_structure.Z_scored_VTAred_lick_triggered_trials;']);
 
 		% Common Data:
 		eval([VTAred_datastruct_name '.lick_times_by_trial = lick_times_by_trial;']);
@@ -349,7 +349,7 @@
 		eval([EMG_datastruct_name '.lick_triggered_trials_struct.EMG_lick_triggered_trials = lick_triggered_trials_struct.EMG_lick_triggered_trials;']);
 		eval([EMG_datastruct_name '.EMG_exZ = EMG_exZ;']);											% NOTE: this is backfilled and trimmed
 		eval([EMG_datastruct_name '.EMG_exZ_tolick = EMG_exZ_tolick;']);							% NOTE: this is backfilled and trimmed
-		eval([EMG_datastruct_name '.Z_scored_lick_triggered_structure.EMG_lick_triggered_trials = Z_scored_lick_triggered_structure.EMG_lick_triggered_trials;']);
+		eval([EMG_datastruct_name '.Z_scored_lick_triggered_structure.Z_scored_EMG_lick_triggered_trials = Z_scored_lick_triggered_structure.Z_scored_EMG_lick_triggered_trials;']);
 
 		% Common Data:
 		eval([EMG_datastruct_name '.lick_times_by_trial = lick_times_by_trial;']);
@@ -400,7 +400,7 @@
 		eval([X_datastruct_name '.lick_triggered_trials_struct.X_lick_triggered_trials = lick_triggered_trials_struct.X_lick_triggered_trials;']);
 		eval([X_datastruct_name '.X_exZ = X_exZ;']);										% NOTE: this is backfilled and trimmed
 		eval([X_datastruct_name '.X_exZ_tolick = X_exZ_tolick;']);							% NOTE: this is backfilled and trimmed
-		eval([X_datastruct_name '.Z_scored_lick_triggered_structure.X_lick_triggered_trials = Z_scored_lick_triggered_structure.X_lick_triggered_trials;']);
+		eval([X_datastruct_name '.Z_scored_lick_triggered_structure.Z_scored_X_lick_triggered_trials = Z_scored_lick_triggered_structure.Z_scored_X_lick_triggered_trials;']);
 
 		% Common Data:
 		eval([X_datastruct_name '.lick_times_by_trial = lick_times_by_trial;']);
@@ -451,7 +451,7 @@
 		eval([Y_datastruct_name '.lick_triggered_trials_struct.Y_lick_triggered_trials = lick_triggered_trials_struct.Y_lick_triggered_trials;']);
 		eval([Y_datastruct_name '.Y_exZ = Y_exZ;']);										% NOTE: this is backfilled and trimmed
 		eval([Y_datastruct_name '.Y_exZ_tolick = Y_exZ_tolick;']);							% NOTE: this is backfilled and trimmed
-		eval([Y_datastruct_name '.Z_scored_lick_triggered_structure.Y_lick_triggered_trials = Z_scored_lick_triggered_structure.Y_lick_triggered_trials;']);
+		eval([Y_datastruct_name '.Z_scored_lick_triggered_structure.Z_scored_Y_lick_triggered_trials = Z_scored_lick_triggered_structure.Z_scored_Y_lick_triggered_trials;']);
 
 		% Common Data:
 		eval([Y_datastruct_name '.lick_times_by_trial = lick_times_by_trial;']);
@@ -501,7 +501,7 @@
 		eval([Z_datastruct_name '.lick_triggered_trials_struct.Z_lick_triggered_trials = lick_triggered_trials_struct.Z_lick_triggered_trials;']);
 		eval([Z_datastruct_name '.Z_exZ = Z_exZ;']);										% NOTE: this is backfilled and trimmed
 		eval([Z_datastruct_name '.Z_exZ_tolick = Z_exZ_tolick;']);							% NOTE: this is backfilled and trimmed
-		eval([Z_datastruct_name '.Z_scored_lick_triggered_structure.Z_lick_triggered_trials = Z_scored_lick_triggered_structure.Z_lick_triggered_trials;']);
+		eval([Z_datastruct_name '.Z_scored_lick_triggered_structure.Z_scored_Z_lick_triggered_trials = Z_scored_lick_triggered_structure.Z_scored_Z_lick_triggered_trials;']);
 
 		% Common Data:
 		eval([Z_datastruct_name '.lick_times_by_trial = lick_times_by_trial;']);
