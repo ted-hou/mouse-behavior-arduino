@@ -380,7 +380,7 @@ classdef ArduinoConnection < handle
 		function SetParam(obj, paramId, value)
 			% Update parameter value in MATLAB
 			obj.ParamValues(paramId) = value;
-            % Convert zero-based indices (Arduino) to one-based indices (MATLAB)
+			% Convert zero-based indices (Arduino) to one-based indices (MATLAB)
 			paramId = paramId - 1;
 			% Send new parameter to arduino via serial comms ("P id newValue")
 			obj.SendMessage(sprintf('P %d %d', paramId, value))
@@ -539,5 +539,5 @@ classdef ArduinoConnection < handle
 
 			port = 'COM4';
 		end
-    end
+	end
 end

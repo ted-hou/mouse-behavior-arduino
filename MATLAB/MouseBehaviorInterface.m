@@ -935,8 +935,8 @@ classdef MouseBehaviorInterface < handle
 			% Plot histogram of selected event times
 			histogram(ax, eventTimesOfInterest, numBins, 'DisplayName', obj.Arduino.EventMarkerNames{eventCodeOfInterest})
 			lgd = legend(ax, 'Location', 'northoutside');
-			lgd.Interpreter = 'none';
-			lgd.Orientation = 'horizontal';
+			lgd.Interpreter 	= 'none';
+			lgd.Orientation 	= 'horizontal';
 			ax.XLabel.String 	= 'Time (ms)';
 			ax.YLabel.String 	= 'Occurance';
 			title(ax, figName)
