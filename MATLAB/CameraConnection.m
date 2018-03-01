@@ -146,6 +146,8 @@ classdef CameraConnection < handle
 				error('The grad student needs to end current recording before he restart.')
 			end
 
+			fprintf(1, 'Loggin video to disk...\n')
+
 			start(obj.VideoInput)
 		end
 
@@ -161,6 +163,8 @@ classdef CameraConnection < handle
 			while (obj.VideoInput.DiskLoggerFrameCount ~= obj.VideoInput.FramesAcquired) 
 				pause(.1)
 			end
+
+			fprintf(1, 'Video logging ended.\n')
 		end
 
 		% Terminates connection to camera

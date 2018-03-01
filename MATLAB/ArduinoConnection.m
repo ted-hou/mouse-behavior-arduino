@@ -425,12 +425,18 @@ classdef ArduinoConnection < handle
 		% Break arduino from IDLE state and begin experiment
 		function Start(obj)
 			obj.SendMessage('G')
+			if isempty(obj.Camera)
+				obj.Camera.Start();
+			end
 		end
 
 		% Interrupt current trial and return to IDLE
 		function Stop(obj)
 			obj.SendMessage('Q')
 			obj.EventMarkersBuffer = [];
+			if isempty(obj.Camera)
+				obj.Camera.Stop();
+			end
 		end
 
 		% Trigger a soft restart on arduino
