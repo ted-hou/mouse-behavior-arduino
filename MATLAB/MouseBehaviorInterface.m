@@ -67,7 +67,7 @@ classdef MouseBehaviorInterface < handle
 			obj.Rsc.ExperimentControl = dlg;
 
 			% Close serial port when you close the window
-			dlg.CloseRequestFcn = {@MouseBehaviorInterface.ArduinoClose, obj};
+			dlg.CloseRequestFcn = @obj.ArduinoClose;
 
 			% Create a uitable for parameters
 			table_params = uitable(...
@@ -77,7 +77,7 @@ classdef MouseBehaviorInterface < handle
 				'ColumnName', {'Value'},...
 				'ColumnFormat', {'long'},...
 				'ColumnEditable', [true],...
-				'CellEditCallback', {@MouseBehaviorInterface.OnParamChangedViaGUI, obj.Arduino}...
+				'CellEditCallback', @obj.OnParamChangedViaGUI...
 			);
 			dlg.UserData.Ctrl.Table_Params = table_params;
 
@@ -101,7 +101,7 @@ classdef MouseBehaviorInterface < handle
 				'Position', ctrlPos,...
 				'String', 'Start',...
 				'TooltipString', 'Tell Arduino to start the experiment. Breaks out of IDLE state.',...
-				'Callback', {@MouseBehaviorInterface.ArduinoStart, obj.Arduino}...
+				'Callback', @obj.ArduinoStart...
 			);
 
 			% Stop button - abort current trial and return to IDLE
@@ -118,7 +118,7 @@ classdef MouseBehaviorInterface < handle
 				'Position', ctrlPos,...
 				'String', 'Stop',...
 				'TooltipString', 'Puts Arduino into IDLE state. Resume using the "Start" button.',...
-				'Callback', {@MouseBehaviorInterface.ArduinoStop, obj.Arduino}...
+				'Callback', @obj.ArduinoStop...
 			);
 
 			% Reset button - software reset for arduino
@@ -135,7 +135,7 @@ classdef MouseBehaviorInterface < handle
 				'Position', ctrlPos,...
 				'String', 'Reset',...
 				'TooltipString', 'Reset Arduino (parameters will not be changed).',...
-				'Callback', {@MouseBehaviorInterface.ArduinoReset, obj.Arduino}...
+				'Callback', @obj.ArduinoReset...
 			);
 
 			% Resize dialog so it fits all controls
@@ -145,18 +145,18 @@ classdef MouseBehaviorInterface < handle
 
 			% Menus
 			menu_file = uimenu(dlg, 'Label', '&File');
-			uimenu(menu_file, 'Label', 'Save Experiment ...', 'Callback', {@MouseBehaviorInterface.ArduinoSaveExperiment, obj.Arduino}, 'Accelerator', 's');
-			uimenu(menu_file, 'Label', 'Save Experiment As ...', 'Callback', {@MouseBehaviorInterface.ArduinoSaveAsExperiment, obj.Arduino});
-			uimenu(menu_file, 'Label', 'Load Experiment ...', 'Callback', {@MouseBehaviorInterface.ArduinoLoadExperiment, obj.Arduino}, 'Accelerator', 'l');
-			uimenu(menu_file, 'Label', 'Save Parameters ...', 'Callback', {@MouseBehaviorInterface.ArduinoSaveParameters, obj.Arduino}, 'Separator', 'on');
-			uimenu(menu_file, 'Label', 'Load Parameters ...', 'Callback', {@MouseBehaviorInterface.ArduinoLoadParameters, obj.Arduino, table_params});
-			uimenu(menu_file, 'Label', 'Quit', 'Callback', {@MouseBehaviorInterface.ArduinoClose, obj}, 'Separator', 'on');
+			uimenu(menu_file, 'Label', 'Save Experiment ...', 'Callback', @obj.ArduinoSaveExperiment, 'Accelerator', 's');
+			uimenu(menu_file, 'Label', 'Save Experiment As ...', 'Callback', @obj.ArduinoSaveAsExperiment);
+			uimenu(menu_file, 'Label', 'Load Experiment ...', 'Callback', @obj.ArduinoLoadExperiment, 'Accelerator', 'l');
+			uimenu(menu_file, 'Label', 'Save Parameters ...', 'Callback', @obj.ArduinoSaveParameters, 'Separator', 'on');
+			uimenu(menu_file, 'Label', 'Load Parameters ...', 'Callback', {@obj.ArduinoLoadParameters, table_params});
+			uimenu(menu_file, 'Label', 'Quit', 'Callback', @obj.ArduinoClose, 'Separator', 'on');
 
 			menu_arduino = uimenu(dlg, 'Label', '&Arduino');
-			uimenu(menu_arduino, 'Label', 'Start', 'Callback', {@MouseBehaviorInterface.ArduinoStart, obj.Arduino});
-			uimenu(menu_arduino, 'Label', 'Stop', 'Callback', {@MouseBehaviorInterface.ArduinoStop, obj.Arduino}, 'Accelerator', 'q');
-			uimenu(menu_arduino, 'Label', 'Reset', 'Callback', {@MouseBehaviorInterface.ArduinoReset, obj.Arduino}, 'Separator', 'on');
-			uimenu(menu_arduino, 'Label', 'Reconnect', 'Callback', {@MouseBehaviorInterface.ArduinoReconnect, obj.Arduino});
+			uimenu(menu_arduino, 'Label', 'Start', 'Callback', @obj.ArduinoStart);
+			uimenu(menu_arduino, 'Label', 'Stop', 'Callback', @obj.ArduinoStop, 'Accelerator', 'q');
+			uimenu(menu_arduino, 'Label', 'Reset', 'Callback', @obj.ArduinoReset, 'Separator', 'on');
+			uimenu(menu_arduino, 'Label', 'Reconnect', 'Callback', @obj.ArduinoReconnect);
 
 			menu_window = uimenu(dlg, 'Label', '&Window');
 			uimenu(menu_window, 'Label', 'Experiment Control', 'Callback', @(~, ~) @obj.CreateDialog_ExperimentControl);
@@ -575,7 +575,7 @@ classdef MouseBehaviorInterface < handle
 		% Executed when a new trial is completed
 			% Autosave if a savepath is defined
 			if (~isempty(obj.Arduino.ExperimentFileName) && obj.Arduino.AutosaveEnabled)
-				MouseBehaviorInterface.ArduinoSaveExperiment([], [], obj.Arduino);
+				obj.ArduinoSaveExperiment();
 			end
 
 			% Updated monitor window
@@ -948,10 +948,6 @@ classdef MouseBehaviorInterface < handle
 			ax.UserData.FigName 			= figName;
 		end
 
-		function OnParamChanged(obj, ~, ~)
-			obj.Rsc.ExperimentControl.UserData.Ctrl.Table_Params.Data = obj.Arduino.ParamValues';
-		end
-
 		function EnablePlotUpdate(obj, menu_plot)
 			menu_plot.UserData.Menu_Enable.Checked = 'on';
 			menu_plot.UserData.Menu_Disable.Checked = 'off';
@@ -1030,15 +1026,126 @@ classdef MouseBehaviorInterface < handle
 				ctrl.Popup_EventOfInterest_Hist.Value = p.plotSettings{8};
 			end
 		end
+
+		% Arduino connection
+		function OnParamChanged(obj, ~, ~)
+			obj.Rsc.ExperimentControl.UserData.Ctrl.Table_Params.Data = obj.Arduino.ParamValues';
+		end
+
+		function OnParamChangedViaGUI(obj, ~, evnt)
+			% evnt (event data contains infomation on which elements were changed to what)
+			changedParam = evnt.Indices(1);
+			newValue = evnt.NewData;
+			
+			% Add new parameter to update queue
+			obj.Arduino.UpdateParams_AddToQueue(changedParam, newValue)
+			% Attempt to execute update queue now, if current state does not allow param update, the queue will be executed when we enter an appropriate state
+			obj.Arduino.UpdateParams_Execute()
+		end
+
+		%----------------------------------------------------
+		%		Commmunicating with Arduino
+		%----------------------------------------------------
+		function ArduinoStart(obj, ~, ~)
+			if ((~obj.Arduino.AutosaveEnabled) || isempty(obj.Arduino.ExperimentFileName))
+				selection = questdlg(...
+					'Autosave is disabled. Start experiment anyway?',...
+					'Autosave',...
+					'Save', 'Start Anyway', 'Cancel' ,'Save'...
+				);
+				switch selection
+					case 'Save'
+						obj.Arduino.SaveAsExperiment()
+						numCameras = CameraConnection.GetAvailableCameras;
+						if numCameras > 0
+							videoFileName = strsplit(obj.ExperimentFileName, '.mat');
+							videoFileName = videoFileName{1};
+							obj.Arduino.Camera = CameraConnection(...
+								'CameraID', [],...
+								'Format', 'MJPG_800x600',...
+								'FileName', videoFileName.,...
+								'FileFormat', 'MPEG-4',...
+								'FrameGrabInterval', 1,...
+								'TimestampInterval', 10...
+								);
+							fprintf(1, 'Established camera connection.\n')
+						else
+							fprintf(1, 'No camera connected.\n')
+						end
+					case 'Start Anyway'
+						warning('Autosave not enabled. Starting experiment anyway.')
+					otherwise
+						return
+				end 
+			end
+			obj.Arduino.Start()
+			fprintf('Started.\n')			
+		end
+
+		function ArduinoStop(obj, ~, ~)
+			obj.Arduino.Stop()
+			fprintf('Stopped.\n')
+		end
+
+		function ArduinoReset(obj, ~, ~)
+			obj.Arduino.Reset()
+			fprintf('Reset.\n')
+		end
+
+		function ArduinoClose(obj, ~, ~)
+			selection = questdlg(...
+				'Close all windows and terminate connection with Arduino?',...
+				'Close Window',...
+				'Yes','No','Yes'...
+			);
+			switch selection
+				case 'Yes'
+					obj.Arduino.Close()
+					delete(obj.Rsc.Monitor)
+					delete(obj.Rsc.ExperimentControl)
+					fprintf('Connection closed.\n')
+				case 'No'
+					return
+			end
+		end
+
+		function ArduinoReconnect(obj, ~, ~)
+			obj.Arduino.Reconnect()
+		end
+
+		function ArduinoSaveParameters(obj, ~, ~)
+			obj.Arduino.SaveParameters()
+		end
+
+		function ArduinoLoadParameters(obj, ~, ~, table_params)
+			if nargin < 4
+				table_params = [];
+			end
+			obj.Arduino.LoadParameters(table_params, '')
+		end
+
+		function ArduinoSaveExperiment(obj, ~, ~)
+			if isempty(obj.Arduino.ExperimentFileName)
+				obj.Arduino.SaveAsExperiment()
+			else
+				obj.Arduino.SaveExperiment()
+			end
+		end
+
+		function ArduinoSaveAsExperiment(obj, ~, ~)
+			obj.Arduino.SaveAsExperiment()
+		end
+
+		function ArduinoLoadExperiment(obj, ~, ~)
+			obj.Arduino.LoadExperiment()
+		end
+
 	end
 
 	%----------------------------------------------------
 	%		Static methods
 	%----------------------------------------------------
 	methods (Static)
-		%----------------------------------------------------
-		%		Commmunicating with Arduino
-		%----------------------------------------------------
 		function arduinoPortName = QueryPort()
 			
 			serialInfo = instrhwinfo('serial');
@@ -1067,85 +1174,6 @@ classdef MouseBehaviorInterface < handle
 			else
 				arduinoPortName = '/offline';
 			end	
-		end
-
-		function OnParamChangedViaGUI(~, evnt, arduino)
-			% evnt (event data contains infomation on which elements were changed to what)
-			changedParam = evnt.Indices(1);
-			newValue = evnt.NewData;
-			
-			% Add new parameter to update queue
-			arduino.UpdateParams_AddToQueue(changedParam, newValue)
-			% Attempt to execute update queue now, if current state does not allow param update, the queue will be executed when we enter an appropriate state
-			arduino.UpdateParams_Execute()
-		end
-		function ArduinoStart(~, ~, arduino)
-			if ((~arduino.AutosaveEnabled) || isempty(arduino.ExperimentFileName))
-				selection = questdlg(...
-					'Autosave is disabled. Start experiment anyway?',...
-					'Autosave',...
-					'Save', 'Start Anyway', 'Cancel' ,'Save'...
-				);
-				switch selection
-					case 'Save'
-						arduino.SaveAsExperiment()
-					case 'Start Anyway'
-						warning('Autosave not enabled. Starting experiment anyway.')
-					otherwise
-						return
-				end 
-			end
-			arduino.Start()
-			fprintf('Started.\n')			
-		end
-		function ArduinoStop(~, ~, arduino)
-			arduino.Stop()
-			fprintf('Stopped.\n')
-		end
-		function ArduinoReset(~, ~, arduino)
-			arduino.Reset()
-			fprintf('Reset.\n')
-		end
-		function ArduinoClose(~, ~, obj)
-			selection = questdlg(...
-				'Close all windows and terminate connection with Arduino?',...
-				'Close Window',...
-				'Yes','No','Yes'...
-			);
-			switch selection
-				case 'Yes'
-					obj.Arduino.Close()
-					delete(obj.Rsc.Monitor)
-					delete(obj.Rsc.ExperimentControl)
-					fprintf('Connection closed.\n')
-				case 'No'
-					return
-			end
-		end
-		function ArduinoReconnect(~, ~, arduino)
-			arduino.Reconnect()
-		end
-		function ArduinoSaveParameters(~, ~, arduino)
-			arduino.SaveParameters()
-		end
-		function ArduinoLoadParameters(~, ~, arduino, table_params)
-			if nargin < 4
-				table_params = [];
-			end
-			arduino.LoadParameters(table_params, '')
-		end
-		function ArduinoSaveExperiment(~, ~, arduino)
-			if isempty(arduino.ExperimentFileName)
-				arduino.SaveAsExperiment()
-			else
-				arduino.SaveExperiment()
-			end
-		end
-		function ArduinoSaveAsExperiment(~, ~, arduino)
-			arduino.SaveAsExperiment()
-		end
-		function ArduinoLoadExperiment(~, ~, arduino)
-			arduino.LoadExperiment()
 		end
 
 		%----------------------------------------------------

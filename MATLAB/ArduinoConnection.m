@@ -10,6 +10,7 @@ classdef ArduinoConnection < handle
 		EventMarkerNames = {}
 		Trials = struct([])
 		ExperimentFileName = ''			% Contains 'C://path/filename.mat'
+		Camera
 	end
 
 	properties (SetObservable, AbortSet)
@@ -312,8 +313,9 @@ classdef ArduinoConnection < handle
 					subStrings = strsplit(strtrim(value), ' ');
 					eventCode = str2num(subStrings{1}) + 1; % Convert zero-based indices (Arduino) to one-based indices (MATLAB)
 					timeStamp = str2num(subStrings{2});
-					obj.EventMarkersBuffer = [obj.EventMarkersBuffer; eventCode, timeStamp];
-					obj.EventMarkersUntrimmed = [obj.EventMarkersUntrimmed; eventCode, timeStamp];
+					absTime = datenum(now);
+					obj.EventMarkersBuffer = [obj.EventMarkersBuffer; eventCode, timeStamp, absTime];
+					obj.EventMarkersUntrimmed = [obj.EventMarkersUntrimmed; eventCode, timeStamp, absTime];
 
 					% Debug message
 					if obj.DebugMode

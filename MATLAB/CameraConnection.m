@@ -15,9 +15,9 @@ classdef CameraConnection < handle
 			addParameter(p, 'Format', '', @ischar);
 			addParameter(p, 'Filename', '', @ischar);
 			addParameter(p, 'FileFormat', 'MPEG-4', @ischar);
-			addParameter(p, 'FrameRate', [], @isnumeric);
-			addParameter(p, 'FrameGrabInterval', 1, @(x) isnumeric(x) && floor(x) == x);
-			addParameter(p, 'TimestampInterval', 10, @(x) isnumeric(x) && floor(x) == x);
+			addParameter(p, 'FrameRate', [], @isnumeric); % Framerate for storage (not acquisition). i.e. 60fps acquisition + 30 fps storage == video playing at 1/2 speed
+			addParameter(p, 'FrameGrabInterval', 1, @(x) isnumeric(x) && floor(x) == x); % Set to 2 to skip every other frame
+			addParameter(p, 'TimestampInterval', 10, @(x) isnumeric(x) && floor(x) == x); % Set to 10 to register a timestamp every 10 frames
 			parse(p, varargin{:});
 			camID 				= p.Results.CameraID;
 			camFormat 			= p.Results.Format;
@@ -196,6 +196,11 @@ classdef CameraConnection < handle
 			end
 
 			varargout = {formats, maxFrameRates};
+		end
+
+		function varargout = GetAvailableCameras()
+			hwinfo = imaqhwinfo('winvideo');
+			varargout = {length(hwinfo.DeviceIDs), hwinfo.DeviceInfo};
 		end
 	end
 end
