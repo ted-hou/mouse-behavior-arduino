@@ -424,7 +424,7 @@ classdef ArduinoConnection < handle
 
 		% Break arduino from IDLE state and begin experiment
 		function Start(obj)
-			if isempty(obj.Camera)
+			if ~isempty(obj.Camera)
 				if ~islogging(obj.Camera.VideoInput)
 					obj.Camera.Start();
 					fprintf(1, 'Camera initiated. Starting first trial in 3 seconds...\n');
