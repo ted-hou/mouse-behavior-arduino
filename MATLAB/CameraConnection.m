@@ -29,7 +29,7 @@ classdef CameraConnection < handle
 
 			hwinfo = imaqhwinfo('winvideo');
 
-			if length(hwinfo.DeviceIDs) == 0
+			if isempty(hwinfo.DeviceIDs)
 				error('No webcam connected!');
 			end
 
@@ -116,7 +116,7 @@ classdef CameraConnection < handle
 			obj.VideoInput.LoggingMode = 'disk';
 			videoFile = VideoWriter(filename, fileFormat);
 			if isempty(frameRate)
-				frameRate = str2num(obj.Source.FrameRate);
+				frameRate = str2double(obj.Source.FrameRate);
 			end
 			videoFile.FrameRate = frameRate;
 			obj.VideoInput.DiskLogger = videoFile;
@@ -126,7 +126,7 @@ classdef CameraConnection < handle
 		end
 
 		% Executed every 10 frames by default
-		function OnTrigger(obj, src, evnt)
+		function OnTrigger(obj, ~, evnt)
 			iEvent = length(obj.EventLog) + 1;
 			obj.EventLog(iEvent).Timestamp = evnt.Data.AbsTime;
 			obj.EventLog(iEvent).FrameNumber = evnt.Data.FrameNumber;
@@ -141,7 +141,7 @@ classdef CameraConnection < handle
 			closepreview(obj.VideoInput)
 		end
 
-		function videoFile = Start(obj)
+		function Start(obj)
 			if islogging(obj.VideoInput)
 				error('The grad student needs to end current recording before he restart.')
 			end
@@ -191,6 +191,7 @@ classdef CameraConnection < handle
 
 			fprintf(1, ['Checking available formats/framerates for ''', hwinfo.DeviceInfo(camID).DeviceName, ''' (', num2str(camID), '):\n'])
 
+            maxFrameRates = zeros(1, length(formats));
 			for iFormat = 1:length(formats)
 				vid = videoinput('winvideo', camID, formats{iFormat});
 				frameRates = set(getselectedsource(vid), 'FrameRate');

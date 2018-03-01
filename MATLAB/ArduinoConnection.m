@@ -269,7 +269,7 @@ classdef ArduinoConnection < handle
 		end
 
 		function SendString(obj, stringToWrite)
-			fprintf(obj.SerialConnection,'%s#',stringToWrite, 'sync')
+			fprintf(obj.SerialConnection, '%s#', stringToWrite, 'sync');
 		end
 
 		function OnMessageReceived(obj, ~, ~)
@@ -291,7 +291,7 @@ classdef ArduinoConnection < handle
 				case '$'
 					% New state entered - "$1" we've entered the second state.
 					% Convert zero-based state indices (Arduino) to one-based indices (MATLAB)
-					obj.State = str2num(strtrim(value)) + 1;
+					obj.State = str2double(strtrim(value)) + 1;
 
 					% Trigger StateChanged Event
 					notify(obj, 'StateChanged')
@@ -304,16 +304,16 @@ classdef ArduinoConnection < handle
 					% Arduino sent the name of a state - "@ 1 IDLE"
 					subStrings = strsplit(strtrim(value), ' ');
 					% Convert zero-based indices (Arduino) to one-based indices (MATLAB)
-					stateId = str2num(subStrings{1}) + 1;
+					stateId = str2double(subStrings{1}) + 1;
 					% Register state name and whether this states allows param update
 					obj.StateNames{stateId} = subStrings{2};
-					obj.StateCanUpdateParams(stateId) = logical(str2num(subStrings{3}));
+					obj.StateCanUpdateParams(stateId) = logical(str2double(subStrings{3}));
 				case '&'
 					% Arduino sent an event code and its timestamp - "& 0 100"
 					subStrings = strsplit(strtrim(value), ' ');
-					eventCode = str2num(subStrings{1}) + 1; % Convert zero-based indices (Arduino) to one-based indices (MATLAB)
-					timeStamp = str2num(subStrings{2});
-					absTime = datenum(now);
+					eventCode = str2double(subStrings{1}) + 1; % Convert zero-based indices (Arduino) to one-based indices (MATLAB)
+					timeStamp = str2double(subStrings{2});
+					absTime = now;
 					obj.EventMarkersBuffer = [obj.EventMarkersBuffer; eventCode, timeStamp, absTime];
 					obj.EventMarkersUntrimmed = [obj.EventMarkersUntrimmed; eventCode, timeStamp, absTime];
 
@@ -325,17 +325,17 @@ classdef ArduinoConnection < handle
 					% Arduino sent the name of an event marker - "+ 0 TRIAL_START"
 					subStrings = strsplit(strtrim(value), ' ');
 					% Convert zero-based indices (Arduino) to one-based indices (MATLAB)
-					eventMarkerId = str2num(subStrings{1}) + 1;
+					eventMarkerId = str2double(subStrings{1}) + 1;
 					% Register event marker names so MATLAB KNOWs WHAT IS GOING ON WHEN SHIT GOES DOWN
 					obj.EventMarkerNames{eventMarkerId} = subStrings{2};
 				case '#'
 					% Arduino sent the name and default value of a parameter - "# 1 INTERVAL_MIN 1250"
 					subStrings = strsplit(strtrim(value), ' ');
 					% Convert zero-based indices (Arduino) to one-based indices (MATLAB)
-					paramId = str2num(subStrings{1}) + 1;
+					paramId = str2double(subStrings{1}) + 1;
 					% Register parameter name and value
 					obj.ParamNames{paramId} = subStrings{2};
-					obj.ParamValues(paramId) = str2num(subStrings{3});
+					obj.ParamValues(paramId) = str2double(subStrings{3});
 				case '`'
 					% Result code returned, this is only expected once per trial
 
@@ -345,7 +345,7 @@ classdef ArduinoConnection < handle
 
 					% Store trial results in as a new trial
 					iTrial = obj.TrialsCompleted + 1;
-					resultCode = str2num(strtrim(value)) + 1; % Convert to one-based index
+					resultCode = str2double(strtrim(value)) + 1; % Convert to one-based index
 					obj.Trials(iTrial).Code = resultCode;
 					obj.Trials(iTrial).CodeName = obj.ResultCodeNames{resultCode};
 					obj.Trials(iTrial).Parameters = obj.ParamValues;
@@ -359,7 +359,7 @@ classdef ArduinoConnection < handle
 					% Arduino sent error code interpretations - "# 0 ERROR_LEVER_NOT_PRESSED" means error code -1
 					subStrings = strsplit(strtrim(value), ' ');
 					% Convert zero-based indices (Arduino) to one-based indices (MATLAB)
-					codeId = str2num(subStrings{1}) + 1;
+					codeId = str2double(subStrings{1}) + 1;
 					% Register parameter name and value
 					obj.ResultCodeNames{codeId} = subStrings{2};
 				case '~'
@@ -408,7 +408,7 @@ classdef ArduinoConnection < handle
 		% Update parameters and clear queue, do nothing if queue is empty
 		function UpdateParams_Execute(obj)
 			% Only execute non-empty queues when current state allows param update
-			if obj.StateCanUpdateParams(obj.State) & ~isempty(obj.ParamUpdateQueue) 
+			if obj.StateCanUpdateParams(obj.State) && ~isempty(obj.ParamUpdateQueue) 
 				for iQueue = 1:size(obj.ParamUpdateQueue, 1)
 					paramId = obj.ParamUpdateQueue(iQueue, 1);
 					value = obj.ParamUpdateQueue(iQueue, 2);
@@ -447,15 +447,15 @@ classdef ArduinoConnection < handle
 		% Terminate connection with arduino
 		function Close(obj)
 			if ~isempty(obj.SerialConnection)
-				fclose(obj.SerialConnection)
+				fclose(obj.SerialConnection);
 			end
 		end
 
 		% Disconnect serial
 		function Reconnect(obj)
 			if ~isempty(obj.SerialConnection)
-				fclose(obj.SerialConnection)
-				fopen(obj.SerialConnection)
+				fclose(obj.SerialConnection);
+				fopen(obj.SerialConnection);
 			end
 		end
 	end
@@ -474,7 +474,7 @@ classdef ArduinoConnection < handle
 			if strcmp(archstr,'maci64')
 				for portN = 1:length(serialInfo.AvailableSerialPorts)
 					portName = serialInfo.AvailableSerialPorts{portN};
-					if strfind(portName,'tty.usbmodem')
+					if contains(portName, 'tty.usbmodem')
 						port = portName;
 						return
 					end
@@ -538,7 +538,7 @@ classdef ArduinoConnection < handle
 				% get the first arduino port
 				for i = 1:numel(coms)
 					[portFriendlyName, portName] = devs{i,:};
-					if strfind(portFriendlyName, 'Arduino')
+					if contains(portFriendlyName, 'Arduino')
 						port = portName;
 						return
 					end
