@@ -128,7 +128,7 @@ classdef CameraConnection < handle
 		% Executed every 10 frames by default
 		function OnTrigger(obj, ~, evnt)
 			iEvent = length(obj.EventLog) + 1;
-			obj.EventLog(iEvent).Timestamp = evnt.Data.AbsTime;
+			obj.EventLog(iEvent).Timestamp = datenum(evnt.Data.AbsTime);
 			obj.EventLog(iEvent).FrameNumber = evnt.Data.FrameNumber;
 		end
 
@@ -175,6 +175,24 @@ classdef CameraConnection < handle
 				end
 				delete(obj.VideoInput)
 			end
+		end
+
+		function PlotTimestamps(obj)
+			figure();
+			plot(arrayfun(@(x) datetime(x, 'ConvertFrom', 'datenum'), [obj.EventLog.Timestamp]), [obj.EventLog.FrameNumber]);
+			xlabel('Time')
+			ylabel('Frame Number')
+		end
+
+		function PlotFrameRate(obj)
+			figure();
+			datetimes = arrayfun(@(x) datetime(x, 'ConvertFrom', 'datenum'), [obj.EventLog.Timestamp]);
+			durations = seconds(diff(datetimes));
+			frames = [obj.EventLog(2:end).FrameNumber] - [obj.EventLog(1:end - 1).FrameNumber];
+			frameRates = frames./durations;
+			plot(datetimes(1:end - 1) + diff(datetimes), frameRates);
+			xlabel('Time')
+			ylabel('FrameRates')
 		end
 	end
 

@@ -427,8 +427,8 @@ classdef ArduinoConnection < handle
 			if ~isempty(obj.Camera)
 				if ~islogging(obj.Camera.VideoInput)
 					obj.Camera.Start();
-					fprintf(1, 'Camera initiated. Starting first trial in 3 seconds...\n');
-					pause(3);
+					fprintf(1, 'Camera initiated. Starting first trial in 10 seconds...\n');
+					pause(10);
 				end
 			end
 			obj.SendMessage('G')
@@ -438,10 +438,10 @@ classdef ArduinoConnection < handle
 		function Stop(obj)
 			obj.SendMessage('Q')
 			obj.EventMarkersBuffer = [];
-			if isempty(obj.Camera)
+			if ~isempty(obj.Camera)
 				if islogging(obj.Camera.VideoInput)
-					fprintf(1, 'Experiment ended. Stopping camera in 3 seconds...\n');
-					pause(3);
+					fprintf(1, 'Experiment ended. Stopping camera in 10 seconds...\n');
+					pause(10);
 					obj.Camera.Stop();
 				end
 			end
@@ -459,8 +459,8 @@ classdef ArduinoConnection < handle
 			end
 			if ~isempty(obj.Camera)
 				if islogging(obj.Camera.VideoInput)
-					fprintf(1, 'Experiment ended. Stopping camera in 3 seconds...\n');
-					pause(3);
+					fprintf(1, 'Experiment ended. Stopping camera in 10 seconds...\n');
+					pause(10);
 					obj.Camera.Stop();
 				end
 				obj.Camera.Delete();
