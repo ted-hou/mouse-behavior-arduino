@@ -1113,7 +1113,7 @@ classdef MouseBehaviorInterface < handle
 				obj.Arduino.SaveAsExperiment()
 				numCameras = CameraConnection.GetAvailableCameras;
 				if numCameras > 0
-					videoPath = strsplit(obj.ExperimentFileName, '\');
+					videoPath = strsplit(obj.Arduino.ExperimentFileName, '\');
 					videoPath = strjoin(videoPath(1:end - 1), '\\');
 					videoPath = [videoPath, '\', datestr(now, 'yyyymmdd_HHMMSS')];
 					obj.Arduino.Camera = CameraConnection(...

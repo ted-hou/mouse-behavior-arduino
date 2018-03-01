@@ -424,10 +424,14 @@ classdef ArduinoConnection < handle
 
 		% Break arduino from IDLE state and begin experiment
 		function Start(obj)
-			obj.SendMessage('G')
 			if isempty(obj.Camera)
-				obj.Camera.Start();
+				if ~islogging(obj.Camera.VideoInput)
+					obj.Camera.Start();
+					fprintf(1, 'Camera initiated. Starting first trial in 3 seconds...\n');
+					pause(3);
+				end
 			end
+			obj.SendMessage('G')
 		end
 
 		% Interrupt current trial and return to IDLE
@@ -435,7 +439,11 @@ classdef ArduinoConnection < handle
 			obj.SendMessage('Q')
 			obj.EventMarkersBuffer = [];
 			if isempty(obj.Camera)
-				obj.Camera.Stop();
+				if islogging(obj.Camera.VideoInput)
+					fprintf(1, 'Experiment ended. Stopping camera in 3 seconds...\n');
+					pause(3);
+					obj.Camera.Stop();
+				end
 			end
 		end
 
@@ -448,6 +456,14 @@ classdef ArduinoConnection < handle
 		function Close(obj)
 			if ~isempty(obj.SerialConnection)
 				fclose(obj.SerialConnection);
+			end
+			if ~isempty(obj.Camera)
+				if islogging(obj.Camera.VideoInput)
+					fprintf(1, 'Experiment ended. Stopping camera in 3 seconds...\n');
+					pause(3);
+					obj.Camera.Stop();
+				end
+				obj.Camera.Delete();
 			end
 		end
 
