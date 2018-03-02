@@ -78,6 +78,19 @@ classdef ArduinoConnection < handle
 
 				% Add event handler to detect state changes
 				obj.Listeners.StateChanged = addlistener(obj, 'StateChanged', @obj.OnStateChanged);				
+
+				% Establish camera connection
+				numCameras = CameraConnection.GetAvailableCameras;
+				if numCameras > 0
+					obj.Camera = CameraConnection(...
+						'CameraID', [],...
+						'Format', '',...
+						'FrameRate', 30,...
+						'FileFormat', 'MPEG-4',...
+						'FrameGrabInterval', 1,...
+						'TimestampInterval', 10 ...
+						);
+				end
 			end
 
 		end
@@ -176,6 +189,11 @@ classdef ArduinoConnection < handle
 				obj.AutosaveEnabled = false;
 			end
 
+			if ~isempty(obj.Camera)
+				videoPath = strsplit(obj.ExperimentFileName, '.mat');
+				videoPath = [videoPath{1}, datestr(now, '_HHMMSS')];
+				obj.Camera.SaveAs(videoPath);
+			end
 		end
 
 		function LoadExperiment(obj, errorMessage)
@@ -408,7 +426,7 @@ classdef ArduinoConnection < handle
 		% Update parameters and clear queue, do nothing if queue is empty
 		function UpdateParams_Execute(obj)
 			% Only execute non-empty queues when current state allows param update
-			if obj.StateCanUpdateParams(obj.State) && ~isempty(obj.ParamUpdateQueue) 
+			if obj.StateCanUpdateParams(obj.State) & ~isempty(obj.ParamUpdateQueue) 
 				for iQueue = 1:size(obj.ParamUpdateQueue, 1)
 					paramId = obj.ParamUpdateQueue(iQueue, 1);
 					value = obj.ParamUpdateQueue(iQueue, 2);
@@ -427,8 +445,13 @@ classdef ArduinoConnection < handle
 			if ~isempty(obj.Camera)
 				if ~islogging(obj.Camera.VideoInput)
 					obj.Camera.Start();
-					fprintf(1, 'Camera initiated. Starting first trial in 10 seconds...\n');
-					pause(10);
+					t = timer;
+					t.StartDelay = 10;
+					t.StartFcn = 'fprintf(1, ''Starting first trial in 10 seconds...\n'');';
+					t.TimerFcn = @(~, ~) obj.SendMessage('G');
+					t.StopFcn = @(t, ~) delete(t);
+					start(t)
+					return
 				end
 			end
 			obj.SendMessage('G')
@@ -440,9 +463,12 @@ classdef ArduinoConnection < handle
 			obj.EventMarkersBuffer = [];
 			if ~isempty(obj.Camera)
 				if islogging(obj.Camera.VideoInput)
-					fprintf(1, 'Experiment ended. Stopping camera in 10 seconds...\n');
-					pause(10);
-					obj.Camera.Stop();
+					t = timer;
+					t.StartDelay = 10;
+					t.StartFcn = 'fprintf(1, ''Stopping video logging in 10 seconds...\n'');';
+					t.TimerFcn = @(~, ~) obj.Camera.Stop();
+					t.StopFcn = @(t, ~) delete(t);
+					start(t)
 				end
 			end
 		end
@@ -458,11 +484,6 @@ classdef ArduinoConnection < handle
 				fclose(obj.SerialConnection);
 			end
 			if ~isempty(obj.Camera)
-				if islogging(obj.Camera.VideoInput)
-					fprintf(1, 'Experiment ended. Stopping camera in 10 seconds...\n');
-					pause(10);
-					obj.Camera.Stop();
-				end
 				obj.Camera.Delete();
 			end
 		end

@@ -3,6 +3,7 @@ classdef CameraConnection < handle
 		VideoInput
 		Source
 		EventLog = struct([])
+		Params
 	end
 
 	properties (Transient)	% These properties will be discarded when saving to file
@@ -15,7 +16,7 @@ classdef CameraConnection < handle
 			addParameter(p, 'Format', '', @ischar);
 			addParameter(p, 'Filename', '', @ischar);
 			addParameter(p, 'FileFormat', 'MPEG-4', @ischar);
-			addParameter(p, 'FrameRate', [], @isnumeric); % Framerate for storage (not acquisition). i.e. 60fps acquisition + 30 fps storage == video playing at 1/2 speed
+			addParameter(p, 'FrameRate', 30, @isnumeric); % Framerate for storage (not acquisition). i.e. 60fps acquisition + 30 fps storage == video playing at 1/2 speed
 			addParameter(p, 'FrameGrabInterval', 1, @(x) isnumeric(x) && floor(x) == x); % Set to 2 to skip every other frame
 			addParameter(p, 'TimestampInterval', 10, @(x) isnumeric(x) && floor(x) == x); % Set to 10 to register a timestamp every 10 frames
 			parse(p, varargin{:});
@@ -89,8 +90,7 @@ classdef CameraConnection < handle
 				if ~ok
 					error('No frame rate selected')
 				end
-				frameRate = frameRates{selection};
-				set(obj.Source, 'FrameRate', frameRate);
+				set(obj.Source, 'FrameRate', frameRates{selection});
 			end
 
 			% Set up video storage
@@ -112,17 +112,39 @@ classdef CameraConnection < handle
 			obj.VideoInput.FramesPerTrigger = timestampInterval;
 			obj.VideoInput.TriggerFcn = @obj.OnTrigger;
 
-			% Write video to disk
+			% Disk loggin parameters
 			obj.VideoInput.LoggingMode = 'disk';
-			videoFile = VideoWriter(filename, fileFormat);
-			if isempty(frameRate)
-				frameRate = str2double(obj.Source.FrameRate);
-			end
-			videoFile.FrameRate = frameRate;
-			obj.VideoInput.DiskLogger = videoFile;
+			obj.Params.Filename = filename;
+			obj.Params.FileFormat = fileFormat;
+			obj.Params.FrameRate = frameRate;
 
 			% Open preview window
 			obj.Preview()
+		end
+
+		function SaveAs(obj, filename)
+			if nargin < 2
+				filename = obj.Params.Filename;
+			end
+
+			if isempty(filename)
+				filename = datestr(now, 'yyyymmdd_HHMMSS');
+			end
+
+			obj.Params.Filename = filename;
+
+			% Delete existing video file
+			if ~isempty(obj.VideoInput.DiskLogger)
+				delete(obj.VideoInput.DiskLogger)
+			end
+
+			% Write video to disk
+			videoFile = VideoWriter(obj.Params.Filename, obj.Params.FileFormat);
+			if isempty(obj.Params.FrameRate)
+				obj.Params.FrameRate = str2double(obj.Source.FrameRate);
+			end
+			videoFile.FrameRate = obj.Params.FrameRate;
+			obj.VideoInput.DiskLogger = videoFile;
 		end
 
 		% Executed every 10 frames by default
@@ -144,6 +166,10 @@ classdef CameraConnection < handle
 		function Start(obj)
 			if islogging(obj.VideoInput)
 				error('The grad student needs to end current recording before he restart.')
+			end
+
+			if isempty(obj.VideoInput.DiskLogger)
+				obj.SaveAs()
 			end
 
 			fprintf(1, 'Loggin video to disk...\n')
@@ -177,22 +203,23 @@ classdef CameraConnection < handle
 			end
 		end
 
-		function PlotTimestamps(obj)
+		function Plot(obj)
 			figure();
+			subplot(1, 2, 1)
 			plot(arrayfun(@(x) datetime(x, 'ConvertFrom', 'datenum'), [obj.EventLog.Timestamp]), [obj.EventLog.FrameNumber]);
 			xlabel('Time')
 			ylabel('Frame Number')
-		end
-
-		function PlotFrameRate(obj)
-			figure();
+			subplot(1, 2, 2);
 			datetimes = arrayfun(@(x) datetime(x, 'ConvertFrom', 'datenum'), [obj.EventLog.Timestamp]);
 			durations = seconds(diff(datetimes));
 			frames = [obj.EventLog(2:end).FrameNumber] - [obj.EventLog(1:end - 1).FrameNumber];
 			frameRates = frames./durations;
 			plot(datetimes(1:end - 1) + diff(datetimes), frameRates);
 			xlabel('Time')
-			ylabel('FrameRates')
+			ylabel('Frame rate')
+		end
+
+		function PlotFrameRate(obj)
 		end
 	end
 

@@ -1063,17 +1063,14 @@ classdef MouseBehaviorInterface < handle
 				end 
 			end
 			obj.Arduino.Start()
-			fprintf('Started.\n')			
 		end
 
 		function ArduinoStop(obj, ~, ~)
 			obj.Arduino.Stop()
-			fprintf('Stopped.\n')
 		end
 
 		function ArduinoReset(obj, ~, ~)
 			obj.Arduino.Reset()
-			fprintf('Reset.\n')
 		end
 
 		function ArduinoClose(obj, ~, ~)
@@ -1110,32 +1107,14 @@ classdef MouseBehaviorInterface < handle
 
 		function ArduinoSaveExperiment(obj, ~, ~)
 			if isempty(obj.Arduino.ExperimentFileName)
-				obj.Arduino.SaveAsExperiment()
-				numCameras = CameraConnection.GetAvailableCameras;
-				if numCameras > 0
-					videoPath = strsplit(obj.Arduino.ExperimentFileName, '\');
-					videoPath = strjoin(videoPath(1:end - 1), '\\');
-					videoPath = [videoPath, '\', datestr(now, 'yyyymmdd_HHMMSS')];
-					obj.Arduino.Camera = CameraConnection(...
-						'CameraID', [],...
-						'Format', 'MJPG_800x600',...
-						'FileName', videoPath,...
-						'FileFormat', 'MPEG-4',...
-						'FrameGrabInterval', 1,...
-						'TimestampInterval', 10 ...
-						);
-				end
+				obj.ArduinoSaveAsExperiment()
 			else
 				obj.Arduino.SaveExperiment()
 			end
 		end
 
 		function ArduinoSaveAsExperiment(obj, ~, ~)
-			if isempty(obj.Arduino.ExperimentFileName)
-				obj.ArduinoSaveExperiment()
-			else
-				obj.Arduino.SaveExperiment()
-			end
+			obj.Arduino.SaveAsExperiment()
 		end
 
 		function ArduinoLoadExperiment(obj, ~, ~)
