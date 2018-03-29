@@ -1,7 +1,7 @@
 #include <Servo.h>
 /*********************************************************************
 	Arduino state machine
-	Delayed lever press task (Lever retracts for error trials)
+	Delayed lever press task (w/ retractable lever)
 *********************************************************************/
 
 /*****************************************************
@@ -10,9 +10,8 @@
 Servo _servo;
 
 /*****************************************************
-	Arduino Pin Outs (Mode: TEENSY)
+	Arduino Pin Outs
 *****************************************************/
-
 // Digital OUT
 #define PIN_HOUSE_LAMP	6
 #define PIN_LED_CUE		4
@@ -57,19 +56,13 @@ static const char *_stateNames[] =
 	"ABORT"
 };
 
-// Define which states allow param update
+// Define which states accept parameter update from MATLAB
 static const int _stateCanUpdateParams[] = {0,1,1,0,0,0,0,0}; 
-// Defined to allow Parameter upload from host during STATE_IDLE and STATE_INTERTRIAL
-
 
 /*****************************************************
 	Event Markers
 *****************************************************/
 enum EventMarker
-/* You may define as many event markers as you like.
-		Assign event markers to any IN/OUT event
-		Times and trials will be defined by global time, 
-		which can be parsed later to validate time measurements */
 {
 	EVENT_TRIAL_START,				// New trial initiated
 	EVENT_WINDOW_OPEN,				// Response window open
@@ -139,10 +132,10 @@ static const char *_resultCodeNames[] =
 /*****************************************************
 	Audio cue frequencies in Hz
 *****************************************************/
+// Use integers. 1kHz - 100kHz for mice
 enum SoundEventFrequencyEnum
 {
-	TONE_CUE     = 784,
-	TONE_ABORT   = 89
+	TONE_CUE     = 6272
 };
 
 /*****************************************************
@@ -151,7 +144,7 @@ enum SoundEventFrequencyEnum
 // Storing everything in array _params[]. Using enum ParamID as array indices so it's easier to add/remove parameters. 
 enum ParamID
 {
-	_DEBUG,						// (Private) 1 to enable debug messages from HOST. Default 0.
+	_DEBUG,						// (Private) 1 to enable debug mode. Default 0.
 	USE_LEVER,					// 0 to use lick to trigger reward. 1 to use lever press.
 	ALLOW_EARLY_MOVE,			// 0 to abort trial if animal licks after in pre-window
 	DELAY_REWARD,				// 0 to reward as soon as correct movement is made. 1 to give reward at end of trial.
@@ -169,7 +162,7 @@ enum ParamID
 	SERVO_POS_RETRACTED,		// Servo (lever) position when lever is retracted
 	SERVO_POS_DEPLOYED,			// Servo (lever) position when lever is deployed
 	SERVO_SPEED_DEPLOY,			// Servo (lever) rotation speed when deploying, 0 for max speed
-	SERVO_SPEED_RETRACT,			// Servo (lever) rotaiton speed when retracting, 0 for max speed
+	SERVO_SPEED_RETRACT,		// Servo (lever) rotaiton speed when retracting, 0 for max speed
 	_NUM_PARAMS					// (Private) Used to count how many parameters there are so we can initialize the param array with the correct size. Insert additional parameters before this.
 };
 
@@ -369,7 +362,7 @@ void loop()
 		handleWhiteNoise();
 
 		// 4) Update state machine
-		// Depending on what _state we're in , call the appropriate _state function, which will evaluate the transition conditions, and update `_state` to what the next _state should be
+		// Depending on what state we're in, call the appropriate state function, which will evaluate the transition conditions, and update the `_state` var to what the next state should be
 		switch (_state) 
 		{
 			case _STATE_INIT:
