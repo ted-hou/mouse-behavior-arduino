@@ -1,3 +1,4 @@
+%% CameraConnection: records footage from a windows webcam
 classdef CameraConnection < handle
 	properties
 		VideoInput
