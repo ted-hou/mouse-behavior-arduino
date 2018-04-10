@@ -263,7 +263,7 @@ void setup()
 	pinMode(PIN_SPEAKER, OUTPUT);               // Speaker for cue tone
 	pinMode(PIN_REWARD, OUTPUT);                // Reward, set to HIGH to open juice valve
 	pinMode(PIN_LICK, INPUT);                   // Lick detector
-	pinMode(PIN_LEVER, INPUT_PULLUP);			// Lever press detector
+	pinMode(PIN_LEVER, INPUT);					// Lever press detector
 
 	// Initiate servo
 	_servo.attach(PIN_SERVO);
@@ -1011,7 +1011,7 @@ void handleLick()
 // Lever detection
 bool getLeverState() 
 {
-	if (digitalRead(PIN_LEVER) == LOW) 
+	if (digitalRead(PIN_LEVER) == HIGH) 
 	{
 		return true;
 	}
