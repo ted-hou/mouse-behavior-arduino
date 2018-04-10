@@ -14,6 +14,7 @@ Servo _servo;
 *****************************************************/
 // Digital OUT
 #define PIN_HOUSE_LAMP	6
+#define PIN_IR_LAMP		8
 #define PIN_LED_CUE		4
 #define PIN_REWARD		7
 
@@ -257,6 +258,7 @@ void setup()
 {
 	// Init pins
 	pinMode(PIN_HOUSE_LAMP, OUTPUT);            // LED for illumination
+	pinMode(PIN_IR_LAMP, OUTPUT);            	// IR LED for camera recording
 	pinMode(PIN_LED_CUE, OUTPUT);               // LED for 'start' cue
 	pinMode(PIN_SPEAKER, OUTPUT);               // Speaker for cue tone
 	pinMode(PIN_REWARD, OUTPUT);                // Reward, set to HIGH to open juice valve
@@ -274,6 +276,7 @@ void mySetup()
 {
 	// Reset output
 	setHouseLamp(true);                          // House Lamp ON
+	setIRLamp(true);                          	 // IR Lamp ON
 	setCueLED(false);                            // Cue LED OFF
 
 	// Reset variables
@@ -420,6 +423,7 @@ void state_idle()
 
 		// Reset output
 		setHouseLamp(true);
+		setIRLamp(true);
 		setCueLED(false);
 		noTone(PIN_SPEAKER);
 		setReward(false);
@@ -930,6 +934,19 @@ void setHouseLamp(bool turnOn)
 			houseLampOn = false;
 			sendEventMarker(EVENT_HOUSELAMP_OFF, -1);
 		}
+	}
+}
+
+// Toggle IR Lamp
+void setIRLamp(bool turnOn) 
+{
+	if (turnOn) 
+	{
+		digitalWrite(PIN_IR_LAMP, HIGH);
+	}
+	else 
+	{
+		digitalWrite(PIN_IR_LAMP, LOW);
 	}
 }
 
