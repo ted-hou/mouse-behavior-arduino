@@ -1,30 +1,17 @@
-#include <Servo.h>
 /*********************************************************************
 	Arduino state machine
 	Delayed lever press task (w/ retractable lever)
 *********************************************************************/
 
 /*****************************************************
-	Servo stuff
-*****************************************************/
-Servo _servo;
-
-/*****************************************************
 	Arduino Pin Outs
 *****************************************************/
 // Digital OUT
-#define PIN_HOUSE_LAMP	6
 #define PIN_IR_LAMP		8
-#define PIN_LED_CUE		4
 #define PIN_REWARD		7
-
-// PWM OUT
-#define PIN_SPEAKER		5
-#define PIN_SERVO		3
 
 // Digital IN
 #define PIN_LICK		2
-#define PIN_LEVER		1
 
 /*****************************************************
 	Enums - DEFINE States
@@ -34,12 +21,13 @@ enum State
 {
 	_STATE_INIT,			// (Private) Initial state used on first loop. 
 	STATE_IDLE,				// Idle state. Wait for go signal from host.
-	STATE_INTERTRIAL,		// House lamps ON (if not already), write data to HOST and DISK, receive new params
-	STATE_PRE_CUE,			// House lamp OFF, random delay before cue presentation
-	STATE_PRE_WINDOW,		// (+/-) Enforced no lick before response window opens
-	STATE_RESPONSE_WINDOW,	// First lick in this interval rewarded (operant). Reward delivered at target time (pavlov)
+	STATE_INTERTRIAL,		// Write data to HOST and DISK, receive new params
+	STATE_START,			// random delay before cue presentation
+	STATE_BAR_STAT,			// Moving dots, stationary bar, enforced no lick
+	STATE_BAR_MOVE,			// Moving dots, moving bar, enforced no lick
+	STATE_RESPONSE_WINDOW,	// First lick in this interval rewarded
 	STATE_REWARD,			// Dispense reward, wait for trial timeout
-	STATE_ABORT,			// Pre window lick - House lamps ON, timeout
+	STATE_ABORT,			// Pre window lick or no lick - timeout
 	_NUM_STATES				// (Private) Used to count number of states
 };
 
@@ -50,15 +38,16 @@ static const char *_stateNames[] =
 	"_INIT",
 	"IDLE",
 	"INTERTRIAL",
-	"PRE_CUE",
-	"PRE_WINDOW",
+	"START",
+	"BAR_STAT",
+	"BAR_MOVE",
 	"RESPONSE_WINDOW",
 	"REWARD",
 	"ABORT"
 };
 
 // Define which states accept parameter update from MATLAB
-static const int _stateCanUpdateParams[] = {0,1,1,0,0,0,0,0}; 
+static const int _stateCanUpdateParams[] = {0,1,1,0,0,0,0,0,0}; 
 
 /*****************************************************
 	Event Markers
@@ -67,19 +56,16 @@ enum EventMarker
 {
 	EVENT_TRIAL_START,				// New trial initiated
 	EVENT_WINDOW_OPEN,				// Response window open
-	EVENT_TARGET_TIME,				// Target time
+	EVENT_TURNING_POINT,			// Detection event
 	EVENT_WINDOW_CLOSED,			// Response window closed
-	EVENT_LEVER_PRESSED,			// Lever press onset
-	EVENT_LEVER_RELEASED,			// Lever press offset
-	EVENT_LEVER_RETRACTED,			// Lever retracted
-	EVENT_LEVER_DEPLOYED,			// Lever deployed
 	EVENT_LICK,						// Lick onset
 	EVENT_LICK_OFF,					// Lick offset
 	EVENT_FIRST_LICK,				// First lick in trial since cue on
-	EVENT_CUE_ON,					// Begin cue presentation
-	EVENT_CUE_OFF,					// End cue presentation
-	EVENT_HOUSELAMP_ON,				// House lamp on
-	EVENT_HOUSELAMP_OFF,			// House lamp off
+	EVENT_STIM_ON,					// Stim appear
+	EVENT_BAR_MOVE,					// Bar begins rotation
+	EVENT_ALPHA,					// Proactive, response window open
+	EVENT_TURNING_POINT,			// Bar reverse
+	EVENT_OMEGA,					// Reactive, response window close
 	EVENT_REWARD_ON,				// Reward, juice valve on
 	EVENT_REWARD_OFF,				// Reward, juice valve off
 	EVENT_ABORT,					// Trial aborted
@@ -91,19 +77,16 @@ static const char *_eventMarkerNames[] =
 {
 	"TRIAL_START",				// New trial initiated
 	"WINDOW_OPEN",				// Response window open
-	"TARGET_TIME",				// Target time
+	"TURNING_POINT",			// Detection event
 	"WINDOW_CLOSED",			// Response window closed
-	"LEVER_PRESSED",			// Lever press onset
-	"LEVER_RELEASED",			// Lever press offset
-	"LEVER_RETRACTED",			// Lever retracted
-	"LEVER_DEPLOYED",			// Lever deployed
 	"LICK",						// Lick onset
 	"LICK_OFF",					// Lick offset
 	"FIRST_LICK",				// First lick in trial since cue on
-	"CUE_ON",					// Begin cue presentation
-	"CUE_OFF",					// End cue presentation
-	"HOUSELAMP_ON",				// House lamp on
-	"HOUSELAMP_OFF",			// House lamp off
+	"STIM_ON",					// Bar appear
+	"BAR_MOVE",					// Bar begins rotation
+	"EVENT_ALPHA",				// Proactive, response window open
+	"EVENT_TURNING_POINT",		// Bar reverse
+	"EVENT_OMEGA",				// Reactive, response window close
 	"REWARD_ON",				// Reward, juice valve on
 	"REWARD_OFF",				// Reward, juice valve off
 	"ABORT",					// Trial aborted
@@ -116,8 +99,8 @@ static const char *_eventMarkerNames[] =
 enum ResultCode
 {
 	CODE_CORRECT,			// Correct (1st lick w/in window)
-	CODE_EARLY_MOVE,		// Early Press (-> Abort)
-	CODE_NO_MOVE,			// No Press (Timeout -> ITI)
+	CODE_EARLY_LICK,		// Early Lick (-> Abort)
+	CODE_NO_LICK,			// No Lick (Timeout -> ITI)
 	_NUM_RESULT_CODES		// (Private) Used to count how many codes there are.
 };
 
@@ -125,18 +108,8 @@ enum ResultCode
 static const char *_resultCodeNames[] =
 {
 	"CORRECT",
-	"EARLY_MOVE",
-	"NO_MOVE"
-};
-
-
-/*****************************************************
-	Audio cue frequencies in Hz
-*****************************************************/
-// Use integers. 1kHz - 100kHz for mice
-enum SoundEventFrequencyEnum
-{
-	TONE_CUE     = 6272
+	"EARLY_LICK",
+	"NO_LICK"
 };
 
 /*****************************************************
@@ -146,74 +119,38 @@ enum SoundEventFrequencyEnum
 enum ParamID
 {
 	_DEBUG,						// (Private) 1 to enable debug mode. Default 0.
-	USE_LEVER,					// 0 to use lick to trigger reward. 1 to use lever press.
-	ALLOW_EARLY_MOVE,			// 0 to abort trial if animal licks after in pre-window
-	DELAY_REWARD,				// 0 to reward as soon as correct movement is made. 1 to give reward at end of trial.
-	INTERVAL_MIN,				// Time to start of reward window (ms)
-	INTERVAL_TARGET,			// Target time (ms)
-	INTERVAL_MAX,				// Time to end of reward window (ms)
-	ITI_MIN,					// Intertrial interval duration, min (ms)
-	ITI_MAX,					// Intertrial interval duration, max (ms)
-	ITI_LICK_TIMEOUT,			// ITI ends if last lick was this many ms before, and ITI_MIN has expired (ms)
-	RANDOM_DELAY_MIN,			// Minimum random pre-Cue delay (ms)
-	RANDOM_DELAY_MAX,			// Maximum random pre-Cue delay (ms)
-	CUE_DURATION,				// Duration of the cue tone and LED flash (ms)
+	ALLOW_EARLY_LICK,			// 0 to abort trial if animal licks after in pre-window
+	BAR_STAT_DURATION, 			// Length of moving dots, stationary bar
+	ITI_DURATION,				// ITI length, fixed
 	REWARD_DURATION,			// Reward duration (ms)
-	REWARD_RETRACT_LEVER,		// 1 to retract lever when dispensing reward. 0 to keep it deployed till ITI
-	SERVO_POS_RETRACTED,		// Servo (lever) position when lever is retracted
-	SERVO_POS_DEPLOYED,			// Servo (lever) position when lever is deployed
-	SERVO_SPEED_DEPLOY,			// Servo (lever) rotation speed when deploying, 0 for max speed
-	SERVO_SPEED_RETRACT,		// Servo (lever) rotaiton speed when retracting, 0 for max speed
-	_NUM_PARAMS					// (Private) Used to count how many parameters there are so we can initialize the param array with the correct size. Insert additional parameters before this.
+	REACTIVE,					// Proactive = 0, Reactive = 1
+	MAX_TRIAL_DURATION,			// Longest trial length
+ 	_NUM_PARAMS					// (Private) Used to count how many parameters there are so we can initialize the param array with the correct size. Insert additional parameters before this.
 };
 
 // Store parameter names as strings, will be sent to host
 // Names cannot contain spaces!!!
 static const char *_paramNames[] = 
 {
-	"_DEBUG",
-	"USE_LEVER",
-	"ALLOW_EARLY_MOVE",
-	"DELAY_REWARD",
-	"INTERVAL_MIN",
-	"INTERVAL_TARGET",
-	"INTERVAL_MAX",
-	"ITI_MIN",
-	"ITI_MAX",
-	"ITI_LICK_TIMEOUT",
-	"RANDOM_DELAY_MIN",
-	"RANDOM_DELAY_MAX",
-	"CUE_DURATION",
-	"REWARD_DURATION",
-	"REWARD_RETRACT_LEVER",
-	"SERVO_POS_RETRACTED",
-	"SERVO_POS_DEPLOYED",
-	"SERVO_SPEED_DEPLOY",
-	"SERVO_SPEED_RETRACT"
+	"_DEBUG",					// (Private) 1 to enable debug mode. Default 0.
+	"ALLOW_EARLY_LICK",			// 0 to abort trial if animal licks after in pre-window
+	"BAR_STAT_DURATION", 		// Length of moving dots, stationary bar
+	"ITI_DURATION",				// ITI length, fixed
+	"REACTIVE",					// Is this a reactive or proactive paradigm?
+	"MAX_TRIAL_DURATION",		// Make all the trial relatively similar in length
+	"REWARD_DURATION"			// Reward duration (ms)
 };
 
 // Initialize parameters
 long _params[_NUM_PARAMS] = 
 {
 	0,		// _DEBUG
-	1,		// USE_LEVER
-	0,		// ALLOW_EARLY_MOVE
-	0,		// DELAY_REWARD
-	1000,	// INTERVAL_MIN
-	3000,	// INTERVAL_TARGET
-	6500,	// INTERVAL_MAX
-	2500,	// ITI_MIN
-	10000,	// ITI_MAX
-	1000,	// ITI_LICK_TIMEOUT
-	500,	// RANDOM_DELAY_MIN
-	1000,	// RANDOM_DELAY_MAX
-	50,		// CUE_DURATION
-	100, 	// REWARD_DURATION
-	0,		// REWARD_RETRACT_LEVER
-	130,	// SERVO_POS_RETRACTED
-	90,		// SERVO_POS_DEPLOYED
-	90,		// SERVO_SPEED_DEPLOY
-	60		// SERVO_SPEED_RETRACT
+	0,		// ALLOW_EARLY_LICK
+	500,	// BAR_STAT_DURATION
+	6000,	// ITI_DURATION
+	1, 		// REACTIVE
+	10000,	// MAX_TRIAL_DURATION
+	100,	// REWARD_DURATION
 };
 
 /*****************************************************
@@ -223,7 +160,7 @@ long _params[_NUM_PARAMS] =
 // (previously defined):
 static long _timeReset				= 0;			// Reset to signedMillis() at every soft reset
 static long _timeTrialStart			= 0;			// Reset to 0 at start of trial
-static long _timeCueOn				= 0;			// Reset to 0 at cue on
+static long _timeStimOn				= 0;			// Reset to 0 at cue on
 static int _resultCode				= -1;			// Result code. -1 if there is no result.
 static State _state					= _STATE_INIT;	// This variable (current _state) get passed into a _state function, which determines what the next _state should be, and updates it to the next _state.
 static State _prevState				= _STATE_INIT;	// Remembers the previous _state from the last loop (actions should only be executed when you enter a _state for the first time, comparing currentState vs _prevState helps us keep track of that).
@@ -235,54 +172,34 @@ static bool _isLickOnset 			= false;		// True during lick onset
 static bool _firstLickRegistered 	= false;		// True when first lick is registered for this trial
 static long _timeLastLick			= 0;			// Time (ms) when last lick occured
 
-static bool _isLeverPressed			= false;		// True as long as lever is pressed down
-static bool _isLeverPressOnset 		= false;		// True when lever first pressed
-static bool _isLeverDeployed 		= false;		// True when lever is deployed
-static long _timeLastLeverPress		= 0;			// Time (ms) when last lever press occured
+static bool _isTurningPointReached	= false;		// True if bar moving clockwise
+static bool _isAlphaReached			= false;		// True if proactive condition allowed lick
+static bool _isOmegaReached			= false;		// True if reactive condition allowed lick
+static bool _isThisTheEnd			= false;		// True if the rapture comes
 
-static long _servoStartTime			= 0;			// When servo started moving retrieved using getTime()
-static long _servoSpeed				= 30;			// Speed of servo movement (deg/s)
-static long _servoStartPos			= 130;			// Starting position of servo when rotation begins
-static long _servoTargetPos			= 130;			// Target position of servo
-
-// For white noise generator
-static bool _whiteNoiseIsPlaying 			= false;
-static unsigned long _whiteNoiseInterval 	= 50;	// Determines frequency (us)
-static unsigned long _whiteNoiseDuration 	= 200;	// Noise duration (ms)
-static unsigned long _whiteNoiseFirstClick 	= 0;	// (us)
-static unsigned long _whiteNoiseLastClick 	= 0;	// (us)
 /*****************************************************
 	Setup
 *****************************************************/
 void setup()
 {
 	// Init pins
-	pinMode(PIN_HOUSE_LAMP, OUTPUT);            // LED for illumination
-	pinMode(PIN_IR_LAMP, OUTPUT);            	// IR LED for camera recording
-	pinMode(PIN_LED_CUE, OUTPUT);               // LED for 'start' cue
-	pinMode(PIN_SPEAKER, OUTPUT);               // Speaker for cue tone
-	pinMode(PIN_REWARD, OUTPUT);                // Reward, set to HIGH to open juice valve
-	pinMode(PIN_LICK, INPUT);                   // Lick detector
-	pinMode(PIN_LEVER, INPUT);					// Lever press detector
-
-	// Initiate servo
-	_servo.attach(PIN_SERVO);
+	pinMode(PIN_IR_LAMP, OUTPUT);	// IR LED for camera recording
+	pinMode(PIN_REWARD, OUTPUT);	// Reward, set to HIGH to open juice valve
+	pinMode(PIN_LICK, INPUT);		// Lick detector
 
 	// Serial comms
-	Serial.begin(115200);                       // Set up USB communication at 115200 baud 
+	Serial.begin(115200);			// Set up USB communication at 115200 baud 
 }
 
 void mySetup()
 {
 	// Reset output
-	setHouseLamp(true);                          // House Lamp ON
 	setIRLamp(true);                          	 // IR Lamp ON
-	setCueLED(false);                            // Cue LED OFF
 
 	// Reset variables
 	_timeReset				= 0;			// Reset to signedMillis() at every soft reset
 	_timeTrialStart			= 0;			// Reset to 0 at start of trial
-	_timeCueOn				= 0;
+	_timeStimOn				= 0;
 	_resultCode				= -1;			// Result code. -1 if there is no result.
 	_state					= _STATE_INIT;	// This variable (current _state) get passed into a _state function, which determines what the next _state should be, and updates it to the next _state.
 	_prevState				= _STATE_INIT;	// Remembers the previous _state from the last loop (actions should only be executed when you enter a _state for the first time, comparing currentState vs _prevState helps us keep track of that).
@@ -294,21 +211,10 @@ void mySetup()
 	_firstLickRegistered 	= false;		// True when first lick is registered for this trial
 	_timeLastLick			= 0;			// Time (ms) when last lick occured
 
-	_isLeverPressed			= false;		// True as long as lever is pressed down
-	_isLeverPressOnset 		= false;		// True when lever first pressed
-	_isLeverDeployed 		= false;		// True when lever is deployed
-	_timeLastLeverPress		= 0;			// Time (ms) when last lever press occured
-
-	_servoStartTime			= 0;			// When servo started moving retrieved using getTime()
-	_servoSpeed				= 30;			// Speed of servo movement (deg/s)
-	_servoStartPos			= 110;			// Starting position of servo when rotation begins
-	_servoTargetPos			= 110;			// Target position of servo`
-
-	_whiteNoiseIsPlaying 	= false;
-	_whiteNoiseInterval 	= 50;			// Determines frequency (us)
-	_whiteNoiseDuration 	= 200;			// Noise duration (ms)
-	_whiteNoiseFirstClick 	= 0;			// (us)
-	_whiteNoiseLastClick 	= 0;			// (us)
+	_isTurningPointReached	= false;		// True if bar moving clockwise
+	_isAlphaReached			= false;		// True if proactive condition allowed lick
+	_isOmegaReached			= false;		// True if reactive condition allowed lick
+	_isThisTheEnd			= false;		// True if the rapture comes
 
 	// Sends all parameters, states and error codes to Matlab, then tell PC that we're running by sending '~' message:
 	hostInit();
@@ -358,13 +264,8 @@ void loop()
 
 		// 2) Check for licks and lever pressed
 		handleLick();
-		handleLever();
-		handleServo();
-		
-		// 3) Play white noise if required
-		handleWhiteNoise();
 
-		// 4) Update state machine
+		// 3) Update state machine
 		// Depending on what state we're in, call the appropriate state function, which will evaluate the transition conditions, and update the `_state` var to what the next state should be
 		switch (_state) 
 		{
@@ -380,14 +281,18 @@ void loop()
 				state_intertrial();
 				break;
 			
-			case STATE_PRE_CUE:
-				state_pre_cue();
+			case STATE_START:
+				state_start();
 				break;
 			
-			case STATE_PRE_WINDOW:
-				state_pre_window();
+			case STATE_BAR_STAT:
+				state_bar_stat();
 				break;
 			
+			case STATE_BAR_MOVE:
+				state_bar_move();
+				break;
+
 			case STATE_RESPONSE_WINDOW:
 				state_response_window();
 				break;
@@ -422,12 +327,8 @@ void state_idle()
 		sendState(_state);
 
 		// Reset output
-		setHouseLamp(true);
 		setIRLamp(true);
-		setCueLED(false);
-		noTone(PIN_SPEAKER);
 		setReward(false);
-		deployLever(false);
 	}
 
 	/*****************************************************
@@ -442,10 +343,10 @@ void state_idle()
 	/*****************************************************
 		TRANSITION LIST
 	*****************************************************/
-	// GO signal from host --> STATE_PRE_CUE
+	// GO signal from host --> STATE_START
 	if (_command == 'G') 
 	{
-		_state = STATE_PRE_CUE;
+		_state = STATE_START;
 		return;
 	}
 	
@@ -453,11 +354,10 @@ void state_idle()
 }
 
 /*****************************************************
-	PRE_CUE - First state in trial
+	START - First state in trial
 *****************************************************/
-void state_pre_cue() 
+void state_start() 
 {
-	static long preCueDelay;
 	/*****************************************************
 		ACTION LIST
 	*****************************************************/
@@ -470,20 +370,8 @@ void state_pre_cue()
 		// Register events
 		sendEventMarker(EVENT_TRIAL_START, -1);
 
-		// Turn off house lamp
-		setHouseLamp(false);
-
-		// Deploy lever
-		if (_params[USE_LEVER] == 1)
-		{
-			deployLever(true);
-		}
-
 		// Register trial start time
 		_timeTrialStart = signedMillis();
-
-		// Generate random interval length
-		preCueDelay = random(_params[RANDOM_DELAY_MIN], _params[RANDOM_DELAY_MAX]);
 
 		// Reset variables
 		_resultCode = -1;
@@ -500,43 +388,29 @@ void state_pre_cue()
 		return;
 	}
 
-	// Early lever press detected --> ABORT
-	if (_isLeverPressOnset)
+	// Early lick detected --> ABORT
+	if (_isLickOnset && _params[ALLOW_EARLY_LICK] == 0)
 	{
-		// Using lever & early press not allowed --> ABORT
-		if (_params[USE_LEVER] == 1 && _params[ALLOW_EARLY_MOVE] == 0)
-		{
-			setCueLED(false);
-			_state = STATE_ABORT;
-			return;
-		}
+		// Register result
+		_resultCode = CODE_EARLY_LICK;
+		_state = STATE_ABORT;
+		return;
 	}
 
-	// Pre-cue delay completed --> PRE_WINDOW
-	if (_params[USE_LEVER] == 1)
+	// Go immediately --> BAR_STAT
+	if (getTimeSinceTrialStart() >= 0)
 	{
-		if (_servo.read() == _servoTargetPos && getTimeSinceTrialStart() >= preCueDelay)
-		{
-			_state = STATE_PRE_WINDOW;
-			return;
-		}
-	}
-	else
-	{
-		if (getTimeSinceTrialStart() >= preCueDelay)
-		{
-			_state = STATE_PRE_WINDOW;
-			return;
-		}
+		_state = STATE_BAR_STAT;
+		return;
 	}
 
-	_state = STATE_PRE_CUE;
+	_state = STATE_START;
 }
 
 /*****************************************************
-	PRE_WINDOW - Trial started
+	BAR_STAT - Moving dots, stationary bar
 *****************************************************/
-void state_pre_window() 
+void state_bar_stat() 
 {
 	/*****************************************************
 		ACTION LIST
@@ -547,20 +421,10 @@ void state_pre_window()
 		_prevState = _state;
 		sendState(_state);
 
-		// LED and audio cue
-		setCueLED(true);
-		playSound(TONE_CUE);
-
+		sendEventMarker(EVENT_STIM_ON, -1);
+		
 		// Register cue on time
-		_timeCueOn = signedMillis();
-	}
-
-	/*****************************************************
-		OnEachLoop checks
-	*****************************************************/
-	if (getTimeSinceCueOn() >= _params[CUE_DURATION])
-	{
-		setCueLED(false);
+		_timeStimOn = signedMillis();
 	}
 
 	/*****************************************************
@@ -583,40 +447,29 @@ void state_pre_window()
 			sendEventMarker(EVENT_FIRST_LICK, -1);
 		}
 		// Using lick & early lick not allowed --> ABORT
-		if (_params[USE_LEVER] == 0 && _params[ALLOW_EARLY_MOVE] == 0)
+		if (_params[ALLOW_EARLY_LICK] == 0)
 		{
-			setCueLED(false);
+			// Register result
+			_resultCode = CODE_EARLY_LICK;
 			_state = STATE_ABORT;
 			return;
 		}
 	}
 
-	// Lever press detected
-	if (_isLeverPressOnset)
+	// bar_stat elapsed --> BAR_MOVE
+	if (getTimeSinceStimOn() >= _params[BAR_STAT_DURATION])
 	{
-		// Using lever & early press not allowed --> ABORT
-		if (_params[USE_LEVER] == 1 && _params[ALLOW_EARLY_MOVE] == 0)
-		{
-			setCueLED(false);
-			_state = STATE_ABORT;
-			return;
-		}
-	}
-
-	// Pre-window elapsed --> PRE_WINDOW
-	if (getTimeSinceCueOn() >= _params[INTERVAL_MIN])
-	{
-		_state = STATE_RESPONSE_WINDOW;
+		_state = STATE_BAR_MOVE;
 		return;
 	}
 
-	_state = STATE_PRE_WINDOW;
+	_state = STATE_BAR_STAT;
 }
 
 /*****************************************************
-	RESPONSE_WINDOW - Licking triggers reward
+	BAR_MOVE - Moving dots, moving bar
 *****************************************************/
-void state_response_window() 
+void state_bar_move() 
 {
 	/*****************************************************
 		ACTION LIST
@@ -626,6 +479,8 @@ void state_response_window()
 		// Register new state
 		_prevState = _state;
 		sendState(_state);
+
+		sendEventMarker(EVENT_BAR_MOVE, -1);
 	}
 
 	/*****************************************************
@@ -647,32 +502,98 @@ void state_response_window()
 			_firstLickRegistered = true;
 			sendEventMarker(EVENT_FIRST_LICK, -1);
 		}
-
-		// Correct lick & Using lick to trigger reward --> REWARD
-		if (_params[USE_LEVER] == 0)
+		// Using lick & early lick not allowed --> ABORT
+		if (_params[ALLOW_EARLY_LICK] == 0)
 		{
-			_state = STATE_REWARD;
+			// Register result
+			_resultCode = CODE_EARLY_LICK;
+			_state = STATE_ABORT;
 			return;
 		}
 	}
 
-	// Lever press detected
-	if (_isLeverPressOnset)
+	// bar_move elapsed --> RESPONSE_WINDOW
+	if (_params[REACTIVE] == 1)
 	{
-		// Correct press & Using lever to trigger reward --> REWARD
-		if (_params[USE_LEVER] == 1)
+		if (_isTurningPointReached)
 		{
+			_state = STATE_RESPONSE_WINDOW;
+			_isTurningPointReached = false;
+			return;
+		}
+	}
+	else
+	{
+		if (_isAlphaReached)
+		{
+			_state = STATE_RESPONSE_WINDOW;
+			_isAlphaReached = false;
+			return;
+		} 
+	} 
+
+	_state = STATE_BAR_MOVE;
+}
+/*****************************************************
+	RESPONSE_WINDOW - Licking triggers reward
+*****************************************************/
+void state_response_window() 
+{
+	/*****************************************************
+		ACTION LIST
+	*****************************************************/
+	if (_state != _prevState) 
+	{
+		// Register new state
+		_prevState = _state;
+		sendState(_state);
+
+		sendEventMarker(EVENT_WINDOW_OPEN, -1);
+	}
+
+	/*****************************************************
+		TRANSITION LIST
+	*****************************************************/
+	// Quit signal from host --> IDLE
+	if (_command == 'Q') 
+	{
+		_state = STATE_IDLE;
+		return;
+	}
+
+	// Lick detected
+	if (_isLickOnset)
+	{
+		// First lick registration
+		if (!_firstLickRegistered)
+		{
+			_firstLickRegistered = true;
+			sendEventMarker(EVENT_FIRST_LICK, -1);
 			_state = STATE_REWARD;
 			return;
 		}
 	}
 
 	// Response window elapsed --> ITI
-	if (getTimeSinceCueOn() >= _params[INTERVAL_MAX])
+	if (_params[REACTIVE] == 1)
 	{
-		_resultCode = CODE_NO_MOVE;
-		_state = STATE_INTERTRIAL;
-		return;
+		if (_isTurningPointReached)
+		{
+			_resultCode = CODE_NO_LICK;
+			_state = STATE_ABORT;
+			_isTurningPointReached = false;
+			return;
+		}
+	}
+	else
+	{
+		if (_isOmegaReached)
+		{
+			_resultCode = CODE_NO_LICK;
+			_state = STATE_ABORT;
+			_isOmegaReached = false;
+			return;
+		}
 	}
 
 	_state = STATE_RESPONSE_WINDOW;
@@ -702,50 +623,24 @@ void state_reward()
 		timeRewardOn = 0;
 		isRewardOn = false;
 		isRewardComplete = false;
-
-		// Houselamp on
-		setHouseLamp(true);
-
-		// Retract lever
-		if (_params[USE_LEVER] == 1 && _params[REWARD_RETRACT_LEVER] == 1)
-		{
-			deployLever(false);
-		}
 	}
 
 	/*****************************************************
 		OnEachLoop checks
 	*****************************************************/
 	// Immediate reward
-	if (_params[DELAY_REWARD] == 0)
+	if (!isRewardOn && !isRewardComplete)
 	{
-		if (!isRewardOn && !isRewardComplete)
+		timeRewardOn = getTimeSinceStimOn();
+		isRewardOn = true;
+		if (_params[REWARD_DURATION] > 0)
 		{
-			timeRewardOn = getTimeSinceCueOn();
-			isRewardOn = true;
-			if (_params[REWARD_DURATION] > 0)
-			{
-				setReward(true);
-			}			
-		}
-	}
-	// Delayed reward
-	else
-	{
-		// Start dispensing reward at end of trial
-		if (!isRewardOn && !isRewardComplete && getTimeSinceCueOn() >= _params[INTERVAL_MAX])
-		{
-			timeRewardOn = getTimeSinceCueOn();
-			isRewardOn = true;
-			if (_params[REWARD_DURATION] > 0)
-			{
-				setReward(true);
-			}
-		}
+			setReward(true);
+		}			
 	}
 
 	// Turn off reward when the time comes
-	if (isRewardOn && !isRewardComplete && getTimeSinceCueOn() - timeRewardOn >= _params[REWARD_DURATION])
+	if (isRewardOn && !isRewardComplete && getTimeSinceStimOn() - timeRewardOn >= _params[REWARD_DURATION])
 	{
 		isRewardOn = false;
 		isRewardComplete = true;
@@ -766,7 +661,7 @@ void state_reward()
 	}
 
 	// Trial duration elapsed and reward dispense complete --> INTERTRIAL
-	if (isRewardComplete && getTimeSinceCueOn() >= _params[INTERVAL_MAX])
+	if (isRewardComplete && _isThisTheEnd)
 	{
 		_state = STATE_INTERTRIAL;
 		return;
@@ -789,24 +684,8 @@ void state_abort()
 		_prevState = _state;
 		sendState(_state);
 
-		// Register result
-		_resultCode = CODE_EARLY_MOVE;
-
 		// Register events
 		sendEventMarker(EVENT_ABORT, -1);
-
-		// Play abort tone
-		playWhiteNoise(50, 200);
-		// playSound(TONE_ABORT);
-
-		// Houselamp on
-		setHouseLamp(true);
-
-		// Retract lever
-		if (_params[USE_LEVER] == 1)
-		{
-			deployLever(false);
-		}
 	}
 
 	/*****************************************************
@@ -820,7 +699,7 @@ void state_abort()
 	}
 
 	// Trial duration elapsed --> INTERTRIAL
-	if (getTimeSinceCueOn() >= _params[INTERVAL_MAX])
+	if (_isThisTheEnd)
 	{
 		_state = STATE_INTERTRIAL;
 		return;
@@ -853,17 +732,8 @@ void state_intertrial()
 		sendResultCode(_resultCode);
 		_resultCode = -1;
 
-		// Houselamp on (if not already on)
-		setHouseLamp(true);
-
-		// Retract lever
-		if (_params[USE_LEVER] == 1)
-		{
-			deployLever(false);
-		}
-
 		// Register time of state entry
-		timeIntertrial = getTimeSinceCueOn();
+		timeIntertrial = getTimeSinceStimOn();
 
 		// Variables for handling parameter update
 		isParamsUpdateStarted = false;
@@ -897,12 +767,12 @@ void state_intertrial()
 		return;
 	}
 
-	// If ITI elapsed --> PRE_CUE
+	// If ITI elapsed --> START
 	if (isParamsUpdateDone || !isParamsUpdateStarted)
 	{
-		if ((getTimeSinceCueOn() - timeIntertrial >= _params[ITI_MAX]) || (getTimeSinceCueOn() - timeIntertrial >= _params[ITI_MIN] && getTimeSinceLastLick() >= _params[ITI_LICK_TIMEOUT]))
+		if (getTimeSinceStimOn() - timeIntertrial >= _params[ITI_DURATION])
 		{
-			_state = STATE_PRE_CUE;
+			_state = STATE_START;
 			return;
 		}
 	}
@@ -913,30 +783,6 @@ void state_intertrial()
 /*****************************************************
 	HARDWARE CONTROLS
 *****************************************************/
-// Toggle house lamp, register event when lamp state is changed
-void setHouseLamp(bool turnOn) 
-{
-	static bool houseLampOn = false;
-	if (turnOn) 
-	{
-		digitalWrite(PIN_HOUSE_LAMP, HIGH);
-		if (!houseLampOn)
-		{
-			houseLampOn = true;
-			sendEventMarker(EVENT_HOUSELAMP_ON, -1);
-		}
-	}
-	else 
-	{
-		digitalWrite(PIN_HOUSE_LAMP, LOW);
-		if (houseLampOn)
-		{
-			houseLampOn = false;
-			sendEventMarker(EVENT_HOUSELAMP_OFF, -1);
-		}
-	}
-}
-
 // Toggle IR Lamp
 void setIRLamp(bool turnOn) 
 {
@@ -949,30 +795,6 @@ void setIRLamp(bool turnOn)
 		digitalWrite(PIN_IR_LAMP, LOW);
 	}
 }
-
-// Toggle cue led, register event when state is changed
-void setCueLED(bool turnOn) 
-{
-	static bool cueLEDOn = false;
-	if (turnOn) 
-	{
-		digitalWrite(PIN_LED_CUE, HIGH);
-		if (!cueLEDOn)
-		{
-			cueLEDOn = true;
-			sendEventMarker(EVENT_CUE_ON, -1);
-		}
-	}
-	else 
-	{
-		digitalWrite(PIN_LED_CUE, LOW);
-		if (cueLEDOn)
-		{
-			cueLEDOn = false;
-			sendEventMarker(EVENT_CUE_OFF, -1);
-		}
-	}
-} 
 
 // Lick detection
 bool getLickState() 
@@ -1005,149 +827,6 @@ void handleLick()
 			sendEventMarker(EVENT_LICK_OFF, -1);
 		}
 		_isLickOnset = false;
-	}
-}
-
-// Lever detection
-bool getLeverState() 
-{
-	if (digitalRead(PIN_LEVER) == HIGH) 
-	{
-		return true;
-	}
-	else 
-	{
-		return false;
-	}
-}
-
-void handleLever() 
-{
-	if (!_isLeverDeployed)
-	{
-		_isLeverPressed = false;
-		_isLeverPressOnset = false;
-	}
-	else
-	{
-		if (getLeverState() && !_isLeverPressed)
-		{
-			_isLeverPressed = true;
-			_isLeverPressOnset = true;
-			sendEventMarker(EVENT_LEVER_PRESSED, -1);
-			_timeLastLeverPress = getTime();
-		}
-		else
-		{
-			if (!getLeverState() && _isLeverPressed)
-			{
-				_isLeverPressed = false;
-				sendEventMarker(EVENT_LEVER_RELEASED, -1);
-			}
-			_isLeverPressOnset = false;
-		}
-	}
-}
-
-// Use servo to retract/present lever to the little dude
-void deployLever(bool deploy)
-{
-	if (deploy) 
-	{
-		_servoStartTime = getTime();
-		_servoSpeed = _params[SERVO_SPEED_DEPLOY];
-		_servoStartPos = _servo.read();
-		_servoTargetPos = _params[SERVO_POS_DEPLOYED];
-		if (!_isLeverDeployed)
-		{
-			_isLeverDeployed = true;
-			sendEventMarker(EVENT_LEVER_DEPLOYED, -1);
-		}
-	}
-	else 
-	{
-		_servoStartTime = getTime();
-		_servoSpeed = _params[SERVO_SPEED_RETRACT];
-		_servoStartPos = _servo.read();
-		_servoTargetPos = _params[SERVO_POS_RETRACTED];
-		if (_isLeverDeployed)
-		{
-			_isLeverDeployed = false;
-			sendEventMarker(EVENT_LEVER_RETRACTED, -1);
-		}
-	}
-}
-
-void handleServo()
-{
-	static long servoNewPos;
-	if (_servoSpeed == 0)
-	{
-		_servo.write(_servoTargetPos);
-	}
-	else
-	{
-		if (_servo.read() < _servoTargetPos)
-		{
-			servoNewPos = round(_servoStartPos + _servoSpeed*(getTime() - _servoStartTime)/1000);
-			if (servoNewPos <= _servoTargetPos)
-			{
-				_servo.write(servoNewPos);
-			}
-		}
-		else
-		{
-			if (_servo.read() > _servoTargetPos)
-			{
-				servoNewPos = round(_servoStartPos - _servoSpeed*(getTime() - _servoStartTime)/1000);
-				if (servoNewPos >= _servoTargetPos)
-				{
-					_servo.write(servoNewPos);
-				}
-			}
-		}
-	}
-}
-
-// Play a tone defined in SoundEventFrequencyEnum
-void playSound(SoundEventFrequencyEnum soundEventFrequency) 
-{
-	long duration = 200;
-
-	if (soundEventFrequency == TONE_CUE)
-	{
-		duration = _params[CUE_DURATION];
-	}
-
-	noTone(PIN_SPEAKER);
-	tone(PIN_SPEAKER, soundEventFrequency, duration);
-}
-
-void playWhiteNoise(unsigned long frequency, unsigned long duration)
-{
-	_whiteNoiseDuration = duration;
-	_whiteNoiseFirstClick = micros();
-	_whiteNoiseLastClick = micros();
-}
-
-void handleWhiteNoise() 
-{
-	if (micros() - _whiteNoiseFirstClick < _whiteNoiseDuration*1000)
-	{
-		_whiteNoiseIsPlaying = true;
-		if ((micros() - _whiteNoiseLastClick) > _whiteNoiseInterval) 
-		{
-			_whiteNoiseLastClick = micros();
-			digitalWrite(PIN_SPEAKER, random(2));
-		}		
-	}
-	else
-	{
-		if (_whiteNoiseIsPlaying)
-		{
-			_whiteNoiseIsPlaying = false;
-			digitalWrite(PIN_SPEAKER, 0);
-		}
 	}
 }
 
@@ -1312,9 +991,9 @@ long getTimeSinceTrialStart()
 }
 
 // Returns time since cue on in milliseconds
-long getTimeSinceCueOn()
+long getTimeSinceStimOn()
 {
-	long time = signedMillis() - _timeCueOn;
+	long time = signedMillis() - _timeStimOn;
 	return time;
 }
 
@@ -1322,12 +1001,5 @@ long getTimeSinceCueOn()
 long getTimeSinceLastLick()
 {
 	long time = signedMillis() - _timeLastLick;
-	return time;
-}
-
-// Returns time since last lever press in milliseconds
-long getTimeSinceLastLeverPress()
-{
-	long time = signedMillis() - _timeLastLeverPress;
 	return time;
 }
