@@ -199,9 +199,9 @@ long _params[_NUM_PARAMS] =
 	1,		// USE_LEVER
 	0,		// ALLOW_EARLY_MOVE
 	0,		// DELAY_REWARD
-	1000,	// INTERVAL_MIN
-	3000,	// INTERVAL_TARGET
-	6500,	// INTERVAL_MAX
+	4000,	// INTERVAL_MIN
+	4000,	// INTERVAL_TARGET
+	10000,	// INTERVAL_MAX
 	2500,	// ITI_MIN
 	10000,	// ITI_MAX
 	1000,	// ITI_LICK_TIMEOUT
@@ -210,12 +210,11 @@ long _params[_NUM_PARAMS] =
 	50,		// CUE_DURATION
 	100, 	// REWARD_DURATION
 	0,		// REWARD_RETRACT_LEVER
-	130,	// SERVO_POS_RETRACTED
-	90,		// SERVO_POS_DEPLOYED
+	105,	// SERVO_POS_RETRACTED
+	85,		// SERVO_POS_DEPLOYED
 	90,		// SERVO_SPEED_DEPLOY
 	60		// SERVO_SPEED_RETRACT
 };
-
 /*****************************************************
 	Other Global Variables 
 *****************************************************/
