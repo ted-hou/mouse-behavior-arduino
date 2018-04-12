@@ -55,7 +55,6 @@ classdef CameraConnection < handle
 				end
 			end
 
-
 			% Select input format if unspecified
 			if ~ismember(camFormat, hwinfo.DeviceInfo(camID).SupportedFormats) 
 				% Get all available formats and max framerate for each format
@@ -125,7 +124,7 @@ classdef CameraConnection < handle
 			obj.CreateDialog_CameraControl();
 
 			% Open preview window
-			obj.Preview()
+			obj.Preview();
 		end
 
 		function CreateDialog_CameraControl(obj)
@@ -152,9 +151,6 @@ classdef CameraConnection < handle
 			);
 			% Store the dialog handle
 			obj.Rsc.CameraControl = dlg;
-
-			% Terminate camera connection when closing the window
-			dlg.CloseRequestFcn = {@(~, ~, dlg) obj.Delete(dlg), dlg};
 
 			% Preview button
 			hButtonPreview = uicontrol(...
@@ -185,6 +181,17 @@ classdef CameraConnection < handle
 				'Callback', {@(~, ~) obj.Stop},...
 				'Position', hPrev.Position);
 			hPrev = hButtonStop;
+			hPrev.Position(1) = hPrev.Position(1) + hPrev.Position(3) + ctrlSpacing;
+ 
+			% Terminate button
+			hButtonTerminate = uicontrol(...
+				'Parent', dlg,...
+				'Style', 'pushbutton',...
+				'String', 'Terminate',...
+				'TooltipString', 'Stop recording to disk.',...
+				'Callback', {@(~, ~) obj.Delete},...
+				'Position', hPrev.Position);
+			hPrev = hButtonTerminate;
 			hPrev.Position(1) = hPrev.Position(1) + hPrev.Position(3) + ctrlSpacing;
  
 			% Resize dialog
@@ -273,7 +280,7 @@ classdef CameraConnection < handle
 		end
 
 		% Terminates connection to camera
-		function Delete(obj, dlg)
+		function Delete(obj)
 			if isvalid(obj.VideoInput)
 				if islogging(obj.VideoInput)
 					obj.Stop();
@@ -281,8 +288,8 @@ classdef CameraConnection < handle
 				delete(obj.VideoInput)
 			end
 
-			if nargin > 1
-				delete(dlg)
+			if isvalid(obj.Rsc.CameraControl)
+				delete(obj.Rsc.CameraControl)
 			end
 
 			fprintf(1, 'Camera connection closed.\n')
@@ -302,9 +309,6 @@ classdef CameraConnection < handle
 			plot(datetimes(1:end - 1) + diff(datetimes), frameRates);
 			xlabel('Time')
 			ylabel('Frame rate')
-		end
-
-		function PlotFrameRate(obj)
 		end
 	end
 

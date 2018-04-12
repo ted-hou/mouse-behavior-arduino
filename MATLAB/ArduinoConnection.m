@@ -10,7 +10,6 @@ classdef ArduinoConnection < handle
 		EventMarkerNames = {}
 		Trials = struct([])
 		ExperimentFileName = ''			% Contains 'C://path/filename.mat'
-		Camera
 	end
 
 	properties (SetObservable, AbortSet)
@@ -77,20 +76,7 @@ classdef ArduinoConnection < handle
 				end
 
 				% Add event handler to detect state changes
-				obj.Listeners.StateChanged = addlistener(obj, 'StateChanged', @obj.OnStateChanged);				
-
-				% Establish camera connection
-				numCameras = CameraConnection.GetAvailableCameras;
-				if numCameras > 0
-					obj.Camera = CameraConnection(...
-						'CameraID', [],...
-						'Format', '',...
-						'FrameRate', [],...
-						'FileFormat', 'MPEG-4',...
-						'FrameGrabInterval', 1,...
-						'TimestampInterval', 10 ...
-						);
-				end
+				obj.Listeners.StateChanged = addlistener(obj, 'StateChanged', @obj.OnStateChanged);
 			end
 
 		end
@@ -187,12 +173,6 @@ classdef ArduinoConnection < handle
 				fprintf('Autosave enabled. Saving to %s after each trial.\n', obj.ExperimentFileName)
 			else
 				obj.AutosaveEnabled = false;
-			end
-
-			if ~isempty(obj.Camera)
-				videoPath = strsplit(obj.ExperimentFileName, '.mat');
-				videoPath = [videoPath{1}, datestr(now, '_HHMMSS')];
-				obj.Camera.SaveAs(videoPath);
 			end
 		end
 
@@ -442,18 +422,6 @@ classdef ArduinoConnection < handle
 
 		% Break arduino from IDLE state and begin experiment
 		function Start(obj)
-			if ~isempty(obj.Camera)
-				if ~islogging(obj.Camera.VideoInput)
-					obj.Camera.Start();
-					t = timer;
-					t.StartDelay = 10;
-					t.StartFcn = 'fprintf(1, ''Starting first trial in 10 seconds...\n'');';
-					t.TimerFcn = @(~, ~) obj.SendMessage('G');
-					t.StopFcn = @(t, ~) delete(t);
-					start(t)
-					return
-				end
-			end
 			obj.SendMessage('G')
 		end
 
@@ -461,16 +429,6 @@ classdef ArduinoConnection < handle
 		function Stop(obj)
 			obj.SendMessage('Q')
 			obj.EventMarkersBuffer = [];
-			if ~isempty(obj.Camera)
-				if islogging(obj.Camera.VideoInput)
-					t = timer;
-					t.StartDelay = 10;
-					t.StartFcn = 'fprintf(1, ''Stopping video logging in 10 seconds...\n'');';
-					t.TimerFcn = @(~, ~) obj.Camera.Stop();
-					t.StopFcn = @(t, ~) delete(t);
-					start(t)
-				end
-			end
 		end
 
 		% Trigger a soft restart on arduino
@@ -482,9 +440,6 @@ classdef ArduinoConnection < handle
 		function Close(obj)
 			if ~isempty(obj.SerialConnection)
 				fclose(obj.SerialConnection);
-			end
-			if ~isempty(obj.Camera)
-				obj.Camera.Delete();
 			end
 		end
 
