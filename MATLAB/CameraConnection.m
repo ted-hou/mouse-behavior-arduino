@@ -8,6 +8,7 @@ classdef CameraConnection < handle
 	end
 
 	properties (Transient)	% These properties will be discarded when saving to file
+		Rsc
 	end
 
 	methods
@@ -58,9 +59,10 @@ classdef CameraConnection < handle
 			% Select input format if unspecified
 			if ~ismember(camFormat, hwinfo.DeviceInfo(camID).SupportedFormats) 
 				% Get all available formats and max framerate for each format
-				[formats, maxFrameRates] = obj.GetAvailableFormats(camID);
-
-				formatDisplayNames = cellfun(@(a, b) [a, ' - ', num2str(round(b)), ' fps'], formats, num2cell(maxFrameRates), 'UniformOutput', false);
+				% [formats, maxFrameRates] = obj.GetAvailableFormats(camID);
+				% formatDisplayNames = cellfun(@(a, b) [a, ' - ', num2str(round(b)), ' fps'], formats, num2cell(maxFrameRates), 'UniformOutput', false);
+				formats = obj.GetAvailableFormats(camID);
+				formatDisplayNames = formats;
 
 				[selection, ok] = listdlg(...
 					'ListString', formatDisplayNames,...
@@ -113,14 +115,84 @@ classdef CameraConnection < handle
 			obj.VideoInput.FramesPerTrigger = timestampInterval;
 			obj.VideoInput.TriggerFcn = @obj.OnTrigger;
 
-			% Disk loggin parameters
+			% Disk logging parameters
 			obj.VideoInput.LoggingMode = 'disk';
 			obj.Params.Filename = filename;
 			obj.Params.FileFormat = fileFormat;
 			obj.Params.FrameRate = frameRate;
 
+			% Create camera control dialog
+			obj.CreateDialog_CameraControl();
+
 			% Open preview window
 			obj.Preview()
+		end
+
+		function CreateDialog_CameraControl(obj)
+			% If object already exists, show window
+			if isfield(obj.Rsc, 'CameraControl')
+				if isvalid(obj.Rsc.CameraControl)
+					figure(obj.Rsc.CameraControl)
+					return
+				end
+			end
+
+			% Size and position of controls
+			buttonWidth = 50; % Width of buttons
+			buttonHeight = 20; % Height of 
+			ctrlSpacing = 10; % Spacing between ui elements
+
+			% Create the dialog
+			hwinfo = imaqhwinfo('winvideo');
+			dlg = dialog(...
+				'Name', hwinfo.DeviceInfo(obj.VideoInput.DeviceID).DeviceName,...
+				'WindowStyle', 'normal',...
+				'Resize', 'off',...
+				'Visible', 'off'... % Hide until all controls created
+			);
+			% Store the dialog handle
+			obj.Rsc.CameraControl = dlg;
+
+			% Terminate camera connection when closing the window
+			dlg.CloseRequestFcn = {@(~, ~, dlg) obj.Delete(dlg), dlg};
+
+			% Preview button
+			hButtonPreview = uicontrol(...
+				'Parent', dlg,...
+				'Style', 'pushbutton',...
+				'String', 'Preview',...
+				'Callback', {@(~, ~) obj.Preview},...
+				'Position', [ctrlSpacing, ctrlSpacing, buttonWidth, buttonHeight]);
+			hPrev = hButtonPreview;
+
+			% Start button
+			hButtonStart = uicontrol(...
+				'Parent', dlg,...
+				'Style', 'pushbutton',...
+				'String', 'Start',...
+				'TooltipString', 'Start recording to disk.',...
+				'Callback', {@(~, ~) obj.Start},...
+				'Position', hPrev.Position);
+			hPrev = hButtonStart;
+			hPrev.Position(1) = hPrev.Position(1) + hPrev.Position(3) + ctrlSpacing;
+ 
+			% Record button
+			hButtonStop = uicontrol(...
+				'Parent', dlg,...
+				'Style', 'pushbutton',...
+				'String', 'Stop',...
+				'TooltipString', 'Stop recording to disk.',...
+				'Callback', {@(~, ~) obj.Stop},...
+				'Position', hPrev.Position);
+			hPrev = hButtonStop;
+			hPrev.Position(1) = hPrev.Position(1) + hPrev.Position(3) + ctrlSpacing;
+ 
+			% Resize dialog
+			dlg.Position(3) = hPrev.Position(1) + hPrev.Position(3) + ctrlSpacing;
+			dlg.Position(4) = 2*ctrlSpacing + buttonHeight;
+
+			% Unhide dialog now that all controls have been created
+			dlg.Visible = 'on';
 		end
 
 		function SaveAs(obj, filename)
@@ -156,8 +228,14 @@ classdef CameraConnection < handle
 		end
 
 		% Open preview window
-		function Preview(obj)
-			preview(obj.VideoInput);
+		function varargout = Preview(obj)
+			hImage = preview(obj.VideoInput);
+			hFigure = ancestor(hImage, 'figure');
+
+			obj.Rsc.PreviewWindow = hFigure;
+			obj.Rsc.PreviewImage = hImage;
+
+			varargout = {hImage, hFigure};
 		end
 
 		function ClosePreview(obj)
@@ -195,13 +273,19 @@ classdef CameraConnection < handle
 		end
 
 		% Terminates connection to camera
-		function Delete(obj)
+		function Delete(obj, dlg)
 			if isvalid(obj.VideoInput)
 				if islogging(obj.VideoInput)
 					obj.Stop();
 				end
 				delete(obj.VideoInput)
 			end
+
+			if nargin > 1
+				delete(dlg)
+			end
+
+			fprintf(1, 'Camera connection closed.\n')
 		end
 
 		function Plot(obj)
