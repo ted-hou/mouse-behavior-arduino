@@ -4,6 +4,20 @@
 *********************************************************************/
 
 /*****************************************************
+	Commands
+*****************************************************/
+// G - Go
+// O - Over
+// P - Parameters
+// R - Reset
+// Q - Quit
+
+// T - Turning Point
+// A - Alpha
+// W - Omega
+// E - Is this the End? (Max trial length)
+
+/*****************************************************
 	Arduino Pin Outs
 *****************************************************/
 // Digital OUT
@@ -55,9 +69,6 @@ static const int _stateCanUpdateParams[] = {0,1,1,0,0,0,0,0,0};
 enum EventMarker
 {
 	EVENT_TRIAL_START,				// New trial initiated
-	EVENT_WINDOW_OPEN,				// Response window open
-	EVENT_TURNING_POINT,			// Detection event
-	EVENT_WINDOW_CLOSED,			// Response window closed
 	EVENT_LICK,						// Lick onset
 	EVENT_LICK_OFF,					// Lick offset
 	EVENT_FIRST_LICK,				// First lick in trial since cue on
@@ -172,11 +183,6 @@ static bool _isLickOnset 			= false;		// True during lick onset
 static bool _firstLickRegistered 	= false;		// True when first lick is registered for this trial
 static long _timeLastLick			= 0;			// Time (ms) when last lick occured
 
-static bool _isTurningPointReached	= false;		// True if bar moving clockwise
-static bool _isAlphaReached			= false;		// True if proactive condition allowed lick
-static bool _isOmegaReached			= false;		// True if reactive condition allowed lick
-static bool _isThisTheEnd			= false;		// True if the rapture comes
-
 /*****************************************************
 	Setup
 *****************************************************/
@@ -210,11 +216,6 @@ void mySetup()
 	_isLickOnset 			= false;		// True during lick onset
 	_firstLickRegistered 	= false;		// True when first lick is registered for this trial
 	_timeLastLick			= 0;			// Time (ms) when last lick occured
-
-	_isTurningPointReached	= false;		// True if bar moving clockwise
-	_isAlphaReached			= false;		// True if proactive condition allowed lick
-	_isOmegaReached			= false;		// True if reactive condition allowed lick
-	_isThisTheEnd			= false;		// True if the rapture comes
 
 	// Sends all parameters, states and error codes to Matlab, then tell PC that we're running by sending '~' message:
 	hostInit();
@@ -339,6 +340,13 @@ void state_idle()
 	{
 		_params[_arguments[0]] = _arguments[1];
 	}
+
+	// matlab message for tunring pt, alpha, and omega; also isthistheend
+
+
+
+
+
 
 	/*****************************************************
 		TRANSITION LIST
@@ -515,19 +523,19 @@ void state_bar_move()
 	// bar_move elapsed --> RESPONSE_WINDOW
 	if (_params[REACTIVE] == 1)
 	{
-		if (_isTurningPointReached)
+		if (_command == 'T')
 		{
+			sendEventMarker(EVENT_TURNING_POINT, -1);
 			_state = STATE_RESPONSE_WINDOW;
-			_isTurningPointReached = false;
 			return;
 		}
 	}
 	else
 	{
-		if (_isAlphaReached)
+		if (_command == 'A') // A for AlphaReached
 		{
+			sendEventMarker(EVENT_ALPHA, -1);
 			_state = STATE_RESPONSE_WINDOW;
-			_isAlphaReached = false;
 			return;
 		} 
 	} 
@@ -547,8 +555,6 @@ void state_response_window()
 		// Register new state
 		_prevState = _state;
 		sendState(_state);
-
-		sendEventMarker(EVENT_WINDOW_OPEN, -1);
 	}
 
 	/*****************************************************
@@ -577,21 +583,21 @@ void state_response_window()
 	// Response window elapsed --> ITI
 	if (_params[REACTIVE] == 1)
 	{
-		if (_isTurningPointReached)
+		if (_command == 'T')
 		{
+			sendEventMarker(EVENT_TURNING_POINT, -1);
 			_resultCode = CODE_NO_LICK;
 			_state = STATE_ABORT;
-			_isTurningPointReached = false;
 			return;
 		}
 	}
 	else
 	{
-		if (_isOmegaReached)
+		if (_command == 'W')
 		{
+			sendEventMarker(EVENT_OMEGA, -1);
 			_resultCode = CODE_NO_LICK;
 			_state = STATE_ABORT;
-			_isOmegaReached = false;
 			return;
 		}
 	}
@@ -661,7 +667,7 @@ void state_reward()
 	}
 
 	// Trial duration elapsed and reward dispense complete --> INTERTRIAL
-	if (isRewardComplete && _isThisTheEnd)
+	if (isRewardComplete && _command == 'E')
 	{
 		_state = STATE_INTERTRIAL;
 		return;
@@ -699,7 +705,7 @@ void state_abort()
 	}
 
 	// Trial duration elapsed --> INTERTRIAL
-	if (_isThisTheEnd)
+	if (_command == 'E')
 	{
 		_state = STATE_INTERTRIAL;
 		return;
