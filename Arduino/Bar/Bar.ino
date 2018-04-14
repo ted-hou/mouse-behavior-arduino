@@ -87,17 +87,14 @@ enum EventMarker
 static const char *_eventMarkerNames[] =
 {
 	"TRIAL_START",				// New trial initiated
-	"WINDOW_OPEN",				// Response window open
-	"TURNING_POINT",			// Detection event
-	"WINDOW_CLOSED",			// Response window closed
 	"LICK",						// Lick onset
 	"LICK_OFF",					// Lick offset
 	"FIRST_LICK",				// First lick in trial since cue on
 	"STIM_ON",					// Bar appear
 	"BAR_MOVE",					// Bar begins rotation
-	"EVENT_ALPHA",				// Proactive, response window open
-	"EVENT_TURNING_POINT",		// Bar reverse
-	"EVENT_OMEGA",				// Reactive, response window close
+	"ALPHA",					// Proactive, response window open
+	"TURNING_POINT",			// Bar reverse
+	"OMEGA",					// Reactive, response window close
 	"REWARD_ON",				// Reward, juice valve on
 	"REWARD_OFF",				// Reward, juice valve off
 	"ABORT",					// Trial aborted
@@ -134,8 +131,9 @@ enum ParamID
 	BAR_STAT_DURATION, 			// Length of moving dots, stationary bar
 	ITI_DURATION,				// ITI length, fixed
 	REWARD_DURATION,			// Reward duration (ms)
+	WINDOW_DURATION,			// Time from Alpha to Turning Point (or from Turning Point to Omega)
 	REACTIVE,					// Proactive = 0, Reactive = 1
-	MAX_TRIAL_DURATION,			// Longest trial length
+	OMEGA_TO_ITI_DURATION,		// Time from Omega to ITI (ms)
  	_NUM_PARAMS					// (Private) Used to count how many parameters there are so we can initialize the param array with the correct size. Insert additional parameters before this.
 };
 
@@ -147,9 +145,10 @@ static const char *_paramNames[] =
 	"ALLOW_EARLY_LICK",			// 0 to abort trial if animal licks after in pre-window
 	"BAR_STAT_DURATION", 		// Length of moving dots, stationary bar
 	"ITI_DURATION",				// ITI length, fixed
+	"REWARD_DURATION",			// Reward duration (ms)
+	"WINDOW_DURATION",			// Time from Alpha to Turning Point (or from Turning Point to Omega)
 	"REACTIVE",					// Is this a reactive or proactive paradigm?
-	"MAX_TRIAL_DURATION",		// Make all the trial relatively similar in length
-	"REWARD_DURATION"			// Reward duration (ms)
+	"OMEGA_TO_ITI_DURATION"		// Time from Omega to ITI (ms)
 };
 
 // Initialize parameters
@@ -157,11 +156,12 @@ long _params[_NUM_PARAMS] =
 {
 	0,		// _DEBUG
 	0,		// ALLOW_EARLY_LICK
-	500,	// BAR_STAT_DURATION
+	1000,	// BAR_STAT_DURATION
 	6000,	// ITI_DURATION
-	1, 		// REACTIVE
-	10000,	// MAX_TRIAL_DURATION
 	100,	// REWARD_DURATION
+	1000,	// WINDOW_DURATION
+	1, 		// REACTIVE
+	3000	// OMEGA_TO_ITI_DURATION
 };
 
 /*****************************************************
@@ -581,7 +581,7 @@ void state_response_window()
 	}
 
 	// Response window elapsed --> ITI
-	if (_params[REACTIVE] == 1)
+	if (_params[REACTIVE] == 0)
 	{
 		if (_command == 'T')
 		{
