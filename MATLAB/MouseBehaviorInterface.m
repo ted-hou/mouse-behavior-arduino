@@ -1123,7 +1123,6 @@ classdef MouseBehaviorInterface < handle
         end
         
         function CreateVisualStim(obj)
-            
             % make black background
             opengl hardwarebasic % Big performance improvement, might not be necessary on a computer w/ decent GPU
 
@@ -1151,6 +1150,8 @@ classdef MouseBehaviorInterface < handle
 			xlim(hAxes, [-1.05, 1.05]);
 			ylim(hAxes, [-1.05, 1.05]);
 
+            obj.Rsc.VisualStimAxes = hAxes;
+
             obj.Arduino.Listeners.StateChanged = addlistener(obj.Arduino, 'StateChanged', @obj.OnStateChanged);
         end
         
@@ -1158,24 +1159,26 @@ classdef MouseBehaviorInterface < handle
             switch upper(obj.Arduino.StateNames{obj.Arduino.State})
                 % Create bar, create dots
                 case 'BAR_STAT'
-                    obj.Rsc.Dots = obj.MovingDots('Ax', hAxes);
-                    obj.Rsc.Bar = obj.RotatingBar(theta0, 'Ax', hAxes);
-                    obj.Rsc.Theta = 90 - 360*rand(1);
+                    obj.Rsc.Theta0 = 90 - 360*rand(1);
+                    obj.Rsc.Dots = obj.MovingDots('Ax', obj.Rsc.VisualStimAxes);
+                    obj.Rsc.Bar = obj.RotatingBar(obj.Rsc.Theta0, 'Ax', obj.Rsc.VisualStimAxes);
+
+                    obj.Rsc.Bar.UserData.Theta = obj.Rsc.Theta0;
+                    obj.Rsc.Bar.UserData.Speed = 15;
+                    
                     obj.Rsc.Timer = timer;
                     obj.Rsc.Timer.Execution = 'fixedRate';
                     obj.Rsc.Timer.Period = round(1000/60)/1000;
-                    obj.Rsc.Timer.TimerFcn = {@onRefresh, obj.Rsc.Bar, obj.Rsc.Dots};
+                    obj.Rsc.Timer.TimerFcn = {@obj.OnVisualStimRefresh, obj.Rsc.Bar, obj.Rsc.Dots};
                     % TODO: iTrial
-                    obj.Rsc.Trails(iTrial).Theta0 = obj.Rsc.Theta;
+                    % obj.Rsc.Trails(iTrial).Theta0 = obj.Rsc.Theta;
                 case 'BAR_MOVE'
                     start(obj.Rsc.Timer);
                 case 'INTERTRIAL'
                     stop(obj.Rsc.Timer);
                     delete(obj.Rsc.Timer);
             end
-                
         end
-       
     end
     
     %----------------------------------------------------
@@ -1443,7 +1446,7 @@ classdef MouseBehaviorInterface < handle
                 end
             end
         end
-        
+
         function OnStackedBarSingleClick(h, ~)
             % If text from another bar is force shown, hide it first
             t = findobj(gca, 'Tag', 'ForceShown');
@@ -1469,7 +1472,7 @@ classdef MouseBehaviorInterface < handle
                 uistack(tLong, 'top') % Bring to top
             end
         end
-        
+
         function varargout = RotatingBar(theta, varargin)
             p = inputParser;
             addRequired(p, 'Theta', @isnumeric);
@@ -1546,9 +1549,19 @@ classdef MouseBehaviorInterface < handle
                 hDots.UserData.DOB(undead) 		= time;
                 hDots.UserData.Life(undead) 	= max(averageLifeTime*0.1, min(exprnd(averageLifeTime, [1, nnz(undead)]), averageLifeTime*10)); % in seconds
             end
-            
+
             varargout = {hDots};
         end
-        
+
+        function OnVisualStimRefresh(t, ~, hBar, hDots)
+            hBar.UserData.Theta = hBar.UserData.Theta + hBar.UserData.Speed * t.Period;
+            if hBar.UserData.Theta >= 90
+                hBar.UserData.Speed = -hBar.UserData.Speed;
+                hBar.UserData.Theta = 90 - (hBar.UserData.Theta - 90);
+            end
+
+            MouseBehaviorInterface.MovingDots('Dots', hDots, 'Time', t.TasksExecuted*t.Period, 'RefreshRate', t.Period);
+            MouseBehaviorInterface.RotatingBar(hBar.UserData.Theta, 'Bar', hBar);
+        end
     end
 end
