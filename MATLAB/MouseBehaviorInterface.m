@@ -1150,6 +1150,7 @@ classdef MouseBehaviorInterface < handle
 			xlim(hAxes, [-1.05, 1.05]);
 			ylim(hAxes, [-1.05, 1.05]);
 
+            obj.Rsc.VisualStimFigure = hFigure;
             obj.Rsc.VisualStimAxes = hAxes;
 
             obj.Arduino.Listeners.StateChanged = addlistener(obj.Arduino, 'StateChanged', @obj.OnStateChanged);
