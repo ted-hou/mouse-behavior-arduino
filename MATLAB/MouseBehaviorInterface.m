@@ -1107,7 +1107,7 @@ classdef MouseBehaviorInterface < handle
 					obj.Arduino.Close()
 					delete(obj.Rsc.Monitor)
 					delete(obj.Rsc.ExperimentControl)
-					if isvalid(obj.Arduino.Camera)
+					if isvalid(obj.Arduino.Camera.VideoInput)
 						obj.Arduino.Camera.Delete();
 					end
 					fprintf('Arduino connection closed.\n')

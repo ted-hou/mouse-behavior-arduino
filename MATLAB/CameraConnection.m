@@ -1,13 +1,13 @@
 %% CameraConnection: records footage from a windows webcam
 classdef CameraConnection < handle
 	properties
-		VideoInput
-		Source
 		EventLog = struct([])
 		Params
 	end
 
 	properties (Transient)	% These properties will be discarded when saving to file
+		VideoInput
+		Source
 		Rsc
 	end
 
