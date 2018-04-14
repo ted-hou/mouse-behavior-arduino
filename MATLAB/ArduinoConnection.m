@@ -10,6 +10,7 @@ classdef ArduinoConnection < handle
 		EventMarkerNames = {}
 		Trials = struct([])
 		ExperimentFileName = ''			% Contains 'C://path/filename.mat'
+		Camera
 	end
 
 	properties (SetObservable, AbortSet)

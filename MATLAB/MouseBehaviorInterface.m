@@ -3,7 +3,6 @@
 classdef MouseBehaviorInterface < handle
 	properties
 		Arduino
-		Camera
 		UserData
 	end
 	properties (Transient)
@@ -40,7 +39,7 @@ classdef MouseBehaviorInterface < handle
 			% Establish camera connection
 			numCameras = CameraConnection.GetAvailableCameras;
 			if numCameras > 0
-				obj.Camera = CameraConnection(...
+				obj.Arduino.Camera = CameraConnection(...
 					'CameraID', [],...
 					'Format', '',...
 					'FrameRate', [],...
@@ -548,8 +547,8 @@ classdef MouseBehaviorInterface < handle
 
 		function CreateDialog_CameraControl(obj)
 			% If object already exists, show window
-			if isvalid(obj.Camera)
-				obj.Camera.CreateDialog_CameraControl();
+			if isvalid(obj.Arduino.Camera)
+				obj.Arduino.Camera.CreateDialog_CameraControl();
 			end
 		end
 
@@ -1106,7 +1105,7 @@ classdef MouseBehaviorInterface < handle
 					obj.Arduino.Close()
 					delete(obj.Rsc.Monitor)
 					delete(obj.Rsc.ExperimentControl)
-					obj.Camera.Delete();
+					obj.Arduino.Camera.Delete();
 					fprintf('Arduino connection closed.\n')
 				case 'No'
 					return
@@ -1139,11 +1138,11 @@ classdef MouseBehaviorInterface < handle
 		function ArduinoSaveAsExperiment(obj, ~, ~)
 			obj.Arduino.SaveAsExperiment()
 
-			if ~isempty(obj.Camera)
+			if ~isempty(obj.Arduino.Camera)
 				if ~isempty(obj.Arduino.ExperimentFileName)
 					videoPath = strsplit(obj.Arduino.ExperimentFileName, '.mat');
 					videoPath = videoPath{1};
-					obj.Camera.SaveAs(videoPath);
+					obj.Arduino.Camera.SaveAs(videoPath);
 				end
 			end
 		end
