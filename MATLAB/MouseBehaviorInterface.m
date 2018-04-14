@@ -37,15 +37,17 @@ classdef MouseBehaviorInterface < handle
 			end
 
 			% Establish camera connection
-			numCameras = CameraConnection.GetAvailableCameras;
-			if numCameras > 0
-				obj.Arduino.Camera = CameraConnection(...
-					'CameraID', [],...
-					'Format', '',...
-					'FrameRate', [],...
-					'FileFormat', 'MPEG-4',...
-					'FrameGrabInterval', 1,...
-					'TimestampInterval', 10);
+			if ~strcmp(arduinoPortName, '/offline')
+				numCameras = CameraConnection.GetAvailableCameras;
+				if numCameras > 0
+					obj.Arduino.Camera = CameraConnection(...
+						'CameraID', [],...
+						'Format', '',...
+						'FrameRate', [],...
+						'FileFormat', 'MPEG-4',...
+						'FrameGrabInterval', 1,...
+						'TimestampInterval', 10);
+				end
 			end
 		end
 
@@ -1105,7 +1107,9 @@ classdef MouseBehaviorInterface < handle
 					obj.Arduino.Close()
 					delete(obj.Rsc.Monitor)
 					delete(obj.Rsc.ExperimentControl)
-					obj.Arduino.Camera.Delete();
+					if isvalid(obj.Arduino.Camera)
+						obj.Arduino.Camera.Delete();
+					end
 					fprintf('Arduino connection closed.\n')
 				case 'No'
 					return
@@ -1139,10 +1143,12 @@ classdef MouseBehaviorInterface < handle
 			obj.Arduino.SaveAsExperiment()
 
 			if ~isempty(obj.Arduino.Camera)
-				if ~isempty(obj.Arduino.ExperimentFileName)
-					videoPath = strsplit(obj.Arduino.ExperimentFileName, '.mat');
-					videoPath = videoPath{1};
-					obj.Arduino.Camera.SaveAs(videoPath);
+				if isvalid(obj.Arduino.Camera)
+					if ~isempty(obj.Arduino.ExperimentFileName)
+						videoPath = strsplit(obj.Arduino.ExperimentFileName, '.mat');
+						videoPath = videoPath{1};
+						obj.Arduino.Camera.SaveAs(videoPath);
+					end
 				end
 			end
 		end

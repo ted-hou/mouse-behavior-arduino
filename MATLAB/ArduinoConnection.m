@@ -230,6 +230,11 @@ classdef ArduinoConnection < handle
 				obj.Trials 					= p.obj.Trials;
 				obj.TrialsCompleted 		= p.obj.TrialsCompleted;
 
+				% Load camera stuff if available
+				if ~isempty(p.obj.Camera)
+					obj.Camera = p.obj.Camera;
+				end
+
 				% Add all parameters to update queue
 				for iParam = 1:length(p.obj.ParamValues)
 					obj.UpdateParams_AddToQueue(iParam, p.obj.ParamValues(iParam))
