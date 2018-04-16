@@ -219,9 +219,6 @@ classdef CameraConnection < handle
 			xlabel('Time')
 			ylabel('Frame rate')
 		end
-
-		function PlotFrameRate(obj)
-		end
 	end
 
 	methods (Static)
