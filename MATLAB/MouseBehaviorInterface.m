@@ -1166,15 +1166,21 @@ classdef MouseBehaviorInterface < handle
 			switch upper(obj.Arduino.StateNames{obj.Arduino.State})
 				% Create bar, create dots
 				case 'BAR_STAT'
+					% Read Arduino parameters
 					speed 				= obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'BAR_SPEED'));
 					spatialFrequency 	= obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'SPATIAL_FREQUENCY'));
 					windowDuration  	= obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'WINDOW_DURATION'))/1000;
-					thetas				= [0:obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'SPATIAL_FREQUENCY')):360];
-					safeTheta0s			= thetas(thetas > windowDuration*(speed*spatial_frequency));
+
+					% Generate list of bar angles
+					thetas				= [360:-obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'SPATIAL_FREQUENCY')):0];
+					thetas 				= flip(thetas);
+					safeTheta0s			= thetas(thetas > windowDuration*(speed*spatialFrequency));
 					safeTheta0s			= safeTheta0s + 90;
 					thetas 				= thetas + 90;
 					thetaIndex0 		= randi(length(safeTheta0s));
 					theta0          	= thetas(thetaIndex0);
+
+					% Create objects
 					obj.Rsc.Dots    	= obj.MovingDots('Ax', obj.Rsc.VisualStimAxes);
 					obj.Rsc.Bar     	= obj.RotatingBar(theta0, 'Ax', obj.Rsc.VisualStimAxes);
 
@@ -1196,9 +1202,10 @@ classdef MouseBehaviorInterface < handle
 					obj.Rsc.DotsRefreshTimer.Execution = 'fixedRate';
 					obj.Rsc.DotsRefreshTimer.Period = round(1000/60)/1000;
 					obj.Rsc.DotsRefreshTimer.TimerFcn = {@obj.OnDotsRefresh, obj.Rsc.Dots};
+					start(obj.Rsc.DotsRefreshTimer);
 				% Bar starts moving
 				case 'BAR_MOVE'
-					start(obj.Rsc.VisualStimRefreshTimer);
+					start(obj.Rsc.BarRefreshTimer);
 				% Either reward or abort, wait some time and tell Arduino to go to ITI
 				case {'REWARD', 'ABORT'}
 					omegaToITIDuration = obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'OMEGA_TO_ITI_DURATION'))/1000;
@@ -1208,10 +1215,11 @@ classdef MouseBehaviorInterface < handle
 					end
 					obj.Rsc.OmegaToITITimer.StartDelay = omegaToITIDuration;
 					start(obj.Rsc.OmegaToITITimer);
-
 				case 'INTERTRIAL'
-					stop(obj.Rsc.VisualStimRefreshTimer);
-					delete(obj.Rsc.VisualStimRefreshTimer);
+					stop(obj.Rsc.BarRefreshTimer);
+					stop(obj.Rsc.DotsRefreshTimer);
+					delete(obj.Rsc.BarRefreshTimer);
+					delete(obj.Rsc.DotsRefreshTimer);
 					delete(obj.Rsc.Bar);
 					delete(obj.Rsc.Dots);
 			end
@@ -1249,6 +1257,7 @@ classdef MouseBehaviorInterface < handle
 			end
 
 			nextTheta = obj.Rsc.Bar.UserData.Thetas(nextThetaIndex);
+			obj.Rsc.Bar.UserData.ThetaIndex = nextThetaIndex;
 
 			obj.RotatingBar(nextTheta, 'Bar', hBar);
 		end
