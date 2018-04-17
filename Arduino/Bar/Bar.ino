@@ -134,6 +134,8 @@ enum ParamID
 	WINDOW_DURATION,			// Time from Alpha to Turning Point (or from Turning Point to Omega)
 	REACTIVE,					// Proactive = 0, Reactive = 1
 	OMEGA_TO_ITI_DURATION,		// Time from Omega to ITI (ms)
+	SPATIAL_FREQUENCY,			// Distance (degrees) between bar locations
+	BAR_SPEED,					// In hops/seconds
  	_NUM_PARAMS					// (Private) Used to count how many parameters there are so we can initialize the param array with the correct size. Insert additional parameters before this.
 };
 
@@ -148,7 +150,9 @@ static const char *_paramNames[] =
 	"REWARD_DURATION",			// Reward duration (ms)
 	"WINDOW_DURATION",			// Time from Alpha to Turning Point (or from Turning Point to Omega)
 	"REACTIVE",					// Is this a reactive or proactive paradigm?
-	"OMEGA_TO_ITI_DURATION"		// Time from Omega to ITI (ms)
+	"OMEGA_TO_ITI_DURATION",	// Time from Omega to ITI (ms)
+	"SPATIAL_FREQUENCY",		// Distance (degrees) between bar locations; degrees/hop
+	"BAR_SPEED"					// In hops/seconds
 };
 
 // Initialize parameters
@@ -161,7 +165,9 @@ long _params[_NUM_PARAMS] =
 	100,	// REWARD_DURATION
 	1000,	// WINDOW_DURATION
 	1, 		// REACTIVE
-	3000	// OMEGA_TO_ITI_DURATION
+	3000,	// OMEGA_TO_ITI_DURATION
+	10,		// SPATIAL_FREQUENCY
+	4		// BAR_SPEED
 };
 
 /*****************************************************

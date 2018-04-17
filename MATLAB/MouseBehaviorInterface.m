@@ -1166,22 +1166,36 @@ classdef MouseBehaviorInterface < handle
 			switch upper(obj.Arduino.StateNames{obj.Arduino.State})
 				% Create bar, create dots
 				case 'BAR_STAT'
-					% TODO: Make sure theta0 is outside response window
-					theta0          = 90 - 360*rand(1);
-					obj.Rsc.Dots    = obj.MovingDots('Ax', obj.Rsc.VisualStimAxes);
-					obj.Rsc.Bar     = obj.RotatingBar(theta0, 'Ax', obj.Rsc.VisualStimAxes);
+					speed 				= obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'BAR_SPEED'));
+					spatialFrequency 	= obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'SPATIAL_FREQUENCY'));
+					windowDuration  	= obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'WINDOW_DURATION'))/1000;
+					thetas				= [0:obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'SPATIAL_FREQUENCY')):360];
+					safeTheta0s			= thetas(thetas > windowDuration*(speed*spatial_frequency));
+					safeTheta0s			= safeTheta0s + 90;
+					thetas 				= thetas + 90;
+					thetaIndex0 		= randi(length(safeTheta0s));
+					theta0          	= thetas(thetaIndex0);
+					obj.Rsc.Dots    	= obj.MovingDots('Ax', obj.Rsc.VisualStimAxes);
+					obj.Rsc.Bar     	= obj.RotatingBar(theta0, 'Ax', obj.Rsc.VisualStimAxes);
 
 					obj.UserData.Theta0							= theta0;
-					obj.Rsc.Bar.UserData.Theta					= theta0;
-					obj.Rsc.Bar.UserData.Speed					= 15;
+					obj.Rsc.Bar.UserData.Thetas 				= thetas;
+					obj.Rsc.Bar.UserData.ThetaIndex				= thetaIndex0;
+					obj.Rsc.Bar.UserData.Direction 				= 1;
+					obj.Rsc.Bar.UserData.Speed					= speed;
 					obj.Rsc.Bar.UserData.IsAlphaReached			= false;
 					obj.Rsc.Bar.UserData.IsOmegaReached			= false;
 					obj.Rsc.Bar.UserData.IsTurningPointReached	= false;
 
-					obj.Rsc.VisualStimRefreshTimer = timer;
-					obj.Rsc.VisualStimRefreshTimer.Execution = 'fixedRate';
-					obj.Rsc.VisualStimRefreshTimer.Period = round(1000/60)/1000;
-					obj.Rsc.VisualStimRefreshTimer.TimerFcn = {@obj.OnVisualStimRefresh, obj.Rsc.Bar, obj.Rsc.Dots};
+					obj.Rsc.BarRefreshTimer = timer;
+					obj.Rsc.BarRefreshTimer.Execution = 'fixedRate';
+					obj.Rsc.BarRefreshTimer.Period = 1/speed;
+					obj.Rsc.BarRefreshTimer.TimerFcn = {@obj.OnBarRefresh, obj.Rsc.Bar};
+
+					obj.Rsc.DotsRefreshTimer = timer;
+					obj.Rsc.DotsRefreshTimer.Execution = 'fixedRate';
+					obj.Rsc.DotsRefreshTimer.Period = round(1000/60)/1000;
+					obj.Rsc.DotsRefreshTimer.TimerFcn = {@obj.OnDotsRefresh, obj.Rsc.Dots};
 				% Bar starts moving
 				case 'BAR_MOVE'
 					start(obj.Rsc.VisualStimRefreshTimer);
@@ -1208,32 +1222,40 @@ classdef MouseBehaviorInterface < handle
 			obj.Arduino.Trials(end).Theta0 = obj.UserData.Theta0;		
 		end
 
-		function OnVisualStimRefresh(obj, t, ~, hBar, hDots)
-			hBar.UserData.Theta = hBar.UserData.Theta + hBar.UserData.Speed * t.Period;
+		function OnBarRefresh(obj, t, ~, hBar)
+			nextThetaIndex = obj.Rsc.Bar.UserData.ThetaIndex + hBar.UserData.Direction;
 
 			% Read parameters from Arduino
-			windowDuration = obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'WINDOW_DURATION'))/1000;
+			speed 				= obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'BAR_SPEED'));
+			spatialFrequency 	= obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'SPATIAL_FREQUENCY'));
+			windowDuration  	= obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'WINDOW_DURATION'))/1000;
+
 			% Alpha
-			if (~hBar.UserData.IsAlphaReached && hBar.UserData.Speed > 0 && (90 - hBar.UserData.Theta)/abs(hBar.UserData.Speed) <= windowDuration)
+			if (~hBar.UserData.IsAlphaReached && hBar.UserData.Direction > 0 && (450 - obj.Rsc.Bar.UserData.Thetas(nextThetaIndex)) <= windowDuration*speed*spatialFrequency)
 				obj.Arduino.SendMessage('A');
 				hBar.UserData.IsAlphaReached = true;
 			end
 			% Turning point
-			if (~hBar.UserData.IsTurningPointReached && hBar.UserData.Speed > 0 && hBar.UserData.Theta >= 90)
-				hBar.UserData.Speed = -hBar.UserData.Speed;
-				hBar.UserData.Theta = 90 - (hBar.UserData.Theta - 90);
+			if (~hBar.UserData.IsTurningPointReached && hBar.UserData.Direction > 0 && nextThetaIndex > length(obj.Rsc.Bar.UserData.Thetas))
+				hBar.UserData.Direction = -1;
+				nextThetaIndex = obj.Rsc.Bar.UserData.ThetaIndex + hBar.UserData.Direction;
 				obj.Arduino.SendMessage('T');
 				hBar.UserData.IsTurningPointReached = true;
 			end
 			% Omega
-			if ((~hBar.UserData.IsOmegaReached) && (hBar.UserData.Speed < 0) && ((90 - hBar.UserData.Theta)/abs(hBar.UserData.Speed) >= windowDuration))
+			if (~hBar.UserData.IsOmegaReached && hBar.UserData.Direction < 0 && ((450 - obj.Rsc.Bar.UserData.Thetas(nextThetaIndex)) >= windowDuration*speed*spatialFrequency))
 				obj.Arduino.SendMessage('W');
 				hBar.UserData.IsOmegaReached = true;
 			end
 
+			nextTheta = obj.Rsc.Bar.UserData.Thetas(nextThetaIndex);
+
+			obj.RotatingBar(nextTheta, 'Bar', hBar);
+		end
+
+		function OnDotsRefresh(obj, t, ~, hDots)
 			obj.MovingDots('Dots', hDots, 'Time', t.TasksExecuted*t.Period, 'RefreshRate', t.Period);
-			obj.RotatingBar(hBar.UserData.Theta, 'Bar', hBar);
-		end        
+		end
 	end
 	
 	%----------------------------------------------------
