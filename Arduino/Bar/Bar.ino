@@ -347,13 +347,6 @@ void state_idle()
 		_params[_arguments[0]] = _arguments[1];
 	}
 
-	// matlab message for tunring pt, alpha, and omega; also isthistheend
-
-
-
-
-
-
 	/*****************************************************
 		TRANSITION LIST
 	*****************************************************/
