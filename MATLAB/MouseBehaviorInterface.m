@@ -1060,13 +1060,14 @@ classdef MouseBehaviorInterface < handle
 					otherwise
 						return
 				end
-				obj.CreateVisualStim();
+				obj.CreateVisualStim()
 			end
 			obj.Arduino.Start()
 		end
 		
 		function ArduinoStop(obj, ~, ~)
 			obj.Arduino.Stop()
+			obj.DeleteVisualStim()
 		end
 		
 		function ArduinoReset(obj, ~, ~)
@@ -1162,6 +1163,24 @@ classdef MouseBehaviorInterface < handle
 			obj.Arduino.Listeners.TrialRegistered_VisualStim = addlistener(obj.Arduino, 'TrialsCompleted', 'PostSet', @obj.OnTrialRegistered_VisualStim);
 		end
 		
+		function DeleteVisualStim(obj, ~, ~)
+			if isfield(obj.Rsc, 'VisualStimFigure')
+				if isvalid(obj.Rsc.VisualStimFigure)
+					delete(obj.Rsc.VisualStimFigure)
+				end
+			end
+			if isfield(obj.Arduino.Listeners, 'StateChanged_VisualStim')
+				if isvalid(obj.Arduino.Listeners.StateChanged_VisualStim)
+					delete(obj.Arduino.Listeners.StateChanged_VisualStim)
+				end
+			end
+			if isfield(obj.Arduino.Listeners, 'TrialRegistered_VisualStim')
+				if isvalid(obj.Arduino.Listeners.TrialRegistered_VisualStim)
+					delete(obj.Arduino.Listeners.TrialRegistered_VisualStim)
+				end
+			end
+		end
+
 		function OnStateChanged_VisualStim(obj, ~, ~)
 			switch upper(obj.Arduino.StateNames{obj.Arduino.State})
 				% Create bar, create dots
