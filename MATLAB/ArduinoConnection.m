@@ -334,7 +334,11 @@ classdef ArduinoConnection < handle
 					timeStamp = str2num(subStrings{2});
 					absTime = now;
 					if isfield(obj.MBI.Rsc, 'Bar')
-						theta = obj.MBI.Rsc.Bar.UserData.Thetas(obj.MBI.Rsc.Bar.UserData.ThetaIndex);
+						if isvalid(obj.MBI.Rsc.Bar)
+							theta = obj.MBI.Rsc.Bar.UserData.Thetas(obj.MBI.Rsc.Bar.UserData.ThetaIndex);
+						else
+							theta = NaN;
+						end
 					else
 						theta = NaN;
 					end
