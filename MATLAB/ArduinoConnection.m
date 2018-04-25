@@ -26,6 +26,7 @@ classdef ArduinoConnection < handle
 		State = []
 		ParamUpdateQueue = []
 		EventMarkersBuffer = []
+		MBI = []
 		Listeners
 	end
 
@@ -332,8 +333,9 @@ classdef ArduinoConnection < handle
 					eventCode = str2num(subStrings{1}) + 1; % Convert zero-based indices (Arduino) to one-based indices (MATLAB)
 					timeStamp = str2num(subStrings{2});
 					absTime = now;
-					obj.EventMarkersBuffer = [obj.EventMarkersBuffer; eventCode, timeStamp, absTime];
-					obj.EventMarkersUntrimmed = [obj.EventMarkersUntrimmed; eventCode, timeStamp, absTime];
+					theta = obj.MBI.Rsc.Bar.UserData.Thetas(obj.MBI.Rsc.Bar.UserData.ThetaIndex);
+					obj.EventMarkersBuffer = [obj.EventMarkersBuffer; eventCode, timeStamp, absTime, theta];
+					obj.EventMarkersUntrimmed = [obj.EventMarkersUntrimmed; eventCode, timeStamp, absTime, theta];
 
 					% Debug message
 					if obj.DebugMode
