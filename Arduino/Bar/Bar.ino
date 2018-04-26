@@ -152,7 +152,7 @@ static const char *_paramNames[] =
 	"REACTIVE",					// Is this a reactive or proactive paradigm?
 	"OMEGA_TO_ITI_DURATION",	// Time from Omega to ITI (ms)
 	"SPATIAL_FREQUENCY",		// Distance (degrees) between bar locations; degrees/hop
-	"BAR_SPEED"					// In hops/seconds
+	"BAR_SPEED"					// In hops/sec5onds
 };
 
 // Initialize parameters
@@ -166,8 +166,8 @@ long _params[_NUM_PARAMS] =
 	1000,	// WINDOW_DURATION
 	1, 		// REACTIVE
 	3000,	// OMEGA_TO_ITI_DURATION
-	10,		// SPATIAL_FREQUENCY
-	4		// BAR_SPEED
+	4,		// SPATIAL_FREQUENCY
+	8		// BAR_SPEED
 };
 
 /*****************************************************

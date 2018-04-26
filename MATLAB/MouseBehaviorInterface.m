@@ -1138,7 +1138,7 @@ classdef MouseBehaviorInterface < handle
 			set(hFigure, 'MenuBar', 'none')
 			set(hFigure, 'NumberTitle', 'off')
 			hFigure.Units = 'Pixels';
-			hFigure.Position = [0, 20, 1920, 1080]; %if you have a different resolution, change
+			hFigure.Position = [1920, 100, 1920, 1080]; %if you have a different resolution, change
 
 			undecorateFig(hFigure);	% Stuff from interweb, makes the window borderless
 
