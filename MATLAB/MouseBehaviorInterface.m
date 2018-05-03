@@ -871,7 +871,7 @@ classdef MouseBehaviorInterface < handle
 			% Plot it for the first time
 			obj.Hist_Execute(figId, numBins);
 			
-			% Plot again everytime an event of interest occurs
+			% Plot again every time an event of interest occurs
 			ax.UserData.Listener = addlistener(obj.Arduino, 'TrialsCompleted', 'PostSet', @(~, ~) obj.Hist_Execute(figId, numBins));
 			f.CloseRequestFcn = {@MouseBehaviorInterface.OnLooseFigureClosed, ax.UserData.Listener};
 		end
@@ -1138,7 +1138,7 @@ classdef MouseBehaviorInterface < handle
 			set(hFigure, 'MenuBar', 'none')
 			set(hFigure, 'NumberTitle', 'off')
 			hFigure.Units = 'Pixels';
-			hFigure.Position = [1920, 100, 1920, 1080]; %if you have a different resolution, change
+			hFigure.Position = [1920, 30, 1920, 1080]; %if you have a different resolution, change
 
 			undecorateFig(hFigure);	% Stuff from interweb, makes the window borderless
 
