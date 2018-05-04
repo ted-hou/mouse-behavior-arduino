@@ -14,18 +14,18 @@
 
 // T - Turning Point
 // A - Alpha
-// W - Omega
+// W - Omega 
 // E - Is this the End? (Max trial length)
 
 /*****************************************************
 	Arduino Pin Outs
 *****************************************************/
 // Digital OUT
-#define PIN_IR_LAMP		8
-#define PIN_REWARD		7
+#define PIN_IR_LAMP		12 // USER_2
+#define PIN_REWARD		9
 
 // Digital IN
-#define PIN_LICK		2
+#define PIN_LICK		11 // USER_1
 
 /*****************************************************
 	Enums - DEFINE States
@@ -136,6 +136,8 @@ enum ParamID
 	OMEGA_TO_ITI_DURATION,		// Time from Omega to ITI (ms)
 	SPATIAL_FREQUENCY,			// Distance (degrees) between bar locations
 	BAR_SPEED,					// In hops/seconds
+	PAVLOVIAN,					// Pavlovian = 1, Operant = 0
+	TIMING,						// Elapsed time informative = 1, Not = 0
  	_NUM_PARAMS					// (Private) Used to count how many parameters there are so we can initialize the param array with the correct size. Insert additional parameters before this.
 };
 
@@ -152,7 +154,9 @@ static const char *_paramNames[] =
 	"REACTIVE",					// Is this a reactive or proactive paradigm?
 	"OMEGA_TO_ITI_DURATION",	// Time from Omega to ITI (ms)
 	"SPATIAL_FREQUENCY",		// Distance (degrees) between bar locations; degrees/hop
-	"BAR_SPEED"					// In hops/sec5onds
+	"BAR_SPEED",				// In hops/seconds
+	"PAVLOVIAN",				// Pavlovian = 1, Operant = 0
+	"TIMING",					// Elapsed time informative = 1, Not = 0
 };
 
 // Initialize parameters
@@ -167,7 +171,9 @@ long _params[_NUM_PARAMS] =
 	1, 		// REACTIVE
 	3000,	// OMEGA_TO_ITI_DURATION
 	4,		// SPATIAL_FREQUENCY
-	8		// BAR_SPEED
+	8,		// BAR_SPEED
+	0,		// PAVLOVIAN
+	1,		// TIMING
 };
 
 /*****************************************************
