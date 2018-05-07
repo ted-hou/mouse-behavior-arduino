@@ -107,6 +107,7 @@ static const char *_eventMarkerNames[] =
 enum ResultCode
 {
 	CODE_CORRECT,			// Correct (1st lick w/in window)
+	CODE_PAV,				// Pavlovian (Reward given when bar reverses)
 	CODE_EARLY_LICK,		// Early Lick (-> Abort)
 	CODE_NO_LICK,			// No Lick (Timeout -> ITI)
 	_NUM_RESULT_CODES		// (Private) Used to count how many codes there are.
@@ -116,6 +117,7 @@ enum ResultCode
 static const char *_resultCodeNames[] =
 {
 	"CORRECT",
+	"PAV",
 	"EARLY_LICK",
 	"NO_LICK"
 };
@@ -172,7 +174,7 @@ long _params[_NUM_PARAMS] =
 	3000,	// OMEGA_TO_ITI_DURATION
 	4,		// SPATIAL_FREQUENCY
 	8,		// BAR_SPEED
-	0,		// PAVLOVIAN
+	1,		// PAVLOVIAN
 	1,		// TIMING
 };
 
@@ -572,39 +574,67 @@ void state_response_window()
 		return;
 	}
 
-	// Lick detected
-	if (_isLickOnset)
+	// Pavlovian
+	if (_params[PAVLOVIAN] == 1)
 	{
-		// First lick registration
-		if (!_firstLickRegistered)
+		if (_params[REACTIVE] == 0)
 		{
-			_firstLickRegistered = true;
-			sendEventMarker(EVENT_FIRST_LICK, -1);
-			_state = STATE_REWARD;
-			return;
+			if (_command == 'T')
+			{
+				sendEventMarker(EVENT_TURNING_POINT, -1);
+				_resultCode = CODE_PAV;
+				_state = STATE_REWARD;
+				return;
+			}
 		}
-	}
-
-	// Response window elapsed --> ITI
-	if (_params[REACTIVE] == 0)
-	{
-		if (_command == 'T')
+		else
 		{
-			sendEventMarker(EVENT_TURNING_POINT, -1);
-			_resultCode = CODE_NO_LICK;
-			_state = STATE_ABORT;
-			return;
+			if (_command == 'W')
+			{
+				sendEventMarker(EVENT_OMEGA, -1);
+				_resultCode = CODE_PAV;
+				_state = STATE_REWARD;
+				return;
+			}
 		}
 	}
 	else
 	{
-		if (_command == 'W')
+		// Lick detected
+		if (_isLickOnset)
 		{
-			sendEventMarker(EVENT_OMEGA, -1);
-			_resultCode = CODE_NO_LICK;
-			_state = STATE_ABORT;
-			return;
+			// First lick registration
+			if (!_firstLickRegistered)
+			{
+				_firstLickRegistered = true;
+				sendEventMarker(EVENT_FIRST_LICK, -1);
+				_resultCode = CODE_CORRECT;
+				_state = STATE_REWARD;
+				return;
+			}
 		}
+	
+		// Response window elapsed --> ITI
+		if (_params[REACTIVE] == 0)
+		{
+			if (_command == 'T')
+			{
+				sendEventMarker(EVENT_TURNING_POINT, -1);
+				_resultCode = CODE_NO_LICK;
+				_state = STATE_ABORT;
+				return;
+			}
+		}
+		else
+		{
+			if (_command == 'W')
+			{
+				sendEventMarker(EVENT_OMEGA, -1);
+				_resultCode = CODE_NO_LICK;
+				_state = STATE_ABORT;
+				return;
+		}
+	}
 	}
 
 	_state = STATE_RESPONSE_WINDOW;
@@ -626,9 +656,6 @@ void state_reward()
 		// Register new state
 		_prevState = _state;
 		sendState(_state);
-
-		// Register result
-		_resultCode = CODE_CORRECT;
 
 		// Reset variables
 		timeRewardOn = 0;

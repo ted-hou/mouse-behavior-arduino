@@ -1479,7 +1479,8 @@ classdef MouseBehaviorInterface < handle
 		function bars = StackedBar(ax, data, names, colors)
 			% Default params
 			if nargin < 4
-				colors = {[.2, .8, .2], [1 .2 .2], [.9 .2 .2], [.8 .2 .2], [.7 .2 .2]};
+				colors = {[.2, .8, .2], [0 .7 0], [1 .2 .2], [.9 .2 .2], [.8 .2 .2]};
+				%colors = {[.2, .8, .2], [1 .2 .2], [.9 .2 .2], [.8 .2 .2], [.7 .2 .2]};
 			end
 			
 			% Create a stacked horizontal bar plot
