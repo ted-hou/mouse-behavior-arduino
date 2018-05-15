@@ -25,7 +25,7 @@
 #define PIN_REWARD		9
 
 // Digital IN
-#define PIN_LICK		11 // USER_1
+#define PIN_LICK		13 // USER_3
 
 /*****************************************************
 	Enums - DEFINE States
