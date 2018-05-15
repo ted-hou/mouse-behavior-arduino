@@ -21,11 +21,19 @@
 	Arduino Pin Outs
 *****************************************************/
 // Digital OUT
+<<<<<<< HEAD
+#define PIN_IR_LAMP		8
+#define PIN_REWARD		9
+
+// Digital IN
+#define PIN_LICK		13  // USER_3
+=======
 #define PIN_IR_LAMP		12 // USER_2
 #define PIN_REWARD		9  // Dedicated PIN from Sabatini Board
 
 // Digital IN
 #define PIN_LICK		13 // USER_3
+>>>>>>> 6bbfde3fe9f3ed105d9972cb6769302c8858ac80
 
 /*****************************************************
 	Enums - DEFINE States
