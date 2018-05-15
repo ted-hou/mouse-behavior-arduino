@@ -21,19 +21,11 @@
 	Arduino Pin Outs
 *****************************************************/
 // Digital OUT
-<<<<<<< HEAD
-#define PIN_IR_LAMP		8
-#define PIN_REWARD		9
-
-// Digital IN
-#define PIN_LICK		13  // USER_3
-=======
-#define PIN_IR_LAMP		12 // USER_2
 #define PIN_REWARD		9  // Dedicated PIN from Sabatini Board
 
 // Digital IN
-#define PIN_LICK		13 // USER_3
->>>>>>> 6bbfde3fe9f3ed105d9972cb6769302c8858ac80
+#define PIN_LICK		13  // USER_3
+#define PIN_IR_LAMP		12 // USER_2
 
 /*****************************************************
 	Enums - DEFINE States
@@ -166,7 +158,7 @@ static const char *_paramNames[] =
 	"SPATIAL_FREQUENCY",		// Distance (degrees) between bar locations; degrees/hop
 	"BAR_SPEED",				// In hops/seconds
 	"PAVLOVIAN",				// Pavlovian = 1, Operant = 0
-	"TIMING",					// Elapsed time informative = 1, Not = 0
+	"TIMING"					// Elapsed time informative = 1, Not = 0
 };
 
 // Initialize parameters
@@ -183,7 +175,7 @@ long _params[_NUM_PARAMS] =
 	4,		// SPATIAL_FREQUENCY
 	8,		// BAR_SPEED
 	1,		// PAVLOVIAN
-	1,		// TIMING
+	0,		// TIMING
 };
 
 /*****************************************************
