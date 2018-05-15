@@ -19,7 +19,7 @@ classdef ArduinoConnection < handle
 	end
 
 	properties (Transient)	% These properties will be discarded when saving to file
-		DebugMode = false
+		DebugMode = true
 		Connected = false
 		AutosaveEnabled = false
 		SerialConnection = []
@@ -35,7 +35,9 @@ classdef ArduinoConnection < handle
 	end
 
 	methods
-		function obj = ArduinoConnection(arduinoPortName)
+		function obj = ArduinoConnection(arduinoPortName, MBI)
+            obj.MBI = MBI;
+            
 			if strcmp(arduinoPortName, '/offline')
 				obj.Connected = false;
 				obj.LoadExperiment()
