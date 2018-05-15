@@ -22,7 +22,7 @@
 *****************************************************/
 // Digital OUT
 #define PIN_IR_LAMP		12 // USER_2
-#define PIN_REWARD		9
+#define PIN_REWARD		9  // Dedicated PIN from Sabatini Board
 
 // Digital IN
 #define PIN_LICK		13 // USER_3
