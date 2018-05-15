@@ -874,7 +874,7 @@ classdef MouseBehaviorInterface < handle
 				numBins = 10;
 			end
 			% Create axes object
-			f = figure('Name', figName, 'NumberTitle', 'off');
+			f = figure('Name', figName, 'NumberTitle', 'off', 'DefaultAxesFontSize', 18, 'InnerPosition', [0, 0, 550, 500]);
 
 			% Store the axes object
 			if ~isfield(obj.Rsc, 'LooseFigures')
@@ -956,13 +956,15 @@ classdef MouseBehaviorInterface < handle
 			eventTimesOfInterest 	= eventTimesOfInterest - eventTimesZero;
 
 			% Plot histogram of selected event times
-			histogram(ax, eventTimesOfInterest, numBins, 'DisplayName', obj.Arduino.EventMarkerNames{eventCodeOfInterest})
+			% histogram(ax, eventTimesOfInterest/1000, numBins, 'DisplayName', obj.Arduino.EventMarkerNames{eventCodeOfInterest})
+			histogram(ax, eventTimesOfInterest/1000, 'BinEdges', [0:0.5:12], 'DisplayName', obj.Arduino.EventMarkerNames{eventCodeOfInterest})
 			lgd = legend(ax, 'Location', 'northoutside');
 			lgd.Interpreter 	= 'none';
 			lgd.Orientation 	= 'horizontal';
-			ax.XLabel.String 	= 'Time (ms)';
+			ax.XLabel.String 	= 'Time (s)';
 			ax.YLabel.String 	= 'Occurance';
 			title(ax, figName)
+			ax.XLim = [0, 10];
 
 			% Store plot options cause for some reason it's lost unless we do this.
 			ax.UserData.EventCodeTrialStart = eventCodeTrialStart;
