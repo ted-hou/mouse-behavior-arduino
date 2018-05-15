@@ -1190,6 +1190,18 @@ classdef MouseBehaviorInterface < handle
 					speed 				= obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'BAR_SPEED'));
 					spatialFrequency 	= obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'SPATIAL_FREQUENCY'));
 					windowDuration  	= obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'WINDOW_DURATION'))/1000;
+                    
+                    % Generate random number based on exponential decay or
+                    % Gaussian
+                    if obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'TIMING')) == 1 % is timing trial
+                        mu = 8; % in seconds
+                        trialLength = randn(1) + mu;
+                        turnTheta = trialLength * (speed*spatialFrequency);
+                    else % is not timing trial
+                        mu = 8;
+                        trialLength = exprnd(mu) + 1;
+                        turnTheta = trialLength * (speed*spatialFrequency);
+                    end                    
 
 					% Generate list of bar angles
 					thetas				= [360:-obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'SPATIAL_FREQUENCY')):0];
@@ -1479,7 +1491,8 @@ classdef MouseBehaviorInterface < handle
 		function bars = StackedBar(ax, data, names, colors)
 			% Default params
 			if nargin < 4
-				colors = {[.2, .8, .2], [1 .2 .2], [.9 .2 .2], [.8 .2 .2], [.7 .2 .2]};
+				colors = {[.2, .8, .2], [0 .7 0], [1 .2 .2], [.9 .2 .2], [.8 .2 .2]};
+				%colors = {[.2, .8, .2], [1 .2 .2], [.9 .2 .2], [.8 .2 .2], [.7 .2 .2]};
 			end
 			
 			% Create a stacked horizontal bar plot

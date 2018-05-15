@@ -14,18 +14,26 @@
 
 // T - Turning Point
 // A - Alpha
-// W - Omega
+// W - Omega 
 // E - Is this the End? (Max trial length)
 
 /*****************************************************
 	Arduino Pin Outs
 *****************************************************/
 // Digital OUT
+<<<<<<< HEAD
 #define PIN_IR_LAMP		8
 #define PIN_REWARD		9
 
 // Digital IN
 #define PIN_LICK		13  // USER_3
+=======
+#define PIN_IR_LAMP		12 // USER_2
+#define PIN_REWARD		9
+
+// Digital IN
+#define PIN_LICK		13 // USER_3
+>>>>>>> 6bbfde3fe9f3ed105d9972cb6769302c8858ac80
 
 /*****************************************************
 	Enums - DEFINE States
@@ -107,6 +115,7 @@ static const char *_eventMarkerNames[] =
 enum ResultCode
 {
 	CODE_CORRECT,			// Correct (1st lick w/in window)
+	CODE_PAV,				// Pavlovian (Reward given when bar reverses)
 	CODE_EARLY_LICK,		// Early Lick (-> Abort)
 	CODE_NO_LICK,			// No Lick (Timeout -> ITI)
 	_NUM_RESULT_CODES		// (Private) Used to count how many codes there are.
@@ -116,6 +125,7 @@ enum ResultCode
 static const char *_resultCodeNames[] =
 {
 	"CORRECT",
+	"PAV",
 	"EARLY_LICK",
 	"NO_LICK"
 };
@@ -136,6 +146,8 @@ enum ParamID
 	OMEGA_TO_ITI_DURATION,		// Time from Omega to ITI (ms)
 	SPATIAL_FREQUENCY,			// Distance (degrees) between bar locations
 	BAR_SPEED,					// In hops/seconds
+	PAVLOVIAN,					// Pavlovian = 1, Operant = 0
+	TIMING,						// Elapsed time informative = 1, Not = 0
  	_NUM_PARAMS					// (Private) Used to count how many parameters there are so we can initialize the param array with the correct size. Insert additional parameters before this.
 };
 
@@ -152,7 +164,9 @@ static const char *_paramNames[] =
 	"REACTIVE",					// Is this a reactive or proactive paradigm?
 	"OMEGA_TO_ITI_DURATION",	// Time from Omega to ITI (ms)
 	"SPATIAL_FREQUENCY",		// Distance (degrees) between bar locations; degrees/hop
-	"BAR_SPEED"					// In hops/sec5onds
+	"BAR_SPEED",				// In hops/seconds
+	"PAVLOVIAN",				// Pavlovian = 1, Operant = 0
+	"TIMING",					// Elapsed time informative = 1, Not = 0
 };
 
 // Initialize parameters
@@ -167,7 +181,9 @@ long _params[_NUM_PARAMS] =
 	1, 		// REACTIVE
 	3000,	// OMEGA_TO_ITI_DURATION
 	4,		// SPATIAL_FREQUENCY
-	8		// BAR_SPEED
+	8,		// BAR_SPEED
+	1,		// PAVLOVIAN
+	1,		// TIMING
 };
 
 /*****************************************************
@@ -566,39 +582,67 @@ void state_response_window()
 		return;
 	}
 
-	// Lick detected
-	if (_isLickOnset)
+	// Pavlovian
+	if (_params[PAVLOVIAN] == 1)
 	{
-		// First lick registration
-		if (!_firstLickRegistered)
+		if (_params[REACTIVE] == 0)
 		{
-			_firstLickRegistered = true;
-			sendEventMarker(EVENT_FIRST_LICK, -1);
-			_state = STATE_REWARD;
-			return;
+			if (_command == 'T')
+			{
+				sendEventMarker(EVENT_TURNING_POINT, -1);
+				_resultCode = CODE_PAV;
+				_state = STATE_REWARD;
+				return;
+			}
 		}
-	}
-
-	// Response window elapsed --> ITI
-	if (_params[REACTIVE] == 0)
-	{
-		if (_command == 'T')
+		else
 		{
-			sendEventMarker(EVENT_TURNING_POINT, -1);
-			_resultCode = CODE_NO_LICK;
-			_state = STATE_ABORT;
-			return;
+			if (_command == 'W')
+			{
+				sendEventMarker(EVENT_OMEGA, -1);
+				_resultCode = CODE_PAV;
+				_state = STATE_REWARD;
+				return;
+			}
 		}
 	}
 	else
 	{
-		if (_command == 'W')
+		// Lick detected
+		if (_isLickOnset)
 		{
-			sendEventMarker(EVENT_OMEGA, -1);
-			_resultCode = CODE_NO_LICK;
-			_state = STATE_ABORT;
-			return;
+			// First lick registration
+			if (!_firstLickRegistered)
+			{
+				_firstLickRegistered = true;
+				sendEventMarker(EVENT_FIRST_LICK, -1);
+				_resultCode = CODE_CORRECT;
+				_state = STATE_REWARD;
+				return;
+			}
 		}
+	
+		// Response window elapsed --> ITI
+		if (_params[REACTIVE] == 0)
+		{
+			if (_command == 'T')
+			{
+				sendEventMarker(EVENT_TURNING_POINT, -1);
+				_resultCode = CODE_NO_LICK;
+				_state = STATE_ABORT;
+				return;
+			}
+		}
+		else
+		{
+			if (_command == 'W')
+			{
+				sendEventMarker(EVENT_OMEGA, -1);
+				_resultCode = CODE_NO_LICK;
+				_state = STATE_ABORT;
+				return;
+		}
+	}
 	}
 
 	_state = STATE_RESPONSE_WINDOW;
@@ -620,9 +664,6 @@ void state_reward()
 		// Register new state
 		_prevState = _state;
 		sendState(_state);
-
-		// Register result
-		_resultCode = CODE_CORRECT;
 
 		// Reset variables
 		timeRewardOn = 0;
