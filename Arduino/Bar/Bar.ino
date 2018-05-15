@@ -22,10 +22,10 @@
 *****************************************************/
 // Digital OUT
 #define PIN_IR_LAMP		8
-#define PIN_REWARD		7
+#define PIN_REWARD		9
 
 // Digital IN
-#define PIN_LICK		2
+#define PIN_LICK		13  // USER_3
 
 /*****************************************************
 	Enums - DEFINE States
