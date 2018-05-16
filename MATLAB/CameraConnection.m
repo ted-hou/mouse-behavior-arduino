@@ -58,10 +58,11 @@ classdef CameraConnection < handle
 			% Select input format if unspecified
 			if ~ismember(camFormat, hwinfo.DeviceInfo(camID).SupportedFormats) 
 				% Get all available formats and max framerate for each format
-				[formats, maxFrameRates] = obj.GetAvailableFormats(camID);
-
-				formatDisplayNames = cellfun(@(a, b) [a, ' - ', num2str(round(b)), ' fps'], formats, num2cell(maxFrameRates), 'UniformOutput', false);
-
+% 				[formats, maxFrameRates] = obj.GetAvailableFormats(camID);
+% 				formatDisplayNames = cellfun(@(a, b) [a, ' - ', num2str(round(b)), ' fps'], formats, num2cell(maxFrameRates), 'UniformOutput', false);
+				formats = obj.GetAvailableFormats(camID);
+				formatDisplayNames = formats;
+                
 				[selection, ok] = listdlg(...
 					'ListString', formatDisplayNames,...
 					'SelectionMode', 'single',...
