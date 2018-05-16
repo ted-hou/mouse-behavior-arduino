@@ -129,17 +129,17 @@ static const char *_resultCodeNames[] =
 enum ParamID
 {
 	_DEBUG,						// (Private) 1 to enable debug mode. Default 0.
-	ALLOW_EARLY_LICK,			// 0 to abort trial if animal licks after in pre-window
 	BAR_STAT_DURATION, 			// Length of moving dots, stationary bar
 	ITI_DURATION,				// ITI length, fixed
 	REWARD_DURATION,			// Reward duration (ms)
 	WINDOW_DURATION,			// Time from Alpha to Turning Point (or from Turning Point to Omega)
-	REACTIVE,					// Proactive = 0, Reactive = 1
 	OMEGA_TO_ITI_DURATION,		// Time from Omega to ITI (ms)
+	ALLOW_EARLY_LICK,			// 0 to abort trial if animal licks after in pre-window
+	PAVLOVIAN,					// Pavlovian = 1, Operant = 0
+	REACTIVE,					// Proactive = 0, Reactive = 1
+	TIMING,						// Elapsed time informative = 1, Not = 0
 	SPATIAL_FREQUENCY,			// Distance (degrees) between bar locations
 	BAR_SPEED,					// In hops/seconds
-	PAVLOVIAN,					// Pavlovian = 1, Operant = 0
-	TIMING,						// Elapsed time informative = 1, Not = 0
 	MU,							// Mean trial length 
 	SIGMA,						// Standard deviation for trial length
  	_NUM_PARAMS					// (Private) Used to count how many parameters there are so we can initialize the param array with the correct size. Insert additional parameters before this.
@@ -150,17 +150,17 @@ enum ParamID
 static const char *_paramNames[] = 
 {
 	"_DEBUG",					// (Private) 1 to enable debug mode. Default 0.
-	"ALLOW_EARLY_LICK",			// 0 to abort trial if animal licks after in pre-window
 	"BAR_STAT_DURATION", 		// Length of moving dots, stationary bar
 	"ITI_DURATION",				// ITI length, fixed
 	"REWARD_DURATION",			// Reward duration (ms)
 	"WINDOW_DURATION",			// Time from Alpha to Turning Point (or from Turning Point to Omega)
-	"REACTIVE",					// Is this a reactive or proactive paradigm?
 	"OMEGA_TO_ITI_DURATION",	// Time from Omega to ITI (ms)
+	"ALLOW_EARLY_LICK",			// 0 to abort trial if animal licks after in pre-window
+	"PAVLOVIAN",				// Pavlovian = 1, Operant = 0
+	"REACTIVE",					// Is this a reactive or proactive paradigm?
+	"TIMING",					// Elapsed time informative = 1, Not = 0
 	"SPATIAL_FREQUENCY",		// Distance (degrees) between bar locations; degrees/hop
 	"BAR_SPEED",				// In hops/seconds
-	"PAVLOVIAN",				// Pavlovian = 1, Operant = 0
-	"TIMING",					// Elapsed time informative = 1, Not = 0
 	"MU",						// Mean trial length 
 	"SIGMA"						// Standard deviation for trial length
 };
@@ -169,17 +169,17 @@ static const char *_paramNames[] =
 long _params[_NUM_PARAMS] = 
 {
 	0,		// _DEBUG
-	0,		// ALLOW_EARLY_LICK
 	1000,	// BAR_STAT_DURATION
 	6000,	// ITI_DURATION
 	100,	// REWARD_DURATION
 	1000,	// WINDOW_DURATION
-	1, 		// REACTIVE
 	3000,	// OMEGA_TO_ITI_DURATION
+	1,		// ALLOW_EARLY_LICK
+	1,		// PAVLOVIAN
+	1, 		// REACTIVE
+	0,		// TIMING
 	4,		// SPATIAL_FREQUENCY
 	4,		// BAR_SPEED
-	1,		// PAVLOVIAN
-	0,		// TIMING
 	8,		// MU
 	1		// SIGMA
 };
