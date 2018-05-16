@@ -674,6 +674,18 @@ void state_reward()
 	/*****************************************************
 		OnEachLoop checks
 	*****************************************************/
+	// Lick detected
+	if (_isLickOnset)
+	{
+		// First lick registration
+		if (!_firstLickRegistered)
+		{
+			_firstLickRegistered = true;
+			sendEventMarker(EVENT_FIRST_LICK, -1);
+			return;
+		}
+	}
+
 	// Immediate reward
 	if (!isRewardOn && !isRewardComplete)
 	{
