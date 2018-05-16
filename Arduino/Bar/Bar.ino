@@ -583,7 +583,7 @@ void state_response_window()
 	// Pavlovian
 	if (_params[PAVLOVIAN] == 1)
 	{
-		if (_params[REACTIVE] == 1)
+		if (_params[REACTIVE] == 0)
 		{
 			if (_command == 'T')
 			{
