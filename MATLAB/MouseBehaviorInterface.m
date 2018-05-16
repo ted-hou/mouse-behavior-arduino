@@ -1189,28 +1189,40 @@ classdef MouseBehaviorInterface < handle
 					% Read Arduino parameters
 					speed 				= obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'BAR_SPEED'));
 					spatialFrequency 	= obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'SPATIAL_FREQUENCY'));
-					windowDuration  	= obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'WINDOW_DURATION'))/1000;
-                    
-                    % Generate random number based on exponential decay or
-                    % Gaussian
-                    if obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'TIMING')) == 1 % is timing trial
-                        mu = 8; % in seconds
-                        trialLength = randn(1) + mu;
-                        turnTheta = trialLength * (speed*spatialFrequency);
-                    else % is not timing trial
-                        mu = 8;
-                        trialLength = exprnd(mu) + 1;
-                        turnTheta = trialLength * (speed*spatialFrequency);
-                    end                    
+					windowDuration  	= obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'WINDOW_DURATION'))/1000;                
 
-					% Generate list of bar angles
+					% Generate list of bar angles for proactive trials
 					thetas				= [360:-obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'SPATIAL_FREQUENCY')):0];
 					thetas 				= flip(thetas);
-					safeTheta0s			= thetas(thetas > windowDuration*(speed*spatialFrequency));
-					safeTheta0s			= safeTheta0s + 90;
-					thetas 				= thetas + 90;
-					thetaIndex0 		= randi(length(safeTheta0s));
-					theta0          	= thetas(thetaIndex0);
+
+					if obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'REACTIVE')) == 0
+						safeTheta0s			= thetas(thetas > windowDuration * (speed * spatialFrequency)); % sorting out all thetas not in lick window
+						safeTheta0s			= safeTheta0s + 90; % change 90 for a bar that reverses at a different location
+						thetas 				= thetas + 90;
+						% Random length trials
+						thetaIndex0 		= randi(length(safeTheta0s)); % Choose 1 random theta for bar start position
+						theta0          	= thetas(thetaIndex0);
+					else
+                    	% Generate random number based on exponential decay or
+                    	% Gaussian
+                    	if obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'TIMING')) == 1 % is timing trial
+                    	    mu = obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'MU')); % in seconds
+                    	    sig = obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'SIGMA')); % in seconds
+                    	    trialLength = sig * randn(1) + mu; % seconds
+                    	% Exponential decay
+                    	else % is not timing trial
+                    	    mu = obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'MU')); % in seconds
+                    	    trialLength = exprnd(mu) + 1;
+                    	end
+                    	turnTheta = trialLength * (speed);
+                    	thetaIndex0 = length(thetas) - round(turnTheta - 1);
+                    	thetaIndex0 = max(thetaIndex0, 1);
+                    	thetaIndex0 = min(thetaIndex0, (length(thetas) - round(windowDuration * speed)));
+                    	theta0 = thetas(thetaIndex0);
+                    	theta0 = theta0 + 90;
+                    	thetas = thetas + 90;
+                    end
+
 
 					% Create objects
 					obj.Rsc.Dots    	= obj.MovingDots('Ax', obj.Rsc.VisualStimAxes);
@@ -1276,7 +1288,7 @@ classdef MouseBehaviorInterface < handle
 				hBar.UserData.IsAlphaReached = true;
 			end
 			% Turning point
-			if (~hBar.UserData.IsTurningPointReached && hBar.UserData.Direction > 0 && nextThetaIndex > length(obj.Rsc.Bar.UserData.Thetas))
+			if (~hBar.UserData.IsTurningPointReached && hBar.UserData.Direction > 0 && nextThetaIndex > length(obj.Rsc.Bar.UserData.Thetas)) % turn when reach end of list of thetas
 				hBar.UserData.Direction = -1;
 				nextThetaIndex = obj.Rsc.Bar.UserData.ThetaIndex + hBar.UserData.Direction;
 				obj.Arduino.SendMessage('T');

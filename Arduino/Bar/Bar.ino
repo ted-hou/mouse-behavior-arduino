@@ -140,6 +140,8 @@ enum ParamID
 	BAR_SPEED,					// In hops/seconds
 	PAVLOVIAN,					// Pavlovian = 1, Operant = 0
 	TIMING,						// Elapsed time informative = 1, Not = 0
+	MU,							// Mean trial length 
+	SIGMA,						// Standard deviation for trial length
  	_NUM_PARAMS					// (Private) Used to count how many parameters there are so we can initialize the param array with the correct size. Insert additional parameters before this.
 };
 
@@ -158,7 +160,9 @@ static const char *_paramNames[] =
 	"SPATIAL_FREQUENCY",		// Distance (degrees) between bar locations; degrees/hop
 	"BAR_SPEED",				// In hops/seconds
 	"PAVLOVIAN",				// Pavlovian = 1, Operant = 0
-	"TIMING"					// Elapsed time informative = 1, Not = 0
+	"TIMING",					// Elapsed time informative = 1, Not = 0
+	"MU",						// Mean trial length 
+	"SIGMA"						// Standard deviation for trial length
 };
 
 // Initialize parameters
@@ -173,9 +177,11 @@ long _params[_NUM_PARAMS] =
 	1, 		// REACTIVE
 	3000,	// OMEGA_TO_ITI_DURATION
 	4,		// SPATIAL_FREQUENCY
-	8,		// BAR_SPEED
+	4,		// BAR_SPEED
 	1,		// PAVLOVIAN
 	0,		// TIMING
+	8,		// MU
+	1		// SIGMA
 };
 
 /*****************************************************

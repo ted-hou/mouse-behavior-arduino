@@ -19,7 +19,7 @@ classdef ArduinoConnection < handle
 	end
 
 	properties (Transient)	% These properties will be discarded when saving to file
-		DebugMode = true
+		DebugMode = false
 		Connected = false
 		AutosaveEnabled = false
 		SerialConnection = []
