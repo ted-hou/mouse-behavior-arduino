@@ -533,25 +533,51 @@ void state_bar_move()
 		}
 	}
 
-	// bar_move elapsed --> RESPONSE_WINDOW
-	if (_params[REACTIVE] == 1)
+	// Pavlovian
+	if (_params[PAVLOVIAN] == 1)
 	{
-		if (_command == 'T')
+		if (_params[REACTIVE] == 1)
 		{
-			sendEventMarker(EVENT_TURNING_POINT, -1);
-			_state = STATE_RESPONSE_WINDOW;
-			return;
+			if (_command == 'T')
+			{
+				sendEventMarker(EVENT_TURNING_POINT, -1);
+				_resultCode = CODE_PAV;
+				_state = STATE_REWARD;
+				return;
+			}
+		}
+		else
+		{
+			if (_command == 'W')
+			{
+				sendEventMarker(EVENT_OMEGA, -1);
+				_resultCode = CODE_PAV;
+				_state = STATE_REWARD;
+				return;
+			}
 		}
 	}
 	else
-	{
-		if (_command == 'A') // A for AlphaReached
+	{	// bar_move elapsed --> RESPONSE_WINDOW
+		if (_params[REACTIVE] == 1)
 		{
-			sendEventMarker(EVENT_ALPHA, -1);
-			_state = STATE_RESPONSE_WINDOW;
-			return;
+			if (_command == 'T')
+			{
+				sendEventMarker(EVENT_TURNING_POINT, -1);
+				_state = STATE_RESPONSE_WINDOW;
+				return;
+			}
+		}
+		else
+		{
+			if (_command == 'A') // A for AlphaReached
+			{
+				sendEventMarker(EVENT_ALPHA, -1);
+				_state = STATE_RESPONSE_WINDOW;
+				return;
+			} 
 		} 
-	} 
+	}
 
 	_state = STATE_BAR_MOVE;
 }
@@ -580,30 +606,6 @@ void state_response_window()
 		return;
 	}
 
-	// Pavlovian
-	if (_params[PAVLOVIAN] == 1)
-	{
-		if (_params[REACTIVE] == 0)
-		{
-			if (_command == 'T')
-			{
-				sendEventMarker(EVENT_TURNING_POINT, -1);
-				_resultCode = CODE_PAV;
-				_state = STATE_REWARD;
-				return;
-			}
-		}
-		else
-		{
-			if (_command == 'W')
-			{
-				sendEventMarker(EVENT_OMEGA, -1);
-				_resultCode = CODE_PAV;
-				_state = STATE_REWARD;
-				return;
-			}
-		}
-	}
 	else
 	{
 		// Lick detected
