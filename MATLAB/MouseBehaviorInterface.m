@@ -35,6 +35,20 @@ classdef MouseBehaviorInterface < handle
 			if ~strcmp(arduinoPortName, '/offline')
 				obj.CloseDialog_Splash()
 			end
+
+			% Establish camera connection
+			if ~strcmp(arduinoPortName, '/offline')
+				numCameras = CameraConnection.GetAvailableCameras;
+				if numCameras > 0
+					obj.Arduino.Camera = CameraConnection(...
+						'CameraID', [],...
+						'Format', '',...
+						'FrameRate', [],...
+						'FileFormat', 'MPEG-4',...
+						'FrameGrabInterval', 1,...
+						'TimestampInterval', 10);
+				end
+			end
 		end
 		
 		function CreateDialog_ExperimentControl(obj)
@@ -161,6 +175,7 @@ classdef MouseBehaviorInterface < handle
 			menu_window = uimenu(dlg, 'Label', '&Window');
 			uimenu(menu_window, 'Label', 'Experiment Control', 'Callback', @(~, ~) @obj.CreateDialog_ExperimentControl);
 			uimenu(menu_window, 'Label', 'Monitor', 'Callback', @(~, ~) obj.CreateDialog_Monitor);
+			uimenu(menu_window, 'Label', 'Camera', 'Callback', @(~, ~) obj.CreateDialog_CameraControl);
 			
 			% Unhide dialog now that all controls have been created
 			dlg.Visible = 'on';
@@ -522,6 +537,7 @@ classdef MouseBehaviorInterface < handle
 			menu_window = uimenu(dlg, 'Label', '&Window');
 			uimenu(menu_window, 'Label', 'Experiment Control', 'Callback', @(~, ~) @obj.CreateDialog_ExperimentControl);
 			uimenu(menu_window, 'Label', 'Monitor', 'Callback', @(~, ~) obj.CreateDialog_Monitor);
+			uimenu(menu_window, 'Label', 'Camera', 'Callback', @(~, ~) obj.CreateDialog_CameraControl);
 			
 			% Stretch barchart When dialog window is resized
 			dlg.SizeChangedFcn = @MouseBehaviorInterface.OnMonitorDialogResized;
@@ -529,7 +545,14 @@ classdef MouseBehaviorInterface < handle
 			% Unhide dialog now that all controls have been created
 			dlg.Visible = 'on';
 		end
-		
+
+		function CreateDialog_CameraControl(obj)
+			% If object already exists, show window
+			if isvalid(obj.Arduino.Camera)
+				obj.Arduino.Camera.CreateDialog_CameraControl();
+			end
+		end
+
 		function CreateDialog_Splash(obj)
 			% Load image
 			[fncpath, ~, ~] = fileparts(which('MouseBehaviorInterface'));
@@ -1060,8 +1083,8 @@ classdef MouseBehaviorInterface < handle
 					otherwise
 						return
 				end
-				obj.CreateVisualStim()
 			end
+			obj.CreateVisualStim()
 			obj.Arduino.Start()
 		end
 		
@@ -1079,18 +1102,21 @@ classdef MouseBehaviorInterface < handle
 				'Close all windows and terminate connection with Arduino?',...
 				'Close Window',...
 				'Yes','No','Yes'...
-				);
+			);
 			switch selection
 				case 'Yes'
 					obj.Arduino.Close()
 					delete(obj.Rsc.Monitor)
 					delete(obj.Rsc.ExperimentControl)
-					fprintf('Connection closed.\n')
+					if ~isempty(obj.Arduino.Camera.VideoInput)
+						obj.Arduino.Camera.Delete();
+					end
+					fprintf('Arduino connection closed.\n')
 				case 'No'
 					return
 			end
 		end
-		
+
 		function ArduinoReconnect(obj, ~, ~)
 			obj.Arduino.Reconnect()
 		end
@@ -1116,8 +1142,18 @@ classdef MouseBehaviorInterface < handle
 		
 		function ArduinoSaveAsExperiment(obj, ~, ~)
 			obj.Arduino.SaveAsExperiment()
+
+			if ~isempty(obj.Arduino.Camera)
+				if isvalid(obj.Arduino.Camera)
+					if ~isempty(obj.Arduino.ExperimentFileName)
+						videoPath = strsplit(obj.Arduino.ExperimentFileName, '.mat');
+						videoPath = videoPath{1};
+						obj.Arduino.Camera.SaveAs(videoPath);
+					end
+				end
+			end
 		end
-		
+
 		function ArduinoLoadExperiment(obj, ~, ~)
 			obj.Arduino.LoadExperiment()
 		end
