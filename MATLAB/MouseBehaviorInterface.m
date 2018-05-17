@@ -1200,6 +1200,15 @@ classdef MouseBehaviorInterface < handle
 		end
 		
 		function DeleteVisualStim(obj, ~, ~)
+			timers = {'OmegaToITITimer', 'BarRefreshTimer', 'DotsRefreshTimer'};
+			for iTimer = 1:length(timers)
+				if isfield(obj.Rsc, timers{iTimer})
+					if isvalid(obj.Rsc.(timers{iTimer}))
+						stop(obj.Rsc.(timers{iTimer}));
+						delete(obj.Rsc.(timers{iTimer}));
+					end
+				end			
+			end
 			if isfield(obj.Rsc, 'VisualStimFigure')
 				if isvalid(obj.Rsc.VisualStimFigure)
 					delete(obj.Rsc.VisualStimFigure)
