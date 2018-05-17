@@ -295,6 +295,9 @@ classdef CameraConnection < handle
 			end
 
 			fprintf(1, 'Video logging ended.\n')
+
+			save([obj.Params.Filename, '.mat'], 'obj')
+
 		end
 
 		% Terminates connection to camera
