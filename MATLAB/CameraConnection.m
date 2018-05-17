@@ -161,6 +161,17 @@ classdef CameraConnection < handle
 				'Position', [ctrlSpacing, ctrlSpacing, buttonWidth, buttonHeight]);
 			hPrev = hButtonPreview;
 
+			% SaveAs button
+			hButtonSaveAs = uicontrol(...
+				'Parent', dlg,...
+				'Style', 'pushbutton',...
+				'String', 'Save As...',...
+				'TooltipString', 'Set save path.',...
+				'Callback', {@(~, ~) obj.SelectSavePath()},...
+				'Position', hPrev.Position);
+			hPrev = hButtonSaveAs;
+			hPrev.Position(1) = hPrev.Position(1) + hPrev.Position(3) + ctrlSpacing;
+ 
 			% Start button
 			hButtonStart = uicontrol(...
 				'Parent', dlg,...
@@ -200,6 +211,13 @@ classdef CameraConnection < handle
 
 			% Unhide dialog now that all controls have been created
 			dlg.Visible = 'on';
+		end
+
+		function SelectSavePath(obj)
+			[filename, pathname] = uiputfile({'*.mp4'}, 'Select Save Path...', [datestr(now, 'yyyymmdd_HHMMSS'), '.mp4']);
+			filename = strsplit(filename, '.mp4');
+			filename = filename{1};
+			obj.Params.Filename = [pathname, filename];
 		end
 
 		function SaveAs(obj, filename)
