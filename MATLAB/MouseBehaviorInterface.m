@@ -1165,7 +1165,7 @@ classdef MouseBehaviorInterface < handle
 			% make black background
 			opengl hardwarebasic % Big performance improvement, might not be necessary on a computer w/ decent GPU
 
-			hFigure = figure(1);
+			hFigure = figure();
 			hAxes = axes(hFigure);
 			hold(hAxes, 'on')
 
