@@ -1656,7 +1656,7 @@ classdef MouseBehaviorInterface < handle
 			addParameter(p, 'Ax', []);
 			addParameter(p, 'Bar', []);
 			addParameter(p, 'Width', 1, @isnumeric);
-			addParameter(p, 'Height', 0.0125, @isnumeric);
+			addParameter(p, 'Height', 0.02, @isnumeric);
 			parse(p, theta, varargin{:});
 			theta 		= p.Results.Theta;
 			hAxes		= p.Results.Ax;
@@ -1685,6 +1685,7 @@ classdef MouseBehaviorInterface < handle
 			addParameter(p, 'NumDots', 150, @isnumeric);
 			addParameter(p, 'Radius', 1, @isnumeric);
 			addParameter(p, 'DotSize', 12, @isnumeric);
+			addParameter(p, 'DotAlpha', 0.5, @isnumeric);
 			addParameter(p, 'AverageLifeTime', 10, @isnumeric);
 			addParameter(p, 'Time', 0, @isnumeric);
 			addParameter(p, 'RefreshRate', 1/60, @isnumeric);
@@ -1693,8 +1694,9 @@ classdef MouseBehaviorInterface < handle
 			hAxes			= p.Results.Ax;
 			numDots			= p.Results.NumDots;
 			radius 			= p.Results.Radius;
-			averageLifeTime = p.Results.AverageLifeTime;
 			dotSize			= p.Results.DotSize;
+			dotAlpha		= p.Results.DotAlpha;
+			averageLifeTime = p.Results.AverageLifeTime;
 			time			= p.Results.Time;
 			refreshRate		= p.Results.RefreshRate;
 			
@@ -1703,7 +1705,7 @@ classdef MouseBehaviorInterface < handle
 				randRadius(randRadius > 1) = 2 - randRadius(randRadius > 1);
 				randRadius = radius*randRadius;
 				randTheta = 2*pi*rand(1, numDots);
-				hDots = plot(hAxes, randRadius.*cos(randTheta), randRadius.*sin(randTheta), 'wo', 'MarkerFaceColor', 'w', 'MarkerSize', dotSize);
+				hDots = plot(hAxes, randRadius.*cos(randTheta), randRadius.*sin(randTheta), 'wo', 'MarkerFaceColor', dotAlpha*[1, 1, 1], 'MarkerEdgeColor', dotAlpha*[1, 1, 1], 'MarkerSize', dotSize);
 				hDots.UserData.Speed 	= randn(1, numDots)*0.1;
 				hDots.UserData.Dir 		= rand(1, numDots)*pi;
 				hDots.UserData.DOB 		= zeros(1, numDots);
