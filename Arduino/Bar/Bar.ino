@@ -33,16 +33,18 @@
 // All the states
 enum State
 {
-	_STATE_INIT,			// (Private) Initial state used on first loop. 
-	STATE_IDLE,				// Idle state. Wait for go signal from host.
-	STATE_INTERTRIAL,		// Write data to HOST and DISK, receive new params
-	STATE_START,			// random delay before cue presentation
-	STATE_BAR_STAT,			// Moving dots, stationary bar, enforced no lick
-	STATE_BAR_MOVE,			// Moving dots, moving bar, enforced no lick
-	STATE_RESPONSE_WINDOW,	// First lick in this interval rewarded
-	STATE_REWARD,			// Dispense reward, wait for trial timeout
-	STATE_ABORT,			// Pre window lick or no lick - timeout
-	_NUM_STATES				// (Private) Used to count number of states
+	_STATE_INIT,				// (Private) Initial state used on first loop. 
+	STATE_IDLE,					// Idle state. Wait for go signal from host.
+	STATE_INTERTRIAL,			// Write data to HOST and DISK, receive new params
+	STATE_START,				// random delay before cue presentation
+	STATE_BAR_STAT,				// Moving dots, stationary bar, enforced no lick
+	STATE_BAR_MOVE,				// Moving dots, moving bar, enforced no lick
+	STATE_RESPONSE_WINDOW,		// First lick in this interval rewarded
+	STATE_REWARD,				// Dispense reward, wait for trial timeout
+	STATE_ABORT,				// No lick - timeout
+	STATE_ABORT_EARLY,			// Early lick
+	STATE_ABORT_EARLY_EARLY,	// Early lick during stat
+	_NUM_STATES					// (Private) Used to count number of states
 };
 
 // State names stored as strings, will be sent to host
@@ -57,7 +59,9 @@ static const char *_stateNames[] =
 	"BAR_MOVE",
 	"RESPONSE_WINDOW",
 	"REWARD",
-	"ABORT"
+	"ABORT",
+	"ABORT_EARLY",
+	"ABORT_EARLY_EARLY"
 };
 
 // Define which states accept parameter update from MATLAB
@@ -80,6 +84,7 @@ enum EventMarker
 	EVENT_REWARD_ON,				// Reward, juice valve on
 	EVENT_REWARD_OFF,				// Reward, juice valve off
 	EVENT_ABORT,					// Trial aborted
+	EVENT_ABORT_EARLY,				// Trial aborted due to early lick
 	EVENT_ITI,						// ITI
 	_NUM_OF_EVENT_MARKERS
 };
@@ -98,6 +103,7 @@ static const char *_eventMarkerNames[] =
 	"REWARD_ON",				// Reward, juice valve on
 	"REWARD_OFF",				// Reward, juice valve off
 	"ABORT",					// Trial aborted
+	"ABORT_EARLY",				// Trial aborted due to early lick
 	"ITI"						// ITI
 };
 
@@ -174,13 +180,13 @@ long _params[_NUM_PARAMS] =
 	100,	// REWARD_DURATION
 	1000,	// WINDOW_DURATION
 	3000,	// OMEGA_TO_ITI_DURATION
-	1,		// ALLOW_EARLY_LICK
-	1,		// PAVLOVIAN
+	0,		// ALLOW_EARLY_LICK
+	0,		// PAVLOVIAN
 	1, 		// REACTIVE
 	0,		// TIMING
 	4,		// SPATIAL_FREQUENCY
 	4,		// BAR_SPEED
-	8,		// MU
+	4,		// MU
 	1		// SIGMA
 };
 
@@ -324,6 +330,14 @@ void loop()
 			
 			case STATE_ABORT:
 				state_abort();
+				break;
+
+			case STATE_ABORT_EARLY:
+				state_abort_early();
+				break;
+
+			case STATE_ABORT_EARLY_EARLY:
+				state_abort_early_early();
 				break;
 		}
 	}
@@ -472,7 +486,7 @@ void state_bar_stat()
 		{
 			// Register result
 			_resultCode = CODE_EARLY_LICK;
-			_state = STATE_ABORT;
+			_state = STATE_ABORT_EARLY_EARLY;
 			return;
 		}
 	}
@@ -528,7 +542,7 @@ void state_bar_move()
 		{
 			// Register result
 			_resultCode = CODE_EARLY_LICK;
-			_state = STATE_ABORT;
+			_state = STATE_ABORT_EARLY;
 			return;
 		}
 	}
@@ -641,8 +655,8 @@ void state_response_window()
 				_resultCode = CODE_NO_LICK;
 				_state = STATE_ABORT;
 				return;
+			}
 		}
-	}
 	}
 
 	_state = STATE_RESPONSE_WINDOW;
@@ -729,7 +743,83 @@ void state_reward()
 }
 
 /*****************************************************
+	ABORT - Early lick during bar_stat
+*****************************************************/
+void state_abort_early_early()
+{
+	/*****************************************************
+		ACTION LIST
+	*****************************************************/
+	if (_state != _prevState) 
+	{
+		// Register new state
+		_prevState = _state;
+		sendState(_state);
+
+		// Register events
+		sendEventMarker(EVENT_ABORT_EARLY, -1);
+	}
+
+	/*****************************************************
+		TRANSITION LIST
+	*****************************************************/
+	// Quit signal from host --> IDLE
+	if (_command == 'Q') 
+	{
+		_state = STATE_IDLE;
+		return;
+	}
+
+	if (_command == 'W')
+	{
+		sendEventMarker(EVENT_OMEGA, -1);
+		_state = STATE_ABORT;
+		return;
+	}
+
+	_state = STATE_ABORT_EARLY_EARLY;
+}
+
+/*****************************************************
 	ABORT - Early lick timeout
+*****************************************************/
+void state_abort_early()
+{
+	/*****************************************************
+		ACTION LIST
+	*****************************************************/
+	if (_state != _prevState) 
+	{
+		// Register new state
+		_prevState = _state;
+		sendState(_state);
+
+		// Register events
+		sendEventMarker(EVENT_ABORT_EARLY, -1);
+	}
+
+	/*****************************************************
+		TRANSITION LIST
+	*****************************************************/
+	// Quit signal from host --> IDLE
+	if (_command == 'Q') 
+	{
+		_state = STATE_IDLE;
+		return;
+	}
+
+	if (_command == 'W')
+	{
+		sendEventMarker(EVENT_OMEGA, -1);
+		_state = STATE_ABORT;
+		return;
+	}
+
+	_state = STATE_ABORT_EARLY;
+}
+
+/*****************************************************
+	ABORT - No lick timeout
 *****************************************************/
 void state_abort()
 {

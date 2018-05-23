@@ -1287,6 +1287,7 @@ classdef MouseBehaviorInterface < handle
 					obj.Rsc.BarRefreshTimer.Execution = 'fixedRate';
 					obj.Rsc.BarRefreshTimer.Period = 1/speed;
 					obj.Rsc.BarRefreshTimer.TimerFcn = {@obj.OnBarRefresh, obj.Rsc.Bar};
+					obj.Rsc.BarRefreshTimer.ErrorFcn = @obj.OnTimerError;
 
 					obj.Rsc.DotsRefreshTimer = timer;
 					obj.Rsc.DotsRefreshTimer.Execution = 'fixedRate';
@@ -1296,6 +1297,16 @@ classdef MouseBehaviorInterface < handle
 				% Bar starts moving
 				case 'BAR_MOVE'
 					start(obj.Rsc.BarRefreshTimer);
+				% Early lick during bar stat: hide visual stim, and start bar
+				% TODO: Some part of BAR_STAT is skipped
+				case 'ABORT_EARLY_EARLY'
+					start(obj.Rsc.BarRefreshTimer);
+					set(obj.Rsc.Dots, 'Visible', 'off');
+					set(obj.Rsc.Bar, 'Visible', 'off');
+				% Early lick: hide visual stim
+				case 'ABORT_EARLY'
+					set(obj.Rsc.Bar, 'Visible', 'off');
+					set(obj.Rsc.Dots, 'Visible', 'off');
 				% Either reward or abort, wait some time and tell Arduino to go to ITI
 				case {'REWARD', 'ABORT'}
 					omegaToITIDuration = obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'OMEGA_TO_ITI_DURATION'))/1000;
@@ -1313,6 +1324,11 @@ classdef MouseBehaviorInterface < handle
 					delete(obj.Rsc.Bar);
 					delete(obj.Rsc.Dots);
 			end
+		end
+
+		function OnTimerError(obj, t, event)
+			disp(t)
+			disp(event.Data)
 		end
 
 		function OnTrialRegistered_VisualStim(obj, ~, ~)
