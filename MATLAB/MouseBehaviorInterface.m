@@ -1240,13 +1240,13 @@ classdef MouseBehaviorInterface < handle
 					thetas 				= flip(thetas);
 
 					if obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'REACTIVE')) == 0
-						safeTheta0s			= thetas(thetas > windowDuration * (speed * spatialFrequency)); % sorting out all thetas not in lick window
-						endTheta = 90;
-						safeTheta0s			= safeTheta0s + endTheta; % change endTheta for a bar that reverses at a different location
-						thetas 				= thetas + endTheta;
+						safeTheta0s	= thetas(thetas > windowDuration * (speed * spatialFrequency)); % sorting out all thetas not in lick window
+						endTheta 	= 90;
+						safeTheta0s	= safeTheta0s + endTheta; % change endTheta for a bar that reverses at a different location
+						thetas 		= thetas + endTheta;
 						% Random length trials
-						thetaIndex0 		= randi(length(safeTheta0s)); % Choose 1 random theta for bar start position
-						theta0          	= thetas(thetaIndex0);
+						thetaIndex0 = randi(length(safeTheta0s)); % Choose 1 random theta for bar start position
+						theta0		= thetas(thetaIndex0);
 					else
                     	% Generate random number based on exponential decay or
                     	% Gaussian
@@ -1259,7 +1259,7 @@ classdef MouseBehaviorInterface < handle
                     	    mu = obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'MU')); % in seconds
                     	    trialLength = exprnd(mu) + 1;
                     	end
-                    	turnTheta = trialLength * (speed);
+                    	turnTheta = trialLength * speed;
                     	thetaIndex0 = length(thetas) - round(turnTheta - 1);
                     	thetaIndex0 = max(thetaIndex0, 1);
                     	thetaIndex0 = min(thetaIndex0, (length(thetas) - round(windowDuration * speed)));
@@ -1268,7 +1268,6 @@ classdef MouseBehaviorInterface < handle
                     	theta0 = theta0 + endTheta;
                     	thetas = thetas + endTheta;
                     end
-
 
 					% Create objects
 					obj.Rsc.Dots    	= obj.MovingDots('Ax', obj.Rsc.VisualStimAxes);
@@ -1287,7 +1286,6 @@ classdef MouseBehaviorInterface < handle
 					obj.Rsc.BarRefreshTimer.Execution = 'fixedRate';
 					obj.Rsc.BarRefreshTimer.Period = 1/speed;
 					obj.Rsc.BarRefreshTimer.TimerFcn = {@obj.OnBarRefresh, obj.Rsc.Bar};
-					obj.Rsc.BarRefreshTimer.ErrorFcn = @obj.OnTimerError;
 
 					obj.Rsc.DotsRefreshTimer = timer;
 					obj.Rsc.DotsRefreshTimer.Execution = 'fixedRate';
@@ -1326,46 +1324,50 @@ classdef MouseBehaviorInterface < handle
 			end
 		end
 
-		function OnTimerError(obj, t, event)
-			disp(t)
-			disp(event.Data)
-		end
-
 		function OnTrialRegistered_VisualStim(obj, ~, ~)
 			% Register theta0 when trial completed
 			obj.Arduino.Trials(end).Theta0 = obj.UserData.Theta0;		
 		end
 
 		function OnBarRefresh(obj, t, ~, hBar)
-			nextThetaIndex = obj.Rsc.Bar.UserData.ThetaIndex + hBar.UserData.Direction;
-
-			% Read parameters from Arduino
-			speed 				= obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'BAR_SPEED'));
-			spatialFrequency 	= obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'SPATIAL_FREQUENCY'));
-			windowDuration  	= obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'WINDOW_DURATION'))/1000;
-
-			% Alpha
-			if (~hBar.UserData.IsAlphaReached && hBar.UserData.Direction > 0 && (450 - obj.Rsc.Bar.UserData.Thetas(nextThetaIndex)) <= windowDuration*speed*spatialFrequency)
-				obj.Arduino.SendMessage('A');
-				hBar.UserData.IsAlphaReached = true;
-			end
-			% Turning point
-			if (~hBar.UserData.IsTurningPointReached && hBar.UserData.Direction > 0 && nextThetaIndex > length(obj.Rsc.Bar.UserData.Thetas)) % turn when reach end of list of thetas
-				hBar.UserData.Direction = -1;
+			try
 				nextThetaIndex = obj.Rsc.Bar.UserData.ThetaIndex + hBar.UserData.Direction;
-				obj.Arduino.SendMessage('T');
-				hBar.UserData.IsTurningPointReached = true;
-			end
-			% Omega
-			if (~hBar.UserData.IsOmegaReached && hBar.UserData.Direction < 0 && ((450 - obj.Rsc.Bar.UserData.Thetas(nextThetaIndex)) >= windowDuration*speed*spatialFrequency))
-				obj.Arduino.SendMessage('W');
-				hBar.UserData.IsOmegaReached = true;
-			end
 
-			nextTheta = obj.Rsc.Bar.UserData.Thetas(nextThetaIndex);
-			obj.Rsc.Bar.UserData.ThetaIndex = nextThetaIndex;
+				% Read parameters from Arduino
+				speed 				= obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'BAR_SPEED'));
+				spatialFrequency 	= obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'SPATIAL_FREQUENCY'));
+				windowDuration  	= obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'WINDOW_DURATION'))/1000;
 
-			obj.RotatingBar(nextTheta, 'Bar', hBar);
+				if nextThetaIndex > 0
+					% Alpha
+					if (~hBar.UserData.IsAlphaReached && hBar.UserData.Direction > 0 && (450 - obj.Rsc.Bar.UserData.Thetas(nextThetaIndex)) <= windowDuration*speed*spatialFrequency)
+						obj.Arduino.SendMessage('A');
+						hBar.UserData.IsAlphaReached = true;
+					end
+					% Turning point
+					if (~hBar.UserData.IsTurningPointReached && hBar.UserData.Direction > 0 && nextThetaIndex > length(obj.Rsc.Bar.UserData.Thetas)) % turn when reach end of list of thetas
+						hBar.UserData.Direction = -1;
+						nextThetaIndex = obj.Rsc.Bar.UserData.ThetaIndex + hBar.UserData.Direction;
+						obj.Arduino.SendMessage('T');
+						hBar.UserData.IsTurningPointReached = true;
+					end
+					% Omega
+					if (~hBar.UserData.IsOmegaReached && hBar.UserData.Direction < 0 && ((450 - obj.Rsc.Bar.UserData.Thetas(nextThetaIndex)) >= windowDuration*speed*spatialFrequency))
+						obj.Arduino.SendMessage('W');
+						hBar.UserData.IsOmegaReached = true;
+					end
+					nextTheta = obj.Rsc.Bar.UserData.Thetas(nextThetaIndex);
+				% If OmegaToITI interval is too long and bar in going in reverse, the list of thetas might not be long enough (nextThetaIndex <= 0)
+				else
+					nextTheta = obj.Rsc.Bar.UserData.Thetas(1) + spatialFrequency*(nextThetaIndex - 1);
+				end
+
+				obj.Rsc.Bar.UserData.ThetaIndex = nextThetaIndex;
+				obj.RotatingBar(nextTheta, 'Bar', hBar);
+			catch ME
+				ME
+				rethrow(ME)
+			end
 		end
 
 		function OnDotsRefresh(obj, t, ~, hDots)
