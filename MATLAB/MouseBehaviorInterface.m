@@ -1346,12 +1346,6 @@ classdef MouseBehaviorInterface < handle
 					end
 					% Turning point
 					if (~hBar.UserData.IsTurningPointReached && hBar.UserData.Direction > 0 && nextThetaIndex > length(obj.Rsc.Bar.UserData.Thetas)) % turn when reach end of list of thetas
-						% Handle edge cases where trial is too short (reached Alpha and Omega at same time)
-						if (~hBar.UserData.IsAlphaReached)
-							obj.Arduino.SendMessage('A');
-							hBar.UserData.IsAlphaReached = true;
-						end
-
 						hBar.UserData.Direction = -1;
 						nextThetaIndex = obj.Rsc.Bar.UserData.ThetaIndex + hBar.UserData.Direction;
 						obj.Arduino.SendMessage('T');
@@ -1365,6 +1359,10 @@ classdef MouseBehaviorInterface < handle
 					nextTheta = obj.Rsc.Bar.UserData.Thetas(nextThetaIndex);
 				% If OmegaToITI interval is too long and bar in going in reverse, the list of thetas might not be long enough (nextThetaIndex <= 0)
 				else
+					if (~hBar.UserData.IsOmegaReached)
+						obj.Arduino.SendMessage('W');
+						hBar.UserData.IsOmegaReached = true;
+					end
 					nextTheta = obj.Rsc.Bar.UserData.Thetas(1) + spatialFrequency*(nextThetaIndex - 1);
 				end
 
@@ -1372,7 +1370,19 @@ classdef MouseBehaviorInterface < handle
 				obj.RotatingBar(nextTheta, 'Bar', hBar);
 			catch ME
 				ME
-				rethrow(ME)
+				warning('Bar refresh error. Aborting current trial.')
+				if (~hBar.UserData.IsAlphaReached)
+					obj.Arduino.SendMessage('A');
+					hBar.UserData.IsAlphaReached = true;
+				end
+				if (~hBar.UserData.IsTurningPointReached)
+					obj.Arduino.SendMessage('T');
+					hBar.UserData.IsTurningPointReached = true;
+				end
+				if (~hBar.UserData.IsOmegaReached)
+					obj.Arduino.SendMessage('W');
+					hBar.UserData.IsOmegaReached = true;
+				end				
 			end
 		end
 
