@@ -722,6 +722,22 @@ void state_reward()
 		}
 	}
 
+	// Send markers for window events
+	if (_command == 'A') // A for AlphaReached
+	{
+		sendEventMarker(EVENT_ALPHA, -1);
+	} 
+
+	if (_command == 'T') // TurningPointReached
+	{
+		sendEventMarker(EVENT_TURNING_POINT, -1);
+	}
+
+	if (_command == 'W') // OmegaReached
+	{
+		sendEventMarker(EVENT_OMEGA, -1);
+	}
+
 	/*****************************************************
 		TRANSITION LIST
 	*****************************************************/
@@ -758,6 +774,20 @@ void state_abort_early_early()
 
 		// Register events
 		sendEventMarker(EVENT_ABORT_EARLY, -1);
+	}
+
+	/*****************************************************
+		OnEachLoop checks
+	*****************************************************/
+	// Send markers for window events for plotting purposes
+	if (_command == 'A') // A for AlphaReached
+	{
+		sendEventMarker(EVENT_ALPHA, -1);
+	} 
+
+	if (_command == 'T') // TurningPointReached
+	{
+		sendEventMarker(EVENT_TURNING_POINT, -1);
 	}
 
 	/*****************************************************
@@ -799,6 +829,20 @@ void state_abort_early()
 	}
 
 	/*****************************************************
+		OnEachLoop checks
+	*****************************************************/
+	// Send markers for window events for plotting purposes
+	if (_command == 'A') // A for AlphaReached
+	{
+		sendEventMarker(EVENT_ALPHA, -1);
+	} 
+
+	if (_command == 'T') // TurningPointReached
+	{
+		sendEventMarker(EVENT_TURNING_POINT, -1);
+	}
+
+	/*****************************************************
 		TRANSITION LIST
 	*****************************************************/
 	// Quit signal from host --> IDLE
@@ -834,6 +878,25 @@ void state_abort()
 
 		// Register events
 		sendEventMarker(EVENT_ABORT, -1);
+	}
+
+	/*****************************************************
+		OnEachLoop checks
+	*****************************************************/
+	// Send markers for window events for plotting purposes
+	if (_command == 'A') // A for AlphaReached
+	{
+		sendEventMarker(EVENT_ALPHA, -1);
+	} 
+
+	if (_command == 'T') // TurningPointReached
+	{
+		sendEventMarker(EVENT_TURNING_POINT, -1);
+	}
+
+	if (_command == 'W') // OmegaReached
+	{
+		sendEventMarker(EVENT_OMEGA, -1);
 	}
 
 	/*****************************************************
