@@ -1340,19 +1340,25 @@ classdef MouseBehaviorInterface < handle
 
 				if nextThetaIndex > 0
 					% Alpha
-					if (~hBar.UserData.IsAlphaReached && hBar.UserData.Direction > 0 && (450 - obj.Rsc.Bar.UserData.Thetas(nextThetaIndex)) <= windowDuration*speed*spatialFrequency)
+					if (~hBar.UserData.IsAlphaReached && nextThetaIndex <= length(obj.Rsc.Bar.UserData.Thetas) && hBar.UserData.Direction > 0 && (450 - obj.Rsc.Bar.UserData.Thetas(nextThetaIndex)) <= windowDuration*speed*spatialFrequency)
 						obj.Arduino.SendMessage('A');
 						hBar.UserData.IsAlphaReached = true;
 					end
 					% Turning point
 					if (~hBar.UserData.IsTurningPointReached && hBar.UserData.Direction > 0 && nextThetaIndex > length(obj.Rsc.Bar.UserData.Thetas)) % turn when reach end of list of thetas
+						% Handle edge cases where trial is too short (reached Alpha and Omega at same time)
+						if (~hBar.UserData.IsAlphaReached)
+							obj.Arduino.SendMessage('A');
+							hBar.UserData.IsAlphaReached = true;
+						end
+
 						hBar.UserData.Direction = -1;
 						nextThetaIndex = obj.Rsc.Bar.UserData.ThetaIndex + hBar.UserData.Direction;
 						obj.Arduino.SendMessage('T');
 						hBar.UserData.IsTurningPointReached = true;
 					end
 					% Omega
-					if (~hBar.UserData.IsOmegaReached && hBar.UserData.Direction < 0 && ((450 - obj.Rsc.Bar.UserData.Thetas(nextThetaIndex)) >= windowDuration*speed*spatialFrequency))
+					if (~hBar.UserData.IsOmegaReached && nextThetaIndex <= length(obj.Rsc.Bar.UserData.Thetas) && hBar.UserData.Direction < 0 && ((450 - obj.Rsc.Bar.UserData.Thetas(nextThetaIndex)) >= windowDuration*speed*spatialFrequency))
 						obj.Arduino.SendMessage('W');
 						hBar.UserData.IsOmegaReached = true;
 					end
