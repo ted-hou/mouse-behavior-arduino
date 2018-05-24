@@ -1186,8 +1186,8 @@ classdef MouseBehaviorInterface < handle
 
 			xlim(hAxes, 'manual')
 			ylim(hAxes, 'manual')
-			xlim(hAxes, [-1.15, 1.15]);
-			ylim(hAxes, [-1.15, 1.15]);
+			xlim(hAxes, [-1.16, 1.16]);
+			ylim(hAxes, [-1.16, 1.16]);
 
 			obj.Rsc.VisualStimFigure = hFigure;
 			obj.Rsc.VisualStimAxes = hAxes;
@@ -1326,7 +1326,6 @@ classdef MouseBehaviorInterface < handle
 					end
 					obj.Rsc.OmegaToITITimer.StartDelay = omegaToITIDuration;
 					start(obj.Rsc.OmegaToITITimer);
-					disp(['OMEGA TO ITI TIMER: START - ', num2str(toc, '%.2f'), ' seconds'])
 				case 'INTERTRIAL'
 					stop(obj.Rsc.BarRefreshTimer);
 					stop(obj.Rsc.DotsRefreshTimer);
@@ -1788,8 +1787,8 @@ classdef MouseBehaviorInterface < handle
 			hAxes = p.Results.Ax;
 
 			theta = theta/180*pi; % theta in radians
-			l = .15; % length of side of triangle cue
-			alphie = pi/8; % alpha (half angle of vertex) 
+			l = .16; % length of side of triangle cue
+			alphie = pi/6; % alpha (half angle of vertex) 
 
 			xs = [cos(theta), (cos(theta) + (l * cos(theta - alphie))), cos(theta) + (l * cos(theta + alphie))];
 			ys = [sin(theta), (sin(theta) + (l * sin(theta - alphie))), sin(theta) + (l * sin(theta + alphie))];
