@@ -1241,7 +1241,8 @@ classdef MouseBehaviorInterface < handle
 
 					if obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'REACTIVE')) == 0
 						safeTheta0s	= thetas(thetas > windowDuration * (speed * spatialFrequency)); % sorting out all thetas not in lick window
-						endTheta 	= 90;
+						endThetas 	= [0, 90, 180, 270];
+						endTheta = endThetas(randi(4));
 						safeTheta0s	= safeTheta0s + endTheta; % change endTheta for a bar that reverses at a different location
 						thetas 		= thetas + endTheta;
 						% Random length trials
@@ -1325,6 +1326,7 @@ classdef MouseBehaviorInterface < handle
 					end
 					obj.Rsc.OmegaToITITimer.StartDelay = omegaToITIDuration;
 					start(obj.Rsc.OmegaToITITimer);
+					disp(['OMEGA TO ITI TIMER: START - ', num2str(toc, '%.2f'), ' seconds'])
 				case 'INTERTRIAL'
 					stop(obj.Rsc.BarRefreshTimer);
 					stop(obj.Rsc.DotsRefreshTimer);
@@ -1335,7 +1337,6 @@ classdef MouseBehaviorInterface < handle
 					delete(obj.Rsc.Cue);
 			end
 		end
-
 		function OnTrialRegistered_VisualStim(obj, ~, ~)
 			% Register theta0 when trial completed
 			obj.Arduino.Trials(end).Theta0 = obj.UserData.Theta0;		
@@ -1352,7 +1353,7 @@ classdef MouseBehaviorInterface < handle
 
 				if nextThetaIndex > 0
 					% Alpha
-					if (~hBar.UserData.IsAlphaReached && nextThetaIndex <= length(obj.Rsc.Bar.UserData.Thetas) && hBar.UserData.Direction > 0 && (450 - obj.Rsc.Bar.UserData.Thetas(nextThetaIndex)) <= windowDuration*speed*spatialFrequency)
+					if (~hBar.UserData.IsAlphaReached && nextThetaIndex <= length(obj.Rsc.Bar.UserData.Thetas) && hBar.UserData.Direction > 0 && (max(obj.Rsc.Bar.UserData.Thetas) - obj.Rsc.Bar.UserData.Thetas(nextThetaIndex)) < windowDuration*speed*spatialFrequency)
 						obj.Arduino.SendMessage('A');
 						hBar.UserData.IsAlphaReached = true;
 					end
@@ -1364,7 +1365,7 @@ classdef MouseBehaviorInterface < handle
 						hBar.UserData.IsTurningPointReached = true;
 					end
 					% Omega
-					if (~hBar.UserData.IsOmegaReached && nextThetaIndex <= length(obj.Rsc.Bar.UserData.Thetas) && hBar.UserData.Direction < 0 && ((450 - obj.Rsc.Bar.UserData.Thetas(nextThetaIndex)) >= windowDuration*speed*spatialFrequency))
+					if (~hBar.UserData.IsOmegaReached && nextThetaIndex <= length(obj.Rsc.Bar.UserData.Thetas) && hBar.UserData.Direction < 0 && ((max(obj.Rsc.Bar.UserData.Thetas) - obj.Rsc.Bar.UserData.Thetas(nextThetaIndex)) > windowDuration*speed*spatialFrequency))
 						obj.Arduino.SendMessage('W');
 						hBar.UserData.IsOmegaReached = true;
 					end
@@ -1790,7 +1791,7 @@ classdef MouseBehaviorInterface < handle
 
 			theta = theta/180*pi; % theta in radians
 			l = .15; % length of side of triangle cue
-			alphie = pi/12; % alpha (half angle of vertex) 
+			alphie = pi/8; % alpha (half angle of vertex) 
 
 			xs = [cos(theta), (cos(theta) + (l * cos(theta - alphie))), cos(theta) + (l * cos(theta + alphie))];
 			ys = [sin(theta), (sin(theta) + (l * sin(theta - alphie))), sin(theta) + (l * sin(theta + alphie))];
