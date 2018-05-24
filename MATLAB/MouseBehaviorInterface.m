@@ -1780,8 +1780,6 @@ classdef MouseBehaviorInterface < handle
 		end
 
 		function varargout = EndCue(theta, varargin)
-			% use patch function to define vertices of cue
-			% use end Theta to plot location?
 			p = inputParser;
 			addParameter(p, 'Ax', []);
 			addParameter(p, 'Cue', []);
