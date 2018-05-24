@@ -1186,8 +1186,8 @@ classdef MouseBehaviorInterface < handle
 
 			xlim(hAxes, 'manual')
 			ylim(hAxes, 'manual')
-			xlim(hAxes, [-1.05, 1.05]);
-			ylim(hAxes, [-1.05, 1.05]);
+			xlim(hAxes, [-1.15, 1.15]);
+			ylim(hAxes, [-1.15, 1.15]);
 
 			obj.Rsc.VisualStimFigure = hFigure;
 			obj.Rsc.VisualStimAxes = hAxes;
@@ -1272,6 +1272,7 @@ classdef MouseBehaviorInterface < handle
 					% Create objects
 					obj.Rsc.Dots    	= obj.MovingDots('Ax', obj.Rsc.VisualStimAxes);
 					obj.Rsc.Bar     	= obj.RotatingBar(theta0, 'Ax', obj.Rsc.VisualStimAxes);
+					obj.Rsc.Cue 		= obj.EndCue(thetas(end), 'Ax', obj.Rsc.VisualStimAxes);
 
 					obj.UserData.Theta0							= theta0;
 					obj.Rsc.Bar.UserData.Thetas 				= thetas;
@@ -1292,6 +1293,7 @@ classdef MouseBehaviorInterface < handle
 					obj.Rsc.DotsRefreshTimer.Period = round(1000/60)/1000;
 					obj.Rsc.DotsRefreshTimer.TimerFcn = {@obj.OnDotsRefresh, obj.Rsc.Dots};
 					start(obj.Rsc.DotsRefreshTimer);
+                    
 				% Bar starts moving
 				case 'BAR_MOVE'
 					start(obj.Rsc.BarRefreshTimer);
@@ -1301,10 +1303,12 @@ classdef MouseBehaviorInterface < handle
 					start(obj.Rsc.BarRefreshTimer);
 					set(obj.Rsc.Dots, 'Visible', 'off');
 					set(obj.Rsc.Bar, 'Visible', 'off');
+					set(obj.Rsc.Cue, 'Visible', 'off');
 				% Early lick: hide visual stim
 				case 'ABORT_EARLY'
 					set(obj.Rsc.Bar, 'Visible', 'off');
 					set(obj.Rsc.Dots, 'Visible', 'off');
+					set(obj.Rsc.Cue, 'Visible', 'off');
 				% Either reward or abort, wait some time and tell Arduino to go to ITI
 				case {'REWARD', 'ABORT'}
 					omegaToITIDuration = obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'OMEGA_TO_ITI_DURATION'))/1000;
@@ -1321,6 +1325,7 @@ classdef MouseBehaviorInterface < handle
 					delete(obj.Rsc.DotsRefreshTimer);
 					delete(obj.Rsc.Bar);
 					delete(obj.Rsc.Dots);
+					delete(obj.Rsc.Cue);
 			end
 		end
 
@@ -1764,6 +1769,30 @@ classdef MouseBehaviorInterface < handle
 			end
 
 			varargout = {hDots};
+		end
+
+		function varargout = EndCue(theta, varargin)
+			% use patch function to define vertices of cue
+			% use end Theta to plot location?
+			p = inputParser;
+			addParameter(p, 'Ax', []);
+			addParameter(p, 'Cue', []);
+			parse(p, varargin{:});
+			hCue = p.Results.Cue;
+			hAxes = p.Results.Ax;
+
+			theta = theta/180*pi; % theta in radians
+			l = .15; % length of side of triangle cue
+			alphie = pi/12; % alpha (half angle of vertex) 
+
+			xs = [cos(theta), (cos(theta) + (l * cos(theta - alphie))), cos(theta) + (l * cos(theta + alphie))];
+			ys = [sin(theta), (sin(theta) + (l * sin(theta - alphie))), sin(theta) + (l * sin(theta + alphie))];
+
+			if isempty(hCue)
+				hCue = patch(xs, ys, 'w');
+			end 
+
+			varargout = {hCue};
 		end
 	end
 end
