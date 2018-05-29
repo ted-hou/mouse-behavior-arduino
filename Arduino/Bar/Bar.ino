@@ -549,35 +549,23 @@ void state_bar_move()
 		}
 	}
 
-	// Pavlovian
-	if (_params[PAVLOVIAN] == 1)
+	// bar_move elapsed --> RESPONSE_WINDOW
+	if (_params[REACTIVE] == 1)
 	{
 		if (_command == 'T')
 		{
-			_resultCode = CODE_PAV;
-			_state = STATE_REWARD;
+			_state = STATE_RESPONSE_WINDOW;
 			return;
 		}
 	}
 	else
-	{	// bar_move elapsed --> RESPONSE_WINDOW
-		if (_params[REACTIVE] == 1)
+	{
+		if (_command == 'A') // A for AlphaReached
 		{
-			if (_command == 'T')
-			{
-				_state = STATE_RESPONSE_WINDOW;
-				return;
-			}
-		}
-		else
-		{
-			if (_command == 'A') // A for AlphaReached
-			{
-				_state = STATE_RESPONSE_WINDOW;
-				return;
-			} 
+			_state = STATE_RESPONSE_WINDOW;
+			return;
 		} 
-	}
+	} 
 
 	_state = STATE_BAR_MOVE;
 }
@@ -606,23 +594,31 @@ void state_response_window()
 		return;
 	}
 
+	if (_isLickOnset)
+	{
+		// First lick registration
+		if (!_firstLickRegistered)
+		{
+			_firstLickRegistered = true;
+			sendEventMarker(EVENT_FIRST_LICK, -1);
+		}
+		_resultCode = CODE_CORRECT;
+		_state = STATE_REWARD;
+		return;
+	}
+	// Pavlovian
+	else if (_params[PAVLOVIAN] == 1)
+	{
+		if (_command == 'T')
+		{
+			_resultCode = CODE_PAV;
+			_state = STATE_REWARD;
+			return;
+		}
+	}
+	// Response window elapsed --> ITI
 	else
 	{
-		// Lick detected
-		if (_isLickOnset)
-		{
-			// First lick registration
-			if (!_firstLickRegistered)
-			{
-				_firstLickRegistered = true;
-				sendEventMarker(EVENT_FIRST_LICK, -1);
-				_resultCode = CODE_CORRECT;
-				_state = STATE_REWARD;
-				return;
-			}
-		}
-	
-		// Response window elapsed --> ITI
 		if (_params[REACTIVE] == 0)
 		{
 			if (_command == 'T')
