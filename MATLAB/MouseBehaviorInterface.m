@@ -1794,7 +1794,7 @@ classdef MouseBehaviorInterface < handle
 			ys = [sin(theta), (sin(theta) + (l * sin(theta - alphie))), sin(theta) + (l * sin(theta + alphie))];
 
 			if isempty(hCue)
-				hCue = patch(xs, ys, 'w');
+				hCue = patch(hAxes, xs, ys, 'w');
 			end 
 
 			varargout = {hCue};
