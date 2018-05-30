@@ -43,7 +43,7 @@ enum State
 	STATE_REWARD,				// Dispense reward, wait for trial timeout
 	STATE_ABORT,				// No lick - timeout
 	STATE_ABORT_EARLY,			// Early lick
-	STATE_ABORT_EARLY_EARLY,	// Early lick during stat
+	STATE_ABORT_BAR_STAT,	// Early lick during stat
 	_NUM_STATES					// (Private) Used to count number of states
 };
 
@@ -61,7 +61,7 @@ static const char *_stateNames[] =
 	"REWARD",
 	"ABORT",
 	"ABORT_EARLY",
-	"ABORT_EARLY_EARLY"
+	"ABORT_BAR_STAT"
 };
 
 // Define which states accept parameter update from MATLAB
@@ -338,8 +338,8 @@ void loop()
 				state_abort_early();
 				break;
 
-			case STATE_ABORT_EARLY_EARLY:
-				state_abort_early_early();
+			case STATE_ABORT_BAR_STAT:
+				state_abort_bar_stat();
 				break;
 		}
 	}
@@ -488,7 +488,7 @@ void state_bar_stat()
 		{
 			// Register result
 			_resultCode = CODE_EARLY_LICK;
-			_state = STATE_ABORT_EARLY_EARLY;
+			_state = STATE_ABORT_BAR_STAT;
 			return;
 		}
 	}
@@ -725,7 +725,7 @@ void state_reward()
 /*****************************************************
 	ABORT - Early lick during bar_stat
 *****************************************************/
-void state_abort_early_early()
+void state_abort_bar_stat()
 {
 	/*****************************************************
 		ACTION LIST
@@ -756,7 +756,7 @@ void state_abort_early_early()
 		return;
 	}
 
-	_state = STATE_ABORT_EARLY_EARLY;
+	_state = STATE_ABORT_BAR_STAT;
 }
 
 /*****************************************************

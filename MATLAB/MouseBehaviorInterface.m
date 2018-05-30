@@ -1241,10 +1241,10 @@ classdef MouseBehaviorInterface < handle
 
 					if obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'REACTIVE')) == 0
 						safeTheta0s	= thetas(thetas > windowDuration * (speed * spatialFrequency)); % sorting out all thetas not in lick window
-						endThetas 	= [0:90:270]; % Training Day 1/2/3
+						% endThetas 	= [0:90:270]; % Training Day 1/2/3
 						% endThetas = [0:45:315]; % Training Day 4/5
-						endTheta 	= endThetas(randi(length(endThetas))); 
-						% endTheta = randi(360); % Training Day 6-inf
+						% endTheta 	= endThetas(randi(length(endThetas))); 
+						endTheta = randi(360); % Training Day 6-inf
 						safeTheta0s	= safeTheta0s + endTheta; % change endTheta for a bar that reverses at a different location
 						thetas 		= thetas + endTheta;
 						% Random length trials
@@ -1309,7 +1309,7 @@ classdef MouseBehaviorInterface < handle
 					start(obj.Rsc.BarRefreshTimer);
 				% Early lick during bar stat: hide visual stim, and start bar
 				% TODO: Some part of BAR_STAT is skipped
-				case 'ABORT_EARLY_EARLY'
+				case 'ABORT_BAR_STAT'
 					start(obj.Rsc.BarRefreshTimer);
 					set(obj.Rsc.Dots, 'Visible', 'off');
 					set(obj.Rsc.Bar, 'Visible', 'off');
