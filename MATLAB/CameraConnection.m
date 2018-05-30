@@ -195,6 +195,7 @@ classdef CameraConnection < handle
 			hPrev.Position(1) = hPrev.Position(1) + hPrev.Position(3) + ctrlSpacing;
  
 			% Resize dialog
+			dlg.Position(1:2) = [20, 550];
 			dlg.Position(3) = hPrev.Position(1) + hPrev.Position(3) + ctrlSpacing;
 			dlg.Position(4) = 2*ctrlSpacing + buttonHeight;
 
