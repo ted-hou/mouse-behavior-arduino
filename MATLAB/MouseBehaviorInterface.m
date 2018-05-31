@@ -1240,11 +1240,16 @@ classdef MouseBehaviorInterface < handle
 					thetas 				= flip(thetas);
 
 					if obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'REACTIVE')) == 0
+						if obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'TRAINING_PHASE')) == 0
+							endThetas 	= [0:90:270]; % Training Day 1/2/3
+							endTheta 	= endThetas(randi(length(endThetas))); % Training Day 6-inf
+						elseif obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'TRAINING_PHASE')) == 1
+							endThetas = [0:45:315]; % Training Day 4/5
+							endTheta 	= endThetas(randi(length(endThetas))); 
+						else
+							endTheta = randi(360); % Training Day 6-inf
+						end
 						safeTheta0s	= thetas(thetas > windowDuration * (speed * spatialFrequency)); % sorting out all thetas not in lick window
-						% endThetas 	= [0:90:270]; % Training Day 1/2/3
-						% endThetas = [0:45:315]; % Training Day 4/5
-						% endTheta 	= endThetas(randi(length(endThetas))); 
-						endTheta = randi(360); % Training Day 6-inf
 						safeTheta0s	= safeTheta0s + endTheta; % change endTheta for a bar that reverses at a different location
 						thetas 		= thetas + endTheta;
 						% Random length trials

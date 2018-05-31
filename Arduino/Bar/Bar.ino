@@ -139,6 +139,7 @@ enum ParamID
 	ITI_DURATION,				// ITI length, fixed
 	REWARD_DURATION,			// Reward duration (ms)
 	WINDOW_DURATION,			// Time from Alpha to Turning Point (or from Turning Point to Omega)
+	TRAINING_PHASE,			// For proactive, switches possible locations of cue (cardinal to anywhere)	
 	OMEGA_TO_ITI_DURATION,		// Time from Omega to ITI (ms)
 	ALLOW_EARLY_LICK,			// 0 to abort trial if animal licks after in pre-window
 	PAVLOVIAN,					// Pavlovian = 1, Operant = 0
@@ -161,6 +162,7 @@ static const char *_paramNames[] =
 	"REWARD_DURATION",			// Reward duration (ms)
 	"WINDOW_DURATION",			// Time from Alpha to Turning Point (or from Turning Point to Omega)
 	"OMEGA_TO_ITI_DURATION",	// Time from Omega to ITI (ms)
+	"TRAINING_PHASE",			// For proactive, switches possible locations of cue (cardinal to anywhere)			
 	"ALLOW_EARLY_LICK",			// 0 to abort trial if animal licks after in pre-window
 	"PAVLOVIAN",				// Pavlovian = 1, Operant = 0
 	"REACTIVE",					// Is this a reactive or proactive paradigm?
@@ -180,9 +182,10 @@ long _params[_NUM_PARAMS] =
 	100,	// REWARD_DURATION
 	1000,	// WINDOW_DURATION
 	3000,	// OMEGA_TO_ITI_DURATION
+	0,		// TRAINING_PHASE
 	0,		// ALLOW_EARLY_LICK
 	0,		// PAVLOVIAN
-	1, 		// REACTIVE
+	0, 		// REACTIVE
 	0,		// TIMING
 	4,		// SPATIAL_FREQUENCY
 	4,		// BAR_SPEED
