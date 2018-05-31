@@ -664,6 +664,7 @@ classdef MouseBehaviorInterface < handle
 
 			obj.Raster(eventCodeTrialStart, eventCodeZero, eventCodeOfInterest, figName, paramPlotOptions, eventPlotOptions)
 		end
+
 		function Raster(obj, eventCodeTrialStart, eventCodeZero, eventCodeOfInterest, figName, paramPlotOptions, eventPlotOptions)
 			% First column in data is eventCode, second column is timestamp (since trial start)
 			if nargin < 5
@@ -700,6 +701,7 @@ classdef MouseBehaviorInterface < handle
 			ax.UserData.Listener = addlistener(obj.Arduino, 'TrialsCompleted', 'PostSet', @(~, ~) obj.Raster_Execute(figId));
 			f.CloseRequestFcn = {@MouseBehaviorInterface.OnLooseFigureClosed, ax.UserData.Listener};
 		end
+
 		function Raster_Execute(obj, figId)
 			% Do not plot if the Grad Student decides we should stop plotting stuff.
 			if isfield(obj.UserData, 'UpdatePlot') && (~obj.UserData.UpdatePlot)
@@ -763,6 +765,7 @@ classdef MouseBehaviorInterface < handle
 			ax.UserData.ParamPlotOptions 	= paramPlotOptions;
 			ax.UserData.EventPlotOptions 	= eventPlotOptions;
 		end
+
 		function Raster_Execute_Events(obj, ax, data, eventCodeTrialStart, eventCodeOfInterest, eventCodeZero, eventPlotOptions)
 			% Plot primary event of interest
 			obj.Raster_Execute_Single(ax, data, eventCodeTrialStart, eventCodeOfInterest, eventCodeZero, 'cyan', 10)
@@ -779,6 +782,7 @@ classdef MouseBehaviorInterface < handle
 				end
 			end	
 		end
+
 		function Raster_Execute_Single(obj, ax, data, eventCodeTrialStart, eventCodeOfInterest, eventCodeZero, markerColor, markerSize)
 			% Separate eventsOfInterest into trials, divided by eventsZero
 			eventsTrialStart	= find(data(:, 1) == eventCodeTrialStart);
@@ -845,6 +849,7 @@ classdef MouseBehaviorInterface < handle
 				'DisplayName', obj.Arduino.EventMarkerNames{eventCodeOfInterest}...
 			)
 		end
+
 		function Raster_Execute_Params(obj, ax, paramPlotOptions)
 			% Plot parameters
 			% Filter out parameters the Grad Student does not want to plot
@@ -886,6 +891,7 @@ classdef MouseBehaviorInterface < handle
 
 			obj.Hist(eventCodeTrialStart, eventCodeZero, eventCodeOfInterest, figName, numBins)
 		end
+
 		function Hist(obj, eventCodeTrialStart, eventCodeZero, eventCodeOfInterest, figName, numBins)
 			% First column in data is eventCode, second column is timestamp (since trial start)
 			if nargin < 5
@@ -919,6 +925,7 @@ classdef MouseBehaviorInterface < handle
 			ax.UserData.Listener = addlistener(obj.Arduino, 'TrialsCompleted', 'PostSet', @(~, ~) obj.Hist_Execute(figId, numBins));
 			f.CloseRequestFcn = {@MouseBehaviorInterface.OnLooseFigureClosed, ax.UserData.Listener};
 		end
+
 		function Hist_Execute(obj, figId, numBins)
 			% NumBins is actually bin width in seconds
 
@@ -1187,7 +1194,6 @@ classdef MouseBehaviorInterface < handle
 	%----------------------------------------------------
 	methods (Static)
 		function arduinoPortName = QueryPort()
-			
 			serialInfo = instrhwinfo('serial');
 
 			if isempty(serialInfo.AvailableSerialPorts)
