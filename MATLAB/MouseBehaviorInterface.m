@@ -256,6 +256,17 @@ classdef MouseBehaviorInterface < handle
 				'FontSize', 13 ...
 				);
 			dlg.UserData.Ctrl.LastTrialResultText = lastTrialResultText;
+
+			% Text: Current state
+			currentStateText = uicontrol(...
+				'Parent', leftPanel,...
+				'Style', 'text',...
+				'String', 'Current state: ',...
+				'HorizontalAlignment', 'left',...
+				'Units', 'pixels',...
+				'FontSize', 13 ...
+			);
+			dlg.UserData.Ctrl.CurrentStateText = currentStateText;
 			
 			%----------------------------------------------------
 			%		Right panel
@@ -1355,6 +1366,14 @@ classdef MouseBehaviorInterface < handle
 					delete(obj.Rsc.Dots);
 					delete(obj.Rsc.Cue);
 			end
+			% Updated monitor window
+			if isvalid(obj.Rsc.Monitor)
+				% Show result of last trial
+				t = obj.Rsc.Monitor.UserData.Ctrl.CurrentStateText;
+				t.String = sprintf('Current state: \n%s', obj.Arduino.StateNames{obj.Arduino.State});
+			end
+		end
+
 		end
 		function OnTrialRegistered_VisualStim(obj, ~, ~)
 			% Register theta0 when trial completed
@@ -1474,7 +1493,7 @@ classdef MouseBehaviorInterface < handle
 			rightPanel = dlg.UserData.Ctrl.RightPanel;
 			trialCountText = dlg.UserData.Ctrl.TrialCountText;
 			lastTrialResultText = dlg.UserData.Ctrl.LastTrialResultText;
-			
+			currentStateText = dlg.UserData.Ctrl.CurrentStateText;
 			
 			text_eventTrialStart_raster = dlg.UserData.Ctrl.Text_EventTrialStart_Raster;
 			popup_eventTrialStart_raster = dlg.UserData.Ctrl.Popup_EventTrialStart_Raster;
@@ -1535,6 +1554,10 @@ classdef MouseBehaviorInterface < handle
 			lastTrialResultText.Position(2) = trialCountText.Position(2) - 2.4*u.TextHeight;
 			lastTrialResultText.Position(4) = 2.4*trialCountText.Position(4);
 			
+			currentStateText.Position = lastTrialResultText.Position;
+			currentStateText.Position(2) = lastTrialResultText.Position(2) - u.TextHeight;
+			currentStateText.Position(4) = lastTrialResultText.Position(4);
+
 			% Raster plot tab
 			plotOptionWidth = (rightPanel.Position(3) - 4*u.PanelMargin)/3;
 			text_eventTrialStart_raster.Position = [...
