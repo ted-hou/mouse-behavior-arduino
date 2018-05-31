@@ -473,14 +473,14 @@ classdef MouseBehaviorInterface < handle
 			text_numBins_hist = uicontrol(...
 				'Parent', tab_hist,...
 				'Style', 'text',...
-				'String', 'Number of Bins',...
+				'String', 'Bin Width',...
 				'HorizontalAlignment', 'left'...
 			);
 			dlg.UserData.Ctrl.Text_NumBins_Hist = text_numBins_hist;
 			edit_numBins_hist = uicontrol(...
 				'Parent', tab_hist,...
 				'Style', 'edit',...
-				'String', num2str(10),...
+				'String', num2str(0.5),...
 				'HorizontalAlignment', 'left'...
 			);
 			dlg.UserData.Ctrl.Edit_NumBins_Hist = edit_numBins_hist;
@@ -871,7 +871,7 @@ classdef MouseBehaviorInterface < handle
 				figName = '';
 			end
 			if nargin < 6
-				numBins = 10;
+				numBins = 0.5;
 			end
 			% Create axes object
 			f = figure('Name', figName, 'NumberTitle', 'off', 'DefaultAxesFontSize', 18, 'InnerPosition', [0, 0, 550, 500]);
@@ -899,6 +899,8 @@ classdef MouseBehaviorInterface < handle
 			f.CloseRequestFcn = {@MouseBehaviorInterface.OnLooseFigureClosed, ax.UserData.Listener};
 		end
 		function Hist_Execute(obj, figId, numBins)
+			% NumBins is actually bin width in seconds
+
 			% Do not plot if the Grad Student decides we should stop plotting stuff.
 			if isfield(obj.UserData, 'UpdatePlot') && (~obj.UserData.UpdatePlot)
 				return
@@ -956,15 +958,14 @@ classdef MouseBehaviorInterface < handle
 			eventTimesOfInterest 	= eventTimesOfInterest - eventTimesZero;
 
 			% Plot histogram of selected event times
-			% histogram(ax, eventTimesOfInterest/1000, numBins, 'DisplayName', obj.Arduino.EventMarkerNames{eventCodeOfInterest})
-			histogram(ax, eventTimesOfInterest/1000, 'BinEdges', [0:0.5:12], 'DisplayName', obj.Arduino.EventMarkerNames{eventCodeOfInterest})
+			histogram(ax, eventTimesOfInterest/1000, 'BinEdges', round(min(eventTimesOfInterest/1000)):numBins:round(max(eventTimesOfInterest/1000)), 'DisplayName', obj.Arduino.EventMarkerNames{eventCodeOfInterest})
 			lgd = legend(ax, 'Location', 'northoutside');
 			lgd.Interpreter 	= 'none';
 			lgd.Orientation 	= 'horizontal';
 			ax.XLabel.String 	= 'Time (s)';
 			ax.YLabel.String 	= 'Occurance';
 			title(ax, figName)
-			ax.XLim = [0, 10];
+			ax.XLim = round([min(eventTimesOfInterest), max(eventTimesOfInterest)]/1000);
 
 			% Store plot options cause for some reason it's lost unless we do this.
 			ax.UserData.EventCodeTrialStart = eventCodeTrialStart;
