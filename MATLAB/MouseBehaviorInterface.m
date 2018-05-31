@@ -257,6 +257,17 @@ classdef MouseBehaviorInterface < handle
 			);
 			dlg.UserData.Ctrl.LastTrialResultText = lastTrialResultText;
 
+			% Text: Current state
+			currentStateText = uicontrol(...
+				'Parent', leftPanel,...
+				'Style', 'text',...
+				'String', 'Current state: ',...
+				'HorizontalAlignment', 'left',...
+				'Units', 'pixels',...
+				'FontSize', 13 ...
+			);
+			dlg.UserData.Ctrl.CurrentStateText = currentStateText;
+
 			%----------------------------------------------------
 			%		Right panel
 			%----------------------------------------------------
@@ -509,7 +520,7 @@ classdef MouseBehaviorInterface < handle
 
 			% Update session summary everytime a new trial's results are registered by Arduino
 			obj.Arduino.Listeners.TrialRegistered = addlistener(obj.Arduino, 'TrialsCompleted', 'PostSet', @obj.OnTrialRegistered);
-
+			obj.Arduino.Listeners.StateChanged_MouseBehaviorInterface = addlistener(obj.Arduino, 'StateChanged', @obj.OnStateChanged);
 
 			%----------------------------------------------------
 			% 		Menus
@@ -626,6 +637,16 @@ classdef MouseBehaviorInterface < handle
 			end
 
 			drawnow
+		end
+
+		% Called each time a state changes
+		function OnStateChanged(obj, ~, ~)
+			% Updated monitor window
+			if isvalid(obj.Rsc.Monitor)
+				% Show result of last trial
+				t = obj.Rsc.Monitor.UserData.Ctrl.CurrentStateText;
+				t.String = sprintf('Current state: %s', obj.Arduino.StateNames{obj.Arduino.State});
+			end
 		end
 
 		%----------------------------------------------------
@@ -1207,7 +1228,7 @@ classdef MouseBehaviorInterface < handle
 			rightPanel = dlg.UserData.Ctrl.RightPanel;
 			trialCountText = dlg.UserData.Ctrl.TrialCountText;
 			lastTrialResultText = dlg.UserData.Ctrl.LastTrialResultText;
-
+			currentStateText = dlg.UserData.Ctrl.CurrentStateText;
 
 			text_eventTrialStart_raster = dlg.UserData.Ctrl.Text_EventTrialStart_Raster;
 			popup_eventTrialStart_raster = dlg.UserData.Ctrl.Popup_EventTrialStart_Raster;
@@ -1267,6 +1288,10 @@ classdef MouseBehaviorInterface < handle
 			lastTrialResultText.Position = trialCountText.Position;
 			lastTrialResultText.Position(2) = trialCountText.Position(2) - 2.4*u.TextHeight;
 			lastTrialResultText.Position(4) = 2.4*trialCountText.Position(4);
+
+			currentStateText.Position = lastTrialResultText.Position;
+			currentStateText.Position(2) = lastTrialResultText.Position(2) - 2.4*u.TextHeight;
+			currentStateText.Position(4) = 2.4*lastTrialResultText.Position(4);
 
 			% Raster plot tab
 			plotOptionWidth = (rightPanel.Position(3) - 4*u.PanelMargin)/3;
