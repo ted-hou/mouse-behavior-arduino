@@ -1200,7 +1200,7 @@ classdef MouseBehaviorInterface < handle
 		end
 		
 		function DeleteVisualStim(obj, ~, ~)
-			timers = {'OmegaToITITimer', 'BarRefreshTimer', 'DotsRefreshTimer'};
+			timers = {'OmegaToITITimer', 'BarRefreshTimer', 'DotsRefreshTimer', 'AbortToStimOffTimer'};
 			for iTimer = 1:length(timers)
 				if isfield(obj.Rsc, timers{iTimer})
 					if isvalid(obj.Rsc.(timers{iTimer}))
@@ -1325,7 +1325,7 @@ classdef MouseBehaviorInterface < handle
 					set(obj.Rsc.Dots, 'Visible', 'off');
 					set(obj.Rsc.Cue, 'Visible', 'off');
 				% Either reward or abort, wait some time and tell Arduino to go to ITI
-				case {'REWARD', 'ABORT'}
+				case {'REWARD'}
 					omegaToITIDuration = obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'OMEGA_TO_ITI_DURATION'))/1000;
 					if ~isfield(obj.Rsc, 'OmegaToITITimer')
 						obj.Rsc.OmegaToITITimer = timer;
@@ -1333,6 +1333,19 @@ classdef MouseBehaviorInterface < handle
 					end
 					obj.Rsc.OmegaToITITimer.StartDelay = omegaToITIDuration;
 					start(obj.Rsc.OmegaToITITimer);
+				case {'ABORT'}
+					obj.Rsc.AbortToStimOffTimer = timer;
+					obj.Rsc.AbortToStimOffTimer.TimerFcn = @obj.AbortToStimOff;
+					AbortToStimOffDuration = obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'WINDOW_DURATION'))/1000;
+					obj.Rsc.AbortToStimOffTimer.StartDelay = AbortToStimOffDuration;
+					start(obj.Rsc.AbortToStimOffTimer);
+					omegaToITIDuration = obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'OMEGA_TO_ITI_DURATION'))/1000;
+					if ~isfield(obj.Rsc, 'OmegaToITITimer')
+						obj.Rsc.OmegaToITITimer = timer;
+						obj.Rsc.OmegaToITITimer.TimerFcn = {@(~, ~) obj.Arduino.SendMessage('E')};
+					end
+					obj.Rsc.OmegaToITITimer.StartDelay = omegaToITIDuration;
+					start(obj.Rsc.OmegaToITITimer);				
 				case 'INTERTRIAL'
 					stop(obj.Rsc.BarRefreshTimer);
 					stop(obj.Rsc.DotsRefreshTimer);
@@ -1407,6 +1420,12 @@ classdef MouseBehaviorInterface < handle
 
 		function OnDotsRefresh(obj, t, ~, hDots)
 			obj.MovingDots('Dots', hDots, 'Time', t.TasksExecuted*t.Period, 'RefreshRate', t.Period);
+		end
+
+		function AbortToStimOff(obj, ~, ~)
+			set(obj.Rsc.Dots, 'Visible', 'off');
+			set(obj.Rsc.Bar, 'Visible', 'off');
+			set(obj.Rsc.Cue, 'Visible', 'off');			
 		end
 	end
 	
