@@ -1374,7 +1374,6 @@ classdef MouseBehaviorInterface < handle
 			end
 		end
 
-		end
 		function OnTrialRegistered_VisualStim(obj, ~, ~)
 			% Register theta0 when trial completed
 			obj.Arduino.Trials(end).Theta0 = obj.UserData.Theta0;		
