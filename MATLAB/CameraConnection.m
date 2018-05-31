@@ -15,7 +15,7 @@ classdef CameraConnection < handle
 		function obj = CameraConnection(varargin)
 			p = inputParser;
 			addParameter(p, 'CameraID', [], @isnumeric);
-			addParameter(p, 'Format', '', @ischar);
+			addParameter(p, 'Format', 'MPJG_1024x768', @ischar);
 			addParameter(p, 'Filename', '', @ischar);
 			addParameter(p, 'FileFormat', 'MPEG-4', @ischar);
 			addParameter(p, 'FrameRate', [], @isnumeric); % Framerate for storage (not acquisition). i.e. 60fps acquisition + 30 fps storage == video playing at 1/2 speed
