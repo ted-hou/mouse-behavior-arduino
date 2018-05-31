@@ -1323,8 +1323,6 @@ classdef MouseBehaviorInterface < handle
 				% Bar starts moving
 				case 'BAR_MOVE'
 					start(obj.Rsc.BarRefreshTimer);
-				% Early lick during bar stat: hide visual stim, and start bar
-				% TODO: Some part of BAR_STAT is skipped
 				case 'ABORT_BAR_STAT'
 					start(obj.Rsc.BarRefreshTimer);
 					set(obj.Rsc.Dots, 'Visible', 'off');
