@@ -1180,7 +1180,6 @@ classdef MouseBehaviorInterface < handle
 		function ArduinoLoadExperiment(obj, ~, ~)
 			obj.Arduino.LoadExperiment()
 		end
-
 	end
 
 	%----------------------------------------------------

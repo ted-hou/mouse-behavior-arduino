@@ -459,7 +459,6 @@ classdef ArduinoConnection < handle
 	end
 
 	methods (Static)
-
 		function port = findFirstArduinoPort()
 			% finds the first port with an Arduino on it.
 
