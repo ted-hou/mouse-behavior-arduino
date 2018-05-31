@@ -645,7 +645,7 @@ classdef MouseBehaviorInterface < handle
 			if isvalid(obj.Rsc.Monitor)
 				% Show result of last trial
 				t = obj.Rsc.Monitor.UserData.Ctrl.CurrentStateText;
-				t.String = sprintf('Current state: %s', obj.Arduino.StateNames{obj.Arduino.State});
+				t.String = sprintf('Current state: \n%s', obj.Arduino.StateNames{obj.Arduino.State});
 			end
 		end
 
@@ -1290,8 +1290,8 @@ classdef MouseBehaviorInterface < handle
 			lastTrialResultText.Position(4) = 2.4*trialCountText.Position(4);
 
 			currentStateText.Position = lastTrialResultText.Position;
-			currentStateText.Position(2) = lastTrialResultText.Position(2) - 2.4*u.TextHeight;
-			currentStateText.Position(4) = 2.4*lastTrialResultText.Position(4);
+			currentStateText.Position(2) = lastTrialResultText.Position(2) - u.TextHeight;
+			currentStateText.Position(4) = lastTrialResultText.Position(4);
 
 			% Raster plot tab
 			plotOptionWidth = (rightPanel.Position(3) - 4*u.PanelMargin)/3;
