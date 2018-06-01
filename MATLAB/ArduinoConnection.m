@@ -442,6 +442,13 @@ classdef ArduinoConnection < handle
 
 		% Trigger a soft restart on arduino
 		function Reset(obj)
+			obj.EventMarkers = [];
+			obj.EventMarkersUntrimmed = [];
+			obj.EventMarkersBuffer = [];
+			obj.Trials = struct([]); 
+			obj.TrialsCompleted = 0;
+			obj.State = [];
+
 			obj.SendMessage('R')
 		end
 

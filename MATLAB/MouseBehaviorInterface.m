@@ -860,18 +860,23 @@ classdef MouseBehaviorInterface < handle
 				t.String = sprintf('Trials completed: %d', iTrial);
 
 				% Show result of last trial
-				t = obj.Rsc.Monitor.UserData.Ctrl.LastTrialResultText;
-				t.String = sprintf('Last trial: %s', obj.Arduino.Trials(iTrial).CodeName);
+				if (iTrial > 0)
+					t = obj.Rsc.Monitor.UserData.Ctrl.LastTrialResultText;
+					t.String = sprintf('Last trial: %s', obj.Arduino.Trials(iTrial).CodeName);
+				end
 
-				% When a new trial is completed
+				% Update Stacked Bar Plot (Session summary)
 				ax = obj.Rsc.Monitor.UserData.Ctrl.Ax;
-				% Get a list of currently recorded result codes
-				resultCodes = reshape([obj.Arduino.Trials.Code], [], 1);
-				resultCodeNames = obj.Arduino.ResultCodeNames;
-				allResultCodes = 1:(length(resultCodeNames) + 1);
-				resultCodeCounts = histcounts(resultCodes, allResultCodes);
+				if (iTrial > 0)
+					resultCodes = reshape([obj.Arduino.Trials.Code], [], 1);
+					resultCodeNames = obj.Arduino.ResultCodeNames;
+					allResultCodes = 1:(length(resultCodeNames) + 1);
+					resultCodeCounts = histcounts(resultCodes, allResultCodes);
 
-				MouseBehaviorInterface.StackedBar(ax, resultCodeCounts, resultCodeNames);
+					MouseBehaviorInterface.StackedBar(ax, resultCodeCounts, resultCodeNames);
+				else
+					cla(ax)
+				end
 			end
 
 			drawnow
@@ -1403,6 +1408,10 @@ classdef MouseBehaviorInterface < handle
 
 		function ArduinoReset(obj, ~, ~)
 			obj.Arduino.Reset()
+			delete(obj.Rsc.Monitor)
+			delete(obj.Rsc.ExperimentControl)
+			obj.CreateDialog_ExperimentControl();
+			obj.CreateDialog_Monitor();
 		end
 
 		function ArduinoClose(obj, ~, ~)
