@@ -25,6 +25,11 @@ classdef MouseBehaviorInterface < handle
 			% Establish arduino connection
 			obj.Arduino = ArduinoConnection(arduinoPortName);
 
+			% If offline and no file selected quit
+			if strcmp(arduinoPortName, '/offline') && isempty(obj.Arduino.ExperimentFileName)
+				return
+			end
+
 			% Creata Experiment Control window with all the knobs and buttons you need to set up an experiment. 
 			obj.CreateDialog_ExperimentControl()
 
