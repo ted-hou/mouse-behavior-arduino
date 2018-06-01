@@ -104,8 +104,9 @@ classdef MouseBehaviorInterface < handle
 			dlg.UserData.Ctrl.Table_Params = table_params;
 
 			% Add listener for parameter change via non-GUI methods, in which case we'll update table_params
-			obj.Arduino.Listeners.ParamChanged = addlistener(obj.Arduino, 'ParamValues', 'PostSet', @obj.OnParamChanged);
-
+			if ~isfield(obj.Arduino.Listeners, 'ParamChanged') || ~isvalid(obj.Arduino.Listeners.ParamChanged)
+				obj.Arduino.Listeners.ParamChanged = addlistener(obj.Arduino, 'ParamValues', 'PostSet', @obj.OnParamChanged);
+			end
 			% Set width and height
 			table_params.Position(3:4) = table_params.Extent(3:4);
 
@@ -528,8 +529,12 @@ classdef MouseBehaviorInterface < handle
 			obj.Rsc.Monitor.UserData.Ctrl.Ax = ax;
 
 			% Update session summary everytime a new trial's results are registered by Arduino
-			obj.Arduino.Listeners.TrialRegistered = addlistener(obj.Arduino, 'TrialsCompleted', 'PostSet', @obj.OnTrialRegistered);
-			obj.Arduino.Listeners.StateChanged_MouseBehaviorInterface = addlistener(obj.Arduino, 'StateChanged', @obj.OnStateChanged);
+			if ~isfield(obj.Arduino.Listeners, 'TrialRegistered') || ~isvalid(obj.Arduino.Listeners.TrialRegistered)
+				obj.Arduino.Listeners.TrialRegistered = addlistener(obj.Arduino, 'TrialsCompleted', 'PostSet', @obj.OnTrialRegistered);
+			end
+			if ~isfield(obj.Arduino.Listeners, 'StateChanged_MouseBehaviorInterface') || ~isvalid(obj.Arduino.Listeners.StateChanged_MouseBehaviorInterface)
+				obj.Arduino.Listeners.StateChanged_MouseBehaviorInterface = addlistener(obj.Arduino, 'StateChanged', @obj.OnStateChanged);
+			end
 
 			%----------------------------------------------------
 			% 		Menus
@@ -931,7 +936,9 @@ classdef MouseBehaviorInterface < handle
 			obj.Raster_Execute(figId);
 
 			% Plot again everytime an event of interest occurs
-			ax.UserData.Listener = addlistener(obj.Arduino, 'TrialsCompleted', 'PostSet', @(~, ~) obj.Raster_Execute(figId));
+			if ~isfield(ax.UserData, 'Listener') || ~isvalid(ax.UserData.Listener)
+				ax.UserData.Listener = addlistener(obj.Arduino, 'TrialsCompleted', 'PostSet', @(~, ~) obj.Raster_Execute(figId));
+			end
 			f.CloseRequestFcn = {@MouseBehaviorInterface.OnLooseFigureClosed, ax.UserData.Listener};
 		end
 
@@ -1155,7 +1162,9 @@ classdef MouseBehaviorInterface < handle
 			obj.Hist_Execute(figId, numBins);
 
 			% Plot again everytime an event of interest occurs
-			ax.UserData.Listener = addlistener(obj.Arduino, 'TrialsCompleted', 'PostSet', @(~, ~) obj.Hist_Execute(figId, numBins));
+			if ~isfield(ax.UserData, 'Listener') || ~isvalid(ax.UserData.Listener)
+				ax.UserData.Listener = addlistener(obj.Arduino, 'TrialsCompleted', 'PostSet', @(~, ~) obj.Hist_Execute(figId, numBins));
+			end
 			f.CloseRequestFcn = {@MouseBehaviorInterface.OnLooseFigureClosed, ax.UserData.Listener};
 		end
 
