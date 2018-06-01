@@ -7,7 +7,8 @@
 /*****************************************************
 	Servo stuff
 *****************************************************/
-Servo _servo;
+Servo _servoLever;
+Servo _servoTube;
 
 /*****************************************************
 	Arduino Pin Outs
@@ -20,7 +21,8 @@ Servo _servo;
 
 // PWM OUT
 #define PIN_SPEAKER		5
-#define PIN_SERVO		3
+#define PIN_SERVO_LEVER	3
+#define PIN_SERVO_TUBE	9
 
 // Digital IN
 #define PIN_LICK		2
@@ -160,10 +162,14 @@ enum ParamID
 	CUE_DURATION,				// Duration of the cue tone and LED flash (ms)
 	REWARD_DURATION,			// Reward duration (ms)
 	REWARD_RETRACT_LEVER,		// 1 to retract lever when dispensing reward. 0 to keep it deployed till ITI
-	SERVO_POS_RETRACTED,		// Servo (lever) position when lever is retracted
-	SERVO_POS_DEPLOYED,			// Servo (lever) position when lever is deployed
-	SERVO_SPEED_DEPLOY,			// Servo (lever) rotation speed when deploying, 0 for max speed
-	SERVO_SPEED_RETRACT,		// Servo (lever) rotaiton speed when retracting, 0 for max speed
+	LEVER_POS_RETRACTED,		// Servo (lever) position when lever is retracted
+	LEVER_POS_DEPLOYED,			// Servo (lever) position when lever is deployed
+	LEVER_SPEED_DEPLOY,			// Servo (lever) rotation speed when deploying, 0 for max speed
+	LEVER_SPEED_RETRACT,		// Servo (lever) rotaiton speed when retracting, 0 for max speed
+	TUBE_POS_RETRACTED,			// Servo (juice tube) position when juice tube is retracted
+	TUBE_POS_DEPLOYED,			// Servo (juice tube) position when juice tube is deployed
+	TUBE_SPEED_DEPLOY,			// Servo (juice tube) advance speed when deploying, 0 for max speed
+	TUBE_SPEED_RETRACT,			// Servo (juice tube) retract speed when retracting, 0 for max speed
 	_NUM_PARAMS					// (Private) Used to count how many parameters there are so we can initialize the param array with the correct size. Insert additional parameters before this.
 };
 
@@ -186,10 +192,14 @@ static const char *_paramNames[] =
 	"CUE_DURATION",
 	"REWARD_DURATION",
 	"REWARD_RETRACT_LEVER",
-	"SERVO_POS_RETRACTED",
-	"SERVO_POS_DEPLOYED",
-	"SERVO_SPEED_DEPLOY",
-	"SERVO_SPEED_RETRACT"
+	"LEVER_POS_RETRACTED",
+	"LEVER_POS_DEPLOYED",
+	"LEVER_SPEED_DEPLOY",
+	"LEVER_SPEED_RETRACT",
+	"TUBE_POS_RETRACTED",
+	"TUBE_POS_DEPLOYED",
+	"TUBE_SPEED_DEPLOY",
+	"TUBE_SPEED_RETRACT"
 };
 
 // Initialize parameters
@@ -210,10 +220,14 @@ long _params[_NUM_PARAMS] =
 	50,		// CUE_DURATION
 	100, 	// REWARD_DURATION
 	0,		// REWARD_RETRACT_LEVER
-	105,	// SERVO_POS_RETRACTED
-	85,		// SERVO_POS_DEPLOYED
-	90,		// SERVO_SPEED_DEPLOY
-	60		// SERVO_SPEED_RETRACT
+	105,	// LEVER_POS_RETRACTED
+	85,		// LEVER_POS_DEPLOYED
+	90,		// LEVER_SPEED_DEPLOY
+	60,		// LEVER_SPEED_RETRACT
+	0,		// TUBE_POS_RETRACTED,
+	0,		// TUBE_POS_DEPLOYED,
+	0,		// TUBE_SPEED_DEPLOY,
+	0		// TUBE_SPEED_RETRACT,
 };
 /*****************************************************
 	Other Global Variables 
@@ -239,10 +253,10 @@ static bool _isLeverPressOnset 		= false;		// True when lever first pressed
 static bool _isLeverDeployed 		= false;		// True when lever is deployed
 static long _timeLastLeverPress		= 0;			// Time (ms) when last lever press occured
 
-static long _servoStartTime			= 0;			// When servo started moving retrieved using getTime()
-static long _servoSpeed				= 30;			// Speed of servo movement (deg/s)
-static long _servoStartPos			= 130;			// Starting position of servo when rotation begins
-static long _servoTargetPos			= 130;			// Target position of servo
+static long _servoStartTimeLever	= 0;							// When servo started moving retrieved using getTime()
+static long _servoSpeedLever		= _params[LEVER_SPEED_DEPLOY]; 	// Speed of servo movement (deg/s)
+static long _servoStartPosLever		= _params[LEVER_POS_RETRACTED];	// Starting position of servo when rotation begins
+static long _servoTargetPosLever	= _params[LEVER_POS_RETRACTED];	// Target position of servo
 
 // For white noise generator
 static bool _whiteNoiseIsPlaying 			= false;
@@ -265,7 +279,8 @@ void setup()
 	pinMode(PIN_LEVER, INPUT);					// Lever press detector
 
 	// Initiate servo
-	_servo.attach(PIN_SERVO);
+	_servoLever.attach(PIN_SERVO_LEVER);
+	_servoTube.attach(PIN_SERVO_TUBE);
 
 	// Serial comms
 	Serial.begin(115200);                       // Set up USB communication at 115200 baud 
@@ -298,10 +313,10 @@ void mySetup()
 	_isLeverDeployed 		= false;		// True when lever is deployed
 	_timeLastLeverPress		= 0;			// Time (ms) when last lever press occured
 
-	_servoStartTime			= 0;			// When servo started moving retrieved using getTime()
-	_servoSpeed				= 30;			// Speed of servo movement (deg/s)
-	_servoStartPos			= 110;			// Starting position of servo when rotation begins
-	_servoTargetPos			= 110;			// Target position of servo`
+	_servoStartTimeLever	= 0;							// When servo started moving retrieved using getTime()
+	_servoSpeedLever		= _params[LEVER_SPEED_DEPLOY]; 	// Speed of servo movement (deg/s)
+	_servoStartPosLever		= _params[LEVER_POS_RETRACTED];	// Starting position of servo when rotation begins
+	_servoTargetPosLever	= _params[LEVER_POS_RETRACTED];	// Target position of servo
 
 	_whiteNoiseIsPlaying 	= false;
 	_whiteNoiseInterval 	= 50;			// Determines frequency (us)
@@ -514,7 +529,7 @@ void state_pre_cue()
 	// Pre-cue delay completed --> PRE_WINDOW
 	if (_params[USE_LEVER] == 1)
 	{
-		if (_servo.read() == _servoTargetPos && getTimeSinceTrialStart() >= preCueDelay)
+		if (_servoLever.read() == _servoTargetPosLever && getTimeSinceTrialStart() >= preCueDelay)
 		{
 			_state = STATE_PRE_WINDOW;
 			return;
@@ -1053,10 +1068,10 @@ void deployLever(bool deploy)
 {
 	if (deploy) 
 	{
-		_servoStartTime = getTime();
-		_servoSpeed = _params[SERVO_SPEED_DEPLOY];
-		_servoStartPos = _servo.read();
-		_servoTargetPos = _params[SERVO_POS_DEPLOYED];
+		_servoStartTimeLever = getTime();
+		_servoSpeedLever = _params[LEVER_SPEED_DEPLOY];
+		_servoStartPosLever = _servoLever.read();
+		_servoTargetPosLever = _params[LEVER_POS_DEPLOYED];
 		if (!_isLeverDeployed)
 		{
 			_isLeverDeployed = true;
@@ -1065,10 +1080,10 @@ void deployLever(bool deploy)
 	}
 	else 
 	{
-		_servoStartTime = getTime();
-		_servoSpeed = _params[SERVO_SPEED_RETRACT];
-		_servoStartPos = _servo.read();
-		_servoTargetPos = _params[SERVO_POS_RETRACTED];
+		_servoStartTimeLever = getTime();
+		_servoSpeedLever = _params[LEVER_SPEED_RETRACT];
+		_servoStartPosLever = _servoLever.read();
+		_servoTargetPosLever = _params[LEVER_POS_RETRACTED];
 		if (_isLeverDeployed)
 		{
 			_isLeverDeployed = false;
@@ -1080,28 +1095,28 @@ void deployLever(bool deploy)
 void handleServo()
 {
 	static long servoNewPos;
-	if (_servoSpeed == 0)
+	if (_servoSpeedLever == 0)
 	{
-		_servo.write(_servoTargetPos);
+		_servoLever.write(_servoTargetPosLever);
 	}
 	else
 	{
-		if (_servo.read() < _servoTargetPos)
+		if (_servoLever.read() < _servoTargetPosLever)
 		{
-			servoNewPos = round(_servoStartPos + _servoSpeed*(getTime() - _servoStartTime)/1000);
-			if (servoNewPos <= _servoTargetPos)
+			servoNewPos = round(_servoStartPosLever + _servoSpeedLever*(getTime() - _servoStartTimeLever)/1000);
+			if (servoNewPos <= _servoTargetPosLever)
 			{
-				_servo.write(servoNewPos);
+				_servoLever.write(servoNewPos);
 			}
 		}
 		else
 		{
-			if (_servo.read() > _servoTargetPos)
+			if (_servoLever.read() > _servoTargetPosLever)
 			{
-				servoNewPos = round(_servoStartPos - _servoSpeed*(getTime() - _servoStartTime)/1000);
-				if (servoNewPos >= _servoTargetPos)
+				servoNewPos = round(_servoStartPosLever - _servoSpeedLever*(getTime() - _servoStartTimeLever)/1000);
+				if (servoNewPos >= _servoTargetPosLever)
 				{
-					_servo.write(servoNewPos);
+					_servoLever.write(servoNewPos);
 				}
 			}
 		}
