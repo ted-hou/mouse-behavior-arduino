@@ -86,7 +86,7 @@ classdef ArduinoConnection < handle
 		%		File I/O
 		%-----------------------------------------------~~
 		% Save parameters to parameter file
-		function SaveParameters(obj)
+		function varargout = SaveParameters(obj)
 			% Fetch params from object
 			parameterNames = obj.ParamNames; 		% store parameter names
 			parameterValues = obj.ParamValues; 		% store parameter values
@@ -95,19 +95,20 @@ classdef ArduinoConnection < handle
 			[filename, filepath] = uiputfile(['parameters_', datestr(now, 'yyyymmdd'), '.mat'], 'Save current parameters to file');
 			% Exit if no file selected
 			if ~(ischar(filename) && ischar(filepath))
+				varargout = {''}
 				return
 			end
 			% Save to file
 			save([filepath, filename], 'parameterNames', 'parameterValues');
+
+			varargout = {[filepath, filename]};
 		end
 
 		% Load parameters from parameter/experiment file
-		function LoadParameters(obj, table_params, errorMessage)
-			if nargin < 3
-				errorMessage = '';
-			end
+		function varargout = LoadParameters(obj, errorMessage)
+			varargout = {''};
 			if nargin < 2
-				table_params = [];
+				errorMessage = '';
 			end
 			% Display errorMessage prompt if called for
 			if ~isempty(errorMessage)
@@ -132,16 +133,16 @@ classdef ArduinoConnection < handle
 			% If loaded file does not contain parameters
 			if ~(isfield(p, 'parameterNames') && isfield(p, 'parameterValues'))
 				% Ask the Grad Student if he wants to selcet another file instead
-				obj.LoadParameters(table_params, 'The file you selected was not loaded because it does not contain experiment parameters. Select another file instead?')
+				obj.LoadParameters('The file you selected was not loaded because it does not contain experiment parameters. Select another file instead?')
 			else
 				% If loaded parameterNames contains a different number of parameters from arduino object
 				if (length(p.parameterNames) ~= length(obj.ParamNames))
-					obj.LoadParameters(table_params, 'The file you selected was not loaded because parameter names do not match the ones used by Arduino. Select another file instead?')	
+					obj.LoadParameters('The file you selected was not loaded because parameter names do not match the ones used by Arduino. Select another file instead?')	
 				else
 					paramHasSameName = cellfun(@strcmp, p.parameterNames, obj.ParamNames);
 					% If loaded parameterNames names are different from arduino object
 					if (sum(paramHasSameName) ~= length(paramHasSameName))			
-						obj.LoadParameters(table_params, 'The file you selected was not loaded because the number of parameters does not match the ones used by Arduino. Select another file instead?')
+						obj.LoadParameters('The file you selected was not loaded because the number of parameters does not match the ones used by Arduino. Select another file instead?')
 					else
 						% If all checks pass, upload to Arduino
 						% Add all parameters to update queue
@@ -150,6 +151,8 @@ classdef ArduinoConnection < handle
 						end
 						% Attempt to execute update queue now, if current state does not allow param update, the queue will be executed when we enter an appropriate state
 						obj.UpdateParams_Execute()
+						% Return file path
+						varargout = {[filepath, filename]};
 					end
 				end
 			end

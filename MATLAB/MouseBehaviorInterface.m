@@ -166,7 +166,7 @@ classdef MouseBehaviorInterface < handle
 			uimenu(menu_file, 'Label', 'Save Experiment As ...', 'Callback', @obj.ArduinoSaveAsExperiment);
 			uimenu(menu_file, 'Label', 'Load Experiment ...', 'Callback', @obj.ArduinoLoadExperiment, 'Accelerator', 'l');
 			uimenu(menu_file, 'Label', 'Save Parameters ...', 'Callback', @obj.ArduinoSaveParameters, 'Separator', 'on');
-			uimenu(menu_file, 'Label', 'Load Parameters ...', 'Callback', {@obj.ArduinoLoadParameters, table_params});
+			uimenu(menu_file, 'Label', 'Load Parameters ...', 'Callback', @obj.ArduinoLoadParameters);
 			uimenu(menu_file, 'Label', 'Quit', 'Callback', @obj.ArduinoClose, 'Separator', 'on');
 
 			menu_arduino = uimenu(dlg, 'Label', '&Arduino');
@@ -654,12 +654,17 @@ classdef MouseBehaviorInterface < handle
 			obj.Rsc.TaskScheduler = dlg;
 
 			% Create a uitable for creating tasks
+			if isfield(obj.UserData, 'TaskSchedule')
+				data = obj.UserData.TaskSchedule;
+			else
+				data = repmat({'', 'NONE', []}, [12, 1]);
+			end
 			table_tasks = uitable(...
 				'Parent', dlg,...
 				'ColumnName', {'Trials', 'Action', 'Value'},...
 				'ColumnWidth', {'auto', 200, 'auto'},...
 				'ColumnFormat', {'char', ['NONE', obj.Arduino.ParamNames, 'STOP'], 'long'},...
-				'Data', repmat({'', 'NONE', []}, [12, 1]),...
+				'Data', data,...
 				'ColumnEditable', true,...
 				'Units', 'normalized',...
 				'Position', [ctrlSpacingX, buttonHeight + 2*ctrlSpacingY, tableWidth, tableHeight] ...
@@ -1414,14 +1419,26 @@ classdef MouseBehaviorInterface < handle
 		end
 
 		function ArduinoSaveParameters(obj, ~, ~)
-			obj.Arduino.SaveParameters()
+			file = obj.Arduino.SaveParameters();
+			if ~isempty(file)
+				if isfield(obj.UserData, 'TaskSchedule')
+					taskSchedule = obj.UserData.TaskSchedule;
+					save(file, 'taskSchedule', '-append')
+				end
+			end
 		end
 
-		function ArduinoLoadParameters(obj, ~, ~, table_params)
-			if nargin < 4
-				table_params = [];
+		function ArduinoLoadParameters(obj, ~, ~)
+			file = obj.Arduino.LoadParameters();
+			if ~isempty(file)
+				p = load(file);
+				if isfield(p, 'taskSchedule')
+					obj.UserData.TaskSchedule = p.taskSchedule;
+					if isfield(obj.Rsc, 'TaskScheduler') && isvalid(obj.Rsc.TaskScheduler)
+						obj.Rsc.TaskScheduler.UserData.Ctrl.Table_Tasks.Data = p.taskSchedule;
+					end
+				end
 			end
-			obj.Arduino.LoadParameters(table_params, '')
 		end
 
 		function ArduinoSaveExperiment(obj, ~, ~)
