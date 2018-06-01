@@ -254,9 +254,14 @@ static bool _isLeverDeployed 		= false;		// True when lever is deployed
 static long _timeLastLeverPress		= 0;			// Time (ms) when last lever press occured
 
 static long _servoStartTimeLever	= 0;							// When servo started moving retrieved using getTime()
-static long _servoSpeedLever		= _params[LEVER_SPEED_DEPLOY]; 	// Speed of servo movement (deg/s)
+static long _servoSpeedLever		= _params[LEVER_SPEED_RETRACT]; 	// Speed of servo movement (deg/s)
 static long _servoStartPosLever		= _params[LEVER_POS_RETRACTED];	// Starting position of servo when rotation begins
 static long _servoTargetPosLever	= _params[LEVER_POS_RETRACTED];	// Target position of servo
+
+static long _servoStartTimeTube		= 0;							// When servo started moving retrieved using getTime()
+static long _servoSpeedTube			= _params[TUBE_SPEED_RETRACT]; 	// Speed of servo movement (deg/s)
+static long _servoStartPosTube		= _params[TUBE_POS_RETRACTED];	// Starting position of servo when rotation begins
+static long _servoTargetPosTube		= _params[TUBE_POS_RETRACTED];	// Target position of servo
 
 // For white noise generator
 static bool _whiteNoiseIsPlaying 			= false;
@@ -314,9 +319,14 @@ void mySetup()
 	_timeLastLeverPress		= 0;			// Time (ms) when last lever press occured
 
 	_servoStartTimeLever	= 0;							// When servo started moving retrieved using getTime()
-	_servoSpeedLever		= _params[LEVER_SPEED_DEPLOY]; 	// Speed of servo movement (deg/s)
+	_servoSpeedLever		= _params[LEVER_SPEED_RETRACT]; // Speed of servo movement (deg/s)
 	_servoStartPosLever		= _params[LEVER_POS_RETRACTED];	// Starting position of servo when rotation begins
 	_servoTargetPosLever	= _params[LEVER_POS_RETRACTED];	// Target position of servo
+
+	_servoStartTimeTube		= 0;							// When servo started moving retrieved using getTime()
+	_servoSpeedTube			= _params[TUBE_SPEED_RETRACT]; 	// Speed of servo movement (deg/s)
+	_servoStartPosTube		= _params[TUBE_POS_RETRACTED];	// Starting position of servo when rotation begins
+	_servoTargetPosTube		= _params[TUBE_POS_RETRACTED];	// Target position of servo
 
 	_whiteNoiseIsPlaying 	= false;
 	_whiteNoiseInterval 	= 50;			// Determines frequency (us)
@@ -370,15 +380,14 @@ void loop()
 			}
 		}
 
-		// 2) Check for licks and lever pressed
-		handleLick();
-		handleLever();
-		handleServo();
-		
-		// 3) Play white noise if required
-		handleWhiteNoise();
+		// 2) Other onEachLoop routines
+		handleLick();			// Check for licks on/offset
+		handleLever();			// Check for lever press on/offset
+		handleServoTube();		// Tube servo control
+		handleServoLever();		// Lever servo control
+		handleWhiteNoise();		// White noise generation
 
-		// 4) Update state machine
+		// 3) Update state machine
 		// Depending on what state we're in, call the appropriate state function, which will evaluate the transition conditions, and update the `_state` var to what the next state should be
 		switch (_state) 
 		{
@@ -1092,9 +1101,38 @@ void deployLever(bool deploy)
 	}
 }
 
-void handleServo()
+// Use servo to retract/present lever to the little dude
+void deployTube(bool deploy)
 {
-	static long servoNewPos;
+	if (deploy) 
+	{
+		_servoStartTimeTube = getTime();
+		_servoSpeedTube = _params[TUBE_SPEED_DEPLOY];
+		_servoStartPosTube = _servoTube.read();
+		_servoTargetPosTube = _params[TUBE_POS_DEPLOYED];
+		if (!_isTubeDeployed)
+		{
+			_isTubeDeployed = true;
+			sendEventMarker(EVENT_TUBE_DEPLOYED, -1);
+		}
+	}
+	else 
+	{
+		_servoStartTimeTube = getTime();
+		_servoSpeedTube = _params[TUBE_SPEED_RETRACT];
+		_servoStartPosTube = _servoTube.read();
+		_servoTargetPosTube = _params[TUBE_POS_RETRACTED];
+		if (_isTubeDeployed)
+		{
+			_isTubeDeployed = false;
+			sendEventMarker(EVENT_TUBE_RETRACTED, -1);
+		}
+	}
+}
+
+void handleServoLever()
+{
+	static long servoNewPosLever;
 	if (_servoSpeedLever == 0)
 	{
 		_servoLever.write(_servoTargetPosLever);
@@ -1103,20 +1141,51 @@ void handleServo()
 	{
 		if (_servoLever.read() < _servoTargetPosLever)
 		{
-			servoNewPos = round(_servoStartPosLever + _servoSpeedLever*(getTime() - _servoStartTimeLever)/1000);
-			if (servoNewPos <= _servoTargetPosLever)
+			servoNewPosLever = round(_servoStartPosLever + _servoSpeedLever*(getTime() - _servoStartTimeLever)/1000);
+			if (servoNewPosLever <= _servoTargetPosLever)
 			{
-				_servoLever.write(servoNewPos);
+				_servoLever.write(servoNewPosLever);
 			}
 		}
 		else
 		{
 			if (_servoLever.read() > _servoTargetPosLever)
 			{
-				servoNewPos = round(_servoStartPosLever - _servoSpeedLever*(getTime() - _servoStartTimeLever)/1000);
-				if (servoNewPos >= _servoTargetPosLever)
+				servoNewPosLever = round(_servoStartPosLever - _servoSpeedLever*(getTime() - _servoStartTimeLever)/1000);
+				if (servoNewPosLever >= _servoTargetPosLever)
 				{
-					_servoLever.write(servoNewPos);
+					_servoLever.write(servoNewPosLever);
+				}
+			}
+		}
+	}
+}
+
+void handleServoTube()
+{
+	static long servoNewPosTube;
+	if (_servoSpeedTube == 0)
+	{
+		_servoTube.write(_servoTargetPosTube);
+	}
+	else
+	{
+		if (_servoTube.read() < _servoTargetPosTube)
+		{
+			servoNewPosTube = round(_servoStartPosTube + _servoSpeedTube*(getTime() - _servoStartTimeTube)/1000);
+			if (servoNewPosTube <= _servoTargetPosTube)
+			{
+				_servoTube.write(servoNewPosTube);
+			}
+		}
+		else
+		{
+			if (_servoTube.read() > _servoTargetPosTube)
+			{
+				servoNewPosTube = round(_servoStartPosTube - _servoSpeedTube*(getTime() - _servoStartTimeTube)/1000);
+				if (servoNewPosTube >= _servoTargetPosTube)
+				{
+					_servoTube.write(servoNewPosTube);
 				}
 			}
 		}
