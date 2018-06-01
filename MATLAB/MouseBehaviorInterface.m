@@ -31,6 +31,9 @@ classdef MouseBehaviorInterface < handle
 			% Create Monitor window with all thr trial results and plots and stuff so the Grad Student is ON TOP OF THE SITUATION AT ALL TIMES.
 			obj.CreateDialog_Monitor()
 
+			% Create Task Scheduler
+			obj.CreateDialog_TaskScheduler()
+
 			% Kill splash
 			if ~strcmp(arduinoPortName, '/offline')
 				obj.CloseDialog_Splash()
@@ -175,6 +178,7 @@ classdef MouseBehaviorInterface < handle
 			menu_window = uimenu(dlg, 'Label', '&Window');
 			uimenu(menu_window, 'Label', 'Experiment Control', 'Callback', @(~, ~) @obj.CreateDialog_ExperimentControl);
 			uimenu(menu_window, 'Label', 'Monitor', 'Callback', @(~, ~) obj.CreateDialog_Monitor);
+			uimenu(menu_window, 'Label', 'Task Scheduler', 'Callback', @(~, ~) obj.CreateDialog_TaskScheduler);
 			uimenu(menu_window, 'Label', 'Camera', 'Callback', @(~, ~) obj.CreateDialog_CameraControl);
 
 			% Unhide dialog now that all controls have been created
@@ -549,6 +553,7 @@ classdef MouseBehaviorInterface < handle
 			menu_window = uimenu(dlg, 'Label', '&Window');
 			uimenu(menu_window, 'Label', 'Experiment Control', 'Callback', @(~, ~) @obj.CreateDialog_ExperimentControl);
 			uimenu(menu_window, 'Label', 'Monitor', 'Callback', @(~, ~) obj.CreateDialog_Monitor);
+			uimenu(menu_window, 'Label', 'Task Scheduler', 'Callback', @(~, ~) obj.CreateDialog_TaskScheduler);
 			uimenu(menu_window, 'Label', 'Camera', 'Callback', @(~, ~) obj.CreateDialog_CameraControl);
 
 			% Stretch barchart When dialog window is resized
@@ -605,12 +610,230 @@ classdef MouseBehaviorInterface < handle
 			obj.Rsc.Splash.dispose;
 		end
 
+		%----------------------------------------------------
+		% 		Task scheduler
+		%----------------------------------------------------
+
+		function CreateDialog_TaskScheduler(obj)
+			% If object already exists, show window
+			if isfield(obj.Rsc, 'TaskScheduler')
+				if isvalid(obj.Rsc.TaskScheduler)
+					figure(obj.Rsc.TaskScheduler)
+					return
+				end
+			end
+
+			if ~isfield(obj.UserData, 'TaskSchedulerEnabled')
+				obj.UserData.TaskSchedulerEnabled = false;
+			end
+
+			% Size and position of controls
+			numButtons = 4;
+			ctrlSpacingX = 0.05;
+			ctrlSpacingY = 0.025;
+			buttonWidth = (1 - (numButtons + 1)*ctrlSpacingX)/numButtons;
+			buttonHeight = 0.075;
+			tableWidth = 1 - 2*ctrlSpacingX;
+			tableHeight = 1 - buttonHeight - 3*ctrlSpacingY;
+
+			% Create the dialog
+			if isempty(obj.Arduino.SerialConnection)
+				port = 'OFFLINE';
+			else
+				port = obj.Arduino.SerialConnection.Port;
+			end
+			dlg = dialog(...
+				'Name', sprintf('Task Scheduler (%s)', port),...
+				'WindowStyle', 'normal',...
+				'Resize', 'on',...
+				'Units', 'pixels',...
+				'Position', [10 550 430 280],...
+				'Visible', 'off'... % Hide until all controls created
+			);
+			% Store the dialog handle
+			obj.Rsc.TaskScheduler = dlg;
+
+			% Create a uitable for creating tasks
+			table_tasks = uitable(...
+				'Parent', dlg,...
+				'ColumnName', {'Trials', 'Action', 'Value'},...
+				'ColumnWidth', {'auto', 200, 'auto'},...
+				'ColumnFormat', {'char', ['NONE', obj.Arduino.ParamNames, 'STOP'], 'long'},...
+				'Data', repmat({'', 'NONE', []}, [12, 1]),...
+				'ColumnEditable', true,...
+				'Units', 'normalized',...
+				'Position', [ctrlSpacingX, buttonHeight + 2*ctrlSpacingY, tableWidth, tableHeight] ...
+			);
+			dlg.UserData.Ctrl.Table_Tasks = table_tasks;
+
+			% Apply button
+			button_apply = uicontrol(...
+				'Parent', dlg,...
+				'Style', 'pushbutton',...
+				'Units', 'normalized',...
+				'Position', [ctrlSpacingX, ctrlSpacingY, buttonWidth, buttonHeight],...
+				'String', 'Apply',...
+				'TooltipString', 'Apply these settings.',...
+				'Callback', @obj.TaskSchedulerApply ...
+			);
+			hPrev = button_apply;
+
+			% Enable/disable button
+			if obj.UserData.TaskSchedulerEnabled
+				buttonString = 'Disable';
+			else
+				buttonString = 'Enable';
+			end
+			button_enable = uicontrol(...
+				'Parent', dlg,...
+				'Style', 'pushbutton',...
+				'Units', 'normalized',...
+				'Position', hPrev.Position,...
+				'String', buttonString,...
+				'TooltipString', 'Enable task scheduling.',...
+				'Callback', @obj.TaskSchedulerEnable ...
+			);
+			hPrev = button_enable;
+			hPrev.Position(1) = hPrev.Position(1) + ctrlSpacingX + buttonWidth;
+
+			% Revert button
+			button_revert = uicontrol(...
+				'Parent', dlg,...
+				'Style', 'pushbutton',...
+				'Units', 'normalized',...
+				'Position', hPrev.Position,...
+				'String', 'Revert',...
+				'TooltipString', 'Revert to previous setting.',...
+				'Callback', @obj.TaskSchedulerRevert ...
+			);
+			hPrev = button_revert;
+			hPrev.Position(1) = hPrev.Position(1) + ctrlSpacingX + buttonWidth;
+
+			% Clear button
+			button_clear = uicontrol(...
+				'Parent', dlg,...
+				'Style', 'pushbutton',...
+				'Units', 'normalized',...
+				'Position', hPrev.Position,...
+				'String', 'Clear',...
+				'TooltipString', 'Clear all settings.',...
+				'Callback', @obj.TaskSchedulerClear ...
+			);
+			hPrev = button_clear;
+			hPrev.Position(1) = hPrev.Position(1) + ctrlSpacingX + buttonWidth;
+
+			% Menus
+			menu_window = uimenu(dlg, 'Label', '&Window');
+			uimenu(menu_window, 'Label', 'Experiment Control', 'Callback', @(~, ~) @obj.CreateDialog_ExperimentControl);
+			uimenu(menu_window, 'Label', 'Monitor', 'Callback', @(~, ~) obj.CreateDialog_Monitor);
+			uimenu(menu_window, 'Label', 'Task Scheduler', 'Callback', @(~, ~) obj.CreateDialog_TaskScheduler);
+			uimenu(menu_window, 'Label', 'Camera', 'Callback', @(~, ~) obj.CreateDialog_CameraControl);
+
+			% Unhide dialog now that all controls have been created
+			dlg.Visible = 'on';
+		end
+
+		function TaskSchedulerApply(obj, ~, ~)
+			obj.UserData.TaskSchedule = obj.Rsc.TaskScheduler.UserData.Ctrl.Table_Tasks.Data;
+		end
+
+		function TaskSchedulerEnable(obj, hButton, ~)
+			% Default to disabled
+			if ~isfield(obj.UserData, 'TaskSchedulerEnabled')
+				obj.UserData.TaskSchedulerEnabled = false;
+			end
+
+			% Toggle
+			obj.UserData.TaskSchedulerEnabled = ~obj.UserData.TaskSchedulerEnabled;
+
+			% Update button
+			if obj.UserData.TaskSchedulerEnabled
+				hButton.String = 'Disable';
+			else
+				hButton.String = 'Enable';
+			end
+		end
+
+		function TaskSchedulerRevert(obj, ~, ~)
+			if isfield(obj.UserData, 'TaskSchedule') && ~isempty(obj.UserData.TaskSchedule)
+				obj.Rsc.TaskScheduler.UserData.Ctrl.Table_Tasks.Data = obj.UserData.TaskSchedule;
+			else
+				obj.TaskSchedulerClear();
+			end
+		end
+
+		function TaskSchedulerClear(obj, ~, ~)
+			if isfield(obj.Rsc, 'TaskScheduler')
+				obj.Rsc.TaskScheduler.UserData.Ctrl.Table_Tasks.Data = repmat({'', 'NONE', []}, [size(obj.Rsc.TaskScheduler.UserData.Ctrl.Table_Tasks.Data, 1), 1]);
+			end
+		end
+
+		function TaskSchedulerExecute(obj)
+			if ~isfield(obj.UserData, 'TaskSchedulerEnabled') || ~obj.UserData.TaskSchedulerEnabled
+				return
+			end
+
+			% How many trials have been completed so far
+			iTrial = obj.Arduino.TrialsCompleted;
+
+			% Parse the list
+			tasks = obj.UserData.TaskSchedule;
+			isItTimeYet = cellfun(@(str) obj.TaskSchedulerIsItTimeYet(str, iTrial), tasks(:, 1));
+
+			if ~isempty(find(isItTimeYet))
+				for iTask = transpose(find(isItTimeYet))
+					task = tasks{iTask, 2};
+					if strcmpi(task, 'STOP')
+						obj.ArduinoStop();
+						break
+					end
+					if strcmpi(task, 'NONE')
+						continue
+					end
+					oldValue = obj.GetParam(task);
+					newValue = tasks{iTask, 3};
+					if ~isempty(oldValue) && ~isempty(newValue)
+						obj.SetParam(task, newValue)
+					end
+				end
+			end
+		end
+
+		function isItTimeYet = TaskSchedulerIsItTimeYet(obj, str, iTrial)
+			isItTimeYet = false;
+			if isempty(str)
+				return
+			end
+
+			try
+				if contains(str, 'end', 'IgnoreCase', true)
+					parts = strsplit(str, ':');
+					if ~strcmpi(parts{end}, 'end') || nnz(cellfun(@(x) isempty(x), parts)) > 0
+						error('')
+					end
+					switch length(parts)
+						case 2
+							isItTimeYet = iTrial >= str2num(parts{1});
+						case 3
+							isItTimeYet = iTrial >= str2num(parts{1}) && rem(iTrial - str2num(parts{1}), str2num(parts{2})) == 0;
+					end
+				else
+					isItTimeYet = ismember(iTrial, eval(str));
+				end
+			catch
+				warning(['Failed to evaluate task scheduler parameter (', str, ')'])
+			end
+		end
+
 		function OnTrialRegistered(obj, ~, ~)
 		% Executed when a new trial is completed
 			% Autosave if a savepath is defined
 			if (~isempty(obj.Arduino.ExperimentFileName) && obj.Arduino.AutosaveEnabled)
 				obj.ArduinoSaveExperiment();
 			end
+
+			% Task scheduling
+			obj.TaskSchedulerExecute();
 
 			% Updated monitor window
 			if isvalid(obj.Rsc.Monitor)
@@ -1081,7 +1304,9 @@ classdef MouseBehaviorInterface < handle
 			end
 		end
 
-		% Arduino connection
+		%----------------------------------------------------
+		%		Commmunicating with Arduino
+		%----------------------------------------------------
 		function OnParamChanged(obj, ~, ~)
 			obj.Rsc.ExperimentControl.UserData.Ctrl.Table_Params.Data = obj.Arduino.ParamValues';
 		end
@@ -1097,9 +1322,43 @@ classdef MouseBehaviorInterface < handle
 			obj.Arduino.UpdateParams_Execute()
 		end
 
-		%----------------------------------------------------
-		%		Commmunicating with Arduino
-		%----------------------------------------------------
+		function varargout = GetParam(obj, index)
+			p = inputParser;
+			addRequired(p, 'Index', @(x) isnumeric(x) || ischar(x));
+			parse(p, index);
+			index = p.Results.Index;
+
+			if ischar(index)
+				index = find(strcmpi(index, obj.Arduino.ParamNames));
+			end
+
+			if isempty(index)
+				varargout = {[]};
+			else
+				index = index(1);
+				varargout = {obj.Arduino.ParamValues(index)};
+			end
+		end
+
+		function SetParam(obj, index, value, varargin)
+			p = inputParser;
+			addRequired(p, 'Index', @(x) isnumeric(x) || ischar(x));
+			addRequired(p, 'Value', @isnumeric);
+			parse(p, index, value);
+			index = p.Results.Index;
+			value = p.Results.Value;
+
+			if ischar(index)
+				index = find(strcmpi(index, obj.Arduino.ParamNames));
+			end
+
+			if ~isempty(index)
+				index = index(1);
+				obj.Arduino.UpdateParams_AddToQueue(index, value);
+				obj.Arduino.UpdateParams_Execute();
+			end
+		end
+
 		function ArduinoStart(obj, ~, ~)
 			if ((~obj.Arduino.AutosaveEnabled) || isempty(obj.Arduino.ExperimentFileName))
 				selection = questdlg(...
@@ -1138,6 +1397,9 @@ classdef MouseBehaviorInterface < handle
 					obj.Arduino.Close()
 					delete(obj.Rsc.Monitor)
 					delete(obj.Rsc.ExperimentControl)
+					if isfield(obj.Rsc, 'TaskScheduler')
+						delete(obj.Rsc.TaskScheduler)
+					end
 					if ~isempty(obj.Arduino.Camera) && ~isempty(obj.Arduino.Camera.VideoInput)
 						obj.Arduino.Camera.Delete();
 					end
