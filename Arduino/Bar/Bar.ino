@@ -22,9 +22,10 @@
 *****************************************************/
 // Digital OUT
 #define PIN_REWARD		9  // Dedicated PIN from Sabatini Board
+#define PIN_LICK_LED	11 // USER_1
 
 // Digital IN
-#define PIN_LICK		13  // USER_3
+#define PIN_LICK		13 // USER_3
 #define PIN_IR_LAMP		12 // USER_2
 
 /*****************************************************
@@ -220,6 +221,7 @@ void setup()
 	// Init pins
 	pinMode(PIN_IR_LAMP, OUTPUT);	// IR LED for camera recording
 	pinMode(PIN_REWARD, OUTPUT);	// Reward, set to HIGH to open juice valve
+	pinMode(PIN_LICK_LED, OUTPUT);	// Lick LED, set to HIGH when lick detected
 	pinMode(PIN_LICK, INPUT);		// Lick detector
 
 	// Serial comms
@@ -947,6 +949,7 @@ void handleLick()
 		_isLickOnset = true;
 		_timeLastLick = getTime();
 		sendEventMarker(EVENT_LICK, -1);
+		digitalWrite(PIN_LICK_LED, HIGH);
 	}
 	else
 	{
@@ -956,6 +959,7 @@ void handleLick()
 			sendEventMarker(EVENT_LICK_OFF, -1);
 		}
 		_isLickOnset = false;
+		digitalWrite(PIN_LICK_LED, LOW);
 	}
 }
 
