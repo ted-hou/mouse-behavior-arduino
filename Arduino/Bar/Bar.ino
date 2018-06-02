@@ -296,7 +296,9 @@ void loop()
 
 		// 2) Check for licks and lever pressed
 		handleLick();
-		// 2.1) Check for alpha, turning point and omega from matlab and send back event markers because we dumb
+		// 2.1) If lick pin is HIGH, set lick LED HIGH
+		handleLickLED();
+		// 2.2) Check for alpha, turning point and omega from matlab and send back event markers because we dumb
 		handleVisualStim();
 
 		// 3) Update state machine
@@ -949,7 +951,6 @@ void handleLick()
 		_isLickOnset = true;
 		_timeLastLick = getTime();
 		sendEventMarker(EVENT_LICK, -1);
-		digitalWrite(PIN_LICK_LED, HIGH);
 	}
 	else
 	{
@@ -959,6 +960,17 @@ void handleLick()
 			sendEventMarker(EVENT_LICK_OFF, -1);
 		}
 		_isLickOnset = false;
+	}
+}
+
+void handleLickLED()
+{
+	if (digitalRead(PIN_LICK) == HIGH)
+	{
+		digitalWrite(PIN_LICK_LED, HIGH);
+	}
+	else
+	{
 		digitalWrite(PIN_LICK_LED, LOW);
 	}
 }
