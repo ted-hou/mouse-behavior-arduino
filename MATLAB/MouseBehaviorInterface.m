@@ -1488,7 +1488,7 @@ classdef MouseBehaviorInterface < handle
 			ylim(hAxes, [-1.2, 1.2]);
 
 			obj.Rsc.VisualStimFigure = hFigure;
-			obj.Rsc.VisualStimAxes = hAxes
+			obj.Rsc.VisualStimAxes = hAxes;
 
 			if ~isfield(obj.Rsc, 'OmegaToITITimer')
 				obj.Rsc.OmegaToITITimer = timer;
