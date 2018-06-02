@@ -10,7 +10,6 @@ classdef ArduinoConnection < handle
 		EventMarkerNames = {}
 		Trials = struct([])
 		ExperimentFileName = ''			% Contains 'C://path/filename.mat'
-		Camera
 	end
 
 	properties (SetObservable, AbortSet)
@@ -232,11 +231,6 @@ classdef ArduinoConnection < handle
 				obj.EventMarkersUntrimmed 	= p.obj.EventMarkersUntrimmed;
 				obj.Trials 					= p.obj.Trials;
 				obj.TrialsCompleted 		= p.obj.TrialsCompleted;
-
-				% Load camera stuff if available
-				if ~isempty(p.obj.Camera)
-					obj.Camera = p.obj.Camera;
-				end
 
 				% Add all parameters to update queue
 				for iParam = 1:length(p.obj.ParamValues)
