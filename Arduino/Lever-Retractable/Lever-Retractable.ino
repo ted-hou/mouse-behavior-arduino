@@ -75,6 +75,8 @@ enum EventMarker
 	EVENT_LEVER_RELEASED,			// Lever press offset
 	EVENT_LEVER_RETRACTED,			// Lever retracted
 	EVENT_LEVER_DEPLOYED,			// Lever deployed
+	EVENT_TUBE_RETRACTED,			// Tube retracted
+	EVENT_TUBE_DEPLOYED,			// Tube deployed
 	EVENT_LICK,						// Lick onset
 	EVENT_LICK_OFF,					// Lick offset
 	EVENT_FIRST_LICK,				// First lick in trial since cue on
@@ -99,6 +101,8 @@ static const char *_eventMarkerNames[] =
 	"LEVER_RELEASED",			// Lever press offset
 	"LEVER_RETRACTED",			// Lever retracted
 	"LEVER_DEPLOYED",			// Lever deployed
+	"TUBE_RETRACTED",			// Tube retracted
+	"TUBE_DEPLOYED",			// Tube deployed
 	"LICK",						// Lick onset
 	"LICK_OFF",					// Lick offset
 	"FIRST_LICK",				// First lick in trial since cue on
@@ -149,7 +153,9 @@ enum ParamID
 {
 	_DEBUG,						// (Private) 1 to enable debug mode. Default 0.
 	USE_LEVER,					// 0 to use lick to trigger reward. 1 to use lever press.
-	ALLOW_EARLY_MOVE,			// 0 to abort trial if animal licks after in pre-window
+	ALLOW_EARLY_PRESS,			// 1 to abort trial if animal presses early
+	ALLOW_EARLY_LICK,			// 1 to abort trial if animal licks early
+	PAVLOVIAN, 					// 1 to issue reward at INTERVAL_TARGET in lick task
 	DELAY_REWARD,				// 0 to reward as soon as correct movement is made. 1 to give reward at end of trial.
 	INTERVAL_MIN,				// Time to start of reward window (ms)
 	INTERVAL_TARGET,			// Target time (ms)
@@ -179,7 +185,9 @@ static const char *_paramNames[] =
 {
 	"_DEBUG",
 	"USE_LEVER",
-	"ALLOW_EARLY_MOVE",
+	"ALLOW_EARLY_PRESS",
+	"ALLOW_EARLY_LICK",
+	"PAVLOVIAN",
 	"DELAY_REWARD",
 	"INTERVAL_MIN",
 	"INTERVAL_TARGET",
@@ -207,13 +215,15 @@ long _params[_NUM_PARAMS] =
 {
 	0,		// _DEBUG
 	1,		// USE_LEVER
-	0,		// ALLOW_EARLY_MOVE
+	0,		// ALLOW_EARLY_PRESS
+	0,		// ALLOW_EARLY_LICK
+	0, 		// PAVLOVIAN
 	0,		// DELAY_REWARD
 	4000,	// INTERVAL_MIN
 	4000,	// INTERVAL_TARGET
 	10000,	// INTERVAL_MAX
-	2500,	// ITI_MIN
-	10000,	// ITI_MAX
+	10000,	// ITI_MIN
+	20000,	// ITI_MAX
 	1000,	// ITI_LICK_TIMEOUT
 	100,	// RANDOM_DELAY_MIN
 	100,	// RANDOM_DELAY_MAX
@@ -224,10 +234,10 @@ long _params[_NUM_PARAMS] =
 	85,		// LEVER_POS_DEPLOYED
 	90,		// LEVER_SPEED_DEPLOY
 	60,		// LEVER_SPEED_RETRACT
-	0,		// TUBE_POS_RETRACTED,
-	0,		// TUBE_POS_DEPLOYED,
-	0,		// TUBE_SPEED_DEPLOY,
-	0		// TUBE_SPEED_RETRACT,
+	0,		// TUBE_POS_RETRACTED
+	0,		// TUBE_POS_DEPLOYED
+	0,		// TUBE_SPEED_DEPLOY
+	0		// TUBE_SPEED_RETRACT
 };
 /*****************************************************
 	Other Global Variables 
@@ -254,7 +264,7 @@ static bool _isLeverDeployed 		= false;		// True when lever is deployed
 static long _timeLastLeverPress		= 0;			// Time (ms) when last lever press occured
 
 static long _servoStartTimeLever	= 0;							// When servo started moving retrieved using getTime()
-static long _servoSpeedLever		= _params[LEVER_SPEED_RETRACT]; 	// Speed of servo movement (deg/s)
+static long _servoSpeedLever		= _params[LEVER_SPEED_RETRACT]; // Speed of servo movement (deg/s)
 static long _servoStartPosLever		= _params[LEVER_POS_RETRACTED];	// Starting position of servo when rotation begins
 static long _servoTargetPosLever	= _params[LEVER_POS_RETRACTED];	// Target position of servo
 
@@ -264,11 +274,11 @@ static long _servoStartPosTube		= _params[TUBE_POS_RETRACTED];	// Starting posit
 static long _servoTargetPosTube		= _params[TUBE_POS_RETRACTED];	// Target position of servo
 
 // For white noise generator
-static bool _whiteNoiseIsPlaying 			= false;
-static unsigned long _whiteNoiseInterval 	= 50;	// Determines frequency (us)
-static unsigned long _whiteNoiseDuration 	= 200;	// Noise duration (ms)
-static unsigned long _whiteNoiseFirstClick 	= 0;	// (us)
-static unsigned long _whiteNoiseLastClick 	= 0;	// (us)
+static bool _whiteNoiseIsPlaying 			= false;	
+static unsigned long _whiteNoiseInterval 	= 50;		// Determines frequency (us)
+static unsigned long _whiteNoiseDuration 	= 200;		// Noise duration (ms)
+static unsigned long _whiteNoiseFirstClick 	= 0;		// (us)
+static unsigned long _whiteNoiseLastClick 	= 0;		// (us)
 /*****************************************************
 	Setup
 *****************************************************/
@@ -451,6 +461,7 @@ void state_idle()
 		noTone(PIN_SPEAKER);
 		setReward(false);
 		deployLever(false);
+		deployTube(true);
 	}
 
 	/*****************************************************
@@ -496,10 +507,17 @@ void state_pre_cue()
 		// Turn off house lamp
 		setHouseLamp(false);
 
-		// Deploy lever
+		// Lever task: deploy lever
 		if (_params[USE_LEVER] == 1)
 		{
 			deployLever(true);
+			deployTube(true);
+		}
+		// Lick task: deploy tube, no lever
+		else
+		{
+			deployLever(false);
+			deployTube(true);
 		}
 
 		// Register trial start time
@@ -527,7 +545,7 @@ void state_pre_cue()
 	if (_isLeverPressOnset)
 	{
 		// Using lever & early press not allowed --> ABORT
-		if (_params[USE_LEVER] == 1 && _params[ALLOW_EARLY_MOVE] == 0)
+		if (_params[USE_LEVER] == 1 && _params[ALLOW_EARLY_PRESS] == 0)
 		{
 			setCueLED(false);
 			_state = STATE_ABORT;
@@ -606,7 +624,7 @@ void state_pre_window()
 			sendEventMarker(EVENT_FIRST_LICK, -1);
 		}
 		// Using lick & early lick not allowed --> ABORT
-		if (_params[USE_LEVER] == 0 && _params[ALLOW_EARLY_MOVE] == 0)
+		if (_params[USE_LEVER] == 0 && _params[ALLOW_EARLY_PRESS] == 0)
 		{
 			setCueLED(false);
 			_state = STATE_ABORT;
@@ -618,7 +636,7 @@ void state_pre_window()
 	if (_isLeverPressOnset)
 	{
 		// Using lever & early press not allowed --> ABORT
-		if (_params[USE_LEVER] == 1 && _params[ALLOW_EARLY_MOVE] == 0)
+		if (_params[USE_LEVER] == 1 && _params[ALLOW_EARLY_PRESS] == 0)
 		{
 			setCueLED(false);
 			_state = STATE_ABORT;
