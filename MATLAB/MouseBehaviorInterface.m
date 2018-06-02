@@ -1197,11 +1197,26 @@ classdef MouseBehaviorInterface < handle
 
 			xlim(hAxes, 'manual')
 			ylim(hAxes, 'manual')
-			xlim(hAxes, [-1.16, 1.16]);
-			ylim(hAxes, [-1.16, 1.16]);
+			xlim(hAxes, [-1.2, 1.2]);
+			ylim(hAxes, [-1.2, 1.2]);
 
 			obj.Rsc.VisualStimFigure = hFigure;
-			obj.Rsc.VisualStimAxes = hAxes;
+			obj.Rsc.VisualStimAxes = hAxes
+
+			if ~isfield(obj.Rsc, 'OmegaToITITimer')
+				obj.Rsc.OmegaToITITimer = timer;
+				obj.Rsc.OmegaToITITimer.TimerFcn = {@(~, ~) obj.Arduino.SendMessage('E')};
+			end
+
+			if ~isfield(obj.Rsc, 'FlashingScreenTimer')
+				obj.Rsc.FlashingScreenTimer = timer;
+				obj.Rsc.FlashingScreenTimer.Execution = 'fixedRate';
+				obj.Rsc.FlashingScreenTimer.Period = .167;
+				abortToStimOffDuration = obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'WINDOW_DURATION'))/1000;
+				obj.Rsc.FlashingScreenTimer.StartDelay = abortToStimOffDuration;
+				obj.Rsc.FlashingScreenTimer.TasksToExecute = 6;
+				obj.Rsc.FlashingScreenTimer.TimerFcn = @obj.FlashingScreen;
+			end
 
 			% OnStateChanged Callback
 			obj.Arduino.Listeners.StateChanged_VisualStim = addlistener(obj.Arduino, 'StateChanged', @obj.OnStateChanged_VisualStim);
@@ -1211,7 +1226,7 @@ classdef MouseBehaviorInterface < handle
 		end
 		
 		function DeleteVisualStim(obj, ~, ~)
-			timers = {'OmegaToITITimer', 'BarRefreshTimer', 'DotsRefreshTimer', 'AbortToStimOffTimer'};
+			timers = {'OmegaToITITimer', 'BarRefreshTimer', 'DotsRefreshTimer', 'CueRefreshTimer', 'AbortToStimOffTimer', 'FlashingScreenTimer'};
 			for iTimer = 1:length(timers)
 				if isfield(obj.Rsc, timers{iTimer})
 					if isvalid(obj.Rsc.(timers{iTimer}))
@@ -1319,6 +1334,12 @@ classdef MouseBehaviorInterface < handle
 					obj.Rsc.DotsRefreshTimer.Period = round(1000/60)/1000;
 					obj.Rsc.DotsRefreshTimer.TimerFcn = {@obj.OnDotsRefresh, obj.Rsc.Dots};
 					start(obj.Rsc.DotsRefreshTimer);
+
+					obj.Rsc.CueRefreshTimer = timer;
+					obj.Rsc.CueRefreshTimer.Execution = 'fixedRate';
+					obj.Rsc.CueRefreshTimer.Period = 0.333;
+					obj.Rsc.CueRefreshTimer.TimerFcn = {@obj.OnCueRefresh, obj.Rsc.Cue};
+					start(obj.Rsc.CueRefreshTimer);
                     
 				% Bar starts moving
 				case 'BAR_MOVE'
@@ -1328,36 +1349,39 @@ classdef MouseBehaviorInterface < handle
 					set(obj.Rsc.Dots, 'Visible', 'off');
 					set(obj.Rsc.Bar, 'Visible', 'off');
 					set(obj.Rsc.Cue, 'Visible', 'off');
+					if strcmpi(obj.Rsc.FlashingScreenTimer.Running, 'off')
+						start(obj.Rsc.FlashingScreenTimer);
+					end				
 				% Early lick: hide visual stim
 				case 'ABORT_EARLY'
 					set(obj.Rsc.Bar, 'Visible', 'off');
 					set(obj.Rsc.Dots, 'Visible', 'off');
 					set(obj.Rsc.Cue, 'Visible', 'off');
+					if strcmpi(obj.Rsc.FlashingScreenTimer.Running, 'off')
+						start(obj.Rsc.FlashingScreenTimer);
+					end				
 				% Either reward or abort, wait some time and tell Arduino to go to ITI
 				case {'REWARD'}
 					omegaToITIDuration = obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'OMEGA_TO_ITI_DURATION'))/1000;
-					if ~isfield(obj.Rsc, 'OmegaToITITimer')
-						obj.Rsc.OmegaToITITimer = timer;
-						obj.Rsc.OmegaToITITimer.TimerFcn = {@(~, ~) obj.Arduino.SendMessage('E')};
-					end
 					obj.Rsc.OmegaToITITimer.StartDelay = omegaToITIDuration;
 					start(obj.Rsc.OmegaToITITimer);
 				case {'ABORT'}
 					obj.Rsc.AbortToStimOffTimer = timer;
 					obj.Rsc.AbortToStimOffTimer.TimerFcn = @obj.AbortToStimOff;
-					AbortToStimOffDuration = obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'WINDOW_DURATION'))/1000;
-					obj.Rsc.AbortToStimOffTimer.StartDelay = AbortToStimOffDuration;
+					abortToStimOffDuration = obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'WINDOW_DURATION'))/1000;
+					obj.Rsc.AbortToStimOffTimer.StartDelay = abortToStimOffDuration;
 					start(obj.Rsc.AbortToStimOffTimer);
-					omegaToITIDuration = obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'OMEGA_TO_ITI_DURATION'))/1000;
-					if ~isfield(obj.Rsc, 'OmegaToITITimer')
-						obj.Rsc.OmegaToITITimer = timer;
-						obj.Rsc.OmegaToITITimer.TimerFcn = {@(~, ~) obj.Arduino.SendMessage('E')};
+					if strcmpi(obj.Rsc.FlashingScreenTimer.Running, 'off')
+						start(obj.Rsc.FlashingScreenTimer);
 					end
+					omegaToITIDuration = obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'OMEGA_TO_ITI_DURATION'))/1000;
 					obj.Rsc.OmegaToITITimer.StartDelay = omegaToITIDuration;
-					start(obj.Rsc.OmegaToITITimer);				
+					start(obj.Rsc.OmegaToITITimer);
 				case 'INTERTRIAL'
+					obj.Rsc.VisualStimFigure.Color = [0 0 0];
 					stop(obj.Rsc.BarRefreshTimer);
 					stop(obj.Rsc.DotsRefreshTimer);
+					stop(obj.Rsc.CueRefreshTimer);
 					delete(obj.Rsc.BarRefreshTimer);
 					delete(obj.Rsc.DotsRefreshTimer);
 					delete(obj.Rsc.Bar);
@@ -1438,10 +1462,26 @@ classdef MouseBehaviorInterface < handle
 			obj.MovingDots('Dots', hDots, 'Time', t.TasksExecuted*t.Period, 'RefreshRate', t.Period);
 		end
 
+		function OnCueRefresh(obj, t, ~, hCue)
+			if obj.Rsc.Cue.FaceColor(1) == 1
+				obj.Rsc.Cue.FaceColor = [0 0 0];
+			else
+				obj.Rsc.Cue.FaceColor = [1 1 1];
+			end
+		end
+
 		function AbortToStimOff(obj, ~, ~)
 			set(obj.Rsc.Dots, 'Visible', 'off');
 			set(obj.Rsc.Bar, 'Visible', 'off');
-			set(obj.Rsc.Cue, 'Visible', 'off');			
+			set(obj.Rsc.Cue, 'Visible', 'off');
+		end
+
+		function FlashingScreen(obj, ~, ~)
+			if obj.Rsc.VisualStimFigure.Color(1) == 0
+				obj.Rsc.VisualStimFigure.Color = [1 1 1];
+			else
+				obj.Rsc.VisualStimFigure.Color = [0 0 0];	
+			end
 		end
 	end
 	
@@ -1774,7 +1814,7 @@ classdef MouseBehaviorInterface < handle
 			p = inputParser;
 			addParameter(p, 'Ax', []);
 			addParameter(p, 'Dots', []);
-			addParameter(p, 'NumDots', 150, @isnumeric);
+			addParameter(p, 'NumDots', 100, @isnumeric);
 			addParameter(p, 'Radius', 1, @isnumeric);
 			addParameter(p, 'DotSize', 12, @isnumeric);
 			addParameter(p, 'DotAlpha', 0.5, @isnumeric);
@@ -1833,8 +1873,8 @@ classdef MouseBehaviorInterface < handle
 			hAxes = p.Results.Ax;
 
 			theta = theta/180*pi; % theta in radians
-			l = .16; % length of side of triangle cue
-			alphie = pi/6; % alpha (half angle of vertex) 
+			l = .2; % length of side of triangle cue
+			alphie = pi/8; % alpha (half angle of vertex) 
 
 			xs = [cos(theta), (cos(theta) + (l * cos(theta - alphie))), cos(theta) + (l * cos(theta + alphie))];
 			ys = [sin(theta), (sin(theta) + (l * sin(theta - alphie))), sin(theta) + (l * sin(theta + alphie))];
