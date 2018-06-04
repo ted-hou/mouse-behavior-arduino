@@ -149,6 +149,7 @@ enum ParamID
 	TIMING,						// Elapsed time informative = 1, Not = 0
 	SPATIAL_FREQUENCY,			// Distance (degrees) between bar locations
 	BAR_SPEED,					// In hops/seconds
+	DOTS,						// 1 to show moving dots
 	MU,							// Mean trial length 
 	SIGMA,						// Standard deviation for trial length
  	_NUM_PARAMS					// (Private) Used to count how many parameters there are so we can initialize the param array with the correct size. Insert additional parameters before this.
@@ -172,6 +173,7 @@ static const char *_paramNames[] =
 	"TIMING",					// Elapsed time informative = 1, Not = 0
 	"SPATIAL_FREQUENCY",		// Distance (degrees) between bar locations; degrees/hop
 	"BAR_SPEED",				// In hops/seconds
+	"DOTS",						// 1 to show moving dots
 	"MU",						// Mean trial length 
 	"SIGMA"						// Standard deviation for trial length
 };
@@ -193,6 +195,7 @@ long _params[_NUM_PARAMS] =
 	0,		// TIMING
 	4,		// SPATIAL_FREQUENCY
 	4,		// BAR_SPEED
+	1,		// DOTS
 	3,		// MU
 	1		// SIGMA
 };

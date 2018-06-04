@@ -1590,6 +1590,13 @@ classdef MouseBehaviorInterface < handle
 					obj.Rsc.Bar     	= obj.RotatingBar(theta0, 'Ax', obj.Rsc.VisualStimAxes);
 					obj.Rsc.Cue 		= obj.EndCue(thetas(end), 'Ax', obj.Rsc.VisualStimAxes);
 
+					% Show or hide dots
+					if obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'DOTS')) == 0
+						set(obj.Rsc.Dots, 'Visible', 'off');
+					else
+						set(obj.Rsc.Dots, 'Visible', 'on');
+					end
+
 					% Hide visual cue during reactive trials
 					if obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'REACTIVE')) == 0
 						set(obj.Rsc.Cue, 'Visible', 'on');
