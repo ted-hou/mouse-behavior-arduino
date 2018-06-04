@@ -206,6 +206,8 @@ static long _timeReset				= 0;			// Reset to signedMillis() at every soft reset
 static long _timeTrialStart			= 0;			// Reset to 0 at start of trial
 static long _timeStimOn				= 0;			// Reset to 0 at cue on
 static long _timeAlpha				= 0;			//	
+static long _timeTurningPoint		= 0;
+static long _timeOmega				= 0;			//	
 static int _resultCode				= -1;			// Result code. -1 if there is no result.
 static State _state					= _STATE_INIT;	// This variable (current _state) get passed into a _state function, which determines what the next _state should be, and updates it to the next _state.
 static State _prevState				= _STATE_INIT;	// Remembers the previous _state from the last loop (actions should only be executed when you enter a _state for the first time, comparing currentState vs _prevState helps us keep track of that).
@@ -242,6 +244,8 @@ void mySetup()
 	_timeTrialStart			= 0;			// Reset to 0 at start of trial
 	_timeStimOn				= 0;
 	_timeAlpha				= 0;
+	_timeTurningPoint		= 0;
+	_timeOmega				= 0;
 	_resultCode				= -1;			// Result code. -1 if there is no result.
 	_state					= _STATE_INIT;	// This variable (current _state) get passed into a _state function, which determines what the next _state should be, and updates it to the next _state.
 	_prevState				= _STATE_INIT;	// Remembers the previous _state from the last loop (actions should only be executed when you enter a _state for the first time, comparing currentState vs _prevState helps us keep track of that).
@@ -626,7 +630,8 @@ void state_response_window()
 	{
 		if (_params[REACTIVE] == 1)
 		{
-			if (_command == 'T')
+			rand_delay = 0;
+			if (getTimeSinceStimOn() - _timeTurningPoint >= rand_delay)
 			{
 				_resultCode = CODE_PAV;
 				_state = STATE_REWARD;
@@ -1009,11 +1014,13 @@ void handleVisualStim()
 	if (_command == 'T') // TurningPointReached
 	{
 		sendEventMarker(EVENT_TURNING_POINT, -1);
+		_timeTurningPoint = getTimeSinceStimOn();
 	}
 
 	if (_command == 'W') // OmegaReached
 	{
 		sendEventMarker(EVENT_OMEGA, -1);
+		_timeOmega = getTimeSinceStimOn();
 	}
 }
 
