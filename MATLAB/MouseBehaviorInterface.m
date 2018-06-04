@@ -1573,7 +1573,7 @@ classdef MouseBehaviorInterface < handle
                     % Exponential decay
                     else % is not timing trial
                     	mu = obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'MU')); % in seconds
-                    	trialLength = exprnd(mu);
+                    	trialLength = exprnd(mu) + 1;
                     end
 
                     turnTheta = trialLength * speed;
