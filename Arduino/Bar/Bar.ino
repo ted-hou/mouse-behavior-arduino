@@ -205,6 +205,7 @@ long _params[_NUM_PARAMS] =
 static long _timeReset				= 0;			// Reset to signedMillis() at every soft reset
 static long _timeTrialStart			= 0;			// Reset to 0 at start of trial
 static long _timeStimOn				= 0;			// Reset to 0 at cue on
+static long _timeAlpha				= 0;			//
 static int _resultCode				= -1;			// Result code. -1 if there is no result.
 static State _state					= _STATE_INIT;	// This variable (current _state) get passed into a _state function, which determines what the next _state should be, and updates it to the next _state.
 static State _prevState				= _STATE_INIT;	// Remembers the previous _state from the last loop (actions should only be executed when you enter a _state for the first time, comparing currentState vs _prevState helps us keep track of that).
@@ -619,11 +620,25 @@ void state_response_window()
 	// Pavlovian
 	else if (_params[PAVLOVIAN] == 1)
 	{
-		if (_command == 'T')
+		if (_params[REACTIVE] == 1)
 		{
-			_resultCode = CODE_PAV;
-			_state = STATE_REWARD;
-			return;
+			if (_command == 'T')
+			{
+				_resultCode = CODE_PAV;
+				_state = STATE_REWARD;
+				return;
+			}
+		}
+		else if (_params[REACTIVE] == 0)
+			// deliver reward some time in this window from alpha to turning pt
+		{
+			rand_delay = random(0, _params[WINDOW_DURATION]);
+			if (getTimeSinceStimOn() - _timeAlpha >= rand_delay)
+			{
+				_resultCode = CODE_PAV;
+				_state = STATE_REWARD;
+				return;
+			}
 		}
 	}
 	// Response window elapsed --> ITI
@@ -984,6 +999,7 @@ void handleVisualStim()
 	if (_command == 'A') // A for AlphaReached
 	{
 		sendEventMarker(EVENT_ALPHA, -1);
+		_timeAlpha = getTimeSinceStimOn();
 	} 
 
 	if (_command == 'T') // TurningPointReached
