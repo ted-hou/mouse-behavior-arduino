@@ -1562,33 +1562,28 @@ classdef MouseBehaviorInterface < handle
 						else
 							endTheta = randi(360); % Training Day 6-inf
 						end
-						safeTheta0s	= thetas(thetas > windowDuration * (speed * spatialFrequency)); % sorting out all thetas not in lick window
-						safeTheta0s	= safeTheta0s + endTheta; % change endTheta for a bar that reverses at a different location
-						thetas 		= thetas + endTheta;
-						% Random length trials
-						thetaIndex0 = randi(length(safeTheta0s)); % Choose 1 random theta for bar start position
-						theta0		= thetas(thetaIndex0);
 					else
-                    	% Generate random number based on exponential decay or
-                    	% Gaussian
-                    	if obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'TIMING')) == 1 % is timing trial
-                    	    mu = obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'MU')); % in seconds
-                    	    sig = obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'SIGMA')); % in seconds
-                    	    trialLength = sig * randn(1) + mu; % seconds
-                    	% Exponential decay
-                    	else % is not timing trial
-                    	    mu = obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'MU')); % in seconds
-                    	    trialLength = exprnd(mu);
-                    	end
-                    	turnTheta = trialLength * speed;
-                    	thetaIndex0 = length(thetas) - round(turnTheta - 1);
-                    	thetaIndex0 = max(thetaIndex0, 1);
-                    	thetaIndex0 = min(thetaIndex0, (length(thetas) - round(windowDuration * speed)));
-                    	theta0 = thetas(thetaIndex0);
                     	endTheta = randi(360);
-                    	theta0 = theta0 + endTheta;
-                    	thetas = thetas + endTheta;
                     end
+
+					if obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'TIMING')) == 1 % is timing trial
+                    	mu = obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'MU')); % in seconds
+                    	sig = obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'SIGMA')); % in seconds
+                    	trialLength = sig * randn(1) + mu; % seconds
+                    % Exponential decay
+                    else % is not timing trial
+                        mu = obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'MU')); % in seconds
+                        trialLength = exprnd(mu);
+                    end
+
+                    turnTheta = trialLength * speed;
+                    thetaIndex0 = length(thetas) - round(turnTheta - 1);
+                    thetaIndex0 = max(thetaIndex0, 1);
+                    thetaIndex0 = min(thetaIndex0, (length(thetas) - round(windowDuration * speed)));
+                    theta0 = thetas(thetaIndex0);
+
+                    theta0 = theta0 + endTheta;
+                    thetas = thetas + endTheta;
 
 					% Create objects
 					obj.Rsc.Dots    	= obj.MovingDots('Ax', obj.Rsc.VisualStimAxes);

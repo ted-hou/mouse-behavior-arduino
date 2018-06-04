@@ -205,7 +205,7 @@ long _params[_NUM_PARAMS] =
 static long _timeReset				= 0;			// Reset to signedMillis() at every soft reset
 static long _timeTrialStart			= 0;			// Reset to 0 at start of trial
 static long _timeStimOn				= 0;			// Reset to 0 at cue on
-static long _timeAlpha				= 0;			//
+static long _timeAlpha				= 0;			//	
 static int _resultCode				= -1;			// Result code. -1 if there is no result.
 static State _state					= _STATE_INIT;	// This variable (current _state) get passed into a _state function, which determines what the next _state should be, and updates it to the next _state.
 static State _prevState				= _STATE_INIT;	// Remembers the previous _state from the last loop (actions should only be executed when you enter a _state for the first time, comparing currentState vs _prevState helps us keep track of that).
@@ -241,6 +241,7 @@ void mySetup()
 	_timeReset				= 0;			// Reset to signedMillis() at every soft reset
 	_timeTrialStart			= 0;			// Reset to 0 at start of trial
 	_timeStimOn				= 0;
+	_timeAlpha				= 0;
 	_resultCode				= -1;			// Result code. -1 if there is no result.
 	_state					= _STATE_INIT;	// This variable (current _state) get passed into a _state function, which determines what the next _state should be, and updates it to the next _state.
 	_prevState				= _STATE_INIT;	// Remembers the previous _state from the last loop (actions should only be executed when you enter a _state for the first time, comparing currentState vs _prevState helps us keep track of that).
@@ -585,6 +586,9 @@ void state_bar_move()
 *****************************************************/
 void state_response_window() 
 {
+	// Declare local variable
+	static long rand_delay = 0;
+
 	/*****************************************************
 		ACTION LIST
 	*****************************************************/
