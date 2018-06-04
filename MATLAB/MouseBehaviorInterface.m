@@ -2077,7 +2077,7 @@ classdef MouseBehaviorInterface < handle
 			addParameter(p, 'Ax', []);
 			addParameter(p, 'Bar', []);
 			addParameter(p, 'Width', 1, @isnumeric);
-			addParameter(p, 'Height', 0.025, @isnumeric);
+			addParameter(p, 'Height', 0.027, @isnumeric);
 			parse(p, theta, varargin{:});
 			theta 		= p.Results.Theta;
 			hAxes		= p.Results.Ax;
