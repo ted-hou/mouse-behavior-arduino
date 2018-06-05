@@ -239,8 +239,8 @@ long _params[_NUM_PARAMS] =
 	85,		// LEVER_POS_DEPLOYED
 	90,		// LEVER_SPEED_DEPLOY
 	60,		// LEVER_SPEED_RETRACT
-	0,		// TUBE_POS_RETRACTED
-	0,		// TUBE_POS_DEPLOYED
+	50,		// TUBE_POS_RETRACTED
+	130,	// TUBE_POS_DEPLOYED
 	0,		// TUBE_SPEED_DEPLOY
 	0		// TUBE_SPEED_RETRACT
 };
@@ -1109,7 +1109,7 @@ void deployLever(bool deploy)
 // Use servo to retract/present lever to the little dude
 void deployTube(bool deploy)
 {
-	if (deploy) 
+	if (deploy)
 	{
 		_servoStartTimeTube = getTime();
 		_servoSpeedTube = _params[TUBE_SPEED_DEPLOY];
@@ -1121,7 +1121,7 @@ void deployTube(bool deploy)
 			sendEventMarker(EVENT_TUBE_DEPLOY_START, -1);
 		}
 	}
-	else 
+	else
 	{
 		_servoStartTimeTube = getTime();
 		_servoSpeedTube = _params[TUBE_SPEED_RETRACT];
@@ -1137,6 +1137,12 @@ void deployTube(bool deploy)
 
 void handleServoLever()
 {
+	// Handle servo read requests
+	if (_command == 'S')
+	{
+		sendMessage("Lever position = " + String(_servoLever.read()) + ", target = " + String(_servoTargetPosLever));
+	}
+
 	static long servoNewPosLever;
 	if (_servoSpeedLever == 0)
 	{
@@ -1168,6 +1174,12 @@ void handleServoLever()
 
 void handleServoTube()
 {
+	// Handle servo read requests
+	if (_command == 'S')
+	{
+		sendMessage("Tube position = " + String(_servoTube.read()) + ", target = " + String(_servoTargetPosTube));
+	}
+
 	static long servoNewPosTube;
 	if (_servoSpeedTube == 0)
 	{
