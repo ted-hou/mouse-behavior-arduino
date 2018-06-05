@@ -96,30 +96,30 @@ enum EventMarker
 
 static const char *_eventMarkerNames[] =
 {
-	"TRIAL_START",				// New trial initiated
-	"WINDOW_OPEN",				// Response window open
-	"TARGET_TIME",				// Target time
-	"WINDOW_CLOSED",			// Response window closed
-	"LEVER_PRESSED",			// Lever press onset
-	"LEVER_RELEASED",			// Lever press offset
-	"LICK",						// Lick onset
-	"LICK_OFF",					// Lick offset
-	"LEVER_RETRACT_START",		// Lever retract start
-	"LEVER_RETRACT_END",		// Lever retracted
-	"LEVER_DEPLOY_START",		// Lever deploy start
-	"LEVER_DEPLOY_END",			// Lever deploy end
-	"TUBE_RETRACT_START",		// Tube retract start
-	"TUBE_RETRACT_END",			// Tube retract end
-	"TUBE_DEPLOY_START",		// Tube deploy start
-	"TUBE_DEPLOY_END",			// Tube deploy end
-	"CUE_ON",					// Begin cue presentation
-	"CUE_OFF",					// End cue presentation
-	"HOUSELAMP_ON",				// House lamp on
-	"HOUSELAMP_OFF",			// House lamp off
-	"REWARD_ON",				// Reward, juice valve on
-	"REWARD_OFF",				// Reward, juice valve off
-	"ABORT",					// Trial aborted
-	"ITI"						// ITI
+	"TRIAL_START",					// New trial initiated
+	"WINDOW_OPEN",					// Response window open
+	"TARGET_TIME",					// Target time
+	"WINDOW_CLOSED",				// Response window closed
+	"LEVER_PRESSED",				// Lever press onset
+	"LEVER_RELEASED",				// Lever press offset
+	"LEVER_RETRACT_START",			// Lever retract start
+	"LEVER_RETRACT_END",			// Lever retracted
+	"LEVER_DEPLOY_START",			// Lever deploy start
+	"LEVER_DEPLOY_END",				// Lever deploy end
+	"TUBE_RETRACT_START",			// Tube retract start
+	"TUBE_RETRACT_END",				// Tube retract end
+	"TUBE_DEPLOY_START",			// Tube deploy start
+	"TUBE_DEPLOY_END",				// Tube deploy end
+	"LICK",							// Lick onset
+	"LICK_OFF",						// Lick offset
+	"CUE_ON",						// Begin tone/LED cue presentation
+	"CUE_OFF",						// End tone/LED cue presentation
+	"HOUSELAMP_ON",					// House lamp on
+	"HOUSELAMP_OFF",				// House lamp off
+	"REWARD_ON",					// Reward, juice valve on
+	"REWARD_OFF",					// Reward, juice valve off
+	"ABORT",						// Trial aborted
+	"ITI"							// ITI
 };
 
 /*****************************************************
@@ -342,8 +342,8 @@ void mySetup()
 
 	_servoStartTimeTube		= 0;							// When servo started moving retrieved using getTime()
 	_servoSpeedTube			= _params[TUBE_SPEED_RETRACT]; 	// Speed of servo movement (deg/s)
-	_servoStartPosTube		= _params[TUBE_POS_RETRACTED];	// Starting position of servo when rotation begins
-	_servoTargetPosTube		= _params[TUBE_POS_RETRACTED];	// Target position of servo
+	_servoStartPosTube		= _params[TUBE_POS_DEPLOYED];	// Starting position of servo when rotation begins
+	_servoTargetPosTube		= _params[TUBE_POS_DEPLOYED];	// Target position of servo
 
 	_whiteNoiseIsPlaying 	= false;
 	_whiteNoiseInterval 	= 50;			// Determines frequency (us)
