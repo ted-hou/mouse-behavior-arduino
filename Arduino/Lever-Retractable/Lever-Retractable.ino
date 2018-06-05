@@ -679,6 +679,8 @@ void state_response_window()
 	// Target time reached
 	if (!isTargetTimeReached && getTimeSinceCueOn() >= _params[INTERVAL_TARGET])
 	{
+		isTargetTimeReached = true;
+
 		// Register events
 		sendEventMarker(EVENT_TARGET_TIME, -1);
 
