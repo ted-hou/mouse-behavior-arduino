@@ -554,7 +554,7 @@ void state_pre_cue()
 	// Lever mode: make sure both are deployed
 	if (_params[USE_LEVER] == 1)
 	{
-		if (_servoLever.read() == _servoTargetPosLever && _servoTube.read() == _servoTargetPosTube)
+		if (abs(_servoLever.read() - _servoTargetPosLever) <= 2 && abs(_servoTube.read() - _servoTargetPosTube) <= 2)
 		{
 			// Register events
 			sendEventMarker(EVENT_LEVER_DEPLOY_END, -1);
@@ -566,7 +566,7 @@ void state_pre_cue()
 	// Tube mode: make sure tube is deployed
 	else
 	{
-		if (_servoTube.read() == _servoTargetPosTube)
+		if (abs(_servoTube.read() - _servoTargetPosTube) <= 2)
 		{
 			// Register events
 			sendEventMarker(EVENT_TUBE_DEPLOY_END, -1);
