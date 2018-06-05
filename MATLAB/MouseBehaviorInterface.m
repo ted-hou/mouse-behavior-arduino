@@ -1587,8 +1587,12 @@ classdef MouseBehaviorInterface < handle
 
 					% Create objects
 					obj.Rsc.Dots    	= obj.MovingDots('Ax', obj.Rsc.VisualStimAxes);
+					if obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'TRIANGLE_CUE')) == 1
+						obj.Rsc.Cue 	= obj.TriangleCue(thetas(end), 'Ax', obj.Rsc.VisualStimAxes);
+					elseif obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'TRIANGLE_CUE')) == 0
+						obj.Rsc.Cue 	= obj.BarCue(thetas(end), 'Ax', obj.Rsc.VisualStimAxes);
+					end
 					obj.Rsc.Bar     	= obj.RotatingBar(theta0, 'Ax', obj.Rsc.VisualStimAxes);
-					obj.Rsc.Cue 		= obj.EndCue(thetas(end), 'Ax', obj.Rsc.VisualStimAxes);
 
 					% Show or hide dots
 					if obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'DOTS')) == 0
@@ -1767,7 +1771,7 @@ classdef MouseBehaviorInterface < handle
 
 		function FlashingScreen(obj, ~, ~)
 			if obj.Rsc.VisualStimFigure.Color(1) == 0
-				obj.Rsc.VisualStimFigure.Color = [0.5 0.5 0.5];
+				obj.Rsc.VisualStimFigure.Color = [0.7 0.7 0.7];
 			else
 				obj.Rsc.VisualStimFigure.Color = [0 0 0];	
 			end
@@ -2153,7 +2157,7 @@ classdef MouseBehaviorInterface < handle
 			varargout = {hDots};
 		end
 
-		function varargout = EndCue(theta, varargin)
+		function varargout = TriangleCue(theta, varargin)
 			p = inputParser;
 			addParameter(p, 'Ax', []);
 			addParameter(p, 'Cue', []);
@@ -2171,6 +2175,33 @@ classdef MouseBehaviorInterface < handle
 			if isempty(hCue)
 				hCue = patch(hAxes, xs, ys, 'w');
 			end 
+
+			varargout = {hCue};
+		end
+
+		function varargout = BarCue(theta, varargin)
+			p = inputParser;
+			addParameter(p, 'Ax', []);
+			addParameter(p, 'Cue', []);
+			addParameter(p, 'Width', 1, @isnumeric);
+			addParameter(p, 'Height', 0.025, @isnumeric);
+			parse(p, varargin{:});
+			hCue = p.Results.Cue;
+			hAxes = p.Results.Ax;
+
+			theta = theta/180*pi; % theta in radians
+
+			w 			= p.Results.Width;
+			h 			= p.Results.Height;
+
+			X = [0 + h*sin(theta), cos(theta) + h*sin(theta), cos(theta) - h*sin(theta), 0 - h*sin(theta), 0 + h*sin(theta)];
+			Y = [0 - h*cos(theta), sin(theta) - h*cos(theta), sin(theta) + h*cos(theta), 0 + h*cos(theta), 0 - h*cos(theta)];
+
+			if isempty(hCue)
+				hCue = fill(hAxes, X, Y, 'w');
+			else
+				hCue.Vertices = [X', Y'];
+			end
 
 			varargout = {hCue};
 		end
