@@ -179,8 +179,8 @@ enum ParamID
 	LEVER_POS_DEPLOYED,			// Servo (lever) position when lever is deployed
 	LEVER_SPEED_DEPLOY,			// Servo (lever) rotation speed when deploying, 0 for max speed
 	LEVER_SPEED_RETRACT,		// Servo (lever) rotaiton speed when retracting, 0 for max speed
-	TUBE_POS_RETRACTED,			// Servo (juice tube) position when juice tube is retracted
-	TUBE_POS_DEPLOYED,			// Servo (juice tube) position when juice tube is deployed
+	TUBE_POS_RETRACTED,			// Servo (juice tube) position when juice tube is retracted (full is ~ 50)
+	TUBE_POS_DEPLOYED,			// Servo (juice tube) position when juice tube is deployed (full is ~ 125)
 	TUBE_SPEED_DEPLOY,			// Servo (juice tube) advance speed when deploying, 0 for max speed
 	TUBE_SPEED_RETRACT,			// Servo (juice tube) retract speed when retracting, 0 for max speed
 	_NUM_PARAMS					// (Private) Used to count how many parameters there are so we can initialize the param array with the correct size. Insert additional parameters before this.
@@ -228,19 +228,19 @@ long _params[_NUM_PARAMS] =
 	4000,	// INTERVAL_MIN
 	4000,	// INTERVAL_TARGET
 	10000,	// INTERVAL_MAX
-	10000,	// ITI_MIN
-	20000,	// ITI_MAX
+	7500,	// ITI_MIN
+	15000,	// ITI_MAX
 	1000,	// ITI_LICK_TIMEOUT
-	100,	// RANDOM_DELAY_MIN
-	100,	// RANDOM_DELAY_MAX
+	1000,	// RANDOM_DELAY_MIN
+	5000,	// RANDOM_DELAY_MAX
 	50,		// CUE_DURATION
 	100, 	// REWARD_DURATION
 	105,	// LEVER_POS_RETRACTED
 	85,		// LEVER_POS_DEPLOYED
 	90,		// LEVER_SPEED_DEPLOY
 	60,		// LEVER_SPEED_RETRACT
-	50,		// TUBE_POS_RETRACTED
-	130,	// TUBE_POS_DEPLOYED
+	75,		// TUBE_POS_RETRACTED
+	100,	// TUBE_POS_DEPLOYED
 	0,		// TUBE_SPEED_DEPLOY
 	0		// TUBE_SPEED_RETRACT
 };
