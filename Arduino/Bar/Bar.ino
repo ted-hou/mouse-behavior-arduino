@@ -146,6 +146,7 @@ enum ParamID
 	ALLOW_LICK_BAR_STAT,		// Allow early lick when stim first comes on
 	PAVLOVIAN,					// Pavlovian = 1, Operant = 0
 	REACTIVE,					// Proactive = 0, Reactive = 1
+	END_THETA,					// Define location of turning point
 	TRIANGLE_CUE,				// 0 = flashing bar cue, 1 = flashing triangle cue
 	TIMING,						// Elapsed time informative = 1, Not = 0
 	SPATIAL_FREQUENCY,			// Distance (degrees) between bar locations
@@ -171,6 +172,7 @@ static const char *_paramNames[] =
 	"ALLOW_LICK_BAR_STAT",		// Allow early lick when stim first comes on
 	"PAVLOVIAN",				// Pavlovian = 1, Operant = 0
 	"REACTIVE",					// Is this a reactive or proactive paradigm?
+	"END_THETA",				// Define location of turning point
 	"TRIANGLE_CUE",				// 0 = flashing bar cue, 1 = flashing triangle cue
 	"TIMING",					// Elapsed time informative = 1, Not = 0
 	"SPATIAL_FREQUENCY",		// Distance (degrees) between bar locations; degrees/hop
@@ -194,6 +196,7 @@ long _params[_NUM_PARAMS] =
 	1,		// ALLOW_LICK_BAR_STAT
 	0,		// PAVLOVIAN
 	0, 		// REACTIVE
+	90,		// END_THETA
 	0,		// TRIANGLE_CUE
 	0,		// TIMING
 	4,		// SPATIAL_FREQUENCY
