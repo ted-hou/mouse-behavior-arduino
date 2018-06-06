@@ -651,7 +651,7 @@ void state_response_window()
 			// deliver reward some time in this window from alpha to turning pt
 		{
 			rand_delay = random(0, 400);
-			if (getTimeSinceStimOn() - _timeAlpha >= rand_delay)
+			if (getTimeSinceStimOn() - _timeTurningPoint >= rand_delay)
 			{
 				_resultCode = CODE_PAV;
 				_state = STATE_REWARD;
