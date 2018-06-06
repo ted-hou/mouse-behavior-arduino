@@ -188,13 +188,13 @@ long _params[_NUM_PARAMS] =
 	0,		// _DEBUG
 	1000,	// BAR_STAT_DURATION
 	8000,	// ITI_DURATION
-	100,	// REWARD_DURATION
+	50,	// REWARD_DURATION
 	1000,	// WINDOW_DURATION
 	3000,	// OMEGA_TO_ITI_DURATION
 	0,		// TRAINING_PHASE
 	1,		// ALLOW_EARLY_LICK
 	1,		// ALLOW_LICK_BAR_STAT
-	0,		// PAVLOVIAN
+	1,		// PAVLOVIAN
 	0, 		// REACTIVE
 	90,		// END_THETA
 	1,		// TRIANGLE_CUE
@@ -202,8 +202,8 @@ long _params[_NUM_PARAMS] =
 	4,		// SPATIAL_FREQUENCY
 	4,		// BAR_SPEED
 	1,		// DOTS
-	3,		// MU
-	1		// SIGMA
+	4,		// MU
+	2		// SIGMA
 };
 
 /*****************************************************
@@ -600,7 +600,7 @@ void state_bar_move()
 void state_response_window() 
 {
 	// Declare local variable
-	static long rand_delay = 0;
+	static long rand_delay;
 
 	/*****************************************************
 		ACTION LIST
@@ -610,6 +610,9 @@ void state_response_window()
 		// Register new state
 		_prevState = _state;
 		sendState(_state);
+
+		rand_delay = random((_params[WINDOW_DURATION] - 600), _params[WINDOW_DURATION] + 1);
+		sendMessage(String(rand_delay));
 	}
 
 	/*****************************************************
@@ -639,8 +642,7 @@ void state_response_window()
 	{
 		if (_params[REACTIVE] == 1)
 		{
-			rand_delay = 0;
-			if (getTimeSinceStimOn() - _timeTurningPoint >= rand_delay)
+			if (_command == 'T')
 			{
 				_resultCode = CODE_PAV;
 				_state = STATE_REWARD;
@@ -648,10 +650,9 @@ void state_response_window()
 			}
 		}
 		else if (_params[REACTIVE] == 0)
-			// deliver reward some time in this window from alpha to turning pt
+		// deliver reward some time in this window from alpha to turning pt
 		{
-			rand_delay = random(0, 400);
-			if (getTimeSinceStimOn() - _timeTurningPoint >= rand_delay)
+			if ((getTimeSinceStimOn() - _timeAlpha) >= rand_delay)
 			{
 				_resultCode = CODE_PAV;
 				_state = STATE_REWARD;
