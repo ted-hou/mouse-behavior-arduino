@@ -1610,6 +1610,8 @@ classdef MouseBehaviorInterface < handle
 						set(obj.Rsc.Cue, 'Visible', 'off');
 					end
 
+					obj.Rsc.UserData.FlashingScreenPresented = false;
+
 					obj.UserData.Theta0							= theta0;
 					obj.Rsc.Bar.UserData.Thetas 				= thetas;
 					obj.Rsc.Bar.UserData.ThetaIndex				= thetaIndex0;
@@ -1647,6 +1649,7 @@ classdef MouseBehaviorInterface < handle
 					if strcmpi(obj.Rsc.FlashingScreenTimer.Running, 'off')
 						start(obj.Rsc.FlashingScreenTimer);
 					end				
+
 				% Early lick: hide visual stim
 				case 'ABORT_EARLY'
 					set(obj.Rsc.Bar, 'Visible', 'off');
@@ -1654,24 +1657,26 @@ classdef MouseBehaviorInterface < handle
 					set(obj.Rsc.Cue, 'Visible', 'off');
 					if strcmpi(obj.Rsc.FlashingScreenTimer.Running, 'off')
 						start(obj.Rsc.FlashingScreenTimer);
-					end				
-				% Either reward or abort, wait some time and tell Arduino to go to ITI
+					end			
+					obj.Rsc.UserData.FlashingScreenPresented = true;	
+
+				% Wait some time and tell Arduino to go to ITI
 				case {'REWARD'}
 					omegaToITIDuration = obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'OMEGA_TO_ITI_DURATION'))/1000;
 					obj.Rsc.OmegaToITITimer.StartDelay = omegaToITIDuration;
 					start(obj.Rsc.OmegaToITITimer);
+
+				% Punishment, wait some time then go to ITI
 				case {'ABORT'}
 					obj.Rsc.AbortToStimOffTimer = timer;
 					obj.Rsc.AbortToStimOffTimer.TimerFcn = @obj.AbortToStimOff;
 					abortToStimOffDuration = obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'WINDOW_DURATION'))/1000;
 					obj.Rsc.AbortToStimOffTimer.StartDelay = abortToStimOffDuration;
 					start(obj.Rsc.AbortToStimOffTimer);
-					if strcmpi(obj.Rsc.FlashingScreenTimer.Running, 'off')
-						start(obj.Rsc.FlashingScreenTimer);
-					end
 					omegaToITIDuration = obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'OMEGA_TO_ITI_DURATION'))/1000;
 					obj.Rsc.OmegaToITITimer.StartDelay = omegaToITIDuration;
 					start(obj.Rsc.OmegaToITITimer);
+
 				case 'INTERTRIAL'
 					obj.Rsc.VisualStimFigure.Color = [0 0 0];
 					stop(obj.Rsc.BarRefreshTimer);
@@ -1769,6 +1774,11 @@ classdef MouseBehaviorInterface < handle
 			set(obj.Rsc.Dots, 'Visible', 'off');
 			set(obj.Rsc.Bar, 'Visible', 'off');
 			set(obj.Rsc.Cue, 'Visible', 'off');
+			if obj.Rsc.UserData.FlashingScreenPresented == false
+				if strcmpi(obj.Rsc.FlashingScreenTimer.Running, 'off')
+					start(obj.Rsc.FlashingScreenTimer);
+				end
+			end
 		end
 
 		function FlashingScreen(obj, ~, ~)
