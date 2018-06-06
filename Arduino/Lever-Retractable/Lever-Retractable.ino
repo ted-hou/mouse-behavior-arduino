@@ -28,7 +28,7 @@ Servo _servoTube;
 #define PIN_LICK		2
 #define PIN_LEVER		1
 
-#define SERVO_READ_ACCURACY 2
+#define SERVO_READ_ACCURACY 1
 
 /*****************************************************
 	Enums - DEFINE States
@@ -254,10 +254,10 @@ long _params[_NUM_PARAMS] =
 	85,		// LEVER_POS_DEPLOYED
 	90,		// LEVER_SPEED_DEPLOY
 	60,		// LEVER_SPEED_RETRACT
-	75,		// TUBE_POS_RETRACTED
-	100,	// TUBE_POS_DEPLOYED
-	0,		// TUBE_SPEED_DEPLOY
-	0		// TUBE_SPEED_RETRACT
+	70,		// TUBE_POS_RETRACTED (50)
+	100,	// TUBE_POS_DEPLOYED (125)
+	18,		// TUBE_SPEED_DEPLOY
+	18		// TUBE_SPEED_RETRACT
 };
 
 /*****************************************************
@@ -896,6 +896,11 @@ void state_intertrial()
 		if (_params[USE_LEVER] == 1)
 		{
 			deployLever(false);
+		}
+		// Retract tube
+		else
+		{
+			deployTube(false);
 		}
 
 		// Register time of state entry
