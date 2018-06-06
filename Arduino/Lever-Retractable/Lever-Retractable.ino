@@ -28,6 +28,8 @@ Servo _servoTube;
 #define PIN_LICK		2
 #define PIN_LEVER		1
 
+#define SERVO_READ_ACCURACY 2
+
 /*****************************************************
 	Enums - DEFINE States
 *****************************************************/
@@ -154,6 +156,19 @@ enum SoundEventFrequencyEnum
 };
 
 /*****************************************************
+	Servo state
+*****************************************************/
+enum ServoState
+{
+	_SERVOSTATE_INIT,
+	SERVOSTATE_RETRACTED,
+	SERVOSTATE_DEPLOYING,
+	SERVOSTATE_RETRACTING,
+	SERVOSTATE_DEPLOYED
+};
+
+
+/*****************************************************
 	Parameters that can be updated by HOST
 *****************************************************/
 // Storing everything in array _params[]. Using enum ParamID as array indices so it's easier to add/remove parameters. 
@@ -261,19 +276,19 @@ static int _arguments[2]			= {0};			// Two integers received from host , resets 
 
 static bool _isLicking 				= false;		// True if the little dude is licking
 static bool _isLickOnset 			= false;		// True during lick onset
-static bool _isTubeDeployed 		= true;			// True when tube is deployed
 static long _timeLastLick			= 0;			// Time (ms) when last lick occured
 
 static bool _isLeverPressed			= false;		// True as long as lever is pressed down
 static bool _isLeverPressOnset 		= false;		// True when lever first pressed
-static bool _isLeverDeployed 		= false;		// True when lever is deployed
 static long _timeLastLeverPress		= 0;			// Time (ms) when last lever press occured
 
+static ServoState _servoStateTube	= _SERVOSTATE_INIT;				// Servo state
 static long _servoStartTimeLever	= 0;							// When servo started moving retrieved using getTime()
 static long _servoSpeedLever		= _params[LEVER_SPEED_RETRACT]; // Speed of servo movement (deg/s)
 static long _servoStartPosLever		= _params[LEVER_POS_RETRACTED];	// Starting position of servo when rotation begins
 static long _servoTargetPosLever	= _params[LEVER_POS_RETRACTED];	// Target position of servo
 
+static ServoState _servoStateLever 	= _SERVOSTATE_INIT;				// Servo state
 static long _servoStartTimeTube		= 0;							// When servo started moving retrieved using getTime()
 static long _servoSpeedTube			= _params[TUBE_SPEED_RETRACT]; 	// Speed of servo movement (deg/s)
 static long _servoStartPosTube		= _params[TUBE_POS_RETRACTED];	// Starting position of servo when rotation begins
@@ -281,10 +296,10 @@ static long _servoTargetPosTube		= _params[TUBE_POS_RETRACTED];	// Target positi
 
 // For white noise generator
 static bool _whiteNoiseIsPlaying 			= false;	
-static unsigned long _whiteNoiseInterval 	= 50;		// Determines frequency (us)
-static unsigned long _whiteNoiseDuration 	= 200;		// Noise duration (ms)
-static unsigned long _whiteNoiseFirstClick 	= 0;		// (us)
-static unsigned long _whiteNoiseLastClick 	= 0;		// (us)
+static unsigned long _whiteNoiseInterval 	= 50;					// Determines frequency (us)
+static unsigned long _whiteNoiseDuration 	= 200;					// Noise duration (ms)
+static unsigned long _whiteNoiseFirstClick 	= 0;					// (us)
+static unsigned long _whiteNoiseLastClick 	= 0;					// (us)
 
 /*****************************************************
 	Setup
@@ -318,8 +333,8 @@ void mySetup()
 	// Reset variables
 	_timeReset				= 0;			// Reset to signedMillis() at every soft reset
 	_timeTrialStart			= 0;			// Reset to 0 at start of trial
-	_timeCueOn				= 0;
-	_resultCode				= -1;			// Result code. -1 if there is no result.
+	_timeCueOn				= 0;			// Reset to 0 at cue on
+	 _resultCode			= -1;			// Result code. -1 if there is no result.
 	_state					= _STATE_INIT;	// This variable (current _state) get passed into a _state function, which determines what the next _state should be, and updates it to the next _state.
 	_prevState				= _STATE_INIT;	// Remembers the previous _state from the last loop (actions should only be executed when you enter a _state for the first time, comparing currentState vs _prevState helps us keep track of that).
 	_command				= ' ';			// Command char received from host, resets on each loop
@@ -327,29 +342,29 @@ void mySetup()
 
 	_isLicking 				= false;		// True if the little dude is licking
 	_isLickOnset 			= false;		// True during lick onset
-	_isTubeDeployed 		= true;			// True when tube is deployed
 	_timeLastLick			= 0;			// Time (ms) when last lick occured
 
 	_isLeverPressed			= false;		// True as long as lever is pressed down
 	_isLeverPressOnset 		= false;		// True when lever first pressed
-	_isLeverDeployed 		= false;		// True when lever is deployed
 	_timeLastLeverPress		= 0;			// Time (ms) when last lever press occured
 
+	_servoStateTube			= _SERVOSTATE_INIT;				// Servo state
 	_servoStartTimeLever	= 0;							// When servo started moving retrieved using getTime()
 	_servoSpeedLever		= _params[LEVER_SPEED_RETRACT]; // Speed of servo movement (deg/s)
 	_servoStartPosLever		= _params[LEVER_POS_RETRACTED];	// Starting position of servo when rotation begins
 	_servoTargetPosLever	= _params[LEVER_POS_RETRACTED];	// Target position of servo
 
+	_servoStateLever 		= _SERVOSTATE_INIT;				// Servo state
 	_servoStartTimeTube		= 0;							// When servo started moving retrieved using getTime()
 	_servoSpeedTube			= _params[TUBE_SPEED_RETRACT]; 	// Speed of servo movement (deg/s)
-	_servoStartPosTube		= _params[TUBE_POS_DEPLOYED];	// Starting position of servo when rotation begins
-	_servoTargetPosTube		= _params[TUBE_POS_DEPLOYED];	// Target position of servo
+	_servoStartPosTube		= _params[TUBE_POS_RETRACTED];	// Starting position of servo when rotation begins
+	_servoTargetPosTube		= _params[TUBE_POS_RETRACTED];	// Target position of servo
 
-	_whiteNoiseIsPlaying 	= false;
-	_whiteNoiseInterval 	= 50;			// Determines frequency (us)
-	_whiteNoiseDuration 	= 200;			// Noise duration (ms)
-	_whiteNoiseFirstClick 	= 0;			// (us)
-	_whiteNoiseLastClick 	= 0;			// (us)
+	_whiteNoiseIsPlaying 	= false;	
+	_whiteNoiseInterval 	= 50;					// Determines frequency (us)
+	_whiteNoiseDuration 	= 200;					// Noise duration (ms)
+	_whiteNoiseFirstClick 	= 0;					// (us)
+	_whiteNoiseLastClick 	= 0;					// (us)
 
 	// Sends all parameters, states and error codes to Matlab, then tell PC that we're running by sending '~' message:
 	hostInit();
@@ -554,11 +569,8 @@ void state_pre_cue()
 	// Lever mode: make sure both are deployed
 	if (_params[USE_LEVER] == 1)
 	{
-		if (abs(_servoLever.read() - _servoTargetPosLever) <= 2 && abs(_servoTube.read() - _servoTargetPosTube) <= 2)
+		if (_servoStateLever == SERVOSTATE_DEPLOYED && _servoStateTube == SERVOSTATE_DEPLOYED)
 		{
-			// Register events
-			sendEventMarker(EVENT_LEVER_DEPLOY_END, -1);
-
 			_state = STATE_PRE_WINDOW;
 			return;
 		}
@@ -566,11 +578,8 @@ void state_pre_cue()
 	// Tube mode: make sure tube is deployed
 	else
 	{
-		if (abs(_servoTube.read() - _servoTargetPosTube) <= 2)
+		if (_servoStateTube == SERVOSTATE_DEPLOYED)
 		{
-			// Register events
-			sendEventMarker(EVENT_TUBE_DEPLOY_END, -1);
-
 			_state = STATE_PRE_WINDOW;
 			return;
 		}
@@ -1053,29 +1062,21 @@ bool getLeverState()
 
 void handleLever() 
 {
-	if (!_isLeverDeployed)
+	if (getLeverState() && !_isLeverPressed)
 	{
-		_isLeverPressed = false;
-		_isLeverPressOnset = false;
+		_isLeverPressed = true;
+		_isLeverPressOnset = true;
+		sendEventMarker(EVENT_LEVER_PRESSED, -1);
+		_timeLastLeverPress = getTime();
 	}
 	else
 	{
-		if (getLeverState() && !_isLeverPressed)
+		if (!getLeverState() && _isLeverPressed)
 		{
-			_isLeverPressed = true;
-			_isLeverPressOnset = true;
-			sendEventMarker(EVENT_LEVER_PRESSED, -1);
-			_timeLastLeverPress = getTime();
+			_isLeverPressed = false;
+			sendEventMarker(EVENT_LEVER_RELEASED, -1);
 		}
-		else
-		{
-			if (!getLeverState() && _isLeverPressed)
-			{
-				_isLeverPressed = false;
-				sendEventMarker(EVENT_LEVER_RELEASED, -1);
-			}
-			_isLeverPressOnset = false;
-		}
+		_isLeverPressOnset = false;
 	}
 }
 
@@ -1084,27 +1085,27 @@ void deployLever(bool deploy)
 {
 	if (deploy) 
 	{
+		if (_servoStateLever != SERVOSTATE_DEPLOYED)
+		{
+			_servoStateLever = SERVOSTATE_DEPLOYING;
+			sendEventMarker(EVENT_LEVER_DEPLOY_START, -1);
+		}
 		_servoStartTimeLever = getTime();
 		_servoSpeedLever = _params[LEVER_SPEED_DEPLOY];
 		_servoStartPosLever = _servoLever.read();
 		_servoTargetPosLever = _params[LEVER_POS_DEPLOYED];
-		if (!_isLeverDeployed)
-		{
-			_isLeverDeployed = true;
-			sendEventMarker(EVENT_LEVER_DEPLOY_START, -1);
-		}
 	}
 	else 
 	{
+		if (_servoStateLever != SERVOSTATE_RETRACTED)
+		{
+			_servoStateLever = SERVOSTATE_RETRACTING;
+			sendEventMarker(EVENT_LEVER_RETRACT_START, -1);
+		}
 		_servoStartTimeLever = getTime();
 		_servoSpeedLever = _params[LEVER_SPEED_RETRACT];
 		_servoStartPosLever = _servoLever.read();
 		_servoTargetPosLever = _params[LEVER_POS_RETRACTED];
-		if (_isLeverDeployed)
-		{
-			_isLeverDeployed = false;
-			sendEventMarker(EVENT_LEVER_RETRACT_START, -1);
-		}
 	}
 }
 
@@ -1113,43 +1114,59 @@ void deployTube(bool deploy)
 {
 	if (deploy)
 	{
+		if (_servoStateTube != SERVOSTATE_DEPLOYED)
+		{
+			_servoStateTube = SERVOSTATE_DEPLOYING;
+			sendEventMarker(EVENT_TUBE_DEPLOY_START, -1);
+		}
 		_servoStartTimeTube = getTime();
 		_servoSpeedTube = _params[TUBE_SPEED_DEPLOY];
 		_servoStartPosTube = _servoTube.read();
 		_servoTargetPosTube = _params[TUBE_POS_DEPLOYED];
-		if (!_isTubeDeployed)
-		{
-			_isTubeDeployed = true;
-			sendEventMarker(EVENT_TUBE_DEPLOY_START, -1);
-		}
 	}
 	else
 	{
+		if (_servoStateTube != SERVOSTATE_RETRACTED)
+		{
+			_servoStateTube = SERVOSTATE_RETRACTING;
+			sendEventMarker(EVENT_TUBE_DEPLOY_START, -1);
+		}
 		_servoStartTimeTube = getTime();
 		_servoSpeedTube = _params[TUBE_SPEED_RETRACT];
 		_servoStartPosTube = _servoTube.read();
 		_servoTargetPosTube = _params[TUBE_POS_RETRACTED];
-		if (_isTubeDeployed)
-		{
-			_isTubeDeployed = false;
-			sendEventMarker(EVENT_TUBE_RETRACT_START, -1);
-		}
 	}
 }
 
 void handleServoLever()
 {
+	static long servoNewPosLever;
+
 	// Handle servo read requests
 	if (_command == 'S')
 	{
 		sendMessage("Lever position = " + String(_servoLever.read()) + ", target = " + String(_servoTargetPosLever));
 	}
 
-	static long servoNewPosLever;
+	// Handle movement completion events
+	if (_servoStateLever == SERVOSTATE_DEPLOYING && abs(_servoLever.read() - _params[LEVER_POS_DEPLOYED]) <= SERVO_READ_ACCURACY)
+	{
+		_servoStateLever = SERVOSTATE_DEPLOYED;
+		sendEventMarker(EVENT_LEVER_DEPLOY_END, -1);
+	}
+
+	if (_servoStateLever == SERVOSTATE_RETRACTING && abs(_servoLever.read() - _params[LEVER_POS_RETRACTED]) <= SERVO_READ_ACCURACY)
+	{
+		_servoStateLever = SERVOSTATE_RETRACTED;
+		sendEventMarker(EVENT_LEVER_RETRACT_END, -1);
+	}
+
+	// 0 - use max speed
 	if (_servoSpeedLever == 0)
 	{
 		_servoLever.write(_servoTargetPosLever);
 	}
+	// Use specified speed
 	else
 	{
 		if (_servoLever.read() < _servoTargetPosLever)
@@ -1176,13 +1193,27 @@ void handleServoLever()
 
 void handleServoTube()
 {
+	static long servoNewPosTube;
+
 	// Handle servo read requests
 	if (_command == 'S')
 	{
 		sendMessage("Tube position = " + String(_servoTube.read()) + ", target = " + String(_servoTargetPosTube));
 	}
 
-	static long servoNewPosTube;
+	// Handle movement completion events
+	if (_servoStateTube == SERVOSTATE_DEPLOYING && abs(_servoTube.read() - _params[TUBE_POS_DEPLOYED]) <= SERVO_READ_ACCURACY)
+	{
+		_servoStateTube = SERVOSTATE_DEPLOYED;
+		sendEventMarker(EVENT_TUBE_DEPLOY_END, -1);
+	}
+
+	if (_servoStateTube == SERVOSTATE_RETRACTING && abs(_servoTube.read() - _params[TUBE_POS_RETRACTED]) <= SERVO_READ_ACCURACY)
+	{
+		_servoStateTube = SERVOSTATE_RETRACTED;
+		sendEventMarker(EVENT_TUBE_RETRACT_END, -1);
+	}
+
 	if (_servoSpeedTube == 0)
 	{
 		_servoTube.write(_servoTargetPosTube);
