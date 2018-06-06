@@ -1134,7 +1134,7 @@ void deployTube(bool deploy)
 		if (_servoStateTube != SERVOSTATE_RETRACTED)
 		{
 			_servoStateTube = SERVOSTATE_RETRACTING;
-			sendEventMarker(EVENT_TUBE_DEPLOY_START, -1);
+			sendEventMarker(EVENT_TUBE_RETRACT_START, -1);
 		}
 		_servoStartTimeTube = getTime();
 		_servoSpeedTube = _params[TUBE_SPEED_RETRACT];
