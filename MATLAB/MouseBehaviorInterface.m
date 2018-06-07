@@ -1499,8 +1499,6 @@ classdef MouseBehaviorInterface < handle
 				obj.Rsc.FlashingScreenTimer = timer;
 				obj.Rsc.FlashingScreenTimer.Execution = 'fixedRate';
 				obj.Rsc.FlashingScreenTimer.Period = .167;
-				abortToStimOffDuration = obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'WINDOW_DURATION'))/1000;
-				obj.Rsc.FlashingScreenTimer.StartDelay = abortToStimOffDuration;
 				obj.Rsc.FlashingScreenTimer.TasksToExecute = 6;
 				obj.Rsc.FlashingScreenTimer.TimerFcn = @obj.FlashingScreen;
 			end
@@ -1646,19 +1644,22 @@ classdef MouseBehaviorInterface < handle
 					set(obj.Rsc.Dots, 'Visible', 'off');
 					set(obj.Rsc.Bar, 'Visible', 'off');
 					set(obj.Rsc.Cue, 'Visible', 'off');
-					if strcmpi(obj.Rsc.FlashingScreenTimer.Running, 'off')
+					if strcmpi(obj.Rsc.FlashingScreenTimer.Running, 'off') && ~obj.Rsc.UserData.FlashingScreenPresented
+						obj.Rsc.FlashingScreenTimer.StartDelay = 0;
 						start(obj.Rsc.FlashingScreenTimer);
-					end				
+						obj.Rsc.UserData.FlashingScreenPresented = true;				
+					end
 
 				% Early lick: hide visual stim
 				case 'ABORT_EARLY'
 					set(obj.Rsc.Bar, 'Visible', 'off');
 					set(obj.Rsc.Dots, 'Visible', 'off');
 					set(obj.Rsc.Cue, 'Visible', 'off');
-					if strcmpi(obj.Rsc.FlashingScreenTimer.Running, 'off')
+					if strcmpi(obj.Rsc.FlashingScreenTimer.Running, 'off') && ~obj.Rsc.UserData.FlashingScreenPresented
+						obj.Rsc.FlashingScreenTimer.StartDelay = 0;
 						start(obj.Rsc.FlashingScreenTimer);
-					end			
-					obj.Rsc.UserData.FlashingScreenPresented = true;	
+						obj.Rsc.UserData.FlashingScreenPresented = true;
+					end				
 
 				% Wait some time and tell Arduino to go to ITI
 				case {'REWARD'}
@@ -1775,10 +1776,9 @@ classdef MouseBehaviorInterface < handle
 			set(obj.Rsc.Dots, 'Visible', 'off');
 			set(obj.Rsc.Bar, 'Visible', 'off');
 			set(obj.Rsc.Cue, 'Visible', 'off');
-			if obj.Rsc.UserData.FlashingScreenPresented == false
-				if strcmpi(obj.Rsc.FlashingScreenTimer.Running, 'off')
-					start(obj.Rsc.FlashingScreenTimer);
-				end
+			if strcmpi(obj.Rsc.FlashingScreenTimer.Running, 'off') && ~obj.Rsc.UserData.FlashingScreenPresented
+				obj.Rsc.FlashingScreenTimer.StartDelay = abortToStimOffDuration;
+				start(obj.Rsc.FlashingScreenTimer);
 			end
 		end
 
