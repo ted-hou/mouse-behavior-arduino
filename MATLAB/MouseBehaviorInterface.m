@@ -1670,7 +1670,7 @@ classdef MouseBehaviorInterface < handle
 				case {'ABORT'}
 					obj.Rsc.AbortToStimOffTimer = timer;
 					obj.Rsc.AbortToStimOffTimer.TimerFcn = @obj.AbortToStimOff;
-					abortToStimOffDuration = obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'WINDOW_DURATION'))/1000;
+					abortToStimOffDuration = 1;
 					obj.Rsc.AbortToStimOffTimer.StartDelay = abortToStimOffDuration;
 					start(obj.Rsc.AbortToStimOffTimer);
 					omegaToITIDuration = obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'OMEGA_TO_ITI_DURATION'))/1000;
