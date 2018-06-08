@@ -614,7 +614,7 @@ void state_response_window()
 		_prevState = _state;
 		sendState(_state);
 
-		rand_delay = random((_params[WINDOW_DURATION] - 600), _params[WINDOW_DURATION] + 1);
+		rand_delay = random((_params[WINDOW_DURATION] - 750), _params[WINDOW_DURATION] + 1);
 	}
 
 	/*****************************************************
