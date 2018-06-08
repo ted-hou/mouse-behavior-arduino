@@ -689,6 +689,7 @@ classdef MouseBehaviorInterface < handle
 				'Callback', @obj.TaskSchedulerApply ...
 			);
 			hPrev = button_apply;
+			dlg.UserData.Ctrl.Button_Apply = hPrev;
 
 			% Enable/disable button
 			if obj.UserData.TaskSchedulerEnabled
@@ -706,6 +707,7 @@ classdef MouseBehaviorInterface < handle
 				'Callback', @obj.TaskSchedulerEnable ...
 			);
 			hPrev = button_enable;
+			dlg.UserData.Ctrl.Button_Enable = hPrev;
 			hPrev.Position(1) = hPrev.Position(1) + ctrlSpacingX + buttonWidth;
 
 			% Revert button
@@ -719,6 +721,7 @@ classdef MouseBehaviorInterface < handle
 				'Callback', @obj.TaskSchedulerRevert ...
 			);
 			hPrev = button_revert;
+			dlg.UserData.Ctrl.Button_Revert = hPrev;
 			hPrev.Position(1) = hPrev.Position(1) + ctrlSpacingX + buttonWidth;
 
 			% Clear button
@@ -732,6 +735,7 @@ classdef MouseBehaviorInterface < handle
 				'Callback', @obj.TaskSchedulerClear ...
 			);
 			hPrev = button_clear;
+			dlg.UserData.Ctrl.Button_Clear = hPrev;
 			hPrev.Position(1) = hPrev.Position(1) + ctrlSpacingX + buttonWidth;
 
 			% Menus
@@ -744,8 +748,18 @@ classdef MouseBehaviorInterface < handle
 			dlg.Visible = 'on';
 		end
 
-		function TaskSchedulerApply(obj, ~, ~)
+		function TaskSchedulerApply(obj, ~, ~)		
 			obj.UserData.TaskSchedule = obj.Rsc.TaskScheduler.UserData.Ctrl.Table_Tasks.Data;
+			if ~isfield(obj.UserData, 'TaskSchedulerEnabled') || ~obj.UserData.TaskSchedulerEnabled
+				selection = questdlg(...
+					'Enable task scheduler?',...
+					'Enable',...
+					'Enable','No','No'...
+					);
+				if strcmp(selection, 'Enable')
+					obj.TaskSchedulerEnable(obj.Rsc.TaskScheduler.UserData.Ctrl.Button_Enable, [])
+				end
+			end				
 		end
 
 		function TaskSchedulerEnable(obj, hButton, ~)
