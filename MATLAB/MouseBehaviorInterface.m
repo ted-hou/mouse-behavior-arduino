@@ -1685,7 +1685,7 @@ classdef MouseBehaviorInterface < handle
 				case {'ABORT'}
 					obj.Rsc.AbortToStimOffTimer = timer;
 					obj.Rsc.AbortToStimOffTimer.TimerFcn = @obj.AbortToStimOff;
-					obj.Rsc.AbortToStimOffTimer.StartDelay = 1;
+					obj.Rsc.AbortToStimOffTimer.StartDelay = 0; % now immediately stops stim and flashes screen
 					start(obj.Rsc.AbortToStimOffTimer);
 					omegaToITIDuration = obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'OMEGA_TO_ITI_DURATION'))/1000;
 					obj.Rsc.OmegaToITITimer.StartDelay = omegaToITIDuration;
