@@ -1685,8 +1685,7 @@ classdef MouseBehaviorInterface < handle
 				case {'ABORT'}
 					obj.Rsc.AbortToStimOffTimer = timer;
 					obj.Rsc.AbortToStimOffTimer.TimerFcn = @obj.AbortToStimOff;
-					abortToStimOffDuration = 1;
-					obj.Rsc.AbortToStimOffTimer.StartDelay = abortToStimOffDuration;
+					obj.Rsc.AbortToStimOffTimer.StartDelay = 1;
 					start(obj.Rsc.AbortToStimOffTimer);
 					omegaToITIDuration = obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'OMEGA_TO_ITI_DURATION'))/1000;
 					obj.Rsc.OmegaToITITimer.StartDelay = omegaToITIDuration;
@@ -1790,13 +1789,12 @@ classdef MouseBehaviorInterface < handle
 			set(obj.Rsc.Bar, 'Visible', 'off');
 			set(obj.Rsc.Cue, 'Visible', 'off');
 			if strcmpi(obj.Rsc.FlashingScreenTimer.Running, 'off') && ~obj.Rsc.UserData.FlashingScreenPresented
-				obj.Rsc.FlashingScreenTimer.StartDelay = abortToStimOffDuration;
 				start(obj.Rsc.FlashingScreenTimer);
 			end
 		end
 
 		function FlashingScreen(obj, ~, ~)
-			if mod(FlashingScreenTimer.TasksExecuted, 2) == 0
+			if obj.Rsc.VisualStimFigure.Color(1) == 0
 				obj.Rsc.VisualStimFigure.Color = [0.7 0.7 0.7];
 			else
 				obj.Rsc.VisualStimFigure.Color = [0 0 0];	
