@@ -1796,7 +1796,7 @@ classdef MouseBehaviorInterface < handle
 		end
 
 		function FlashingScreen(obj, ~, ~)
-			if obj.Rsc.VisualStimFigure.Color(1) == 0
+			if mod(obj.Rsc.FlashingScreenTimer.TasksExecuted, 2) == 1
 				obj.Rsc.VisualStimFigure.Color = [0.7 0.7 0.7];
 			else
 				obj.Rsc.VisualStimFigure.Color = [0 0 0];	
