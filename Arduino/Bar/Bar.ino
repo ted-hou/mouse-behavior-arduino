@@ -140,10 +140,11 @@ enum ParamID
 	ITI_DURATION,				// ITI length, fixed
 	REWARD_DURATION,			// Reward duration (ms)
 	WINDOW_DURATION,			// Time from Alpha to Turning Point (or from Turning Point to Omega)
-	TRAINING_PHASE,				// For proactive, switches possible locations of cue (cardinal to anywhere)	
 	OMEGA_TO_ITI_DURATION,		// Time from Omega to ITI (ms)
-	ALLOW_EARLY_LICK,			// 0 to abort trial if animal licks after in pre-window
+	TRAINING_PHASE,				// For proactive, switches possible locations of cue (cardinal to anywhere)	
 	ALLOW_LICK_BAR_STAT,		// Allow early lick when stim first comes on
+	ALLOW_EARLY_LICK,			// 0 to abort trial if animal licks after in pre-window
+	NO_LICK_PUNISHMENT,			// 1 = Flashing screen in no lick abort
 	PAVLOVIAN,					// Pavlovian = 1, Operant = 0
 	REACTIVE,					// Proactive = 0, Reactive = 1
 	END_THETA,					// Define location of turning point
@@ -168,8 +169,9 @@ static const char *_paramNames[] =
 	"WINDOW_DURATION",			// Time from Alpha to Turning Point (or from Turning Point to Omega)
 	"OMEGA_TO_ITI_DURATION",	// Time from Omega to ITI (ms)
 	"TRAINING_PHASE",			// For proactive, switches possible locations of cue (cardinal to anywhere)			
-	"ALLOW_EARLY_LICK",			// 0 to abort trial if animal licks after in pre-window
 	"ALLOW_LICK_BAR_STAT",		// Allow early lick when stim first comes on
+	"ALLOW_EARLY_LICK",			// 0 to abort trial if animal licks after in pre-window
+	"NO_LICK_PUNISHMENT",		// 1 = Flashing screen in no lick abort
 	"PAVLOVIAN",				// Pavlovian = 1, Operant = 0
 	"REACTIVE",					// Is this a reactive or proactive paradigm?
 	"END_THETA",				// Define location of turning point
@@ -188,12 +190,13 @@ long _params[_NUM_PARAMS] =
 	0,		// _DEBUG
 	1000,	// BAR_STAT_DURATION
 	8000,	// ITI_DURATION
-	50,	// REWARD_DURATION
+	50,		// REWARD_DURATION
 	1000,	// WINDOW_DURATION
 	3000,	// OMEGA_TO_ITI_DURATION
 	0,		// TRAINING_PHASE
-	1,		// ALLOW_EARLY_LICK
 	1,		// ALLOW_LICK_BAR_STAT
+	1,		// ALLOW_EARLY_LICK
+	0,		// NO_LICK_PUNISHMENT
 	1,		// PAVLOVIAN
 	0, 		// REACTIVE
 	90,		// END_THETA
