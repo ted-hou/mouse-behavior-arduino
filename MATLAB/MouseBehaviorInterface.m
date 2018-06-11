@@ -640,7 +640,7 @@ classdef MouseBehaviorInterface < handle
 			if nargin < 2
 				position = [];
 				if isfield(obj.Rsc, 'ExperimentControl') && isvalid(obj.Rsc.ExperimentControl)
-					position = obj.Rsc.ExperimentControl.OuterPosition(1:2) + [0, obj.Rsc.ExperimentControl.OuterPosition(4)]
+					position = obj.Rsc.ExperimentControl.OuterPosition(1:2) + [0, obj.Rsc.ExperimentControl.OuterPosition(4)];
 				else
 					position = [10 550];
 				end
