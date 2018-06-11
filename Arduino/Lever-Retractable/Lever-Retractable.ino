@@ -291,8 +291,8 @@ static long _servoTargetPosLever	= _params[LEVER_POS_RETRACTED];	// Target posit
 static ServoState _servoStateLever 	= _SERVOSTATE_INIT;				// Servo state
 static long _servoStartTimeTube		= 0;							// When servo started moving retrieved using getTime()
 static long _servoSpeedTube			= _params[TUBE_SPEED_RETRACT]; 	// Speed of servo movement (deg/s)
-static long _servoStartPosTube		= _params[TUBE_POS_RETRACTED];	// Starting position of servo when rotation begins
-static long _servoTargetPosTube		= _params[TUBE_POS_RETRACTED];	// Target position of servo
+static long _servoStartPosTube		= _params[TUBE_POS_DEPLOYED];	// Starting position of servo when rotation begins
+static long _servoTargetPosTube		= _params[TUBE_POS_DEPLOYED];	// Target position of servo
 
 // For white noise generator
 static bool _whiteNoiseIsPlaying 			= false;	
@@ -357,8 +357,8 @@ void mySetup()
 	_servoStateLever 		= _SERVOSTATE_INIT;				// Servo state
 	_servoStartTimeTube		= 0;							// When servo started moving retrieved using getTime()
 	_servoSpeedTube			= _params[TUBE_SPEED_RETRACT]; 	// Speed of servo movement (deg/s)
-	_servoStartPosTube		= _params[TUBE_POS_RETRACTED];	// Starting position of servo when rotation begins
-	_servoTargetPosTube		= _params[TUBE_POS_RETRACTED];	// Target position of servo
+	_servoStartPosTube		= _params[TUBE_POS_DEPLOYED];	// Starting position of servo when rotation begins
+	_servoTargetPosTube		= _params[TUBE_POS_DEPLOYED];	// Target position of servo
 
 	_whiteNoiseIsPlaying 	= false;	
 	_whiteNoiseInterval 	= 50;					// Determines frequency (us)
