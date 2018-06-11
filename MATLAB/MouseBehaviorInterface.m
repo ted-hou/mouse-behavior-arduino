@@ -48,13 +48,21 @@ classdef MouseBehaviorInterface < handle
 			if ~strcmp(arduinoPortName, '/offline')
 				numCameras = CameraConnection.GetAvailableCameras;
 				if numCameras > 0
+					if isfield(obj.Rsc, 'TaskScheduler') && isvalid(obj.Rsc.TaskScheduler)
+						position = obj.Rsc.TaskScheduler.OuterPosition(1:2) + [0, obj.Rsc.TaskScheduler.OuterPosition(4)];
+					else
+						position = [];
+					end
+
 					obj.Arduino.Camera = CameraConnection(...
 						'CameraID', [],...
 						'Format', '',...
 						'FrameRate', [],...
 						'FileFormat', 'MPEG-4',...
 						'FrameGrabInterval', 1,...
-						'TimestampInterval', 10);
+						'TimestampInterval', 10,...
+						'DialogPosition', position...
+					);
 				end
 			end
 		end
@@ -576,7 +584,12 @@ classdef MouseBehaviorInterface < handle
 		function CreateDialog_CameraControl(obj)
 			% If object already exists, show window
 			if isvalid(obj.Arduino.Camera)
-				obj.Arduino.Camera.CreateDialog_CameraControl();
+				if isfield(obj.Rsc, 'TaskScheduler') && isvalid(obj.Rsc.TaskScheduler)
+					position = obj.Rsc.TaskScheduler.OuterPosition(1:2) + [0, obj.Rsc.TaskScheduler.OuterPosition(4)];
+				else
+					position = [];
+				end
+				obj.Arduino.Camera.CreateDialog_CameraControl(position);
 			end
 		end
 
@@ -623,8 +636,16 @@ classdef MouseBehaviorInterface < handle
 		%----------------------------------------------------
 		% 		Task scheduler
 		%----------------------------------------------------
+		function CreateDialog_TaskScheduler(obj, position)
+			if nargin < 2
+				position = [];
+				if isfield(obj.Rsc, 'ExperimentControl') && isvalid(obj.Rsc.ExperimentControl)
+					position = obj.Rsc.ExperimentControl.OuterPosition(1:2) + [0, obj.Rsc.ExperimentControl.OuterPosition(4)]
+				else
+					position = [10 550];
+				end
+			end
 
-		function CreateDialog_TaskScheduler(obj)
 			% If object already exists, show window
 			if isfield(obj.Rsc, 'TaskScheduler')
 				if isvalid(obj.Rsc.TaskScheduler)
@@ -657,9 +678,9 @@ classdef MouseBehaviorInterface < handle
 				'WindowStyle', 'normal',...
 				'Resize', 'on',...
 				'Units', 'pixels',...
-				'Position', [10 550 430 280],...
 				'Visible', 'off'... % Hide until all controls created
 			);
+
 			% Store the dialog handle
 			obj.Rsc.TaskScheduler = dlg;
 
@@ -743,6 +764,10 @@ classdef MouseBehaviorInterface < handle
 			uimenu(menu_window, 'Label', 'Monitor', 'Callback', @(~, ~) obj.CreateDialog_Monitor);
 			uimenu(menu_window, 'Label', 'Task Scheduler', 'Callback', @(~, ~) obj.CreateDialog_TaskScheduler);
 			uimenu(menu_window, 'Label', 'Camera', 'Callback', @(~, ~) obj.CreateDialog_CameraControl);
+
+			% Resize dialog
+			dlg.Position(3:4) = [430, 280];
+			dlg.OuterPosition(1:2) = position;
 
 			% Unhide dialog now that all controls have been created
 			dlg.Visible = 'on';

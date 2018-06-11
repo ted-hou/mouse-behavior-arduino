@@ -21,6 +21,7 @@ classdef CameraConnection < handle
 			addParameter(p, 'FrameRate', 30, @isnumeric); % Framerate for storage (not acquisition). i.e. 60fps acquisition + 30 fps storage == video playing at 1/2 speed
 			addParameter(p, 'FrameGrabInterval', 1, @(x) isnumeric(x) && floor(x) == x); % Set to 2 to skip every other frame
 			addParameter(p, 'TimestampInterval', 10, @(x) isnumeric(x) && floor(x) == x); % Set to 10 to register a timestamp every 10 frames
+			addParameter(p, 'DialogPosition', [], @isnumeric);
 			parse(p, varargin{:});
 			camID 				= p.Results.CameraID;
 			camFormat 			= p.Results.Format;
@@ -29,6 +30,7 @@ classdef CameraConnection < handle
 			frameRate 			= p.Results.FrameRate;
 			frameGrabInterval 	= p.Results.FrameGrabInterval;
 			timestampInterval 	= p.Results.TimestampInterval;
+			dialogPosition 		= p.Results.DialogPosition;
 
 			hwinfo = imaqhwinfo('winvideo');
 
@@ -121,13 +123,17 @@ classdef CameraConnection < handle
 			obj.Params.FrameRate = frameRate;
 
 			% Create camera control dialog
-			obj.CreateDialog_CameraControl();
+			obj.CreateDialog_CameraControl(dialogPosition);
 
 			% Open preview window
 			obj.Preview();
 		end
 
-		function CreateDialog_CameraControl(obj)
+		function CreateDialog_CameraControl(obj, position)
+			if nargin < 2
+				position = [20, 550];
+			end
+
 			% If object already exists, show window
 			if isfield(obj.Rsc, 'CameraControl')
 				if isvalid(obj.Rsc.CameraControl)
@@ -146,6 +152,7 @@ classdef CameraConnection < handle
 			dlg = dialog(...
 				'Name', hwinfo.DeviceInfo(obj.VideoInput.DeviceID).DeviceName,...
 				'WindowStyle', 'normal',...
+				'Units', 'pixels',...
 				'Resize', 'off',...
 				'Visible', 'off'... % Hide until all controls created
 			);
@@ -195,9 +202,10 @@ classdef CameraConnection < handle
 			hPrev.Position(1) = hPrev.Position(1) + hPrev.Position(3) + ctrlSpacing;
  
 			% Resize dialog
-			dlg.Position(1:2) = [20, 550];
-			dlg.Position(3) = hPrev.Position(1) + hPrev.Position(3) + ctrlSpacing;
-			dlg.Position(4) = 2*ctrlSpacing + buttonHeight;
+			dlg.Position(3:4) = [5*ctrlSpacing + 4*buttonWidth, 2*ctrlSpacing + buttonHeight];
+			if ~isempty(position)
+				dlg.OuterPosition(1:2) = position;
+			end
 
 			% Unhide dialog now that all controls have been created
 			dlg.Visible = 'on';
