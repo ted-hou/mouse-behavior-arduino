@@ -272,7 +272,7 @@ long _params[_NUM_PARAMS] =
 	0,		// TIMING
 	4,		// SPATIAL_FREQUENCY
 	4,		// BAR_SPEED
-	1,		// DOTS
+	0,		// DOTS
 	4,		// MU
 	2,		// SIGMA
 	105,	// LEVER_POS_RETRACTED
@@ -554,19 +554,6 @@ void state_start()
 		// Register events
 		sendEventMarker(EVENT_TRIAL_START, -1);
 
-		// Lever task: deploy lever
-		if (_params[USE_LEVER] == 1)
-		{
-			deployLever(true);
-			deployTube(true);
-		}
-		// Lick task: deploy tube, no lever
-		else
-		{
-			deployLever(false);
-			deployTube(true);
-		}
-
 		// Register trial start time
 		_timeTrialStart = signedMillis();
 
@@ -619,7 +606,20 @@ void state_bar_stat()
 		sendState(_state);
 
 		sendEventMarker(EVENT_STIM_ON, -1);
-		
+
+		// Lever task: deploy lever
+		if (_params[USE_LEVER] == 1)
+		{
+			deployLever(true);
+			deployTube(true);
+		}
+		// Lick task: deploy tube, no lever
+		else
+		{
+			deployLever(false);
+			deployTube(true);
+		}
+
 		// Register cue on time
 		_timeStimOn = signedMillis();
 	}
@@ -634,13 +634,20 @@ void state_bar_stat()
 		return;
 	}
 
-	// Lever/tube deployed --> PRE_WINDOW
+	// Early lick/lever-press detected --> ABORT
+	if ((_isLeverPressOnset && _params[ALLOW_EARLY_PRESS] == 0) || (_isLickOnset && _params[ALLOW_EARLY_LICK] == 0))
+	{
+		_state = STATE_ABORT_EARLY;
+		return;
+	}
+
+	// Lever/tube deployed --> BAR_MOVE
 	// Lever mode: make sure both are deployed
 	if (_params[USE_LEVER] == 1)
 	{
 		if (_servoStateLever == SERVOSTATE_DEPLOYED && _servoStateTube == SERVOSTATE_DEPLOYED)
 		{
-			_state = STATE_BAR_STAT;
+			_state = STATE_BAR_MOVE;
 			return;
 		}
 	}
@@ -649,7 +656,7 @@ void state_bar_stat()
 	{
 		if (_servoStateTube == SERVOSTATE_DEPLOYED)
 		{
-			_state = STATE_BAR_STAT;
+			_state = STATE_BAR_MOVE;
 			return;
 		}
 	}
