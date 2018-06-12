@@ -34,13 +34,13 @@ Servo _servoTube;
 
 // PWM OUT
 #define PIN_SERVO_LEVER	3
-#define PIN_SERVO_TUBE	8
+#define PIN_SERVO_TUBE	4
 
 // Digital IN
 #define PIN_LICK		13 // USER_3
-#define PIN_LEVER		1
+#define PIN_LEVER		5
 
-#define SERVO_READ_ACCURACY  1
+#define SERVO_READ_ACCURACY  5
 
 /*****************************************************
 	Enums - DEFINE States
@@ -239,7 +239,7 @@ static const char *_paramNames[] =
 	"BAR_SPEED",				// In hops/seconds
 	"DOTS",						// 1 to show moving dots
 	"MU",						// Mean trial length 
-	"SIGMA"						// Standard deviation for trial length
+	"SIGMA",					// Standard deviation for trial length
 	"LEVER_POS_RETRACTED",		// Servo (lever) position when lever is retracted
 	"LEVER_POS_DEPLOYED",		// Servo (lever) position when lever is deployed
 	"LEVER_SPEED_DEPLOY",		// Servo (lever) rotation speed when deploying, 0 for max speed
@@ -331,9 +331,9 @@ void setup()
 	// Init pins
 	pinMode(PIN_IR_LAMP, OUTPUT);	// IR LED for camera recording
 	pinMode(PIN_REWARD, OUTPUT);	// Reward, set to HIGH to open juice valve
+	pinMode(PIN_LICK_LED, OUTPUT);	// Lick LED, set to HIGH when lick detected
 	pinMode(PIN_LICK, INPUT);		// Lick detector
 	pinMode(PIN_LEVER, INPUT);		// Lever press detector
-	pinMode(PIN_LICK_LED, OUTPUT);	// Lick LED, set to HIGH when lick detected
 
 	// Initiate servo
 	_servoLever.attach(PIN_SERVO_LEVER);
