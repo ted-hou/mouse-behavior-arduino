@@ -677,6 +677,13 @@ void state_response_window()
 		return;
 	}
 
+	// Early press in lick task/lick in lever task detected --> ABORT
+	if ((_isLeverPressOnset && _params[ALLOW_EARLY_PRESS] == 0 && _params[USE_LEVER] == 0) || (_isLickOnset && _params[ALLOW_EARLY_LICK] == 0 && _params[USE_LEVER] == 1))
+	{
+		_state = STATE_ABORT;
+		return;
+	}
+
 	// Correct lick/press --> REWARD
 	if ((_isLickOnset && _params[USE_LEVER] == 0) || (_isLeverPressOnset && _params[USE_LEVER] == 1))
 	{
