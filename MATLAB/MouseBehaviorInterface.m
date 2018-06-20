@@ -888,8 +888,6 @@ classdef MouseBehaviorInterface < handle
 					cla(ax)
 				end
 			end
-			
-			drawnow
 		end
 		
 		%----------------------------------------------------
