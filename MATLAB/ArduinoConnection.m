@@ -95,7 +95,7 @@ classdef ArduinoConnection < handle
 			[filename, filepath] = uiputfile(['parameters_', datestr(now, 'yyyymmdd'), '.mat'], 'Save current parameters to file');
 			% Exit if no file selected
 			if ~(ischar(filename) && ischar(filepath))
-				varargout = {''}
+				varargout = {''};
 				return
 			end
 			% Save to file
