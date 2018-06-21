@@ -671,6 +671,9 @@ classdef OptogeneticsController < handle
 			tableWidth = 1 - 2*ctrlSpacingX;
 			tableHeight = 1 - buttonHeight - 3*ctrlSpacingY;
 
+			% Resize dialog so it fits all controls
+			screen_size = get(0, 'ScreenSize');
+
 			% Create the dialog
 			if isempty(obj.Arduino.SerialConnection)
 				port = 'OFFLINE';
@@ -682,7 +685,7 @@ classdef OptogeneticsController < handle
 				'WindowStyle', 'normal',...
 				'Resize', 'on',...
 				'Units', 'pixels',...
-				'Position', [10 550 430 280],...
+				'Position', [screen_size(3) - 550 - 10, 550, 430, 280],...
 				'Visible', 'off'... % Hide until all controls created
 			);
 			% Store the dialog handle
