@@ -30,17 +30,17 @@ Servo _servoTube;
 // Digital OUT
 #define PIN_REWARD		9  // Dedicated PIN from Sabatini Board
 #define PIN_LICK_LED	11 // USER_1
-#define PIN_IR_LAMP		12 // USER_2
+#define PIN_IR_LAMP		4 
 
 // PWM OUT
 #define PIN_SERVO_LEVER	3
-#define PIN_SERVO_TUBE	4
+#define PIN_SERVO_TUBE	12	// USER_2
 
 // Digital IN
 #define PIN_LICK		13 // USER_3
 #define PIN_LEVER		5
 
-#define SERVO_READ_ACCURACY  5
+#define SERVO_READ_ACCURACY  1
 
 /*****************************************************
 	Enums - DEFINE States
@@ -260,11 +260,11 @@ long _params[_NUM_PARAMS] =
 	1000,	// WINDOW_DURATION
 	3000,	// OMEGA_TO_ITI_DURATION
 	0,		// TRAINING_PHASE
-	1,		// USE_LEVER
+	0,		// USE_LEVER
 	0,		// ALLOW_EARLY_PRESS
 	0,		// ALLOW_LICK_BAR_STAT
 	0,		// ALLOW_EARLY_LICK
-	0,		// NO_LICK_PUNISHMENT
+	1,		// NO_LICK_PUNISHMENT
 	1,		// PAVLOVIAN
 	0, 		// REACTIVE
 	90,		// END_THETA
@@ -637,28 +637,8 @@ void state_bar_stat()
 	// Early lick/lever-press detected --> ABORT
 	if ((_isLeverPressOnset && _params[ALLOW_EARLY_PRESS] == 0) || (_isLickOnset && _params[ALLOW_EARLY_LICK] == 0))
 	{
-		_state = STATE_ABORT_EARLY;
+		_state = STATE_ABORT_BAR_STAT;
 		return;
-	}
-
-	// Lever/tube deployed --> BAR_MOVE
-	// Lever mode: make sure both are deployed
-	if (_params[USE_LEVER] == 1)
-	{
-		if (_servoStateLever == SERVOSTATE_DEPLOYED && _servoStateTube == SERVOSTATE_DEPLOYED)
-		{
-			_state = STATE_BAR_MOVE;
-			return;
-		}
-	}
-	// Tube mode: make sure tube is deployed
-	else
-	{
-		if (_servoStateTube == SERVOSTATE_DEPLOYED)
-		{
-			_state = STATE_BAR_MOVE;
-			return;
-		}
 	}
 
 	// Lick detected
@@ -683,8 +663,16 @@ void state_bar_stat()
 	// bar_stat elapsed --> BAR_MOVE
 	if (getTimeSinceStimOn() >= _params[BAR_STAT_DURATION])
 	{
-		_state = STATE_BAR_MOVE;
-		return;
+		if (_params[USE_LEVER] == 1 && _servoStateLever == SERVOSTATE_DEPLOYED && _servoStateTube == SERVOSTATE_DEPLOYED)
+		{
+			_state = STATE_BAR_MOVE;
+			return;
+		}
+		if (_params[USE_LEVER] == 0 && _servoStateTube == SERVOSTATE_DEPLOYED)
+		{
+			_state = STATE_BAR_MOVE;
+			return;
+		}
 	}
 
 	_state = STATE_BAR_STAT;
@@ -1009,7 +997,7 @@ void state_abort_early()
 		TRANSITION LIST
 	*****************************************************/
 	// Quit signal from host --> IDLE
-	if (_command == 'Q') 
+	if (_command == 'Q')
 	{
 		_state = STATE_IDLE;
 		return;
