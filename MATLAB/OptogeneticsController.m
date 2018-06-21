@@ -596,99 +596,10 @@ classdef OptogeneticsController < handle
 			menu_window = uimenu(dlg, 'Label', '&Window');
 			uimenu(menu_window, 'Label', 'Optogenetics Control', 'Callback', @(~, ~) @obj.CreateDialog_ExperimentControl);
 			uimenu(menu_window, 'Label', 'OptoMonitor', 'Callback', @(~, ~) obj.CreateDialog_Monitor);
+			uimenu(menu_window, 'Label', 'Task Scheduler', 'Callback', @(~, ~) obj.CreateDialog_TaskScheduler);
 
 			% Stretch barchart When dialog window is resized
 			dlg.SizeChangedFcn = @OptogeneticsController.OnMonitorDialogResized; 
-
-			% Unhide dialog now that all controls have been created
-			dlg.Visible = 'on';
-		end
-
-		function CreateDialog_Nidaq(obj)
-			% If object already exists, show window
-			if isfield(obj.Rsc, 'Nidaq')
-				if isvalid(obj.Rsc.Nidaq)
-					figure(obj.Rsc.Nidaq)
-					return
-				end
-			end
-
-			% Create the dialog
-			if isempty(obj.Arduino.SerialConnection)
-				port = 'OFFLINE';
-			else
-				port = obj.Arduino.SerialConnection.Port;
-			end
-			dlg = dialog(...
-				'Name', sprintf('NIDAQ (%s)', port),...
-				'WindowStyle', 'normal',...
-				'Position', [350, 450, 400, 200],...
-				'Units', 'pixels',...
-				'Resize', 'on',...
-				'Visible', 'off'... % Hide until all controls created
-			);
-
-			% Store the dialog handle
-			obj.Rsc.Nidaq = dlg;
-
-			% Size and position of controls
-			dlg.UserData.Spacing = 20;
-			dlg.UserData.TextHeight = 30;
-
-			u = dlg.UserData;
-
-			% delete object when you close the window
-			dlg.CloseRequestFcn = @(~, ~) (delete(gcbo));
-
-
-			%----------------------------------------------------
-			% 		Stacked bar chart for trial results
-			%----------------------------------------------------
-			ax = axes(...
-				'Parent', dlg,...
-				'Units', 'pixels',...
-				'XTickLabel', [],...
-				'YTickLabel', [],...
-				'XTick', [],...
-				'YTick', [],...
-				'Box', 'on'...
-			);
-			obj.Rsc.Monitor.UserData.Ctrl.Ax = ax;
-
-			% Update session summary everytime a new trial's results are registered by Arduino
-			obj.Arduino.Listeners.TrialRegistered = addlistener(obj.Arduino, 'TrialsCompleted', 'PostSet', @obj.OnTrialRegistered);
-
-
-			%----------------------------------------------------
-			% 		Menus
-			%----------------------------------------------------
-			menu_file = uimenu(dlg, 'Label', '&File');
-			uimenu(menu_file, 'Label', '&Save Plot Settings ...', 'Callback', @(~, ~) obj.SavePlotSettings, 'Accelerator', 's');
-			uimenu(menu_file, 'Label', '&Load Plot Settings ...', 'Callback', @(~, ~) obj.LoadPlotSettings, 'Accelerator', 'l');
-			menu_plot = uimenu(menu_file, 'Label', '&Plot Update', 'Separator', 'on');
-			menu_plot.UserData.Menu_Enable = uimenu(menu_plot, 'Label', '&Enabled', 'Callback', @(~, ~) obj.EnablePlotUpdate(menu_plot));
-			menu_plot.UserData.Menu_Disable = uimenu(menu_plot, 'Label', '&Disabled', 'Callback', @(~, ~) obj.DisablePlotUpdate(menu_plot));
-
-			if isfield(obj.UserData, 'UpdatePlot')
-				if obj.UserData.UpdatePlot
-					menu_plot.UserData.Menu_Enable.Checked = 'on';
-					menu_plot.UserData.Menu_Disable.Checked = 'off';
-				else
-					menu_plot.UserData.Menu_Enable.Checked = 'off';
-					menu_plot.UserData.Menu_Disable.Checked = 'on';
-				end
-			else
-				menu_plot.UserData.Menu_Enable.Checked = 'on';
-				menu_plot.UserData.Menu_Disable.Checked = 'off';
-				obj.UserData.UpdatePlot = true;
-			end
-
-			menu_window = uimenu(dlg, 'Label', '&Window');
-			uimenu(menu_window, 'Label', 'Optogenetics Control', 'Callback', @(~, ~) @obj.CreateDialog_ExperimentControl);
-			uimenu(menu_window, 'Label', 'OptoMonitor', 'Callback', @(~, ~) obj.CreateDialog_Monitor);
-
-			% Stretch barchart When dialog window is resized
-			% dlg.SizeChangedFcn = @OptogeneticsController.OnNiDaqDialogResized; 
 
 			% Unhide dialog now that all controls have been created
 			dlg.Visible = 'on';
@@ -734,12 +645,234 @@ classdef OptogeneticsController < handle
 			obj.Rsc.Splash.dispose;
 		end
 
+		%----------------------------------------------------
+		% 		Task scheduler
+		%----------------------------------------------------
+
+		function CreateDialog_TaskScheduler(obj)
+			% If object already exists, show window
+			if isfield(obj.Rsc, 'TaskScheduler')
+				if isvalid(obj.Rsc.TaskScheduler)
+					figure(obj.Rsc.TaskScheduler)
+					return
+				end
+			end
+
+			if ~isfield(obj.UserData, 'TaskSchedulerEnabled')
+				obj.UserData.TaskSchedulerEnabled = false;
+			end
+
+			% Size and position of controls
+			numButtons = 4;
+			ctrlSpacingX = 0.05;
+			ctrlSpacingY = 0.025;
+			buttonWidth = (1 - (numButtons + 1)*ctrlSpacingX)/numButtons;
+			buttonHeight = 0.075;
+			tableWidth = 1 - 2*ctrlSpacingX;
+			tableHeight = 1 - buttonHeight - 3*ctrlSpacingY;
+
+			% Create the dialog
+			if isempty(obj.Arduino.SerialConnection)
+				port = 'OFFLINE';
+			else
+				port = obj.Arduino.SerialConnection.Port;
+			end
+			dlg = dialog(...
+				'Name', sprintf('Task Scheduler (%s)', port),...
+				'WindowStyle', 'normal',...
+				'Resize', 'on',...
+				'Units', 'pixels',...
+				'Position', [10 550 430 280],...
+				'Visible', 'off'... % Hide until all controls created
+			);
+			% Store the dialog handle
+			obj.Rsc.TaskScheduler = dlg;
+
+			% Create a uitable for creating tasks
+			if isfield(obj.UserData, 'TaskSchedule')
+				data = obj.UserData.TaskSchedule;
+			else
+				data = repmat({'', 'NONE', []}, [12, 1]);
+			end
+			table_tasks = uitable(...
+				'Parent', dlg,...
+				'ColumnName', {'Trials', 'Action', 'Value'},...
+				'ColumnWidth', {'auto', 200, 'auto'},...
+				'ColumnFormat', {'char', ['NONE', obj.Arduino.ParamNames, 'STOP'], 'long'},...
+				'Data', data,...
+				'ColumnEditable', true,...
+				'Units', 'normalized',...
+				'Position', [ctrlSpacingX, buttonHeight + 2*ctrlSpacingY, tableWidth, tableHeight] ...
+			);
+			dlg.UserData.Ctrl.Table_Tasks = table_tasks;
+
+			% Apply button
+			button_apply = uicontrol(...
+				'Parent', dlg,...
+				'Style', 'pushbutton',...
+				'Units', 'normalized',...
+				'Position', [ctrlSpacingX, ctrlSpacingY, buttonWidth, buttonHeight],...
+				'String', 'Apply',...
+				'TooltipString', 'Apply these settings.',...
+				'Callback', @obj.TaskSchedulerApply ...
+			);
+			hPrev = button_apply;
+
+			% Enable/disable button
+			if obj.UserData.TaskSchedulerEnabled
+				buttonString = 'Disable';
+			else
+				buttonString = 'Enable';
+			end
+			button_enable = uicontrol(...
+				'Parent', dlg,...
+				'Style', 'pushbutton',...
+				'Units', 'normalized',...
+				'Position', hPrev.Position,...
+				'String', buttonString,...
+				'TooltipString', 'Enable task scheduling.',...
+				'Callback', @obj.TaskSchedulerEnable ...
+			);
+			hPrev = button_enable;
+			hPrev.Position(1) = hPrev.Position(1) + ctrlSpacingX + buttonWidth;
+
+			% Revert button
+			button_revert = uicontrol(...
+				'Parent', dlg,...
+				'Style', 'pushbutton',...
+				'Units', 'normalized',...
+				'Position', hPrev.Position,...
+				'String', 'Revert',...
+				'TooltipString', 'Revert to previous setting.',...
+				'Callback', @obj.TaskSchedulerRevert ...
+			);
+			hPrev = button_revert;
+			hPrev.Position(1) = hPrev.Position(1) + ctrlSpacingX + buttonWidth;
+
+			% Clear button
+			button_clear = uicontrol(...
+				'Parent', dlg,...
+				'Style', 'pushbutton',...
+				'Units', 'normalized',...
+				'Position', hPrev.Position,...
+				'String', 'Clear',...
+				'TooltipString', 'Clear all settings.',...
+				'Callback', @obj.TaskSchedulerClear ...
+			);
+			hPrev = button_clear;
+			hPrev.Position(1) = hPrev.Position(1) + ctrlSpacingX + buttonWidth;
+
+			% Menus
+			menu_window = uimenu(dlg, 'Label', '&Window');
+			uimenu(menu_window, 'Label', 'Experiment Control', 'Callback', @(~, ~) @obj.CreateDialog_ExperimentControl);
+			uimenu(menu_window, 'Label', 'Monitor', 'Callback', @(~, ~) obj.CreateDialog_Monitor);
+			uimenu(menu_window, 'Label', 'Task Scheduler', 'Callback', @(~, ~) obj.CreateDialog_TaskScheduler);
+
+			% Unhide dialog now that all controls have been created
+			dlg.Visible = 'on';
+		end
+
+		function TaskSchedulerApply(obj, ~, ~)
+			obj.UserData.TaskSchedule = obj.Rsc.TaskScheduler.UserData.Ctrl.Table_Tasks.Data;
+		end
+
+		function TaskSchedulerEnable(obj, hButton, ~)
+			% Default to disabled
+			if ~isfield(obj.UserData, 'TaskSchedulerEnabled')
+				obj.UserData.TaskSchedulerEnabled = false;
+			end
+
+			% Toggle
+			obj.UserData.TaskSchedulerEnabled = ~obj.UserData.TaskSchedulerEnabled;
+
+			% Update button
+			if obj.UserData.TaskSchedulerEnabled
+				hButton.String = 'Disable';
+			else
+				hButton.String = 'Enable';
+			end
+		end
+
+		function TaskSchedulerRevert(obj, ~, ~)
+			if isfield(obj.UserData, 'TaskSchedule') && ~isempty(obj.UserData.TaskSchedule)
+				obj.Rsc.TaskScheduler.UserData.Ctrl.Table_Tasks.Data = obj.UserData.TaskSchedule;
+			else
+				obj.TaskSchedulerClear();
+			end
+		end
+
+		function TaskSchedulerClear(obj, ~, ~)
+			if isfield(obj.Rsc, 'TaskScheduler')
+				obj.Rsc.TaskScheduler.UserData.Ctrl.Table_Tasks.Data = repmat({'', 'NONE', []}, [size(obj.Rsc.TaskScheduler.UserData.Ctrl.Table_Tasks.Data, 1), 1]);
+			end
+		end
+
+		function TaskSchedulerExecute(obj)
+			if ~isfield(obj.UserData, 'TaskSchedulerEnabled') || ~obj.UserData.TaskSchedulerEnabled
+				return
+			end
+
+			% How many trials have been completed so far
+			iTrial = obj.Arduino.TrialsCompleted;
+
+			% Parse the list
+			tasks = obj.UserData.TaskSchedule;
+			isItTimeYet = cellfun(@(str) obj.TaskSchedulerIsItTimeYet(str, iTrial), tasks(:, 1));
+
+			if ~isempty(find(isItTimeYet))
+				for iTask = transpose(find(isItTimeYet))
+					task = tasks{iTask, 2};
+					if strcmpi(task, 'STOP')
+						obj.ArduinoStop();
+						break
+					end
+					if strcmpi(task, 'NONE')
+						continue
+					end
+					oldValue = obj.GetParam(task);
+					newValue = tasks{iTask, 3};
+					if ~isempty(oldValue) && ~isempty(newValue)
+						obj.SetParam(task, newValue)
+					end
+				end
+			end
+		end
+
+		function isItTimeYet = TaskSchedulerIsItTimeYet(obj, str, iTrial)
+			isItTimeYet = false;
+			if isempty(str)
+				return
+			end
+
+			try
+				if contains(str, 'end', 'IgnoreCase', true)
+					parts = strsplit(str, ':');
+					if ~strcmpi(parts{end}, 'end') || nnz(cellfun(@(x) isempty(x), parts)) > 0
+						error('')
+					end
+					switch length(parts)
+						case 2
+							isItTimeYet = iTrial >= str2num(parts{1});
+						case 3
+							isItTimeYet = iTrial >= str2num(parts{1}) && rem(iTrial - str2num(parts{1}), str2num(parts{2})) == 0;
+					end
+				else
+					isItTimeYet = ismember(iTrial, eval(str));
+				end
+			catch
+				warning(['Failed to evaluate task scheduler parameter (', str, ')'])
+			end
+		end
+
 		function OnTrialRegistered(obj, ~, ~)
 		% Executed when a new trial is completed
 			% Autosave if a savepath is defined
 			if (~isempty(obj.Arduino.ExperimentFileName) && obj.Arduino.AutosaveEnabled)
-				OptogeneticsController.ArduinoSaveExperiment([], [], obj.Arduino);
+				obj.ArduinoSaveExperiment();
 			end
+
+			% Task scheduling
+			obj.TaskSchedulerExecute();
 
 			% Updated monitor window
 			if isvalid(obj.Rsc.Monitor)
@@ -751,18 +884,23 @@ classdef OptogeneticsController < handle
 				t.String = sprintf('Trials completed: %d', iTrial);
 
 				% Show result of last trial
-				t = obj.Rsc.Monitor.UserData.Ctrl.LastTrialResultText;
-				t.String = sprintf('Last trial: %s', obj.Arduino.Trials(iTrial).CodeName);
+				if (iTrial > 0)
+					t = obj.Rsc.Monitor.UserData.Ctrl.LastTrialResultText;
+					t.String = sprintf('Last trial: %s', obj.Arduino.Trials(iTrial).CodeName);
+				end
 
-				% When a new trial is completed
+				% Update Stacked Bar Plot (Session summary)
 				ax = obj.Rsc.Monitor.UserData.Ctrl.Ax;
-				% Get a list of currently recorded result codes
-				resultCodes = reshape([obj.Arduino.Trials.Code], [], 1);
-				resultCodeNames = obj.Arduino.ResultCodeNames;
-				allResultCodes = 1:(length(resultCodeNames) + 1);
-				resultCodeCounts = histcounts(resultCodes, allResultCodes);
+				if (iTrial > 0)
+					resultCodes = reshape([obj.Arduino.Trials.Code], [], 1);
+					resultCodeNames = obj.Arduino.ResultCodeNames;
+					allResultCodes = 1:(length(resultCodeNames) + 1);
+					resultCodeCounts = histcounts(resultCodes, allResultCodes);
 
-				OptogeneticsController.StackedBar(ax, resultCodeCounts, resultCodeNames);
+					MouseBehaviorInterface.StackedBar(ax, resultCodeCounts, resultCodeNames);
+				else
+					cla(ax)
+				end
 			end
 
 			drawnow
@@ -1123,10 +1261,6 @@ classdef OptogeneticsController < handle
 			ax.UserData.FigName 			= figName;
 		end
 
-		function OnParamChanged(obj, ~, ~)
-			obj.Rsc.ExperimentControl.UserData.Ctrl.Table_Params.Data = obj.Arduino.ParamValues';
-		end
-
 		function EnablePlotUpdate(obj, menu_plot)
 			menu_plot.UserData.Menu_Enable.Checked = 'on';
 			menu_plot.UserData.Menu_Disable.Checked = 'off';
@@ -1205,6 +1339,164 @@ classdef OptogeneticsController < handle
 				ctrl.Popup_EventOfInterest_Hist.Value = p.plotSettings{8};
 			end
 		end
+
+		%----------------------------------------------------
+		%		Commmunicating with Arduino
+		%----------------------------------------------------
+		function OnParamChanged(obj, ~, ~)
+			obj.Rsc.ExperimentControl.UserData.Ctrl.Table_Params.Data = obj.Arduino.ParamValues';
+		end
+
+		function OnParamChangedViaGUI(obj, ~, evnt)
+			% evnt (event data contains infomation on which elements were changed to what)
+			changedParam = evnt.Indices(1);
+			newValue = evnt.NewData;
+			
+			% Add new parameter to update queue
+			obj.Arduino.UpdateParams_AddToQueue(changedParam, newValue)
+			% Attempt to execute update queue now, if current state does not allow param update, the queue will be executed when we enter an appropriate state
+			obj.Arduino.UpdateParams_Execute()
+		end
+
+		function varargout = GetParam(obj, index)
+			p = inputParser;
+			addRequired(p, 'Index', @(x) isnumeric(x) || ischar(x));
+			parse(p, index);
+			index = p.Results.Index;
+
+			if ischar(index)
+				index = find(strcmpi(index, obj.Arduino.ParamNames));
+			end
+
+			if isempty(index)
+				varargout = {[]};
+			else
+				index = index(1);
+				varargout = {obj.Arduino.ParamValues(index)};
+			end
+		end
+
+		function SetParam(obj, index, value, varargin)
+			p = inputParser;
+			addRequired(p, 'Index', @(x) isnumeric(x) || ischar(x));
+			addRequired(p, 'Value', @isnumeric);
+			parse(p, index, value);
+			index = p.Results.Index;
+			value = p.Results.Value;
+
+			if ischar(index)
+				index = find(strcmpi(index, obj.Arduino.ParamNames));
+			end
+
+			if ~isempty(index)
+				index = index(1);
+				obj.Arduino.UpdateParams_AddToQueue(index, value);
+				obj.Arduino.UpdateParams_Execute();
+			end
+		end
+
+		function ArduinoStart(obj, ~, ~)
+			if ((~obj.Arduino.AutosaveEnabled) || isempty(obj.Arduino.ExperimentFileName))
+				selection = questdlg(...
+					'Autosave is disabled. Start experiment anyway?',...
+					'Autosave',...
+					'Save', 'Start Anyway', 'Cancel' ,'Save'...
+				);
+				switch selection
+					case 'Save'
+						obj.ArduinoSaveAsExperiment()
+					case 'Start Anyway'
+						warning('Autosave not enabled. Starting experiment anyway.')
+					otherwise
+						return
+				end 
+			end
+			obj.Arduino.Start()
+		end
+
+		function ArduinoStop(obj, ~, ~)
+			obj.Arduino.Stop()
+		end
+
+		function ArduinoReset(obj, ~, ~)
+			obj.Arduino.Reset()
+			delete(obj.Rsc.Monitor)
+			delete(obj.Rsc.ExperimentControl)
+			obj.CreateDialog_ExperimentControl();
+			obj.CreateDialog_Monitor();
+		end
+
+		function ArduinoClose(obj, ~, ~)
+			selection = questdlg(...
+				'Close all windows and terminate connection with Arduino?',...
+				'Close Window',...
+				'Yes','No','Yes'...
+			);
+			switch selection
+				case 'Yes'
+					obj.Arduino.Close()
+					delete(obj.Rsc.Monitor)
+					delete(obj.Rsc.ExperimentControl)
+					if isfield(obj.Rsc, 'TaskScheduler')
+						delete(obj.Rsc.TaskScheduler)
+					end
+					fprintf('Arduino connection closed.\n')
+				case 'No'
+					return
+			end
+		end
+
+		function StimulateChR2(obj, ~, ~)
+			obj.Arduino.ChR2()
+			fprintf('Stimulating ChR2 with UI parameters...\n')
+		end
+		function Optotag(obj, ~, ~)
+			obj.Arduino.Optotag()
+			fprintf('Called Optotagging ladder...\n')
+		end
+
+		function ArduinoReconnect(obj, ~, ~)
+			obj.Arduino.Reconnect()
+		end
+
+		function ArduinoSaveParameters(obj, ~, ~)
+			file = obj.Arduino.SaveParameters();
+			if ~isempty(file)
+				if isfield(obj.UserData, 'TaskSchedule')
+					taskSchedule = obj.UserData.TaskSchedule;
+					save(file, 'taskSchedule', '-append')
+				end
+			end
+		end
+
+		function ArduinoLoadParameters(obj, ~, ~)
+			file = obj.Arduino.LoadParameters();
+			if ~isempty(file)
+				p = load(file);
+				if isfield(p, 'taskSchedule')
+					obj.UserData.TaskSchedule = p.taskSchedule;
+					if isfield(obj.Rsc, 'TaskScheduler') && isvalid(obj.Rsc.TaskScheduler)
+						obj.Rsc.TaskScheduler.UserData.Ctrl.Table_Tasks.Data = p.taskSchedule;
+					end
+				end
+			end
+		end
+
+		function ArduinoSaveExperiment(obj, ~, ~)
+			if isempty(obj.Arduino.ExperimentFileName)
+				obj.ArduinoSaveAsExperiment()
+			else
+				obj.Arduino.SaveExperiment()
+			end
+		end
+
+		function ArduinoSaveAsExperiment(obj, ~, ~)
+			obj.Arduino.SaveAsExperiment()
+		end
+
+		function ArduinoLoadExperiment(obj, ~, ~)
+			obj.Arduino.LoadExperiment()
+		end
 	end
 
 	%----------------------------------------------------
@@ -1243,106 +1535,6 @@ classdef OptogeneticsController < handle
 				arduinoPortName = '/offline';
 			end	
 		end
-
-		function OnParamChangedViaGUI(~, evnt, arduino)
-			% evnt (event data contains infomation on which elements were changed to what)
-			changedParam = evnt.Indices(1);
-			newValue = evnt.NewData;
-			
-			% Add new parameter to update queue
-			arduino.UpdateParams_AddToQueue(changedParam, newValue)
-			% Attempt to execute update queue now, if current state does not allow param update, the queue will be executed when we enter an appropriate state
-			arduino.UpdateParams_Execute()
-		end
-		function ArduinoStart(~, ~, arduino)
-			if ((~arduino.AutosaveEnabled) || isempty(arduino.ExperimentFileName))
-				selection = questdlg(...
-					'Autosave is disabled. Start experiment anyway?',...
-					'Autosave',...
-					'Save', 'Start Anyway', 'Cancel' ,'Save'...
-				);
-				switch selection
-					case 'Save'
-						arduino.SaveAsExperiment()
-					case 'Start Anyway'
-						warning('Autosave not enabled. Starting experiment anyway.')
-					otherwise
-						return
-				end 
-			end
-			arduino.Start()
-			fprintf('Started.\n')			
-		end
-		function ArduinoStop(~, ~, arduino)
-			arduino.Stop()
-			fprintf('Stopped.\n')
-		end
-		function ArduinoReset(~, ~, arduino)
-			arduino.Reset()
-			fprintf('Reset.\n')
-		end
-		function StimulateChR2(~, ~, arduino)
-			arduino.ChR2()
-			fprintf('Stimulating ChR2 with UI parameters...\n')
-		end
-		function Optotag(~, ~, arduino)
-			arduino.Optotag()
-			fprintf('Called Optotagging ladder...\n')
-		end
-		function ArduinoClose(~, ~, obj)
-			selection = questdlg(...
-				'Close all windows and terminate connection with Arduino?',...
-				'Close Window',...
-				'Yes','No','Yes'...
-			);
-			switch selection
-				case 'Yes'
-					obj.Arduino.Close()
-					delete(obj.Rsc.Monitor)
-					delete(obj.Rsc.ExperimentControl)
-					fprintf('Connection closed.\n')
-				case 'No'
-					return
-			end
-		end
-		function ArduinoReconnect(~, ~, arduino)
-			arduino.Reconnect()
-		end
-		function ArduinoSaveParameters(~, ~, arduino)
-			arduino.SaveParameters()
-		end
-		function ArduinoLoadParameters(~, ~, arduino, table_params)
-			if nargin < 4
-				table_params = [];
-			end
-			arduino.LoadParameters(table_params, '')
-		end
-		function ArduinoSaveExperiment(~, ~, arduino)
-			if isempty(arduino.ExperimentFileName)
-				arduino.SaveAsExperiment()
-			else
-				arduino.SaveExperiment()
-			end
-		end
-		function ArduinoSaveAsExperiment(~, ~, arduino)
-			arduino.SaveAsExperiment()
-		end
-		function ArduinoLoadExperiment(~, ~, arduino)
-			arduino.LoadExperiment()
-		end
-
-		%----------------------------------------------------
-		%		Commmunicating with DAQ
-		%----------------------------------------------------
-		function NidaqStart(~, ~, nidaq)
-			nidaq.Start()
-		end
-
-		function NidaqStop(~, ~, nidaq)
-			nidaq.Stop()
-		end
-
-
 		%----------------------------------------------------
 		%		Dialog Resize callbacks
 		%----------------------------------------------------
