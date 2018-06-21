@@ -1277,7 +1277,7 @@ classdef MouseBehaviorInterface < handle
 			ax.UserData.EventCodeZero 		= eventCodeZero;
 			ax.UserData.EventCodeOfInterest = eventCodeOfInterest;
             %------ AH 5/14/18
-            ax.UserData.EventCodeSecondary      = eventCodeSecondaryType;
+            ax.UserData.EventCodeSecondary  = eventCodeSecondaryType;
             %------
 			ax.UserData.FigName				= figName;
 
@@ -1288,7 +1288,7 @@ classdef MouseBehaviorInterface < handle
 
 			% Plot again everytime an event of interest occurs
 			if ~isfield(ax.UserData, 'Listener') || ~isvalid(ax.UserData.Listener)
-				ax.UserData.Listener = addlistener(obj.Arduino, 'TrialsCompleted', 'PostSet', @(~, ~) obj.Hist_Execute(figId, numBins));
+				ax.UserData.Listener = addlistener(obj.Arduino, 'TrialsCompleted', 'PostSet', @(~, ~) obj.Hist_Execute(figId, numBins, trialMin, trialMax));
 			end
 			f.CloseRequestFcn = {@MouseBehaviorInterface.OnLooseFigureClosed, ax.UserData.Listener};
 		end
@@ -1413,11 +1413,12 @@ classdef MouseBehaviorInterface < handle
 %             disp(numBins)
 %             disp(class(numBins))
 % 			histogram(ax, eventTimesOfInterest, str2double(numBins), 'DisplayName', obj.Arduino.EventMarkerNames{eventCodeOfInterest})
+			cla(ax)
             histogram(ax, eventTimesOfInterest_noSecondary, str2double(numBins), 'DisplayName', [obj.Arduino.EventMarkerNames{eventCodeOfInterest}, ' no stim'])
             hold on
-            plot([median_noSecondary, median_noSecondary], [0,15], 'b-', 'LineWidth', 3', 'DisplayName', 'Median (>700ms) No Stim');
+            plot([median_noSecondary, median_noSecondary], [0,15], 'b-', 'LineWidth', 3, 'DisplayName', 'Median (>700ms) No Stim');
             histogram(ax, eventTimesOfInterest_Secondary, str2double(numBins), 'DisplayName', [obj.Arduino.EventMarkerNames{eventCodeOfInterest}, ' stim'])
-            plot([median_Secondary, median_Secondary], [0,15], 'm-', 'LineWidth', 3', 'DisplayName', 'Median (>700ms) + Stim');
+            plot([median_Secondary, median_Secondary], [0,15], 'm-', 'LineWidth', 3, 'DisplayName', 'Median (>700ms) + Stim');
 
             hold off
             %----------------
