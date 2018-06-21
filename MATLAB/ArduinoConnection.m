@@ -1,4 +1,18 @@
 %% ArduinoConnection: serial port connection to an Arduino
+% 
+% 	Last Modified: 5/2/18 ahamilos
+% 
+% Update Hx:
+% 	3/16/18: Added ChR2() method to UI stimulate ChR2
+% 	5/2/18:  Added Optotag() to init ladder
+% 
+% 
+%  RESERVED COMMANDS:
+% 		C, G, P, Q, R, T
+%  RESERVED RECEIPTS:
+% 		R, ~, `, @, &, $*, #, +
+% --------------------------------------------------------------
+
 classdef ArduinoConnection < handle
 	properties
 		StateNames = {}
@@ -10,6 +24,7 @@ classdef ArduinoConnection < handle
 		EventMarkerNames = {}
 		Trials = struct([])
 		ExperimentFileName = ''			% Contains 'C://path/filename.mat'
+		OptogeneticsController
 	end
 
 	properties (SetObservable, AbortSet)
@@ -337,6 +352,24 @@ classdef ArduinoConnection < handle
 					% Register parameter name and value
 					obj.ParamNames{paramId} = subStrings{2};
 					obj.ParamValues(paramId) = str2num(subStrings{3});
+				case '^'
+					% 1. turn off the listeners
+					obj.Listeners.ParamChanged.Enabled = false;
+					% Arduino sent parameter updates - "^ 1 INTERVAL_MIN 1250"
+					subStrings = strsplit(strtrim(value), ' ');
+					% Convert zero-based indices (Arduino) to one-based indices (MATLAB)
+					paramId = str2num(subStrings{1}) + 1;
+					% Register parameter name and value
+					obj.ParamNames{paramId} = subStrings{2};
+					obj.ParamValues(paramId) = str2num(subStrings{3});
+					% Update the params in the GUI without sending update to Arduino:
+					obj.OptogeneticsController.Rsc.ExperimentControl.UserData.Ctrl.Table_Params.Data(paramId) = obj.ParamValues(paramId);
+					% -1. turn on the listeners
+					obj.Listeners.ParamChanged.Enabled = true;
+					if obj.DebugMode
+						fprintf('		EVENT: Matlab received param update from Arduino - %d\n', timeStamp)
+						% disp(messageString)
+					end
 				case '`'
 					% Result code returned, this is only expected once per trial
 
@@ -365,6 +398,8 @@ classdef ArduinoConnection < handle
 					obj.ResultCodeNames{codeId} = subStrings{2};
 				case '~'
 					fprintf('\nUp and running.\n')
+				case 'R'
+					fprintf('\nArduino received stimulation command.\n')
 				otherwise
 					% Arduino sent a message
 					fprintf('%s\n', messageString)
@@ -459,6 +494,14 @@ classdef ArduinoConnection < handle
 				fclose(obj.SerialConnection);
 				fopen(obj.SerialConnection);
 			end
+		end
+
+		function ChR2(obj)
+			obj.SendMessage('C')
+		end
+
+		function Optotag(obj)
+			obj.SendMessage('T')
 		end
 	end
 
