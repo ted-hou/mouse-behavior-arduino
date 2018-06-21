@@ -635,8 +635,9 @@ void state_bar_stat()
 	}
 
 	// Early lick/lever-press detected --> ABORT
-	if ((_isLeverPressOnset && _params[ALLOW_EARLY_PRESS] == 0) || (_isLickOnset && _params[ALLOW_EARLY_LICK] == 0))
+	if ((_isLeverPressOnset && _params[ALLOW_EARLY_PRESS] == 0) || (_isLickOnset && _params[ALLOW_LICK_BAR_STAT] == 0))
 	{
+		_resultCode = CODE_EARLY_MOVE;
 		_state = STATE_ABORT_BAR_STAT;
 		return;
 	}
@@ -649,14 +650,6 @@ void state_bar_stat()
 		{
 			_firstLickRegistered = true;
 			sendEventMarker(EVENT_FIRST_LICK, -1);
-		}
-		// Allow early lick during bar stat
-		if (_params[ALLOW_LICK_BAR_STAT] == 0)
-		{
-			// Register result
-			_resultCode = CODE_EARLY_MOVE;
-			_state = STATE_ABORT_BAR_STAT;
-			return;	
 		}
 	}
 
