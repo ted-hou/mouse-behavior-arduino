@@ -33,12 +33,12 @@ Servo _servoTube;
 #define PIN_IR_LAMP		12 // USER_2
 
 // PWM OUT
-#define PIN_SERVO_LEVER	3
-#define PIN_SERVO_TUBE	4
+#define PIN_SERVO_LEVER	10 // Dedicated SOL_2 that we'll use for lever
+#define PIN_SERVO_TUBE	8  // Dedicated SPEAKER that we'll use for lickport
 
 // Digital IN
 #define PIN_LICK		13 // USER_3
-#define PIN_LEVER		5
+#define PIN_LEVER		5  //
 
 #define SERVO_READ_ACCURACY  5
 
