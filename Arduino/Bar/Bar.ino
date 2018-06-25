@@ -33,12 +33,12 @@ Servo _servoTube;
 #define PIN_IR_LAMP		12 // USER_2
 
 // PWM OUT
-#define PIN_SERVO_LEVER	3
-#define PIN_SERVO_TUBE	4
+#define PIN_SERVO_LEVER	10 // Dedicated SOL_2 that we'll use for lever
+#define PIN_SERVO_TUBE	8  // Dedicated SPEAKER that we'll use for lickport
 
 // Digital IN
 #define PIN_LICK		13 // USER_3
-#define PIN_LEVER		5
+#define PIN_LEVER		5  //
 
 #define SERVO_READ_ACCURACY  5
 
@@ -51,7 +51,8 @@ enum State
 	_STATE_INIT,				// (Private) Initial state used on first loop. 
 	STATE_IDLE,					// Idle state. Wait for go signal from host.
 	STATE_INTERTRIAL,			// Write data to HOST and DISK, receive new params
-	STATE_START,				// random delay before cue presentation; deploy lever/tube
+	STATE_START,				// random delay before cue presentation
+	STATE_PRE_STIM,				// Deploy lever/tube
 	STATE_BAR_STAT,				// Moving dots, stationary bar, enforced no lick
 	STATE_BAR_MOVE,				// Moving dots, moving bar, enforced no lick
 	STATE_RESPONSE_WINDOW,		// First lick in this interval rewarded
@@ -70,6 +71,7 @@ static const char *_stateNames[] =
 	"IDLE",
 	"INTERTRIAL",
 	"START",
+	"PRE_STIM",
 	"BAR_STAT",
 	"BAR_MOVE",
 	"RESPONSE_WINDOW",
@@ -458,6 +460,10 @@ void loop()
 			case STATE_START:
 				state_start();
 				break;
+
+			case PRE_STIM:
+				state_pre_stim();
+				break;
 			
 			case STATE_BAR_STAT:
 				state_bar_stat();
@@ -581,10 +587,10 @@ void state_start()
 		return;
 	}
 
-	// Go immediately --> BAR_STAT
+	// Go immediately --> PRE_STIM
 	if (getTimeSinceTrialStart() >= 0)
 	{
-		_state = STATE_BAR_STAT;
+		_state = STATE_PRE_STIM;
 		return;
 	}
 
@@ -592,9 +598,9 @@ void state_start()
 }
 
 /*****************************************************
-	BAR_STAT - Moving dots, stationary bar
+	PRE_STIM - Deploy lever/tube
 *****************************************************/
-void state_bar_stat() 
+void state_pre_stim() 
 {
 	/*****************************************************
 		ACTION LIST
@@ -604,8 +610,6 @@ void state_bar_stat()
 		// Register new state
 		_prevState = _state;
 		sendState(_state);
-
-		sendEventMarker(EVENT_STIM_ON, -1);
 
 		// Lever task: deploy lever
 		if (_params[USE_LEVER] == 1)
@@ -647,14 +651,73 @@ void state_bar_stat()
 	{
 		if (_servoStateLever == SERVOSTATE_DEPLOYED && _servoStateTube == SERVOSTATE_DEPLOYED)
 		{
-			_state = STATE_BAR_MOVE;
+			_state = STATE_BAR_STAT;
 			return;
 		}
 	}
-	// Tube mode: make sure tube is deployed
-	else
+
+	// Lick detected
+	if (_isLickOnset)
 	{
-		if (_servoStateTube == SERVOSTATE_DEPLOYED)
+		// First lick registration
+		if (!_firstLickRegistered)
+		{
+			_firstLickRegistered = true;
+			sendEventMarker(EVENT_FIRST_LICK, -1);
+		}
+	}
+
+	// Tube mode: make sure tube is deployed
+	if (_servoStateTube == SERVOSTATE_DEPLOYED)
+	{
+		_state = STATE_BAR_STAT;
+		return;
+	}
+
+}
+
+/*****************************************************
+	BAR_STAT - Moving dots, stationary bar
+*****************************************************/
+void state_bar_stat() 
+{
+	/*****************************************************
+		ACTION LIST
+	*****************************************************/
+	if (_state != _prevState) 
+	{
+		// Register new state
+		_prevState = _state;
+		sendState(_state);
+
+		sendEventMarker(EVENT_STIM_ON, -1);
+
+		// Register cue on time
+		_timeStimOn = signedMillis();
+	}
+
+	/*****************************************************
+		TRANSITION LIST
+	*****************************************************/
+	// Quit signal from host --> IDLE
+	if (_command == 'Q') 
+	{
+		_state = STATE_IDLE;
+		return;
+	}
+
+	// Early lick/lever-press detected --> ABORT
+	if ((_isLeverPressOnset && _params[ALLOW_EARLY_PRESS] == 0) || (_isLickOnset && _params[ALLOW_EARLY_LICK] == 0))
+	{
+		_state = STATE_ABORT_EARLY;
+		return;
+	}
+
+	// Lever/tube deployed --> BAR_MOVE
+	// Lever mode: make sure both are deployed
+	if (_params[USE_LEVER] == 1)
+	{
+		if (_servoStateLever == SERVOSTATE_DEPLOYED && _servoStateTube == SERVOSTATE_DEPLOYED)
 		{
 			_state = STATE_BAR_MOVE;
 			return;
