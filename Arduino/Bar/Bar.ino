@@ -38,9 +38,9 @@ Servo _servoTube;
 
 // Digital IN
 #define PIN_LICK		13 // USER_3
-#define PIN_LEVER		5  //
+#define PIN_LEVER		1  // Needs to be PWM
 
-#define SERVO_READ_ACCURACY  5
+#define SERVO_READ_ACCURACY  1
 
 /*****************************************************
 	Enums - DEFINE States
@@ -836,7 +836,7 @@ void state_response_window()
 		_prevState = _state;
 		sendState(_state);
 
-		rand_delay = random((_params[WINDOW_DURATION] - 750), _params[WINDOW_DURATION] + 1);
+		rand_delay = random((_params[WINDOW_DURATION] - 400), _params[WINDOW_DURATION] + 1);
 	}
 
 	/*****************************************************
