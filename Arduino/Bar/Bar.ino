@@ -260,7 +260,7 @@ long _params[_NUM_PARAMS] =
 	9000,	// ITI_DURATION
 	50,		// REWARD_DURATION
 	1000,	// WINDOW_DURATION
-	3000,	// OMEGA_TO_ITI_DURATION
+	1500,	// OMEGA_TO_ITI_DURATION
 	0,		// TRAINING_PHASE
 	1,		// USE_LEVER
 	0,		// ALLOW_EARLY_PRESS
@@ -461,7 +461,7 @@ void loop()
 				state_start();
 				break;
 
-			case PRE_STIM:
+			case STATE_PRE_STIM:
 				state_pre_stim();
 				break;
 			

@@ -33,7 +33,7 @@ classdef MouseBehaviorInterface < handle
 			% Creata Experiment Control window with all the knobs and buttons you need to set up an experiment.
 			obj.CreateDialog_ExperimentControl()
 			
-			% Create Monitor window with all thr trial results and plots and stuff so the Grad Student is ON TOP OF THE SITUATION AT ALL TIMES.
+			% Create Monitor window with all the trial results and plots and stuff so the Grad Student is ON TOP OF THE SITUATION AT ALL TIMES.
 			obj.CreateDialog_Monitor()
 
 			% Create Task Scheduler
