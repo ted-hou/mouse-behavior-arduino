@@ -1,4 +1,4 @@
-#include <Servo.h>
+// #include <Servo.h>
 /*********************************************************************
 	Arduino state machine
 	Rotating Bar task (w/ retractable lever)
@@ -21,8 +21,8 @@
 /*****************************************************
 	Servo stuff
 *****************************************************/
-Servo _servoLever;
-Servo _servoTube;
+// Servo _servoLever;
+// Servo _servoTube;
 
 /*****************************************************
 	Arduino Pin Outs
@@ -32,15 +32,15 @@ Servo _servoTube;
 #define PIN_LICK_LED	11 // USER_1
 #define PIN_IR_LAMP		12 // USER_2
 
-// PWM OUT
-#define PIN_SERVO_LEVER	10 // Dedicated SOL_2 that we'll use for lever
-#define PIN_SERVO_TUBE	8  // Dedicated SPEAKER that we'll use for lickport
+// // PWM OUT
+// #define PIN_SERVO_LEVER	10 // Dedicated SOL_2 that we'll use for lever
+// #define PIN_SERVO_TUBE	8  // Dedicated SPEAKER that we'll use for lickport
 
 // Digital IN
 #define PIN_LICK		13 // USER_3
-#define PIN_LEVER		1  // Needs to be PWM
+// #define PIN_LEVER		1  // Needs to be PWM
 
-#define SERVO_READ_ACCURACY  1
+// #define SERVO_READ_ACCURACY  1
 
 /*****************************************************
 	Enums - DEFINE States
@@ -52,7 +52,7 @@ enum State
 	STATE_IDLE,					// Idle state. Wait for go signal from host.
 	STATE_INTERTRIAL,			// Write data to HOST and DISK, receive new params
 	STATE_START,				// random delay before cue presentation
-	STATE_PRE_STIM,				// Deploy lever/tube
+	//STATE_PRE_STIM,				// Deploy lever/tube
 	STATE_BAR_STAT,				// Moving dots, stationary bar, enforced no lick
 	STATE_BAR_MOVE,				// Moving dots, moving bar, enforced no lick
 	STATE_RESPONSE_WINDOW,		// First lick in this interval rewarded
@@ -71,7 +71,7 @@ static const char *_stateNames[] =
 	"IDLE",
 	"INTERTRIAL",
 	"START",
-	"PRE_STIM",
+	//"PRE_STIM",
 	"BAR_STAT",
 	"BAR_MOVE",
 	"RESPONSE_WINDOW",
@@ -168,14 +168,14 @@ static const char *_resultCodeNames[] =
 /*****************************************************
 	Servo state
 *****************************************************/
-enum ServoState
-{
-	_SERVOSTATE_INIT,
-	SERVOSTATE_RETRACTED,
-	SERVOSTATE_DEPLOYING,
-	SERVOSTATE_RETRACTING,
-	SERVOSTATE_DEPLOYED
-};
+// enum ServoState
+// {
+// 	_SERVOSTATE_INIT,
+// 	SERVOSTATE_RETRACTED,
+// 	SERVOSTATE_DEPLOYING,
+// 	SERVOSTATE_RETRACTING,
+// 	SERVOSTATE_DEPLOYED
+// };
 
 /*****************************************************
 	Parameters that can be updated by HOST
@@ -309,21 +309,21 @@ static bool _isLickOnset 			= false;		// True during lick onset
 static bool _firstLickRegistered 	= false;		// True when first lick is registered for this trial
 static long _timeLastLick			= 0;			// Time (ms) when last lick occured
 
-static bool _isLeverPressed			= false;		// True as long as lever is pressed down
-static bool _isLeverPressOnset 		= false;		// True when lever first pressed
-static long _timeLastLeverPress		= 0;			// Time (ms) when last lever press occured
+// static bool _isLeverPressed			= false;		// True as long as lever is pressed down
+// static bool _isLeverPressOnset 		= false;		// True when lever first pressed
+// static long _timeLastLeverPress		= 0;			// Time (ms) when last lever press occured
 
-static ServoState _servoStateTube	= _SERVOSTATE_INIT;				// Servo state
-static long _servoStartTimeLever	= 0;							// When servo started moving retrieved using getTime()
-static long _servoSpeedLever		= _params[LEVER_SPEED_RETRACT]; // Speed of servo movement (deg/s)
-static long _servoStartPosLever		= _params[LEVER_POS_RETRACTED];	// Starting position of servo when rotation begins
-static long _servoTargetPosLever	= _params[LEVER_POS_RETRACTED];	// Target position of servo
+// static ServoState _servoStateTube	= _SERVOSTATE_INIT;				// Servo state
+// static long _servoStartTimeLever	= 0;							// When servo started moving retrieved using getTime()
+// static long _servoSpeedLever		= _params[LEVER_SPEED_RETRACT]; // Speed of servo movement (deg/s)
+// static long _servoStartPosLever		= _params[LEVER_POS_RETRACTED];	// Starting position of servo when rotation begins
+// static long _servoTargetPosLever	= _params[LEVER_POS_RETRACTED];	// Target position of servo
 
-static ServoState _servoStateLever 	= _SERVOSTATE_INIT;				// Servo state
-static long _servoStartTimeTube		= 0;							// When servo started moving retrieved using getTime()
-static long _servoSpeedTube			= _params[TUBE_SPEED_RETRACT]; 	// Speed of servo movement (deg/s)
-static long _servoStartPosTube		= _params[TUBE_POS_DEPLOYED];	// Starting position of servo when rotation begins
-static long _servoTargetPosTube		= _params[TUBE_POS_DEPLOYED];	// Target position of servo
+// static ServoState _servoStateLever 	= _SERVOSTATE_INIT;				// Servo state
+// static long _servoStartTimeTube		= 0;							// When servo started moving retrieved using getTime()
+// static long _servoSpeedTube			= _params[TUBE_SPEED_RETRACT]; 	// Speed of servo movement (deg/s)
+// static long _servoStartPosTube		= _params[TUBE_POS_DEPLOYED];	// Starting position of servo when rotation begins
+// static long _servoTargetPosTube		= _params[TUBE_POS_DEPLOYED];	// Target position of servo
 
 /*****************************************************
 	Setup
@@ -335,11 +335,11 @@ void setup()
 	pinMode(PIN_REWARD, OUTPUT);	// Reward, set to HIGH to open juice valve
 	pinMode(PIN_LICK_LED, OUTPUT);	// Lick LED, set to HIGH when lick detected
 	pinMode(PIN_LICK, INPUT);		// Lick detector
-	pinMode(PIN_LEVER, INPUT);		// Lever press detector
+	// pinMode(PIN_LEVER, INPUT);		// Lever press detector
 
 	// Initiate servo
-	_servoLever.attach(PIN_SERVO_LEVER);
-	_servoTube.attach(PIN_SERVO_TUBE);
+	// _servoLever.attach(PIN_SERVO_LEVER);
+	// _servoTube.attach(PIN_SERVO_TUBE);
 
 	// Serial comms
 	Serial.begin(115200);			// Set up USB communication at 115200 baud 
@@ -368,21 +368,21 @@ void mySetup()
 	_firstLickRegistered 	= false;		// True when first lick is registered for this trial
 	_timeLastLick			= 0;			// Time (ms) when last lick occured
 
-	_isLeverPressed			= false;		// True as long as lever is pressed down
-	_isLeverPressOnset 		= false;		// True when lever first pressed
-	_timeLastLeverPress		= 0;			// Time (ms) when last lever press occured
+	// _isLeverPressed			= false;		// True as long as lever is pressed down
+	// _isLeverPressOnset 		= false;		// True when lever first pressed
+	// _timeLastLeverPress		= 0;			// Time (ms) when last lever press occured
 
-	_servoStateTube			= _SERVOSTATE_INIT;				// Servo state
-	_servoStartTimeLever	= 0;							// When servo started moving retrieved using getTime()
-	_servoSpeedLever		= _params[LEVER_SPEED_RETRACT]; // Speed of servo movement (deg/s)
-	_servoStartPosLever		= _params[LEVER_POS_RETRACTED];	// Starting position of servo when rotation begins
-	_servoTargetPosLever	= _params[LEVER_POS_RETRACTED];	// Target position of servo
+	// _servoStateTube			= _SERVOSTATE_INIT;				// Servo state
+	// _servoStartTimeLever	= 0;							// When servo started moving retrieved using getTime()
+	// _servoSpeedLever		= _params[LEVER_SPEED_RETRACT]; // Speed of servo movement (deg/s)
+	// _servoStartPosLever		= _params[LEVER_POS_RETRACTED];	// Starting position of servo when rotation begins
+	// _servoTargetPosLever	= _params[LEVER_POS_RETRACTED];	// Target position of servo
 
-	_servoStateLever 		= _SERVOSTATE_INIT;				// Servo state
-	_servoStartTimeTube		= 0;							// When servo started moving retrieved using getTime()
-	_servoSpeedTube			= _params[TUBE_SPEED_RETRACT]; 	// Speed of servo movement (deg/s)
-	_servoStartPosTube		= _params[TUBE_POS_DEPLOYED];	// Starting position of servo when rotation begins
-	_servoTargetPosTube		= _params[TUBE_POS_DEPLOYED];	// Target position of servo
+	// _servoStateLever 		= _SERVOSTATE_INIT;				// Servo state
+	// _servoStartTimeTube		= 0;							// When servo started moving retrieved using getTime()
+	// _servoSpeedTube			= _params[TUBE_SPEED_RETRACT]; 	// Speed of servo movement (deg/s)
+	// _servoStartPosTube		= _params[TUBE_POS_DEPLOYED];	// Starting position of servo when rotation begins
+	// _servoTargetPosTube		= _params[TUBE_POS_DEPLOYED];	// Target position of servo
 
 	// Sends all parameters, states and error codes to Matlab, then tell PC that we're running by sending '~' message:
 	hostInit();
@@ -437,9 +437,9 @@ void loop()
 		// 2.2) Check for alpha, turning point and omega from matlab and send back event markers because we dumb
 		handleVisualStim();
 		// 2.3) Tube servo control
-		handleServoTube();		
+		// handleServoTube();		
 		// 2.4) Lever servo control
-		handleServoLever();
+		// handleServoLever();
 
 		// 3) Update state machine
 		// Depending on what state we're in, call the appropriate state function, which will evaluate the transition conditions, and update the `_state` var to what the next state should be
@@ -461,9 +461,9 @@ void loop()
 				state_start();
 				break;
 
-			case STATE_PRE_STIM:
-				state_pre_stim();
-				break;
+			// case STATE_PRE_STIM:
+			// 	state_pre_stim();
+			// 	break;
 			
 			case STATE_BAR_STAT:
 				state_bar_stat();
@@ -517,8 +517,8 @@ void state_idle()
 		// Reset output
 		setIRLamp(true);
 		setReward(false);
-		deployLever(false);
-		deployTube(true);
+		// deployLever(false);
+		// deployTube(true);
 	}
 
 	/*****************************************************
@@ -579,18 +579,18 @@ void state_start()
 	}
 
 	// Early lick/lever-press detected --> ABORT
-	if ((_isLeverPressOnset && _params[ALLOW_EARLY_PRESS] == 0) || (_isLickOnset && _params[ALLOW_EARLY_LICK] == 0))
-	{
-		// Register result
-		_resultCode = CODE_EARLY_MOVE;
-		_state = STATE_ABORT;
-		return;
-	}
+	// if ((_isLeverPressOnset && _params[ALLOW_EARLY_PRESS] == 0) || (_isLickOnset && _params[ALLOW_EARLY_LICK] == 0))
+	// {
+	// 	// Register result
+	// 	_resultCode = CODE_EARLY_MOVE;
+	// 	_state = STATE_ABORT;
+	// 	return;
+	// }
 
-	// Go immediately --> PRE_STIM
+	// Go immediately --> BAR_STAT
 	if (getTimeSinceTrialStart() >= 0)
 	{
-		_state = STATE_PRE_STIM;
+		_state = STATE_BAR_STAT;
 		return;
 	}
 
@@ -600,81 +600,81 @@ void state_start()
 /*****************************************************
 	PRE_STIM - Deploy lever/tube
 *****************************************************/
-void state_pre_stim() 
-{
-	/*****************************************************
-		ACTION LIST
-	*****************************************************/
-	if (_state != _prevState) 
-	{
-		// Register new state
-		_prevState = _state;
-		sendState(_state);
+// void state_pre_stim() 
+// {
+// 	/*****************************************************
+// 		ACTION LIST
+// 	*****************************************************/
+// 	if (_state != _prevState) 
+// 	{
+// 		// Register new state
+// 		_prevState = _state;
+// 		sendState(_state);
 
-		// Lever task: deploy lever
-		if (_params[USE_LEVER] == 1)
-		{
-			deployLever(true);
-			deployTube(true);
-		}
-		// Lick task: deploy tube, no lever
-		else
-		{
-			deployLever(false);
-			deployTube(true);
-		}
+// 		// Lever task: deploy lever
+// 		if (_params[USE_LEVER] == 1)
+// 		{
+// 			deployLever(true);
+// 			deployTube(true);
+// 		}
+// 		// Lick task: deploy tube, no lever
+// 		else
+// 		{
+// 			deployLever(false);
+// 			deployTube(true);
+// 		}
 
-		// Register cue on time
-		_timeStimOn = signedMillis();
-	}
+// 		// Register cue on time
+// 		_timeStimOn = signedMillis();
+// 	}
 
-	/*****************************************************
-		TRANSITION LIST
-	*****************************************************/
-	// Quit signal from host --> IDLE
-	if (_command == 'Q') 
-	{
-		_state = STATE_IDLE;
-		return;
-	}
+// 	/*****************************************************
+// 		TRANSITION LIST
+// 	*****************************************************/
+// 	// Quit signal from host --> IDLE
+// 	if (_command == 'Q') 
+// 	{
+// 		_state = STATE_IDLE;
+// 		return;
+// 	}
 
-	// Early lick/lever-press detected --> ABORT
-	if ((_isLeverPressOnset && _params[ALLOW_EARLY_PRESS] == 0) || (_isLickOnset && _params[ALLOW_EARLY_LICK] == 0))
-	{
-		_state = STATE_ABORT_EARLY;
-		return;
-	}
+// 	// Early lick/lever-press detected --> ABORT
+// 	if ((_isLeverPressOnset && _params[ALLOW_EARLY_PRESS] == 0) || (_isLickOnset && _params[ALLOW_EARLY_LICK] == 0))
+// 	{
+// 		_state = STATE_ABORT_EARLY;
+// 		return;
+// 	}
 
-	// Lever/tube deployed --> BAR_MOVE
-	// Lever mode: make sure both are deployed
-	if (_params[USE_LEVER] == 1)
-	{
-		if (_servoStateLever == SERVOSTATE_DEPLOYED && _servoStateTube == SERVOSTATE_DEPLOYED)
-		{
-			_state = STATE_BAR_STAT;
-			return;
-		}
-	}
+// 	// Lever/tube deployed --> BAR_MOVE
+// 	// Lever mode: make sure both are deployed
+// 	if (_params[USE_LEVER] == 1)
+// 	{
+// 		if (_servoStateLever == SERVOSTATE_DEPLOYED && _servoStateTube == SERVOSTATE_DEPLOYED)
+// 		{
+// 			_state = STATE_BAR_STAT;
+// 			return;
+// 		}
+// 	}
 
-	// Lick detected
-	if (_isLickOnset)
-	{
-		// First lick registration
-		if (!_firstLickRegistered)
-		{
-			_firstLickRegistered = true;
-			sendEventMarker(EVENT_FIRST_LICK, -1);
-		}
-	}
+// 	// Lick detected
+// 	if (_isLickOnset)
+// 	{
+// 		// First lick registration
+// 		if (!_firstLickRegistered)
+// 		{
+// 			_firstLickRegistered = true;
+// 			sendEventMarker(EVENT_FIRST_LICK, -1);
+// 		}
+// 	}
 
-	// Tube mode: make sure tube is deployed
-	if (_servoStateTube == SERVOSTATE_DEPLOYED)
-	{
-		_state = STATE_BAR_STAT;
-		return;
-	}
+// 	// Tube mode: make sure tube is deployed
+// 	if (_servoStateTube == SERVOSTATE_DEPLOYED)
+// 	{
+// 		_state = STATE_BAR_STAT;
+// 		return;
+// 	}
 
-}
+// }
 
 /*****************************************************
 	BAR_STAT - Moving dots, stationary bar
@@ -707,22 +707,22 @@ void state_bar_stat()
 	}
 
 	// Early lick/lever-press detected --> ABORT
-	if ((_isLeverPressOnset && _params[ALLOW_EARLY_PRESS] == 0) || (_isLickOnset && _params[ALLOW_EARLY_LICK] == 0))
-	{
-		_state = STATE_ABORT_EARLY;
-		return;
-	}
+	// if ((_isLeverPressOnset && _params[ALLOW_EARLY_PRESS] == 0) || (_isLickOnset && _params[ALLOW_EARLY_LICK] == 0))
+	// {
+	// 	_state = STATE_ABORT_EARLY;
+	// 	return;
+	// }
 
-	// Lever/tube deployed --> BAR_MOVE
-	// Lever mode: make sure both are deployed
-	if (_params[USE_LEVER] == 1)
-	{
-		if (_servoStateLever == SERVOSTATE_DEPLOYED && _servoStateTube == SERVOSTATE_DEPLOYED)
-		{
-			_state = STATE_BAR_MOVE;
-			return;
-		}
-	}
+	// // Lever/tube deployed --> BAR_MOVE
+	// // Lever mode: make sure both are deployed
+	// if (_params[USE_LEVER] == 1)
+	// {
+	// 	if (_servoStateLever == SERVOSTATE_DEPLOYED && _servoStateTube == SERVOSTATE_DEPLOYED)
+	// 	{
+	// 		_state = STATE_BAR_MOVE;
+	// 		return;
+	// 	}
+	// }
 
 	// Lick detected
 	if (_isLickOnset)
@@ -790,13 +790,13 @@ void state_bar_move()
 			sendEventMarker(EVENT_FIRST_LICK, -1);
 		}
 		// Early lick/lever-press detected --> ABORT
-		if ((_isLeverPressOnset && _params[ALLOW_EARLY_PRESS] == 0) || (_isLickOnset && _params[ALLOW_EARLY_LICK] == 0))
-		{
-			// Register result
-			_resultCode = CODE_EARLY_MOVE;
-			_state = STATE_ABORT_EARLY;
-			return;
-		}
+		// if ((_isLeverPressOnset && _params[ALLOW_EARLY_PRESS] == 0) || (_isLickOnset && _params[ALLOW_EARLY_LICK] == 0))
+		// {
+		// 	// Register result
+		// 	_resultCode = CODE_EARLY_MOVE;
+		// 	_state = STATE_ABORT_EARLY;
+		// 	return;
+		// }
 	}
 
 	// bar_move elapsed --> RESPONSE_WINDOW
@@ -850,7 +850,7 @@ void state_response_window()
 	}
 
 	// Correct lick/press --> REWARD
-	if ((_isLickOnset && _params[USE_LEVER] == 0) || (_isLeverPressOnset && _params[USE_LEVER] == 1))
+	if (_params[PAVLOVIAN] == 0)
 	{
 		// First lick registration
 		if (!_firstLickRegistered)
@@ -1009,14 +1009,14 @@ void state_abort_bar_stat()
 		sendEventMarker(EVENT_ABORT_EARLY, -1);
 
 		// Retract lever/tube based on trial type
-		if (_params[USE_LEVER] == 1)
-		{
-			deployLever(false);
-		}
-		else
-		{
-			deployTube(false);
-		}
+		// if (_params[USE_LEVER] == 1)
+		// {
+		// 	deployLever(false);
+		// }
+		// else
+		// {
+		// 	deployTube(false);
+		// }
 	}
 
 	/*****************************************************
@@ -1056,14 +1056,14 @@ void state_abort_early()
 		sendEventMarker(EVENT_ABORT_EARLY, -1);
 
 		// Retract lever/tube based on trial type
-		if (_params[USE_LEVER] == 1)
-		{
-			deployLever(false);
-		}
-		else
-		{
-			deployTube(false);
-		}
+		// if (_params[USE_LEVER] == 1)
+		// {
+		// 	deployLever(false);
+		// }
+		// else
+		// {
+		// 	deployTube(false);
+		// }
 	}
 
 
@@ -1105,14 +1105,14 @@ void state_abort()
 		sendEventMarker(EVENT_ABORT, -1);
 	
 		// Retract lever/tube based on trial type
-		if (_params[USE_LEVER] == 1)
-		{
-			deployLever(false);
-		}
-		else
-		{
-			deployTube(false);
-		}
+		// if (_params[USE_LEVER] == 1)
+		// {
+		// 	deployLever(false);
+		// }
+		// else
+		// {
+		// 	deployTube(false);
+		// }
 	}
 
 	/*****************************************************
@@ -1160,14 +1160,14 @@ void state_intertrial()
 		_resultCode = -1;
 
 		// Retract lever/tube based on trial type
-		if (_params[USE_LEVER] == 1)
-		{
-			deployLever(false);
-		}
-		else
-		{
-			deployTube(false);
-		}
+		// if (_params[USE_LEVER] == 1)
+		// {
+		// 	deployLever(false);
+		// }
+		// else
+		// {
+		// 	deployTube(false);
+		// }
 
 		// Register time of state entry
 		timeIntertrial = getTimeSinceStimOn();
@@ -1302,199 +1302,199 @@ void handleVisualStim()
 }
 
 // Lever detection
-bool getLeverState() 
-{
-	if (digitalRead(PIN_LEVER) == HIGH) 
-	{
-		return true;
-	}
-	else 
-	{
-		return false;
-	}
-}
+// bool getLeverState() 
+// {
+// 	if (digitalRead(PIN_LEVER) == HIGH) 
+// 	{
+// 		return true;
+// 	}
+// 	else 
+// 	{
+// 		return false;
+// 	}
+// }
 
-void handleLever() 
-{
-	if (getLeverState() && !_isLeverPressed)
-	{
-		_isLeverPressed = true;
-		_isLeverPressOnset = true;
-		sendEventMarker(EVENT_LEVER_PRESSED, -1);
-		_timeLastLeverPress = getTime();
-	}
-	else
-	{
-		if (!getLeverState() && _isLeverPressed)
-		{
-			_isLeverPressed = false;
-			sendEventMarker(EVENT_LEVER_RELEASED, -1);
-		}
-		_isLeverPressOnset = false;
-	}
-}
+// void handleLever() 
+// {
+// 	if (getLeverState() && !_isLeverPressed)
+// 	{
+// 		_isLeverPressed = true;
+// 		_isLeverPressOnset = true;
+// 		sendEventMarker(EVENT_LEVER_PRESSED, -1);
+// 		_timeLastLeverPress = getTime();
+// 	}
+// 	else
+// 	{
+// 		if (!getLeverState() && _isLeverPressed)
+// 		{
+// 			_isLeverPressed = false;
+// 			sendEventMarker(EVENT_LEVER_RELEASED, -1);
+// 		}
+// 		_isLeverPressOnset = false;
+// 	}
+// }
 
-// Use servo to retract/present lever to the little dude
-void deployLever(bool deploy)
-{
-	if (deploy) 
-	{
-		if (_servoStateLever != SERVOSTATE_DEPLOYED)
-		{
-			_servoStateLever = SERVOSTATE_DEPLOYING;
-			sendEventMarker(EVENT_LEVER_DEPLOY_START, -1);
-		}
-		_servoStartTimeLever = getTime();
-		_servoSpeedLever = _params[LEVER_SPEED_DEPLOY];
-		_servoStartPosLever = _servoLever.read();
-		_servoTargetPosLever = _params[LEVER_POS_DEPLOYED];
-	}
-	else 
-	{
-		if (_servoStateLever != SERVOSTATE_RETRACTED)
-		{
-			_servoStateLever = SERVOSTATE_RETRACTING;
-			sendEventMarker(EVENT_LEVER_RETRACT_START, -1);
-		}
-		_servoStartTimeLever = getTime();
-		_servoSpeedLever = _params[LEVER_SPEED_RETRACT];
-		_servoStartPosLever = _servoLever.read();
-		_servoTargetPosLever = _params[LEVER_POS_RETRACTED];
-	}
-}
+// // Use servo to retract/present lever to the little dude
+// void deployLever(bool deploy)
+// {
+// 	if (deploy) 
+// 	{
+// 		if (_servoStateLever != SERVOSTATE_DEPLOYED)
+// 		{
+// 			_servoStateLever = SERVOSTATE_DEPLOYING;
+// 			sendEventMarker(EVENT_LEVER_DEPLOY_START, -1);
+// 		}
+// 		_servoStartTimeLever = getTime();
+// 		_servoSpeedLever = _params[LEVER_SPEED_DEPLOY];
+// 		_servoStartPosLever = _servoLever.read();
+// 		_servoTargetPosLever = _params[LEVER_POS_DEPLOYED];
+// 	}
+// 	else 
+// 	{
+// 		if (_servoStateLever != SERVOSTATE_RETRACTED)
+// 		{
+// 			_servoStateLever = SERVOSTATE_RETRACTING;
+// 			sendEventMarker(EVENT_LEVER_RETRACT_START, -1);
+// 		}
+// 		_servoStartTimeLever = getTime();
+// 		_servoSpeedLever = _params[LEVER_SPEED_RETRACT];
+// 		_servoStartPosLever = _servoLever.read();
+// 		_servoTargetPosLever = _params[LEVER_POS_RETRACTED];
+// 	}
+// }
 
-// Use servo to retract/present lever to the little dude
-void deployTube(bool deploy)
-{
-	if (deploy)
-	{
-		if (_servoStateTube != SERVOSTATE_DEPLOYED)
-		{
-			_servoStateTube = SERVOSTATE_DEPLOYING;
-			sendEventMarker(EVENT_TUBE_DEPLOY_START, -1);
-		}
-		_servoStartTimeTube = getTime();
-		_servoSpeedTube = _params[TUBE_SPEED_DEPLOY];
-		_servoStartPosTube = _servoTube.read();
-		_servoTargetPosTube = _params[TUBE_POS_DEPLOYED];
-	}
-	else
-	{
-		if (_servoStateTube != SERVOSTATE_RETRACTED)
-		{
-			_servoStateTube = SERVOSTATE_RETRACTING;
-			sendEventMarker(EVENT_TUBE_RETRACT_START, -1);
-		}
-		_servoStartTimeTube = getTime();
-		_servoSpeedTube = _params[TUBE_SPEED_RETRACT];
-		_servoStartPosTube = _servoTube.read();
-		_servoTargetPosTube = _params[TUBE_POS_RETRACTED];
-	}
-}
+// // Use servo to retract/present lever to the little dude
+// void deployTube(bool deploy)
+// {
+// 	if (deploy)
+// 	{
+// 		if (_servoStateTube != SERVOSTATE_DEPLOYED)
+// 		{
+// 			_servoStateTube = SERVOSTATE_DEPLOYING;
+// 			sendEventMarker(EVENT_TUBE_DEPLOY_START, -1);
+// 		}
+// 		_servoStartTimeTube = getTime();
+// 		_servoSpeedTube = _params[TUBE_SPEED_DEPLOY];
+// 		_servoStartPosTube = _servoTube.read();
+// 		_servoTargetPosTube = _params[TUBE_POS_DEPLOYED];
+// 	}
+// 	else
+// 	{
+// 		if (_servoStateTube != SERVOSTATE_RETRACTED)
+// 		{
+// 			_servoStateTube = SERVOSTATE_RETRACTING;
+// 			sendEventMarker(EVENT_TUBE_RETRACT_START, -1);
+// 		}
+// 		_servoStartTimeTube = getTime();
+// 		_servoSpeedTube = _params[TUBE_SPEED_RETRACT];
+// 		_servoStartPosTube = _servoTube.read();
+// 		_servoTargetPosTube = _params[TUBE_POS_RETRACTED];
+// 	}
+// }
 
-void handleServoLever()
-{
-	static long servoNewPosLever;
+// void handleServoLever()
+// {
+// 	static long servoNewPosLever;
 
-	// Handle servo read requests
-	if (_command == 'S')
-	{
-		sendMessage("Lever position = " + String(_servoLever.read()) + ", target = " + String(_servoTargetPosLever));
-	}
+// 	// Handle servo read requests
+// 	if (_command == 'S')
+// 	{
+// 		sendMessage("Lever position = " + String(_servoLever.read()) + ", target = " + String(_servoTargetPosLever));
+// 	}
 
-	// Handle movement completion events
-	if (_servoStateLever == SERVOSTATE_DEPLOYING && abs(_servoLever.read() - _params[LEVER_POS_DEPLOYED]) <= SERVO_READ_ACCURACY)
-	{
-		_servoStateLever = SERVOSTATE_DEPLOYED;
-		sendEventMarker(EVENT_LEVER_DEPLOY_END, -1);
-	}
+// 	// Handle movement completion events
+// 	if (_servoStateLever == SERVOSTATE_DEPLOYING && abs(_servoLever.read() - _params[LEVER_POS_DEPLOYED]) <= SERVO_READ_ACCURACY)
+// 	{
+// 		_servoStateLever = SERVOSTATE_DEPLOYED;
+// 		sendEventMarker(EVENT_LEVER_DEPLOY_END, -1);
+// 	}
 
-	if (_servoStateLever == SERVOSTATE_RETRACTING && abs(_servoLever.read() - _params[LEVER_POS_RETRACTED]) <= SERVO_READ_ACCURACY)
-	{
-		_servoStateLever = SERVOSTATE_RETRACTED;
-		sendEventMarker(EVENT_LEVER_RETRACT_END, -1);
-	}
+// 	if (_servoStateLever == SERVOSTATE_RETRACTING && abs(_servoLever.read() - _params[LEVER_POS_RETRACTED]) <= SERVO_READ_ACCURACY)
+// 	{
+// 		_servoStateLever = SERVOSTATE_RETRACTED;
+// 		sendEventMarker(EVENT_LEVER_RETRACT_END, -1);
+// 	}
 
-	// 0 - use max speed
-	if (_servoSpeedLever == 0)
-	{
-		_servoLever.write(_servoTargetPosLever);
-	}
-	// Use specified speed
-	else
-	{
-		if (_servoLever.read() < _servoTargetPosLever)
-		{
-			servoNewPosLever = round(_servoStartPosLever + _servoSpeedLever*(getTime() - _servoStartTimeLever)/1000);
-			if (servoNewPosLever <= _servoTargetPosLever)
-			{
-				_servoLever.write(servoNewPosLever);
-			}
-		}
-		else
-		{
-			if (_servoLever.read() > _servoTargetPosLever)
-			{
-				servoNewPosLever = round(_servoStartPosLever - _servoSpeedLever*(getTime() - _servoStartTimeLever)/1000);
-				if (servoNewPosLever >= _servoTargetPosLever)
-				{
-					_servoLever.write(servoNewPosLever);
-				}
-			}
-		}
-	}
-}
+// 	// 0 - use max speed
+// 	if (_servoSpeedLever == 0)
+// 	{
+// 		_servoLever.write(_servoTargetPosLever);
+// 	}
+// 	// Use specified speed
+// 	else
+// 	{
+// 		if (_servoLever.read() < _servoTargetPosLever)
+// 		{
+// 			servoNewPosLever = round(_servoStartPosLever + _servoSpeedLever*(getTime() - _servoStartTimeLever)/1000);
+// 			if (servoNewPosLever <= _servoTargetPosLever)
+// 			{
+// 				_servoLever.write(servoNewPosLever);
+// 			}
+// 		}
+// 		else
+// 		{
+// 			if (_servoLever.read() > _servoTargetPosLever)
+// 			{
+// 				servoNewPosLever = round(_servoStartPosLever - _servoSpeedLever*(getTime() - _servoStartTimeLever)/1000);
+// 				if (servoNewPosLever >= _servoTargetPosLever)
+// 				{
+// 					_servoLever.write(servoNewPosLever);
+// 				}
+// 			}
+// 		}
+// 	}
+// }
 
-void handleServoTube()
-{
-	static long servoNewPosTube;
+// void handleServoTube()
+// {
+// 	static long servoNewPosTube;
 
-	// Handle servo read requests
-	if (_command == 'S')
-	{
-		sendMessage("Tube position = " + String(_servoTube.read()) + ", target = " + String(_servoTargetPosTube));
-	}
+// 	// Handle servo read requests
+// 	if (_command == 'S')
+// 	{
+// 		sendMessage("Tube position = " + String(_servoTube.read()) + ", target = " + String(_servoTargetPosTube));
+// 	}
 
-	// Handle movement completion events
-	if (_servoStateTube == SERVOSTATE_DEPLOYING && abs(_servoTube.read() - _params[TUBE_POS_DEPLOYED]) <= SERVO_READ_ACCURACY)
-	{
-		_servoStateTube = SERVOSTATE_DEPLOYED;
-		sendEventMarker(EVENT_TUBE_DEPLOY_END, -1);
-	}
+// 	// Handle movement completion events
+// 	if (_servoStateTube == SERVOSTATE_DEPLOYING && abs(_servoTube.read() - _params[TUBE_POS_DEPLOYED]) <= SERVO_READ_ACCURACY)
+// 	{
+// 		_servoStateTube = SERVOSTATE_DEPLOYED;
+// 		sendEventMarker(EVENT_TUBE_DEPLOY_END, -1);
+// 	}
 
-	if (_servoStateTube == SERVOSTATE_RETRACTING && abs(_servoTube.read() - _params[TUBE_POS_RETRACTED]) <= SERVO_READ_ACCURACY)
-	{
-		_servoStateTube = SERVOSTATE_RETRACTED;
-		sendEventMarker(EVENT_TUBE_RETRACT_END, -1);
-	}
+// 	if (_servoStateTube == SERVOSTATE_RETRACTING && abs(_servoTube.read() - _params[TUBE_POS_RETRACTED]) <= SERVO_READ_ACCURACY)
+// 	{
+// 		_servoStateTube = SERVOSTATE_RETRACTED;
+// 		sendEventMarker(EVENT_TUBE_RETRACT_END, -1);
+// 	}
 
-	if (_servoSpeedTube == 0)
-	{
-		_servoTube.write(_servoTargetPosTube);
-	}
-	else
-	{
-		if (_servoTube.read() < _servoTargetPosTube)
-		{
-			servoNewPosTube = round(_servoStartPosTube + _servoSpeedTube*(getTime() - _servoStartTimeTube)/1000);
-			if (servoNewPosTube <= _servoTargetPosTube)
-			{
-				_servoTube.write(servoNewPosTube);
-			}
-		}
-		else
-		{
-			if (_servoTube.read() > _servoTargetPosTube)
-			{
-				servoNewPosTube = round(_servoStartPosTube - _servoSpeedTube*(getTime() - _servoStartTimeTube)/1000);
-				if (servoNewPosTube >= _servoTargetPosTube)
-				{
-					_servoTube.write(servoNewPosTube);
-				}
-			}
-		}
-	}
-}
+// 	if (_servoSpeedTube == 0)
+// 	{
+// 		_servoTube.write(_servoTargetPosTube);
+// 	}
+// 	else
+// 	{
+// 		if (_servoTube.read() < _servoTargetPosTube)
+// 		{
+// 			servoNewPosTube = round(_servoStartPosTube + _servoSpeedTube*(getTime() - _servoStartTimeTube)/1000);
+// 			if (servoNewPosTube <= _servoTargetPosTube)
+// 			{
+// 				_servoTube.write(servoNewPosTube);
+// 			}
+// 		}
+// 		else
+// 		{
+// 			if (_servoTube.read() > _servoTargetPosTube)
+// 			{
+// 				servoNewPosTube = round(_servoStartPosTube - _servoSpeedTube*(getTime() - _servoStartTimeTube)/1000);
+// 				if (servoNewPosTube >= _servoTargetPosTube)
+// 				{
+// 					_servoTube.write(servoNewPosTube);
+// 				}
+// 			}
+// 		}
+// 	}
+// }
 
 // Toggle juice valve, register event when state is changed
 void setReward(bool turnOn) 
