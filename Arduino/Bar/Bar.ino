@@ -59,7 +59,7 @@ enum State
 	STATE_REWARD,				// Dispense reward, wait for trial timeout
 	STATE_ABORT,				// No lick - timeout
 	STATE_ABORT_EARLY,			// Early lick
-	STATE_ABORT_BAR_STAT,	// Early lick during stat
+	STATE_ABORT_BAR_STAT,		// Early lick during stat
 	_NUM_STATES					// (Private) Used to count number of states
 };
 
