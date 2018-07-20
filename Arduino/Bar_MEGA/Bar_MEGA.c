@@ -27,18 +27,19 @@ Servo _servoTube;
 /*****************************************************
 	Arduino Pin Outs
 *****************************************************/
-// Teensy Board Pins
+// Mega Pins
 // Digital OUT
-#define PIN_REWARD		24  
-#define PIN_IR_LAMP		8	// DIO_2
+#define PIN_REWARD		9  // Dedicated PIN from Sabatini Board
+#define PIN_LICK_LED	11 // USER_1
+#define PIN_IR_LAMP		12 // USER_2
 
 // PWM OUT
-#define PIN_SERVO_LEVER	6	// DIO_0
-#define PIN_SERVO_TUBE	7	// DIO_1
+#define PIN_SERVO_LEVER	10 // Dedicated SOL_2 that we'll use for lever
+#define PIN_SERVO_TUBE	8  // Dedicated SPEAKER that we'll use for lickport
 
 // Digital IN
-#define PIN_LICK		25	// Dedicated, not broken out
-#define PIN_LEVER		26	// Dedicated, not broken out
+#define PIN_LICK		13 // USER_3
+#define PIN_LEVER		1  // Needs to be PWM
 
 #define SERVO_READ_ACCURACY  1
 
@@ -278,8 +279,8 @@ long _params[_NUM_PARAMS] =
 	0,		// DOTS
 	4,		// MU
 	2,		// SIGMA
-	98,		// LEVER_POS_RETRACTED
-	125,	// LEVER_POS_DEPLOYED
+	105,	// LEVER_POS_RETRACTED
+	85,		// LEVER_POS_DEPLOYED
 	90,		// LEVER_SPEED_DEPLOY
 	60,		// LEVER_SPEED_RETRACT
 	85,		// TUBE_POS_RETRACTED (~ 50 == 0 mm)
@@ -334,6 +335,7 @@ void setup()
 	// Init pins
 	pinMode(PIN_IR_LAMP, OUTPUT);	// IR LED for camera recording
 	pinMode(PIN_REWARD, OUTPUT);	// Reward, set to HIGH to open juice valve
+	pinMode(PIN_LICK_LED, OUTPUT);	// Lick LED, set to HIGH when lick detected
 	pinMode(PIN_LICK, INPUT);		// Lick detector
 	pinMode(PIN_LEVER, INPUT);		// Lever press detector
 
@@ -432,11 +434,13 @@ void loop()
 
 		// 2) Check for licks and lever pressed
 		handleLick();
-		// 2.1) Check for alpha, turning point and omega from matlab and send back event markers because we dumb
+		// 2.1) If lick pin is HIGH, set lick LED HIGH
+		handleLickLED();
+		// 2.2) Check for alpha, turning point and omega from matlab and send back event markers because we dumb
 		handleVisualStim();
-		// 2.2) Tube servo control
+		// 2.3) Tube servo control
 		handleServoTube();		
-		// 2.3) Lever servo control
+		// 2.4) Lever servo control
 		handleServoLever();
 
 		// 3) Update state machine
@@ -1262,6 +1266,18 @@ void handleLick()
 			sendEventMarker(EVENT_LICK_OFF, -1);
 		}
 		_isLickOnset = false;
+	}
+}
+
+void handleLickLED()
+{
+	if (digitalRead(PIN_LICK) == HIGH)
+	{
+		digitalWrite(PIN_LICK_LED, HIGH);
+	}
+	else
+	{
+		digitalWrite(PIN_LICK_LED, LOW);
 	}
 }
 
