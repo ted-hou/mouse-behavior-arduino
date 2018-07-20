@@ -27,20 +27,37 @@ Servo _servoTube;
 /*****************************************************
 	Arduino Pin Outs
 *****************************************************/
+// Mega Pins
+// // Digital OUT
+// #define PIN_REWARD		9  // Dedicated PIN from Sabatini Board
+// #define PIN_LICK_LED	11 // USER_1
+// #define PIN_IR_LAMP		12 // USER_2
+
+// // PWM OUT
+// #define PIN_SERVO_LEVER	10 // Dedicated SOL_2 that we'll use for lever
+// #define PIN_SERVO_TUBE	8  // Dedicated SPEAKER that we'll use for lickport
+
+// // Digital IN
+// #define PIN_LICK		13 // USER_3
+// #define PIN_LEVER		1  // Needs to be PWM
+
+// #define SERVO_READ_ACCURACY  1
+
+// Teensy Board Pins
 // Digital OUT
-#define PIN_REWARD		9  // Dedicated PIN from Sabatini Board
-#define PIN_LICK_LED	11 // USER_1
-#define PIN_IR_LAMP		12 // USER_2
+#define PIN_REWARD		24  
+#define PIN_IR_LAMP		8	// DIO_2
 
 // PWM OUT
-#define PIN_SERVO_LEVER	10 // Dedicated SOL_2 that we'll use for lever
-#define PIN_SERVO_TUBE	8  // Dedicated SPEAKER that we'll use for lickport
+#define PIN_SERVO_LEVER	6	// DIO_0
+#define PIN_SERVO_TUBE	7	// DIO_1
 
 // Digital IN
-#define PIN_LICK		13 // USER_3
-#define PIN_LEVER		1  // Needs to be PWM
+#define PIN_LICK		25	// Dedicated, not broken out
+#define PIN_LEVER		26	// Dedicated, not broken out
 
 #define SERVO_READ_ACCURACY  1
+
 
 /*****************************************************
 	Enums - DEFINE States
