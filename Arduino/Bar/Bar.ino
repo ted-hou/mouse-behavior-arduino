@@ -29,7 +29,7 @@ Servo _servoTube;
 *****************************************************/
 // Teensy Board Pins
 // Digital OUT
-#define PIN_REWARD		24  
+#define PIN_REWARD		24	// SOL_1, which is Juice 2  
 #define PIN_IR_LAMP		8	// DIO_2
 
 // PWM OUT
