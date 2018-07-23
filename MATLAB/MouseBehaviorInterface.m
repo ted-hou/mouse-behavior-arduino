@@ -2208,7 +2208,7 @@ classdef MouseBehaviorInterface < handle
 			addParameter(p, 'Ax', []);
 			addParameter(p, 'Cue', []);
 			addParameter(p, 'Width', 1, @isnumeric);
-			addParameter(p, 'Height', 0.025, @isnumeric);
+			addParameter(p, 'Height', 0.033, @isnumeric);
 			parse(p, varargin{:});
 			hCue = p.Results.Cue;
 			hAxes = p.Results.Ax;

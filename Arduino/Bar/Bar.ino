@@ -278,10 +278,10 @@ long _params[_NUM_PARAMS] =
 	0,		// DOTS
 	4,		// MU
 	2,		// SIGMA
-	98,		// LEVER_POS_RETRACTED
-	125,	// LEVER_POS_DEPLOYED
+	120,	// LEVER_POS_RETRACTED
+	96,		// LEVER_POS_DEPLOYED
 	90,		// LEVER_SPEED_DEPLOY
-	60,		// LEVER_SPEED_RETRACT
+	90,		// LEVER_SPEED_RETRACT
 	85,		// TUBE_POS_RETRACTED (~ 50 == 0 mm)
 	100,	// TUBE_POS_DEPLOYED (~ 125 == 30 mm)
 	18,		// TUBE_SPEED_DEPLOY
@@ -798,21 +798,44 @@ void state_bar_move()
 	}
 
 	// bar_move elapsed --> RESPONSE_WINDOW
-	if (_params[REACTIVE] == 1)
+	if (_params[PAVLOVIAN] == 1)
 	{
-		if (_command == 'T')
+		if (_params[REACTIVE] == 1)
 		{
-			_state = STATE_RESPONSE_WINDOW;
-			return;
+			if (_command == 'T')
+			{
+				_resultCode = CODE_PAV;
+				_state = STATE_REWARD;
+				return;
+			}
+		}
+		else // PROACTIVE
+		{
+			if (_command == 'A')
+			{
+				_state = STATE_RESPONSE_WINDOW;
+				return;
+			} 
 		}
 	}
 	else
 	{
-		if (_command == 'A') // A for AlphaReached
+		if (_params[REACTIVE] == 1)
 		{
-			_state = STATE_RESPONSE_WINDOW;
-			return;
-		} 
+			if (_command == 'T')
+			{
+				_state = STATE_RESPONSE_WINDOW;
+				return;
+			}
+		}
+		else // PROACTIVE
+		{
+			if (_command == 'A')
+			{
+				_state = STATE_RESPONSE_WINDOW;
+				return;
+			}
+		}
 	} 
 
 	_state = STATE_BAR_MOVE;
@@ -863,16 +886,7 @@ void state_response_window()
 	// Pavlovian
 	else if (_params[PAVLOVIAN] == 1)
 	{
-		if (_params[REACTIVE] == 1)
-		{
-			if (_command == 'T')
-			{
-				_resultCode = CODE_PAV;
-				_state = STATE_REWARD;
-				return;
-			}
-		}
-		else if (_params[REACTIVE] == 0)
+		if (_params[REACTIVE] == 0)
 		// deliver reward some time in this window from alpha to turning pt
 		{
 			if ((getTimeSinceStimOn() - _timeAlpha) >= rand_delay)
