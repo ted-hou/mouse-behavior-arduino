@@ -40,7 +40,7 @@ Servo _servoTube;
 #define PIN_LICK		25	// Dedicated, not broken out
 #define PIN_LEVER		26	// Dedicated, not broken out
 
-#define SERVO_READ_ACCURACY  1
+#define SERVO_READ_ACCURACY  2
 
 
 /*****************************************************
