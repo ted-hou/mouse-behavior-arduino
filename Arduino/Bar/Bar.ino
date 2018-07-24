@@ -272,7 +272,7 @@ long _params[_NUM_PARAMS] =
 	0,		// ALLOW_LICK_BAR_STAT
 	0,		// ALLOW_EARLY_LICK
 	1,		// NO_LICK_PUNISHMENT
-	1,		// PAVLOVIAN
+	0,		// PAVLOVIAN
 	0, 		// REACTIVE
 	0,		// OPERANT_TURN
 	90,		// END_THETA
@@ -465,8 +465,6 @@ void loop()
 		handleServoTube();		
 		// 2.4) Lever servo control
 		handleServoLever();
-		// 2.5) IR Lamp
-		setIRLamp();
 
 		// 3) Update state machine
 		// Depending on what state we're in, call the appropriate state function, which will evaluate the transition conditions, and update the `_state` var to what the next state should be
@@ -758,7 +756,7 @@ void state_bar_stat()
 	// Move detected
 	if (_isLickOnset || _isLeverPressOnset)
 	{
-		// First lick registration
+		// First move registration
 		if ((_isLickOnset && _params[USE_LEVER] == 0) || (_isLeverPressOnset && _params[USE_LEVER] == 1))
 		{
 			if (!_firstMoveRegistered)
@@ -768,16 +766,16 @@ void state_bar_stat()
 			}
 		}
 	}
-
-	// Allow early lick during bar stat
-	if (_isLickOnset && (_params[ALLOW_LICK_BAR_STAT] == 0) || (_isLeverPressOnset && (_params[ALLOW_EARLY_PRESS] == 0)))
+	
+	// Allow early move during bar stat
+	if ((_isLickOnset && (_params[ALLOW_LICK_BAR_STAT] == 0)) || (_isLeverPressOnset && (_params[ALLOW_EARLY_PRESS] == 0)))
 	{
 		// Register result
 		_resultCode = CODE_EARLY_MOVE;
 		_state = STATE_ABORT_BAR_STAT;
 		return;	
 	}
-	
+
 	// bar_stat elapsed --> BAR_MOVE
 	if (getTimeSinceStimOn() >= _params[BAR_STAT_DURATION])
 	{
@@ -818,7 +816,7 @@ void state_bar_move()
 	// Move detected
 	if (_isLickOnset || _isLeverPressOnset)
 	{
-		// First lick registration
+		// First move registration
 		if ((_isLickOnset && _params[USE_LEVER] == 0) || (_isLeverPressOnset && _params[USE_LEVER] == 1))
 		{
 			if (!_firstMoveRegistered)
@@ -829,14 +827,14 @@ void state_bar_move()
 		}
 	}
 
-	// Early lick/lever-press detected --> ABORT
-	if ((_isLeverPressOnset && _params[ALLOW_EARLY_PRESS] == 0) || (_isLickOnset && _params[ALLOW_EARLY_LICK] == 0))
+	// Allow early move during bar stat
+	if ((_isLickOnset && (_params[ALLOW_EARLY_LICK] == 0)) || (_isLeverPressOnset && (_params[ALLOW_EARLY_PRESS] == 0)))
 	{
 		// Register result
 		_resultCode = CODE_EARLY_MOVE;
 		_state = STATE_ABORT_EARLY;
-		return;
-	}
+		return;	
+	}	
 
 	// bar_move elapsed --> RESPONSE_WINDOW
 	if (_params[PAVLOVIAN] == 1)
@@ -912,25 +910,28 @@ void state_response_window()
 	}
 
 	// Correct lick/press --> REWARD
-	if ((_isLickOnset && _params[USE_LEVER] == 0) || (_isLeverPressOnset && _params[USE_LEVER] == 1))
+	if (_isLickOnset || _isLeverPressOnset)
 	{
-		// First lick registration
-		if (!_firstMoveRegistered)
+		if ((_isLickOnset && _params[USE_LEVER] == 0) || (_isLeverPressOnset && _params[USE_LEVER] == 1))
 		{
-			_firstMoveRegistered = true;
-			sendEventMarker(EVENT_FIRST_MOVE, -1);
+			// First lick registration
+			if (!_firstMoveRegistered)
+			{
+				_firstMoveRegistered = true;
+				sendEventMarker(EVENT_FIRST_MOVE, -1);
+			}
+			_resultCode = CODE_CORRECT;
+			if (_params[OPERANT_TURN] == 0)
+			{
+				_state = STATE_REWARD;
+			}
+			else
+			{
+				_state = STATE_OPERANT_REWARD;
+			}
+			return;
 		}
-		_resultCode = CODE_CORRECT;
-		if (_params[OPERANT_TURN] == 0)
-		{
-			_state = STATE_REWARD;
-		}
-		else
-		{
-			_state = STATE_OPERANT_REWARD;
-		}
-		return;
-
+	}
 	// Pavlovian
 	else if (_params[PAVLOVIAN] == 1)
 	{
@@ -999,7 +1000,7 @@ void state_reward()
 		OnEachLoop checks
 	*****************************************************/
 	// Lick detected
-	if (_isLickOnset && (_params[USE_LEVER]) == 0 || _isLeverPressOnset && (_params[USE_LEVER]) == 1)
+	if ((_isLickOnset && (_params[USE_LEVER] == 0)) || (_isLeverPressOnset && (_params[USE_LEVER] == 1)))
 	{
 		// First lick registration
 		if (!_firstMoveRegistered)
@@ -1079,7 +1080,7 @@ void state_operant_reward()
 		OnEachLoop checks
 	*****************************************************/
 	// Lick detected
-	if (_isLickOnset && (_params[USE_LEVER]) == 0 || _isLeverPressOnset && (_params[USE_LEVER]) == 1)
+	if ((_isLickOnset && (_params[USE_LEVER] == 0)) || (_isLeverPressOnset && (_params[USE_LEVER] == 1)))
 	{
 		// First lick registration
 		if (!_firstMoveRegistered)
