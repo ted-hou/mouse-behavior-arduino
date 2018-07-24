@@ -297,8 +297,6 @@ classdef ArduinoConnection < handle
 				value = messageString(2:end);
 			end
 
-			disp(messageString)
-
 			switch command
 				case '$'
 					% New state entered - "$1" we've entered the second state.
