@@ -274,7 +274,7 @@ long _params[_NUM_PARAMS] =
 	1,		// NO_LICK_PUNISHMENT
 	0,		// PAVLOVIAN
 	0, 		// REACTIVE
-	0,		// OPERANT_TURN
+	1,		// OPERANT_TURN
 	90,		// END_THETA
 	1,		// TRIANGLE_CUE
 	0,		// TIMING
