@@ -271,7 +271,7 @@ long _params[_NUM_PARAMS] =
 	0,		// ALLOW_EARLY_PRESS
 	0,		// ALLOW_LICK_BAR_STAT
 	0,		// ALLOW_EARLY_LICK
-	0,		// NO_LICK_PUNISHMENT
+	1,		// NO_LICK_PUNISHMENT
 	1,		// PAVLOVIAN
 	0, 		// REACTIVE
 	0,		// OPERANT_TURN
@@ -342,6 +342,26 @@ void setup()
 	pinMode(PIN_LICK, INPUT);		// Lick detector
 	pinMode(PIN_LEVER, INPUT);		// Lever press detector
 
+	// Setting unused pins low
+	pinMode(4, OUTPUT);
+	digitalWrite(4, LOW);
+	pinMode(5, OUTPUT);
+	digitalWrite(5, LOW);
+	pinMode(9, OUTPUT);
+	digitalWrite(9, LOW);
+	pinMode(10, OUTPUT);
+	digitalWrite(10, LOW);
+	pinMode(11, OUTPUT);
+	digitalWrite(11, LOW);
+	pinMode(20, OUTPUT);
+	digitalWrite(20, LOW);
+	pinMode(21, OUTPUT);
+	digitalWrite(21, LOW);
+	pinMode(22, OUTPUT);
+	digitalWrite(22, LOW);
+	pinMode(23, OUTPUT);
+	digitalWrite(23, LOW);
+
 	// Initiate servo
 	_servoLever.attach(PIN_SERVO_LEVER);
 	_servoTube.attach(PIN_SERVO_TUBE);
@@ -353,7 +373,7 @@ void setup()
 void mySetup()
 {
 	// Reset output
-	setIRLamp(true);                          	 // IR Lamp ON
+	setIRLamp(true);                        // IR Lamp ON
 
 	// Reset variables
 	_timeReset				= 0;			// Reset to signedMillis() at every soft reset
@@ -437,12 +457,16 @@ void loop()
 
 		// 2) Check for licks and lever pressed
 		handleLick();
-		// 2.1) Check for alpha, turning point and omega from matlab and send back event markers because we dumb
+		// 2.1)
+		handleLever();
+		// 2.2) Check for alpha, turning point and omega from matlab and send back event markers because we dumb
 		handleVisualStim();
-		// 2.2) Tube servo control
+		// 2.3) Tube servo control
 		handleServoTube();		
-		// 2.3) Lever servo control
+		// 2.4) Lever servo control
 		handleServoLever();
+		// 2.5) IR Lamp
+		setIRLamp();
 
 		// 3) Update state machine
 		// Depending on what state we're in, call the appropriate state function, which will evaluate the transition conditions, and update the `_state` var to what the next state should be
@@ -731,25 +755,29 @@ void state_bar_stat()
 		}
 	}
 
-	// Lick detected
-	if (_isLickOnset)
+	// Move detected
+	if (_isLickOnset || _isLeverPressOnset)
 	{
 		// First lick registration
-		if (!_firstMoveRegistered)
+		if ((_isLickOnset && _params[USE_LEVER] == 0) || (_isLeverPressOnset && _params[USE_LEVER] == 1))
 		{
-			_firstMoveRegistered = true;
-			sendEventMarker(EVENT_FIRST_MOVE, -1);
-		}
-		// Allow early lick during bar stat
-		if (_params[ALLOW_LICK_BAR_STAT] == 0)
-		{
-			// Register result
-			_resultCode = CODE_EARLY_MOVE;
-			_state = STATE_ABORT_BAR_STAT;
-			return;	
+			if (!_firstMoveRegistered)
+			{
+				_firstMoveRegistered = true;
+				sendEventMarker(EVENT_FIRST_MOVE, -1);
+			}
 		}
 	}
 
+	// Allow early lick during bar stat
+	if (_isLickOnset && (_params[ALLOW_LICK_BAR_STAT] == 0) || (_isLeverPressOnset && (_params[ALLOW_EARLY_PRESS] == 0)))
+	{
+		// Register result
+		_resultCode = CODE_EARLY_MOVE;
+		_state = STATE_ABORT_BAR_STAT;
+		return;	
+	}
+	
 	// bar_stat elapsed --> BAR_MOVE
 	if (getTimeSinceStimOn() >= _params[BAR_STAT_DURATION])
 	{
@@ -787,23 +815,27 @@ void state_bar_move()
 		return;
 	}
 
-	// Lick detected
-	if (_isLickOnset)
+	// Move detected
+	if (_isLickOnset || _isLeverPressOnset)
 	{
 		// First lick registration
-		if (!_firstMoveRegistered)
+		if ((_isLickOnset && _params[USE_LEVER] == 0) || (_isLeverPressOnset && _params[USE_LEVER] == 1))
 		{
-			_firstMoveRegistered = true;
-			sendEventMarker(EVENT_FIRST_MOVE, -1);
+			if (!_firstMoveRegistered)
+			{
+				_firstMoveRegistered = true;
+				sendEventMarker(EVENT_FIRST_MOVE, -1);
+			}
 		}
-		// Early lick/lever-press detected --> ABORT
-		if ((_isLeverPressOnset && _params[ALLOW_EARLY_PRESS] == 0) || (_isLickOnset && _params[ALLOW_EARLY_LICK] == 0))
-		{
-			// Register result
-			_resultCode = CODE_EARLY_MOVE;
-			_state = STATE_ABORT_EARLY;
-			return;
-		}
+	}
+
+	// Early lick/lever-press detected --> ABORT
+	if ((_isLeverPressOnset && _params[ALLOW_EARLY_PRESS] == 0) || (_isLickOnset && _params[ALLOW_EARLY_LICK] == 0))
+	{
+		// Register result
+		_resultCode = CODE_EARLY_MOVE;
+		_state = STATE_ABORT_EARLY;
+		return;
 	}
 
 	// bar_move elapsed --> RESPONSE_WINDOW
@@ -898,7 +930,7 @@ void state_response_window()
 			_state = STATE_OPERANT_REWARD;
 		}
 		return;
-	}
+
 	// Pavlovian
 	else if (_params[PAVLOVIAN] == 1)
 	{
@@ -967,7 +999,7 @@ void state_reward()
 		OnEachLoop checks
 	*****************************************************/
 	// Lick detected
-	if (_isLickOnset)
+	if (_isLickOnset && (_params[USE_LEVER]) == 0 || _isLeverPressOnset && (_params[USE_LEVER]) == 1)
 	{
 		// First lick registration
 		if (!_firstMoveRegistered)
@@ -1047,7 +1079,7 @@ void state_operant_reward()
 		OnEachLoop checks
 	*****************************************************/
 	// Lick detected
-	if (_isLickOnset)
+	if (_isLickOnset && (_params[USE_LEVER]) == 0 || _isLeverPressOnset && (_params[USE_LEVER]) == 1)
 	{
 		// First lick registration
 		if (!_firstMoveRegistered)
