@@ -58,6 +58,7 @@ enum State
 	STATE_BAR_MOVE,				// Moving dots, moving bar, enforced no lick
 	STATE_RESPONSE_WINDOW,		// First lick in this interval rewarded
 	STATE_REWARD,				// Dispense reward, wait for trial timeout
+	STATE_OPERANT_REWARD,		// In operant turn, if mouse licks correctly go to reward
 	STATE_ABORT,				// No lick - timeout
 	STATE_ABORT_EARLY,			// Early lick
 	STATE_ABORT_BAR_STAT,		// Early lick during stat
@@ -77,6 +78,7 @@ static const char *_stateNames[] =
 	"BAR_MOVE",
 	"RESPONSE_WINDOW",
 	"REWARD",
+	"OPERANT_REWARD",
 	"ABORT",
 	"ABORT_EARLY",
 	"ABORT_BAR_STAT"
@@ -103,7 +105,7 @@ enum EventMarker
 	EVENT_TUBE_DEPLOY_END,			// Tube deploy end
 	EVENT_LICK,						// Lick onset
 	EVENT_LICK_OFF,					// Lick offset
-	EVENT_FIRST_LICK,				// First lick in trial since cue on
+	EVENT_FIRST_MOVE,				// First lick in trial since cue on
 	EVENT_STIM_ON,					// Stim appear
 	EVENT_BAR_MOVE,					// Bar begins rotation
 	EVENT_ALPHA,					// Proactive, response window open
@@ -132,7 +134,7 @@ static const char *_eventMarkerNames[] =
 	"TUBE_DEPLOY_END",				// Tube deploy end
 	"LICK",						// Lick onset
 	"LICK_OFF",					// Lick offset
-	"FIRST_LICK",				// First lick in trial since cue on
+	"FIRST_MOVE",				// First lick in trial since cue on
 	"STIM_ON",					// Bar appear
 	"BAR_MOVE",					// Bar begins rotation
 	"ALPHA",					// Proactive, response window open
@@ -198,6 +200,7 @@ enum ParamID
 	NO_LICK_PUNISHMENT,			// 1 = Flashing screen in no lick abort
 	PAVLOVIAN,					// Pavlovian = 1, Operant = 0
 	REACTIVE,					// Proactive = 0, Reactive = 1
+	OPERANT_TURN,				// Mouse move causes bar to reverse direction
 	END_THETA,					// Define location of turning point
 	TRIANGLE_CUE,				// 0 = flashing bar cue, 1 = flashing triangle cue
 	TIMING,						// Elapsed time informative = 1, Not = 0
@@ -235,6 +238,7 @@ static const char *_paramNames[] =
 	"NO_LICK_PUNISHMENT",		// 1 = Flashing screen in no lick abort
 	"PAVLOVIAN",				// Pavlovian = 1, Operant = 0
 	"REACTIVE",					// Is this a reactive or proactive paradigm?
+	"OPERANT_TURN",				// Mouse move causes bar to reverse direction
 	"END_THETA",				// Define location of turning point
 	"TRIANGLE_CUE",				// 0 = flashing bar cue, 1 = flashing triangle cue
 	"TIMING",					// Elapsed time informative = 1, Not = 0
@@ -270,6 +274,7 @@ long _params[_NUM_PARAMS] =
 	0,		// NO_LICK_PUNISHMENT
 	1,		// PAVLOVIAN
 	0, 		// REACTIVE
+	0,		// OPERANT_TURN
 	90,		// END_THETA
 	1,		// TRIANGLE_CUE
 	0,		// TIMING
@@ -307,7 +312,7 @@ static int _arguments[2]			= {0};			// Two integers received from host , resets 
 
 static bool _isLicking 				= false;		// True if the little dude is licking
 static bool _isLickOnset 			= false;		// True during lick onset
-static bool _firstLickRegistered 	= false;		// True when first lick is registered for this trial
+static bool _firstMoveRegistered 	= false;		// True when first lick is registered for this trial
 static long _timeLastLick			= 0;			// Time (ms) when last lick occured
 
 static bool _isLeverPressed			= false;		// True as long as lever is pressed down
@@ -365,7 +370,7 @@ void mySetup()
 
 	_isLicking 				= false;		// True if the little dude is licking
 	_isLickOnset 			= false;		// True during lick onset
-	_firstLickRegistered 	= false;		// True when first lick is registered for this trial
+	_firstMoveRegistered 	= false;		// True when first lick is registered for this trial
 	_timeLastLick			= 0;			// Time (ms) when last lick occured
 
 	_isLeverPressed			= false;		// True as long as lever is pressed down
@@ -478,6 +483,10 @@ void loop()
 			case STATE_REWARD:
 				state_reward();
 				break;
+
+			case STATE_OPERANT_REWARD:
+				state_operant_reward();
+				break;
 			
 			case STATE_ABORT:
 				state_abort();
@@ -563,7 +572,7 @@ void state_start()
 
 		// Reset variables
 		_resultCode = -1;
-		_firstLickRegistered = false;
+		_firstMoveRegistered = false;
 	}
 
 	/*****************************************************
@@ -658,10 +667,10 @@ void state_pre_stim()
 	if (_isLickOnset)
 	{
 		// First lick registration
-		if (!_firstLickRegistered)
+		if (!_firstMoveRegistered)
 		{
-			_firstLickRegistered = true;
-			sendEventMarker(EVENT_FIRST_LICK, -1);
+			_firstMoveRegistered = true;
+			sendEventMarker(EVENT_FIRST_MOVE, -1);
 		}
 	}
 
@@ -726,10 +735,10 @@ void state_bar_stat()
 	if (_isLickOnset)
 	{
 		// First lick registration
-		if (!_firstLickRegistered)
+		if (!_firstMoveRegistered)
 		{
-			_firstLickRegistered = true;
-			sendEventMarker(EVENT_FIRST_LICK, -1);
+			_firstMoveRegistered = true;
+			sendEventMarker(EVENT_FIRST_MOVE, -1);
 		}
 		// Allow early lick during bar stat
 		if (_params[ALLOW_LICK_BAR_STAT] == 0)
@@ -782,10 +791,10 @@ void state_bar_move()
 	if (_isLickOnset)
 	{
 		// First lick registration
-		if (!_firstLickRegistered)
+		if (!_firstMoveRegistered)
 		{
-			_firstLickRegistered = true;
-			sendEventMarker(EVENT_FIRST_LICK, -1);
+			_firstMoveRegistered = true;
+			sendEventMarker(EVENT_FIRST_MOVE, -1);
 		}
 		// Early lick/lever-press detected --> ABORT
 		if ((_isLeverPressOnset && _params[ALLOW_EARLY_PRESS] == 0) || (_isLickOnset && _params[ALLOW_EARLY_LICK] == 0))
@@ -874,13 +883,20 @@ void state_response_window()
 	if ((_isLickOnset && _params[USE_LEVER] == 0) || (_isLeverPressOnset && _params[USE_LEVER] == 1))
 	{
 		// First lick registration
-		if (!_firstLickRegistered)
+		if (!_firstMoveRegistered)
 		{
-			_firstLickRegistered = true;
-			sendEventMarker(EVENT_FIRST_LICK, -1);
+			_firstMoveRegistered = true;
+			sendEventMarker(EVENT_FIRST_MOVE, -1);
 		}
 		_resultCode = CODE_CORRECT;
-		_state = STATE_REWARD;
+		if (_params[OPERANT_TURN] == 0)
+		{
+			_state = STATE_REWARD;
+		}
+		else
+		{
+			_state = STATE_OPERANT_REWARD;
+		}
 		return;
 	}
 	// Pavlovian
@@ -919,6 +935,7 @@ void state_response_window()
 			}
 		}
 	}
+	
 
 	_state = STATE_RESPONSE_WINDOW;
 }
@@ -953,10 +970,10 @@ void state_reward()
 	if (_isLickOnset)
 	{
 		// First lick registration
-		if (!_firstLickRegistered)
+		if (!_firstMoveRegistered)
 		{
-			_firstLickRegistered = true;
-			sendEventMarker(EVENT_FIRST_LICK, -1);
+			_firstMoveRegistered = true;
+			sendEventMarker(EVENT_FIRST_MOVE, -1);
 			return;
 		}
 	}
@@ -1001,6 +1018,86 @@ void state_reward()
 	}
 
 	_state = STATE_REWARD;
+}
+
+/*****************************************************
+	OPERANT_REWARD - Does exactly what reward does. This was LFH's idea
+*****************************************************/
+void state_operant_reward()
+{
+	static long timeRewardOn;
+	static bool isRewardOn;
+	static bool isRewardComplete;
+	/*****************************************************
+		ACTION LIST
+	*****************************************************/
+	if (_state != _prevState) 
+	{
+		// Register new state
+		_prevState = _state;
+		sendState(_state);
+
+		// Reset variables
+		timeRewardOn = 0;
+		isRewardOn = false;
+		isRewardComplete = false;
+	}
+
+	/*****************************************************
+		OnEachLoop checks
+	*****************************************************/
+	// Lick detected
+	if (_isLickOnset)
+	{
+		// First lick registration
+		if (!_firstMoveRegistered)
+		{
+			_firstMoveRegistered = true;
+			sendEventMarker(EVENT_FIRST_MOVE, -1);
+			return;
+		}
+	}
+
+		// Immediate reward
+	if (!isRewardOn && !isRewardComplete)
+	{
+		timeRewardOn = getTimeSinceStimOn();
+		isRewardOn = true;
+		if (_params[REWARD_DURATION] > 0)
+		{
+			setReward(true);
+		}			
+	}
+
+	// Turn off reward when the time comes
+	if (isRewardOn && !isRewardComplete && getTimeSinceStimOn() - timeRewardOn >= _params[REWARD_DURATION])
+	{
+		isRewardOn = false;
+		isRewardComplete = true;
+		if (_params[REWARD_DURATION] > 0)
+		{
+			setReward(false);
+		}
+	}
+
+	/*****************************************************
+		TRANSITION LIST
+	*****************************************************/
+	// Quit signal from host --> IDLE
+	if (_command == 'Q') 
+	{
+		_state = STATE_IDLE;
+		return;
+	}
+
+	// Trial duration elapsed and reward dispense complete --> INTERTRIAL
+	if (isRewardComplete && _command == 'E')
+	{
+		_state = STATE_INTERTRIAL;
+		return;
+	}
+
+	_state = STATE_OPERANT_REWARD;
 }
 
 /*****************************************************
