@@ -1651,6 +1651,7 @@ classdef MouseBehaviorInterface < handle
 				% Bar starts moving
 				case 'BAR_MOVE'
 					start(obj.Rsc.BarRefreshTimer);
+
 				case 'ABORT_BAR_STAT'
 					start(obj.Rsc.BarRefreshTimer);
 					set(obj.Rsc.Dots, 'Visible', 'off');
@@ -1678,6 +1679,13 @@ classdef MouseBehaviorInterface < handle
 					omegaToITIDuration = obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'OMEGA_TO_ITI_DURATION'))/1000;
 					obj.Rsc.OmegaToITITimer.StartDelay = omegaToITIDuration;
 					start(obj.Rsc.OmegaToITITimer);
+
+				% Again, the exact same thing as reward state
+				case {'OPERANT_REWARD'}
+					omegaToITIDuration = obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'OMEGA_TO_ITI_DURATION'))/1000;
+					obj.Rsc.OmegaToITITimer.StartDelay = omegaToITIDuration;
+					start(obj.Rsc.OmegaToITITimer);
+					obj.Rsc.Bar.UserData.Thetas = obj.Rsc.Bar.UserData.Thetas(1:obj.Rsc.Bar.UserData.ThetaIndex);
 
 				% Punishment, wait some time then go to ITI
 				case {'ABORT'}
