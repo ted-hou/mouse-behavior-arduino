@@ -1597,8 +1597,6 @@ classdef MouseBehaviorInterface < handle
                     theta0 = theta0 + endTheta;
                     thetas = thetas + endTheta;
 
-                    thetas = [thetas, repmat(thetas(end), 1, obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'NUM_HOPS'))];
-
 					% Create objects
 					obj.Rsc.Dots    	= obj.MovingDots('Ax', obj.Rsc.VisualStimAxes);
 					if obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'TRIANGLE_CUE')) == 1
@@ -1632,6 +1630,7 @@ classdef MouseBehaviorInterface < handle
 					obj.Rsc.Bar.UserData.IsAlphaReached			= false;
 					obj.Rsc.Bar.UserData.IsOmegaReached			= false;
 					obj.Rsc.Bar.UserData.IsTurningPointReached	= false;
+					obj.Rsc.Bar.UserData.IsNotStopped			= true;
 
 					obj.Rsc.BarRefreshTimer = timer;
 					obj.Rsc.BarRefreshTimer.Execution = 'fixedRate';
@@ -1740,10 +1739,15 @@ classdef MouseBehaviorInterface < handle
 					end
 					% Turning point
 					if (~hBar.UserData.IsTurningPointReached && hBar.UserData.Direction > 0 && nextThetaIndex > length(obj.Rsc.Bar.UserData.Thetas)) % turn when reach end of list of thetas
-						hBar.UserData.Direction = -1;
+						if obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'REACTIVE')) == 0 && (obj.Rsc.Bar.UserData.IsNotStopped) && (obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'NUM_HOPS')) > 0)
+							obj.Rsc.Bar.UserData.Thetas = [obj.Rsc.Bar.UserData.Thetas, repmat(obj.Rsc.Bar.UserData.Thetas(end), 1, obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'NUM_HOPS'))];
+							obj.Rsc.Bar.UserData.IsNotStopped = false;
+						else
+							hBar.UserData.Direction = -1;
+							obj.Arduino.SendMessage('T');
+							hBar.UserData.IsTurningPointReached = true;
+						end
 						nextThetaIndex = obj.Rsc.Bar.UserData.ThetaIndex + hBar.UserData.Direction;
-						obj.Arduino.SendMessage('T');
-						hBar.UserData.IsTurningPointReached = true;
 					end
 					% Omega
 					if (~hBar.UserData.IsOmegaReached && nextThetaIndex <= length(obj.Rsc.Bar.UserData.Thetas) && hBar.UserData.Direction < 0 && ((max(obj.Rsc.Bar.UserData.Thetas) - obj.Rsc.Bar.UserData.Thetas(nextThetaIndex)) > windowDuration*speed*spatialFrequency))
