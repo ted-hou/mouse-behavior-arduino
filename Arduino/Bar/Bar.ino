@@ -192,20 +192,22 @@ enum ParamID
 	REWARD_DURATION,			// Reward duration (ms)
 	WINDOW_DURATION,			// Time from Alpha to Turning Point (or from Turning Point to Omega)
 	OMEGA_TO_ITI_DURATION,		// Time from Omega to ITI (ms)
-	TRAINING_PHASE,				// For proactive, switches possible locations of cue (cardinal to anywhere)	
 	USE_LEVER,					// 0 to use lick to trigger reward. 1 to use lever press.
 	ALLOW_EARLY_PRESS,			// 1 to abort trial if animal presses early
 	ALLOW_LICK_BAR_STAT,		// Allow early lick when stim first comes on
 	ALLOW_EARLY_LICK,			// 0 to abort trial if animal licks after in pre-window
 	NO_LICK_PUNISHMENT,			// 1 = Flashing screen in no lick abort
+	TRAINING,					// If mouse presses lever/licks, gets reward
 	PAVLOVIAN,					// Pavlovian = 1, Operant = 0
 	REACTIVE,					// Proactive = 0, Reactive = 1
+	TIMING,						// Elapsed time informative = 1, Not = 0
 	OPERANT_TURN,				// Mouse move causes bar to reverse direction
 	END_THETA,					// Define location of turning point
 	TRIANGLE_CUE,				// 0 = flashing bar cue, 1 = flashing triangle cue
-	TIMING,						// Elapsed time informative = 1, Not = 0
+	CUE_LOCATIONS,				// For proactive, switches possible locations of cue (cardinal to anywhere)	
 	SPATIAL_FREQUENCY,			// Distance (degrees) between bar locations
 	BAR_SPEED,					// In hops/seconds
+	BAR_STOP,					// In num. of hops, how long the bar stays stationary at Turning Point
 	DOTS,						// 1 to show moving dots
 	MU,							// Mean trial length 
 	SIGMA,						// Standard deviation for trial length
@@ -230,20 +232,22 @@ static const char *_paramNames[] =
 	"REWARD_DURATION",			// Reward duration (ms)
 	"WINDOW_DURATION",			// Time from Alpha to Turning Point (or from Turning Point to Omega)
 	"OMEGA_TO_ITI_DURATION",	// Time from Omega to ITI (ms)
-	"TRAINING_PHASE",			// For proactive, switches possible locations of cue (cardinal to anywhere)			
 	"USE_LEVER",				// 0 to use lick to trigger reward. 1 to use lever press
 	"ALLOW_EARLY_PRESS",		// 1 to abort trial if animal presses early
 	"ALLOW_LICK_BAR_STAT",		// Allow early lick when stim first comes on
 	"ALLOW_EARLY_LICK",			// 0 to abort trial if animal licks after in pre-window
 	"NO_LICK_PUNISHMENT",		// 1 = Flashing screen in no lick abort
+	"TRAINING",					// If mouse presses lever/licks, gets reward
 	"PAVLOVIAN",				// Pavlovian = 1, Operant = 0
 	"REACTIVE",					// Is this a reactive or proactive paradigm?
+	"TIMING",					// Elapsed time informative = 1, Not = 0
 	"OPERANT_TURN",				// Mouse move causes bar to reverse direction
 	"END_THETA",				// Define location of turning point
 	"TRIANGLE_CUE",				// 0 = flashing bar cue, 1 = flashing triangle cue
-	"TIMING",					// Elapsed time informative = 1, Not = 0
+	"CUE_LOCATIONS",			// For proactive, switches possible locations of cue (cardinal to anywhere)			
 	"SPATIAL_FREQUENCY",		// Distance (degrees) between bar locations; degrees/hop
 	"BAR_SPEED",				// In hops/seconds
+	"BAR_STOP",					// In num. of hops, how long the bar stays stationary at Turning Point
 	"DOTS",						// 1 to show moving dots
 	"MU",						// Mean trial length 
 	"SIGMA",					// Standard deviation for trial length
@@ -266,20 +270,22 @@ long _params[_NUM_PARAMS] =
 	50,		// REWARD_DURATION
 	1000,	// WINDOW_DURATION
 	1500,	// OMEGA_TO_ITI_DURATION
-	0,		// TRAINING_PHASE
 	1,		// USE_LEVER
 	0,		// ALLOW_EARLY_PRESS
 	0,		// ALLOW_LICK_BAR_STAT
 	0,		// ALLOW_EARLY_LICK
 	1,		// NO_LICK_PUNISHMENT
+	0,		// TRAINING
 	0,		// PAVLOVIAN
 	0, 		// REACTIVE
+	0,		// TIMING	
 	1,		// OPERANT_TURN
 	90,		// END_THETA
 	1,		// TRIANGLE_CUE
-	0,		// TIMING
+	0,		// CUE_LOCATIONS
 	4,		// SPATIAL_FREQUENCY
 	4,		// BAR_SPEED
+	0,		// BAR_STOP
 	0,		// DOTS
 	4,		// MU
 	2,		// SIGMA
@@ -735,13 +741,6 @@ void state_bar_stat()
 		return;
 	}
 
-	// Early lick/lever-press detected --> ABORT
-	if ((_isLeverPressOnset && _params[ALLOW_EARLY_PRESS] == 0) || (_isLickOnset && _params[ALLOW_EARLY_LICK] == 0))
-	{
-		_state = STATE_ABORT_EARLY;
-		return;
-	}
-
 	// Lever/tube deployed --> BAR_MOVE
 	// Lever mode: make sure both are deployed
 	if (_params[USE_LEVER] == 1)
@@ -767,7 +766,7 @@ void state_bar_stat()
 		}
 	}
 	
-	// Allow early move during bar stat
+	// Early lick/lever-press detected --> ABORT
 	if ((_isLickOnset && (_params[ALLOW_LICK_BAR_STAT] == 0)) || (_isLeverPressOnset && (_params[ALLOW_EARLY_PRESS] == 0)))
 	{
 		// Register result
@@ -775,6 +774,7 @@ void state_bar_stat()
 		_state = STATE_ABORT_BAR_STAT;
 		return;	
 	}
+
 
 	// bar_stat elapsed --> BAR_MOVE
 	if (getTimeSinceStimOn() >= _params[BAR_STAT_DURATION])
@@ -814,10 +814,20 @@ void state_bar_move()
 	}
 
 	// Move detected
-	if (_isLickOnset || _isLeverPressOnset)
+	// First move registration fir task related movement
+	if ((_isLickOnset && _params[USE_LEVER] == 0) || (_isLeverPressOnset && _params[USE_LEVER] == 1))
 	{
-		// First move registration
-		if ((_isLickOnset && _params[USE_LEVER] == 0) || (_isLeverPressOnset && _params[USE_LEVER] == 1))
+		if (_params[TRAINING] == 1)
+		{
+			if (!_firstMoveRegistered)
+			{
+				_firstMoveRegistered = true;
+				sendEventMarker(EVENT_FIRST_MOVE, -1);
+				_state = STATE_OPERANT_REWARD;
+				return;
+			}
+		}
+		else 
 		{
 			if (!_firstMoveRegistered)
 			{
@@ -827,14 +837,14 @@ void state_bar_move()
 		}
 	}
 
-	// Allow early move during bar stat
+	// Early lick/lever-press detected --> ABORT
 	if ((_isLickOnset && (_params[ALLOW_EARLY_LICK] == 0)) || (_isLeverPressOnset && (_params[ALLOW_EARLY_PRESS] == 0)))
 	{
 		// Register result
 		_resultCode = CODE_EARLY_MOVE;
 		_state = STATE_ABORT_EARLY;
 		return;	
-	}	
+	}
 
 	// bar_move elapsed --> RESPONSE_WINDOW
 	if (_params[PAVLOVIAN] == 1)

@@ -1563,12 +1563,12 @@ classdef MouseBehaviorInterface < handle
 					thetas 				= flip(thetas);
 
 					if obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'REACTIVE')) == 0
-						if obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'TRAINING_PHASE')) == 0
+						if obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'CUE_LOCATIONS')) == 0
 							endTheta 	= obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'END_THETA'));
-						elseif obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'TRAINING_PHASE')) == 1
+						elseif obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'CUE_LOCATIONS')) == 1
 							endThetas 	= [0:90:270]; % Training Day 1/2/3
 							endTheta 	= endThetas(randi(length(endThetas))); % Training Day 6-inf
-						elseif obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'TRAINING_PHASE')) == 2
+						elseif obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'CUE_LOCATIONS')) == 2
 							endThetas = [0:45:315]; % Training Day 4/5
 							endTheta 	= endThetas(randi(length(endThetas))); 
 						else
@@ -1630,6 +1630,7 @@ classdef MouseBehaviorInterface < handle
 					obj.Rsc.Bar.UserData.IsAlphaReached			= false;
 					obj.Rsc.Bar.UserData.IsOmegaReached			= false;
 					obj.Rsc.Bar.UserData.IsTurningPointReached	= false;
+					obj.Rsc.Bar.UserData.AllowMove				= true;
 
 					obj.Rsc.BarRefreshTimer = timer;
 					obj.Rsc.BarRefreshTimer.Execution = 'fixedRate';
