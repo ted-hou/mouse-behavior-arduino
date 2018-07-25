@@ -1740,7 +1740,7 @@ classdef MouseBehaviorInterface < handle
 					% Turning point
 					if (~hBar.UserData.IsTurningPointReached && hBar.UserData.Direction > 0 && nextThetaIndex > length(obj.Rsc.Bar.UserData.Thetas)) % turn when reach end of list of thetas
 						if obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'REACTIVE')) == 0 && (obj.Rsc.Bar.UserData.IsNotStopped) && (obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'NUM_HOPS')) > 0)
-							obj.Rsc.Bar.UserData.Thetas = [obj.Rsc.Bar.UserData.Thetas, repmat(obj.Rsc.Bar.UserData.Thetas(end), 1, obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'NUM_HOPS'))];
+							obj.Rsc.Bar.UserData.Thetas = [obj.Rsc.Bar.UserData.Thetas, repmat(obj.Rsc.Bar.UserData.Thetas(end), 1, obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'NUM_HOPS')))];
 							obj.Rsc.Bar.UserData.IsNotStopped = false;
 						else
 							hBar.UserData.Direction = -1;
