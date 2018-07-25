@@ -207,7 +207,7 @@ enum ParamID
 	CUE_LOCATIONS,				// For proactive, switches possible locations of cue (cardinal to anywhere)	
 	SPATIAL_FREQUENCY,			// Distance (degrees) between bar locations
 	BAR_SPEED,					// In hops/seconds
-	BAR_STOP,					// In num. of hops, how long the bar stays stationary at Turning Point
+	NUM_HOPS,					// In num. of hops, how long the bar stays stationary at Turning Point
 	DOTS,						// 1 to show moving dots
 	MU,							// Mean trial length 
 	SIGMA,						// Standard deviation for trial length
@@ -247,7 +247,7 @@ static const char *_paramNames[] =
 	"CUE_LOCATIONS",			// For proactive, switches possible locations of cue (cardinal to anywhere)			
 	"SPATIAL_FREQUENCY",		// Distance (degrees) between bar locations; degrees/hop
 	"BAR_SPEED",				// In hops/seconds
-	"BAR_STOP",					// In num. of hops, how long the bar stays stationary at Turning Point
+	"NUM_HOPS",					// In num. of hops, how long the bar stays stationary at Turning Point
 	"DOTS",						// 1 to show moving dots
 	"MU",						// Mean trial length 
 	"SIGMA",					// Standard deviation for trial length
@@ -285,7 +285,7 @@ long _params[_NUM_PARAMS] =
 	0,		// CUE_LOCATIONS
 	4,		// SPATIAL_FREQUENCY
 	4,		// BAR_SPEED
-	0,		// BAR_STOP
+	0,		// NUM_HOPS
 	0,		// DOTS
 	4,		// MU
 	2,		// SIGMA

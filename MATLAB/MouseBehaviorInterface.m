@@ -1597,6 +1597,8 @@ classdef MouseBehaviorInterface < handle
                     theta0 = theta0 + endTheta;
                     thetas = thetas + endTheta;
 
+                    thetas = [thetas, repmat(thetas(end), 1, obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'NUM_HOPS'))];
+
 					% Create objects
 					obj.Rsc.Dots    	= obj.MovingDots('Ax', obj.Rsc.VisualStimAxes);
 					if obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'TRIANGLE_CUE')) == 1
@@ -1630,7 +1632,6 @@ classdef MouseBehaviorInterface < handle
 					obj.Rsc.Bar.UserData.IsAlphaReached			= false;
 					obj.Rsc.Bar.UserData.IsOmegaReached			= false;
 					obj.Rsc.Bar.UserData.IsTurningPointReached	= false;
-					obj.Rsc.Bar.UserData.AllowMove				= true;
 
 					obj.Rsc.BarRefreshTimer = timer;
 					obj.Rsc.BarRefreshTimer.Execution = 'fixedRate';
