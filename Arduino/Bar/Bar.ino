@@ -1316,19 +1316,6 @@ void state_intertrial()
 		// Register time of state entry
 		timeIntertrial = getTimeSinceStimOn();
 
-		if (getTimeSinceStimOn() - timeIntertrial >= (_params[ITI_DURATION] - 5000))
-		{
-			// Retract lever/tube based on trial type
-			if (_params[USE_LEVER] == 1)
-			{
-				deployLever(false);
-			}
-			else
-			{
-				deployTube(false);
-			}
-		}
-
 		// Variables for handling parameter update
 		isParamsUpdateStarted = false;
 		isParamsUpdateDone = false;
@@ -1349,6 +1336,19 @@ void state_intertrial()
 	if (_command == 'O') 
 	{
 		isParamsUpdateDone = true;
+	}
+
+	if (getTimeSinceStimOn() - timeIntertrial >= (_params[ITI_DURATION]* 0.75))
+	{
+		// Retract lever/tube based on trial type
+		if (_params[USE_LEVER] == 1)
+		{
+			deployLever(false);
+		}
+		else
+		{
+			deployTube(false);
+		}
 	}
 
 	/*****************************************************
