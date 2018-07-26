@@ -40,7 +40,7 @@ Servo _servoTube;
 #define PIN_LICK		25	// Dedicated, not broken out
 #define PIN_LEVER		26	// Dedicated, not broken out
 
-#define SERVO_READ_ACCURACY  2
+#define SERVO_READ_ACCURACY  3
 
 
 /*****************************************************
@@ -1313,18 +1313,21 @@ void state_intertrial()
 		sendResultCode(_resultCode);
 		_resultCode = -1;
 
-		// Retract lever/tube based on trial type
-		if (_params[USE_LEVER] == 1)
-		{
-			deployLever(false);
-		}
-		else
-		{
-			deployTube(false);
-		}
-
 		// Register time of state entry
 		timeIntertrial = getTimeSinceStimOn();
+
+		if ((getTimeSinceStimOn() - timeIntertrial) >= (0.75 * _params[ITI_DURATION])
+		{
+			// Retract lever/tube based on trial type
+			if (_params[USE_LEVER] == 1)
+			{
+				deployLever(false);
+			}
+			else
+			{
+				deployTube(false);
+			}
+		}
 
 		// Variables for handling parameter update
 		isParamsUpdateStarted = false;
