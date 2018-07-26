@@ -1316,7 +1316,7 @@ void state_intertrial()
 		// Register time of state entry
 		timeIntertrial = getTimeSinceStimOn();
 
-		if ((getTimeSinceStimOn() - timeIntertrial) >= (0.75 * _params[ITI_DURATION])
+		if ((getTimeSinceStimOn() - timeIntertrial) >= (0.75 * _params[ITI_DURATION]))
 		{
 			// Retract lever/tube based on trial type
 			if (_params[USE_LEVER] == 1)
