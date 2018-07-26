@@ -1800,7 +1800,7 @@ classdef MouseBehaviorInterface < handle
 			set(obj.Rsc.Dots, 'Visible', 'off');
 			set(obj.Rsc.Bar, 'Visible', 'off');
 			set(obj.Rsc.Cue, 'Visible', 'off');
-			if obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'NO_LICK_PUNISHMENT')) == 1
+			if obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'FLASHING_SCREEN')) == 1
 				if strcmpi(obj.Rsc.FlashingScreenTimer.Running, 'off') && ~obj.Rsc.UserData.FlashingScreenPresented
 					start(obj.Rsc.FlashingScreenTimer);
 				end
