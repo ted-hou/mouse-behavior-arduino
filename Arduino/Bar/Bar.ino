@@ -933,10 +933,12 @@ void state_response_window()
 			_resultCode = CODE_CORRECT;
 			if (_params[OPERANT_TURN] == 0)
 			{
+				_resultCode = CODE_CORRECT;
 				_state = STATE_REWARD;
 			}
 			else
 			{
+				_resultCode = CODE_CORRECT;
 				_state = STATE_OPERANT_REWARD;
 			}
 			return;
