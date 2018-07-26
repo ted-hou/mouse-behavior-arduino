@@ -895,7 +895,7 @@ void state_bar_move()
 void state_response_window() 
 {
 	// Declare local variable
-	static long rand_delay;
+	static long randDelay;
 
 	/*****************************************************
 		ACTION LIST
@@ -906,7 +906,7 @@ void state_response_window()
 		_prevState = _state;
 		sendState(_state);
 
-		rand_delay = random((_params[WINDOW_DURATION] - 400), _params[WINDOW_DURATION] + 1);
+		randDelay = random((_params[WINDOW_DURATION] - 400), _params[WINDOW_DURATION] + 1);
 	}
 
 	/*****************************************************
@@ -950,7 +950,7 @@ void state_response_window()
 		if (_params[REACTIVE] == 0)
 		// deliver reward some time in this window from alpha to turning pt
 		{
-			if ((getTimeSinceStimOn() - _timeAlpha) >= rand_delay)
+			if ((getTimeSinceStimOn() - _timeAlpha) >= randDelay)
 			{
 				_resultCode = CODE_PAV;
 				_state = STATE_REWARD;
@@ -1316,7 +1316,7 @@ void state_intertrial()
 		// Register time of state entry
 		timeIntertrial = getTimeSinceStimOn();
 
-		if ((getTimeSinceStimOn() - timeIntertrial) >= (_params[ITI_DURATION] / 2))
+		if (getTimeSinceStimOn() - timeIntertrial >= (_params[ITI_DURATION] - 5000))
 		{
 			// Retract lever/tube based on trial type
 			if (_params[USE_LEVER] == 1)
