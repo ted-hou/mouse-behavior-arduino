@@ -1658,10 +1658,12 @@ classdef MouseBehaviorInterface < handle
 					set(obj.Rsc.Dots, 'Visible', 'off');
 					set(obj.Rsc.Bar, 'Visible', 'off');
 					set(obj.Rsc.Cue, 'Visible', 'off');
-					if strcmpi(obj.Rsc.FlashingScreenTimer.Running, 'off') && ~obj.Rsc.UserData.FlashingScreenPresented
-						obj.Rsc.FlashingScreenTimer.StartDelay = 0;
-						start(obj.Rsc.FlashingScreenTimer);
-						obj.Rsc.UserData.FlashingScreenPresented = true;				
+					if obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'FLASHING_SCREEN')) == 1
+						if strcmpi(obj.Rsc.FlashingScreenTimer.Running, 'off') && ~obj.Rsc.UserData.FlashingScreenPresented
+							obj.Rsc.FlashingScreenTimer.StartDelay = 0;
+							start(obj.Rsc.FlashingScreenTimer);
+							obj.Rsc.UserData.FlashingScreenPresented = true;
+						end			
 					end
 
 				% Early lick: hide visual stim
@@ -1669,11 +1671,13 @@ classdef MouseBehaviorInterface < handle
 					set(obj.Rsc.Bar, 'Visible', 'off');
 					set(obj.Rsc.Dots, 'Visible', 'off');
 					set(obj.Rsc.Cue, 'Visible', 'off');
-					if strcmpi(obj.Rsc.FlashingScreenTimer.Running, 'off') && ~obj.Rsc.UserData.FlashingScreenPresented
-						obj.Rsc.FlashingScreenTimer.StartDelay = 0;
-						start(obj.Rsc.FlashingScreenTimer);
-						obj.Rsc.UserData.FlashingScreenPresented = true;
-					end				
+					if obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'FLASHING_SCREEN')) == 1
+						if strcmpi(obj.Rsc.FlashingScreenTimer.Running, 'off') && ~obj.Rsc.UserData.FlashingScreenPresented
+							obj.Rsc.FlashingScreenTimer.StartDelay = 0;
+							start(obj.Rsc.FlashingScreenTimer);
+							obj.Rsc.UserData.FlashingScreenPresented = true;
+						end			
+					end			
 
 				% Wait some time and tell Arduino to go to ITI
 				case {'REWARD'}
