@@ -1338,7 +1338,7 @@ void state_intertrial()
 		isParamsUpdateDone = true;
 	}
 
-	if (getTimeSinceStimOn() - timeIntertrial >= (_params[ITI_DURATION]* 0.75))
+	if (getTimeSinceStimOn() - timeIntertrial >= (_params[ITI_DURATION] / 2))
 	{
 		// Retract lever/tube based on trial type
 		if (_params[USE_LEVER] == 1)
