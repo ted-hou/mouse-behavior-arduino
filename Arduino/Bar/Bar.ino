@@ -40,7 +40,7 @@ Servo _servoTube;
 #define PIN_LICK		25	// Dedicated, not broken out
 #define PIN_LEVER		26	// Dedicated, not broken out
 
-#define SERVO_READ_ACCURACY  3
+#define SERVO_READ_ACCURACY  2
 
 
 /*****************************************************
@@ -153,7 +153,8 @@ static const char *_eventMarkerNames[] =
 enum ResultCode
 {
 	CODE_CORRECT,			// Correct (1st lick w/in window)
-	CODE_PAV,				// Pavlovian (Reward given when bar reverses)
+	CODE_PAVLOVIAN,				// Pavlovian (Reward given when bar reverses)
+	CODE_OPERANT,			// Operant (reward given fi animal licks/presses to make bar reverse)
 	CODE_EARLY_MOVE,		// Early Lick/Press (-> Abort)
 	CODE_NO_MOVE,			// No Lick/Press (Timeout -> ITI)
 	_NUM_RESULT_CODES		// (Private) Used to count how many codes there are.
@@ -163,7 +164,8 @@ enum ResultCode
 static const char *_resultCodeNames[] =
 {
 	"CORRECT",
-	"PAV",
+	"PAVLOVIAN",
+	"OPERANT",
 	"EARLY_MOVE",
 	"NO_MOVE"
 };
@@ -823,6 +825,7 @@ void state_bar_move()
 			{
 				_firstMoveRegistered = true;
 				sendEventMarker(EVENT_FIRST_MOVE, -1);
+				_resultCode = CODE_OPERANT;
 				_state = STATE_OPERANT_REWARD;
 				return;
 			}
@@ -853,7 +856,7 @@ void state_bar_move()
 		{
 			if (_command == 'T')
 			{
-				_resultCode = CODE_PAV;
+				_resultCode = CODE_PAVLOVIAN;
 				_state = STATE_REWARD;
 				return;
 			}
@@ -938,7 +941,7 @@ void state_response_window()
 			}
 			else
 			{
-				_resultCode = CODE_CORRECT;
+				_resultCode = CODE_OPERANT;
 				_state = STATE_OPERANT_REWARD;
 			}
 			return;
@@ -952,7 +955,7 @@ void state_response_window()
 		{
 			if ((getTimeSinceStimOn() - _timeAlpha) >= randDelay)
 			{
-				_resultCode = CODE_PAV;
+				_resultCode = CODE_PAVLOVIAN;
 				_state = STATE_REWARD;
 				return;
 			}
@@ -1297,6 +1300,8 @@ void state_intertrial()
 	static long timeIntertrial;
 	static bool isParamsUpdateStarted;
 	static bool isParamsUpdateDone;
+	static bool isLeverRetracted;
+	static bool isTubeRetracted;
 	/*****************************************************
 		ACTION LIST
 	*****************************************************/
@@ -1319,6 +1324,10 @@ void state_intertrial()
 		// Variables for handling parameter update
 		isParamsUpdateStarted = false;
 		isParamsUpdateDone = false;
+
+		// Set lever/tube retracted to false
+		isLeverRetracted = false;
+		isTubeRetracted = false;
 	}
 
 	/*****************************************************
@@ -1341,13 +1350,15 @@ void state_intertrial()
 	if (getTimeSinceStimOn() - timeIntertrial >= (_params[ITI_DURATION] / 2))
 	{
 		// Retract lever/tube based on trial type
-		if (_params[USE_LEVER] == 1)
+		if ((_params[USE_LEVER] == 1) && isLeverRetracted == false)
 		{
 			deployLever(false);
+			isLeverRetracted = true;
 		}
-		else
+		else if (isTubeRetracted == false)
 		{
 			deployTube(false);
+			isTubeRetracted = true;
 		}
 	}
 
