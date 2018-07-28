@@ -678,7 +678,7 @@ void state_pre_stim()
 	// Early lick/lever-press detected --> ABORT
 	if ((_isLeverPressOnset && _params[ALLOW_EARLY_PRESS] == 0) || (_isLickOnset && _params[ALLOW_EARLY_LICK] == 0))
 	{
-		_state = STATE_ABORT_EARLY;
+		_state = STATE_ABORT;
 		return;
 	}
 
