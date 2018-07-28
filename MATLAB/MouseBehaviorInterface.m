@@ -1655,9 +1655,14 @@ classdef MouseBehaviorInterface < handle
 
 				case 'ABORT_BAR_STAT'
 					start(obj.Rsc.BarRefreshTimer);
-					set(obj.Rsc.Dots, 'Visible', 'off');
-					set(obj.Rsc.Bar, 'Visible', 'off');
-					set(obj.Rsc.Cue, 'Visible', 'off');
+					objects = {'Bar', 'Dots', 'Cue'};
+					for iObject = 1:length(objects)
+						if isfield(obj.Rsc, objects{iObject})
+							if isvalid(obj.Rsc.(objects{iObject}))
+								set(obj.Rsc.(objects{iObject}), 'Visible', 'off');
+							end
+						end
+					end
 					if obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'FLASHING_SCREEN')) == 1
 						if strcmpi(obj.Rsc.FlashingScreenTimer.Running, 'off') && ~obj.Rsc.UserData.FlashingScreenPresented
 							obj.Rsc.FlashingScreenTimer.StartDelay = 0;
@@ -1668,9 +1673,14 @@ classdef MouseBehaviorInterface < handle
 
 				% Early lick: hide visual stim
 				case 'ABORT_EARLY'
-					set(obj.Rsc.Bar, 'Visible', 'off');
-					set(obj.Rsc.Dots, 'Visible', 'off');
-					set(obj.Rsc.Cue, 'Visible', 'off');
+					objects = {'Bar', 'Dots', 'Cue'};
+					for iObject = 1:length(objects)
+						if isfield(obj.Rsc, objects{iObject})
+							if isvalid(obj.Rsc.(objects{iObject}))
+								set(obj.Rsc.(objects{iObject}), 'Visible', 'off');
+							end
+						end
+					end
 					if obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'FLASHING_SCREEN')) == 1
 						if strcmpi(obj.Rsc.FlashingScreenTimer.Running, 'off') && ~obj.Rsc.UserData.FlashingScreenPresented
 							obj.Rsc.FlashingScreenTimer.StartDelay = 0;
@@ -1698,21 +1708,33 @@ classdef MouseBehaviorInterface < handle
 					obj.Rsc.AbortToStimOffTimer.TimerFcn = @obj.AbortToStimOff;
 					obj.Rsc.AbortToStimOffTimer.StartDelay = 0; % now immediately stops stim and flashes screen
 					start(obj.Rsc.AbortToStimOffTimer);
-					omegaToITIDuration = obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'OMEGA_TO_ITI_DURATION'))/1000;
-					obj.Rsc.OmegaToITITimer.StartDelay = omegaToITIDuration;
-					start(obj.Rsc.OmegaToITITimer);
+					if (isfield(obj.Rsc, 'OmegaToITITimer') && isvalid(obj.Rsc.OmegaToITITimer))
+						omegaToITIDuration = obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'OMEGA_TO_ITI_DURATION'))/1000;
+						obj.Rsc.OmegaToITITimer.StartDelay = omegaToITIDuration;
+						start(obj.Rsc.OmegaToITITimer);
+					end
 
 				case 'INTERTRIAL'
 					obj.Rsc.VisualStimFigure.Color = [0 0 0];
-					stop(obj.Rsc.BarRefreshTimer);
-					stop(obj.Rsc.DotsRefreshTimer);
-					stop(obj.Rsc.CueRefreshTimer);
-					delete(obj.Rsc.BarRefreshTimer);
-					delete(obj.Rsc.DotsRefreshTimer);
-					delete(obj.Rsc.Bar);
-					delete(obj.Rsc.Dots);
-					delete(obj.Rsc.Cue);
+					timers = {'BarRefreshTimer', 'DotsRefreshTimer', 'CueRefreshTimer'};
+					for iTimer = 1:length(timers)
+						if isfield(obj.Rsc, timers{iTimer})
+							if isvalid(obj.Rsc.(timers{iTimer}))
+								stop(obj.Rsc.(timers{iTimer}));
+								delete(obj.Rsc.(timers{iTimer}));
+							end
+						end			
+					end
+					objects = {'Bar', 'Dots', 'Cue'};
+					for iObject = 1:length(objects)
+						if isfield(obj.Rsc, objects{iObject})
+							if isvalid(obj.Rsc.(objects{iObject}))
+								delete(obj.Rsc.(objects{iObject}));
+							end
+						end
+					end
 			end
+
 			% Updated monitor window
 			if isvalid(obj.Rsc.Monitor)
 				% Show result of last trial
@@ -1801,9 +1823,14 @@ classdef MouseBehaviorInterface < handle
 		end
 
 		function AbortToStimOff(obj, ~, ~)
-			set(obj.Rsc.Dots, 'Visible', 'off');
-			set(obj.Rsc.Bar, 'Visible', 'off');
-			set(obj.Rsc.Cue, 'Visible', 'off');
+			objects = {'Bar', 'Dots', 'Cue'};
+			for iObject = 1:length(objects)
+				if isfield(obj.Rsc, objects{iObject})
+					if isvalid(obj.Rsc.(objects{iObject}))
+						set(obj.Rsc.(objects{iObject}), 'Visible', 'off');
+					end
+				end
+			end
 			if obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'FLASHING_SCREEN')) == 1
 				if strcmpi(obj.Rsc.FlashingScreenTimer.Running, 'off') && ~obj.Rsc.UserData.FlashingScreenPresented
 					start(obj.Rsc.FlashingScreenTimer);
@@ -2016,7 +2043,7 @@ classdef MouseBehaviorInterface < handle
 		function bars = StackedBar(ax, data, names, colors)
 			% Default params
 			if nargin < 4
-				colors = {[.2, .8, .2], [0 .7 0], [1 .2 .2], [.9 .2 .2], [.8 .2 .2]};
+				colors = {[.2, .8, .2], [0 .7 0], [0 .6 0], [1 .2 .2], [.9 .2 .2], [.8 .2 .2]};
 				%colors = {[.2, .8, .2], [1 .2 .2], [.9 .2 .2], [.8 .2 .2], [.7 .2 .2]};
 			end
 			

@@ -678,6 +678,7 @@ void state_pre_stim()
 	// Early lick/lever-press detected --> ABORT
 	if ((_isLeverPressOnset && _params[ALLOW_EARLY_PRESS] == 0) || (_isLickOnset && _params[ALLOW_EARLY_LICK] == 0))
 	{
+		_resultCode = CODE_EARLY_MOVE;
 		_state = STATE_ABORT;
 		return;
 	}
@@ -1355,7 +1356,7 @@ void state_intertrial()
 			deployLever(false);
 			isLeverRetracted = true;
 		}
-		else if (isTubeRetracted == false)
+		else if ((_params[USE_LEVER] == 0) && isTubeRetracted == false)
 		{
 			deployTube(false);
 			isTubeRetracted = true;
