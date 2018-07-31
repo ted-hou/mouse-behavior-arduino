@@ -153,8 +153,9 @@ static const char *_eventMarkerNames[] =
 enum ResultCode
 {
 	CODE_CORRECT,			// Correct (1st lick w/in window)
-	CODE_PAVLOVIAN,				// Pavlovian (Reward given when bar reverses)
-	CODE_OPERANT,			// Operant (reward given fi animal licks/presses to make bar reverse)
+	CODE_OPERANT,			// Operant (reward given if animal licks/presses to make bar reverse)
+	CODE_MOVE_REWARD,		// If animal presses/licks, rewarded
+	CODE_PAVLOVIAN,			// Pavlovian (Reward given when bar reverses)
 	CODE_EARLY_MOVE,		// Early Lick/Press (-> Abort)
 	CODE_NO_MOVE,			// No Lick/Press (Timeout -> ITI)
 	_NUM_RESULT_CODES		// (Private) Used to count how many codes there are.
@@ -164,8 +165,9 @@ enum ResultCode
 static const char *_resultCodeNames[] =
 {
 	"CORRECT",
-	"PAVLOVIAN",
 	"OPERANT",
+	"MOVE_REWARD",
+	"PAVLOVIAN",
 	"EARLY_MOVE",
 	"NO_MOVE"
 };
@@ -200,7 +202,7 @@ enum ParamID
 	ALLOW_EARLY_LICK,			// 0 to abort trial if animal licks after in pre-window
 	EARLY_MOVE_PUNISHMENT,		// 1 = Flashing screen in early move abort
 	NO_MOVE_PUNISHMENT,			// 1 = Flashing screen in no move abort
-	TRAINING,					// If mouse presses lever/licks, gets reward
+	MOVE_REWARD,				// If mouse presses lever/licks, gets reward
 	PAVLOVIAN,					// Pavlovian = 1, Operant = 0
 	REACTIVE,					// Proactive = 0, Reactive = 1
 	TIMING,						// Elapsed time informative = 1, Not = 0
@@ -241,7 +243,7 @@ static const char *_paramNames[] =
 	"ALLOW_EARLY_LICK",			// 0 to abort trial if animal licks after in pre-window
 	"EARLY_MOVE_PUNISHMENT",	// 1 = Flashing screen in early move abort
 	"NO_MOVE_PUNISHMENT",		// 1 = Flashing screen in no move abort
-	"TRAINING",					// If mouse presses lever/licks, gets reward
+	"MOVE_REWARD",				// If mouse presses lever/licks, gets reward
 	"PAVLOVIAN",				// Pavlovian = 1, Operant = 0
 	"REACTIVE",					// Is this a reactive or proactive paradigm?
 	"TIMING",					// Elapsed time informative = 1, Not = 0
@@ -280,7 +282,7 @@ long _params[_NUM_PARAMS] =
 	0,		// ALLOW_EARLY_LICK
 	1,		// EARLY_MOVE_PUNISHMENT
 	1,		// NO_MOVE_PUNISHMENT
-	0,		// TRAINING
+	0,		// MOVE_REWARD
 	0,		// PAVLOVIAN
 	0, 		// REACTIVE
 	0,		// TIMING	
@@ -823,7 +825,7 @@ void state_bar_move()
 	// First move registration fir task related movement
 	if ((_isLickOnset && _params[USE_LEVER] == 0) || (_isLeverPressOnset && _params[USE_LEVER] == 1))
 	{
-		if (_params[TRAINING] == 1)
+		if (_params[MOVE_REWARD] == 1 && _params[OPERANT_TURN] == 1)
 		{
 			if (!_firstMoveRegistered)
 			{
@@ -831,6 +833,17 @@ void state_bar_move()
 				sendEventMarker(EVENT_FIRST_MOVE, -1);
 				_resultCode = CODE_OPERANT;
 				_state = STATE_OPERANT_REWARD;
+				return;
+			}
+		}
+		else if (_params[MOVE_REWARD] == 1 && _params[OPERANT_TURN] == 0)
+		{
+			if (!_firstMoveRegistered)
+			{
+				_firstMoveRegistered = true;
+				sendEventMarker(EVENT_FIRST_MOVE, -1);
+				_resultCode = CODE_MOVE_REWARD;
+				_state = STATE_REWARD;
 				return;
 			}
 		}
@@ -941,13 +954,14 @@ void state_response_window()
 			{
 				_resultCode = CODE_CORRECT;
 				_state = STATE_REWARD;
+				return;
 			}
 			else
 			{
 				_resultCode = CODE_OPERANT;
 				_state = STATE_OPERANT_REWARD;
+				return;
 			}
-			return;
 		}
 	}
 	// Pavlovian
