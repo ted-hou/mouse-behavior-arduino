@@ -934,6 +934,7 @@ void state_response_window()
 				_firstMoveRegistered = true;
 				sendEventMarker(EVENT_FIRST_MOVE, -1);
 			}
+			_resultCode = CODE_CORRECT;
 			if (_params[OPERANT_TURN] == 0)
 			{
 				_resultCode = CODE_CORRECT;
