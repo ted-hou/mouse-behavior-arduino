@@ -1774,7 +1774,7 @@ classdef MouseBehaviorInterface < handle
 							obj.Arduino.SendMessage('T');
 						else
 							hBar.UserData.Direction = -1;
-							if ~(obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'REACTIVE')) == 1 && (obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'NUM_HOPS')) > 0)
+							if ~(obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'REACTIVE')) == 1 && (obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'NUM_HOPS')) > 0))
 								obj.Arduino.SendMessage('T');
 							end
 							hBar.UserData.IsTurningPointReached = true;
