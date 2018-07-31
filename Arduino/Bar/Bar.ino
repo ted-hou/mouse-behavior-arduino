@@ -384,7 +384,7 @@ void setup()
 void mySetup()
 {
 	// Reset output
-	setIRLamp(true);                        // IR Lamp ON
+	// setIRLamp(true);                        // IR Lamp ON
 
 	// Reset variables
 	_timeReset				= 0;			// Reset to signedMillis() at every soft reset
@@ -555,7 +555,7 @@ void state_idle()
 		sendState(_state);
 
 		// Reset output
-		setIRLamp(true);
+		// setIRLamp(true);
 		setReward(false);
 		deployLever(false);
 		deployTube(true);
