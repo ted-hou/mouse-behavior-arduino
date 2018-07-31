@@ -198,7 +198,8 @@ enum ParamID
 	ALLOW_EARLY_PRESS,			// 1 to abort trial if animal presses early
 	ALLOW_LICK_BAR_STAT,		// Allow early lick when stim first comes on
 	ALLOW_EARLY_LICK,			// 0 to abort trial if animal licks after in pre-window
-	FLASHING_SCREEN,			// 1 = Flashing screen in no lick abort
+	EARLY_MOVE_PUNISHMENT,		// 1 = Flashing screen in early move abort
+	NO_MOVE_PUNISHMENT,			// 1 = Flashing screen in no move abort
 	TRAINING,					// If mouse presses lever/licks, gets reward
 	PAVLOVIAN,					// Pavlovian = 1, Operant = 0
 	REACTIVE,					// Proactive = 0, Reactive = 1
@@ -238,7 +239,8 @@ static const char *_paramNames[] =
 	"ALLOW_EARLY_PRESS",		// 1 to abort trial if animal presses early
 	"ALLOW_LICK_BAR_STAT",		// Allow early lick when stim first comes on
 	"ALLOW_EARLY_LICK",			// 0 to abort trial if animal licks after in pre-window
-	"FLASHING_SCREEN",			// 1 = Flashing screen in no lick abort
+	"EARLY_MOVE_PUNISHMENT",	// 1 = Flashing screen in early move abort
+	"NO_MOVE_PUNISHMENT",		// 1 = Flashing screen in no move abort
 	"TRAINING",					// If mouse presses lever/licks, gets reward
 	"PAVLOVIAN",				// Pavlovian = 1, Operant = 0
 	"REACTIVE",					// Is this a reactive or proactive paradigm?
@@ -276,7 +278,8 @@ long _params[_NUM_PARAMS] =
 	0,		// ALLOW_EARLY_PRESS
 	0,		// ALLOW_LICK_BAR_STAT
 	0,		// ALLOW_EARLY_LICK
-	1,		// FLASHING_SCREEN
+	1,		// EARLY_MOVE_PUNISHMENT
+	1,		// NO_MOVE_PUNISHMENT
 	0,		// TRAINING
 	0,		// PAVLOVIAN
 	0, 		// REACTIVE
@@ -934,7 +937,6 @@ void state_response_window()
 				_firstMoveRegistered = true;
 				sendEventMarker(EVENT_FIRST_MOVE, -1);
 			}
-			_resultCode = CODE_CORRECT;
 			if (_params[OPERANT_TURN] == 0)
 			{
 				_resultCode = CODE_CORRECT;

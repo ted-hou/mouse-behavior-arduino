@@ -1663,7 +1663,7 @@ classdef MouseBehaviorInterface < handle
 							end
 						end
 					end
-					if obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'FLASHING_SCREEN')) == 1
+					if obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'EARLY_MOVE_PUNISHMENT')) == 1
 						if strcmpi(obj.Rsc.FlashingScreenTimer.Running, 'off') && ~obj.Rsc.UserData.FlashingScreenPresented
 							obj.Rsc.FlashingScreenTimer.StartDelay = 0;
 							start(obj.Rsc.FlashingScreenTimer);
@@ -1681,7 +1681,7 @@ classdef MouseBehaviorInterface < handle
 							end
 						end
 					end
-					if obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'FLASHING_SCREEN')) == 1
+					if obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'EARLY_MOVE_PUNISHMENT')) == 1
 						if strcmpi(obj.Rsc.FlashingScreenTimer.Running, 'off') && ~obj.Rsc.UserData.FlashingScreenPresented
 							obj.Rsc.FlashingScreenTimer.StartDelay = 0;
 							start(obj.Rsc.FlashingScreenTimer);
@@ -1831,7 +1831,7 @@ classdef MouseBehaviorInterface < handle
 					end
 				end
 			end
-			if obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'FLASHING_SCREEN')) == 1
+			if obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'NO_MOVE_PUNISHMENT')) == 1
 				if strcmpi(obj.Rsc.FlashingScreenTimer.Running, 'off') && ~obj.Rsc.UserData.FlashingScreenPresented
 					start(obj.Rsc.FlashingScreenTimer);
 				end
