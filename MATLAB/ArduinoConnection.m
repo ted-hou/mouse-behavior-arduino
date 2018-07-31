@@ -326,7 +326,16 @@ classdef ArduinoConnection < handle
 					absTime = now;
 					if isfield(obj.MBI.Rsc, 'Bar')
 						if isvalid(obj.MBI.Rsc.Bar)
-							theta = obj.MBI.Rsc.Bar.UserData.Thetas(obj.MBI.Rsc.Bar.UserData.ThetaIndex);
+                            if isfield(obj.MBI.Rsc.Bar.UserData, 'ThetaIndex') && obj.MBI.Rsc.Bar.UserData.ThetaIndex > 0 && obj.MBI.Rsc.Bar.UserData.ThetaIndex <= length(obj.MBI.Rsc.Bar.UserData.Thetas)
+                                theta = obj.MBI.Rsc.Bar.UserData.Thetas(obj.MBI.Rsc.Bar.UserData.ThetaIndex);
+                            else
+                                theta = NaN;
+                                try
+                                    warning(['Invalid thetaindex is being written down - ', num2str(obj.MBI.Rsc.Bar.UserData.ThetaIndex), ', Current state - ', obj.StateNames{obj.State}, ', Current event - ', obj.EventMarkerNames{eventCode}])
+                                catch ME
+                                    disp(ME)
+                                end
+                            end
 						else
 							theta = NaN;
 						end
