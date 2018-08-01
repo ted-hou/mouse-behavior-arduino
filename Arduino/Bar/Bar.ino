@@ -87,7 +87,7 @@ static const char *_stateNames[] =
 };
 
 // Define which states accept parameter update from MATLAB
-static const int _stateCanUpdateParams[] = {0,1,1,0,0,0,0,0,0,0,0}; 
+static const int _stateCanUpdateParams[] = {0,1,1,0,0,0,0,0,0,0,0,0,0,0}; 
 
 /*****************************************************
 	Event Markers
