@@ -1768,7 +1768,7 @@ classdef MouseBehaviorInterface < handle
 						if obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'REACTIVE')) == 0 && (obj.Rsc.Bar.UserData.IsNotStopped) && (obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'NUM_HOPS')) > 0)
 							obj.Rsc.Bar.UserData.Thetas = [obj.Rsc.Bar.UserData.Thetas, repmat(obj.Rsc.Bar.UserData.Thetas(end), 1, obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'NUM_HOPS')))];
 							obj.Rsc.Bar.UserData.IsNotStopped = false;
-						else if obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'REACTIVE')) == 1 && (obj.Rsc.Bar.UserData.IsNotStopped) && (obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'NUM_HOPS')) > 0)
+                        elseif obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'REACTIVE')) == 1 && (obj.Rsc.Bar.UserData.IsNotStopped) && (obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'NUM_HOPS')) > 0)
 							obj.Rsc.Bar.UserData.Thetas = [obj.Rsc.Bar.UserData.Thetas, repmat(obj.Rsc.Bar.UserData.Thetas(end), 1, obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'NUM_HOPS')))];
 							obj.Rsc.Bar.UserData.IsNotStopped = false;
 							obj.Arduino.SendMessage('T');
