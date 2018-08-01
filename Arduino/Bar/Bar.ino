@@ -62,7 +62,7 @@ enum State
 	STATE_ABORT,				// Basically a transition state for early licks
 	STATE_ABORT_EARLY,			// Early lick
 	STATE_ABORT_BAR_STAT,		// Early lick during stat
-	STATE_ABORT_NO_MOVE			// No lick - timeout
+	STATE_ABORT_NO_MOVE,		// No lick - timeout
 	_NUM_STATES					// (Private) Used to count number of states
 };
 
