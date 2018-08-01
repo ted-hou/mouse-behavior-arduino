@@ -1705,7 +1705,19 @@ classdef MouseBehaviorInterface < handle
 				% Punishment, wait some time then go to ITI
 				case {'ABORT'}
 					obj.Rsc.AbortToStimOffTimer = timer;
-					obj.Rsc.AbortToStimOffTimer.TimerFcn = @obj.AbortToStimOff;
+					obj.Rsc.AbortToStimOffTimer.TimerFcn = {@obj.AbortToStimOff, false};
+					obj.Rsc.AbortToStimOffTimer.StartDelay = 0; % now immediately stops stim and flashes screen
+					start(obj.Rsc.AbortToStimOffTimer);
+					if (isfield(obj.Rsc, 'OmegaToITITimer') && isvalid(obj.Rsc.OmegaToITITimer))
+						omegaToITIDuration = obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'OMEGA_TO_ITI_DURATION'))/1000;
+						obj.Rsc.OmegaToITITimer.StartDelay = omegaToITIDuration;
+						start(obj.Rsc.OmegaToITITimer);
+					end
+
+				% Punishment, wait some time then go to ITI
+				case {'ABORT_NO_MOVE'}
+					obj.Rsc.AbortToStimOffTimer = timer;
+					obj.Rsc.AbortToStimOffTimer.TimerFcn = {@obj.AbortToStimOff, true};
 					obj.Rsc.AbortToStimOffTimer.StartDelay = 0; % now immediately stops stim and flashes screen
 					start(obj.Rsc.AbortToStimOffTimer);
 					if (isfield(obj.Rsc, 'OmegaToITITimer') && isvalid(obj.Rsc.OmegaToITITimer))
@@ -1828,7 +1840,7 @@ classdef MouseBehaviorInterface < handle
 			end
 		end
 
-		function AbortToStimOff(obj, ~, ~)
+		function AbortToStimOff(obj, ~, ~, noMovePun)
 			objects = {'Bar', 'Dots', 'Cue'};
 			for iObject = 1:length(objects)
 				if isfield(obj.Rsc, objects{iObject})
@@ -1837,7 +1849,7 @@ classdef MouseBehaviorInterface < handle
 					end
 				end
 			end
-			if obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'NO_MOVE_PUNISHMENT')) == 1
+			if obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'NO_MOVE_PUNISHMENT')) == 1 && noMovePun
 				if strcmpi(obj.Rsc.FlashingScreenTimer.Running, 'off') && ~obj.Rsc.UserData.FlashingScreenPresented
 					start(obj.Rsc.FlashingScreenTimer);
 				end
