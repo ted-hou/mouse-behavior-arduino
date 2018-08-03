@@ -978,10 +978,10 @@ classdef MouseBehaviorInterface < handle
 			lgd.Orientation = 'horizontal';
 			
 			ax.XLimMode 		= 'auto';
-			ax.XLim 			= [max([-5000, ax.XLim(1) - 100]), ax.XLim(2) + 100];
+			% ax.XLim 			= [max([-5000, ax.XLim(1) - 100]), ax.XLim(2) + 100]/1000;
 			ax.YLim 			= [0, obj.Arduino.TrialsCompleted + 1];
 			ax.YDir				= 'reverse';
-			ax.XLabel.String 	= 'Time (ms)';
+			ax.XLabel.String 	= 'Time (s)';
 			ax.YLabel.String 	= 'Trial';
 			
 			% Set ytick labels
@@ -997,7 +997,7 @@ classdef MouseBehaviorInterface < handle
 			ax.YTickLabel 	= ticks;
 			
 			title(ax, figName)
-			
+
 			% Store plot options cause for some reason it's lost unless we do this.
 			ax.UserData.EventCodeTrialStart = eventCodeTrialStart;
 			ax.UserData.EventCodeZero 		= eventCodeZero;
@@ -1009,10 +1009,10 @@ classdef MouseBehaviorInterface < handle
 		function Raster_Execute_Events(obj, ax, data, eventCodeTrialStart, eventCodeOfInterest, eventCodeZero, eventPlotOptions)
 			% Plot primary event of interest
 			obj.Raster_Execute_Single(ax, data, eventCodeTrialStart, eventCodeOfInterest, eventCodeZero, 'cyan', 10)
-			
+
 			% Filter out events the Grad Student does not want to plot
 			eventsToPlot = find([eventPlotOptions{:, 2}]);
-			
+
 			if ~isempty(eventsToPlot)
 				for iEvent = eventsToPlot
 					if iEvent == eventCodeOfInterest
@@ -1080,7 +1080,7 @@ classdef MouseBehaviorInterface < handle
 				end
 			end
 			
-			plot(ax, eventTimesRelative, trialsOfInterest, '.',...
+			plot(ax, eventTimesRelative/1000, trialsOfInterest, '.',...
 				'MarkerSize', markerSize,...
 				'MarkerEdgeColor', markerColor,...
 				'MarkerFaceColor', markerColor,...
@@ -1105,7 +1105,7 @@ classdef MouseBehaviorInterface < handle
 					else
 						continue
 					end
-					plot(ax, paramValues, 1:length(obj.Arduino.Trials),...
+					plot(ax, paramValues/1000, 1:length(obj.Arduino.Trials),...
 						'DisplayName', num2str(paramPlotOptions{iParam, 1}),...
 						'Color', paramPlotOptions{iParam, 3},...
 						'LineStyle', paramPlotOptions{iParam, 4},...
@@ -1222,11 +1222,11 @@ classdef MouseBehaviorInterface < handle
 			eventTimesOfInterest 	= eventTimesOfInterest - eventTimesZero;
 			
 			% Plot histogram of selected event times
-			histogram(ax, eventTimesOfInterest, numBins, 'DisplayName', obj.Arduino.EventMarkerNames{eventCodeOfInterest})
+			histogram(ax, eventTimesOfInterest/1000, numBins, 'DisplayName', obj.Arduino.EventMarkerNames{eventCodeOfInterest})
 			lgd = legend(ax, 'Location', 'northoutside');
 			lgd.Interpreter 	= 'none';
 			lgd.Orientation 	= 'horizontal';
-			ax.XLabel.String 	= 'Time (ms)';
+			ax.XLabel.String 	= 'Time (s)';
 			ax.YLabel.String 	= 'Occurance';
 			title(ax, figName)
 			
