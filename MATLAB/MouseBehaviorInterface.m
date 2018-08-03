@@ -1669,7 +1669,7 @@ classdef MouseBehaviorInterface < handle
 							obj.Rsc.FlashingScreenTimer.StartDelay = 0;
 							start(obj.Rsc.FlashingScreenTimer);
 							obj.Rsc.UserData.FlashingScreenPresented = true;
-						end			
+						end	
 					end
 
 				% Early lick: hide visual stim
@@ -1691,7 +1691,7 @@ classdef MouseBehaviorInterface < handle
 					end			
 
 				% Wait some time and tell Arduino to go to ITI
-				case {'REWARD'}
+				case 'REWARD'
 					omegaToITIDuration = obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'OMEGA_TO_ITI_DURATION'))/1000;
 					obj.Rsc.OmegaToITITimer.StartDelay = omegaToITIDuration;
 					start(obj.Rsc.OmegaToITITimer);
@@ -1700,7 +1700,7 @@ classdef MouseBehaviorInterface < handle
 					end
 
 				% Punishment, wait some time then go to ITI
-				case {'ABORT'}
+				case 'ABORT'
 					obj.Rsc.AbortToStimOffTimer = timer;
 					obj.Rsc.AbortToStimOffTimer.TimerFcn = {@obj.AbortToStimOff, false};
 					obj.Rsc.AbortToStimOffTimer.StartDelay = 0; % now immediately stops stim and flashes screen
@@ -1712,7 +1712,7 @@ classdef MouseBehaviorInterface < handle
 					end
 
 				% Punishment, wait some time then go to ITI
-				case {'ABORT_NO_MOVE'}
+				case 'ABORT_NO_MOVE'
 					obj.Rsc.AbortToStimOffTimer = timer;
 					obj.Rsc.AbortToStimOffTimer.TimerFcn = {@obj.AbortToStimOff, true};
 					obj.Rsc.AbortToStimOffTimer.StartDelay = 0; % now immediately stops stim and flashes screen
@@ -1768,30 +1768,39 @@ classdef MouseBehaviorInterface < handle
 
 				if nextThetaIndex > 0
 					% Alpha
-					if (~hBar.UserData.IsAlphaReached && nextThetaIndex <= length(obj.Rsc.Bar.UserData.Thetas) && hBar.UserData.Direction > 0 && (max(obj.Rsc.Bar.UserData.Thetas) - obj.Rsc.Bar.UserData.Thetas(nextThetaIndex)) < windowDuration*speed*spatialFrequency)
+					if (~hBar.UserData.IsAlphaReached && nextThetaIndex <= length(obj.Rsc.Bar.UserData.Thetas) && hBar.UserData.Direction > 0 && abs(obj.Rsc.Bar.UserData.Thetas(end) - obj.Rsc.Bar.UserData.Thetas(nextThetaIndex)) < windowDuration*speed*spatialFrequency)
 						obj.Arduino.SendMessage('A');
 						hBar.UserData.IsAlphaReached = true;
 					end
 					% Turning point
 					if (~hBar.UserData.IsTurningPointReached && hBar.UserData.Direction > 0 && nextThetaIndex > length(obj.Rsc.Bar.UserData.Thetas)) % turn when reach end of list of thetas
+						% Stop the bar for a few hops, but send Turning point later
 						if obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'REACTIVE')) == 0 && (obj.Rsc.Bar.UserData.IsNotStopped) && (obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'NUM_HOPS')) > 0)
 							obj.Rsc.Bar.UserData.Thetas = [obj.Rsc.Bar.UserData.Thetas, repmat(obj.Rsc.Bar.UserData.Thetas(end), 1, obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'NUM_HOPS')))];
 							obj.Rsc.Bar.UserData.IsNotStopped = false;
-                        elseif obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'REACTIVE')) == 1 && (obj.Rsc.Bar.UserData.IsNotStopped) && (obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'NUM_HOPS')) > 0)
+						% Stop the bar for a few hops, but send Turning point now
+						elseif obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'REACTIVE')) == 1 && (obj.Rsc.Bar.UserData.IsNotStopped) && (obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'NUM_HOPS')) > 0)
 							obj.Rsc.Bar.UserData.Thetas = [obj.Rsc.Bar.UserData.Thetas, repmat(obj.Rsc.Bar.UserData.Thetas(end), 1, obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'NUM_HOPS')))];
 							obj.Rsc.Bar.UserData.IsNotStopped = false;
 							obj.Arduino.SendMessage('T');
+						% Reached the end of the list
 						else
 							hBar.UserData.Direction = -1;
-							if ~(obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'REACTIVE')) == 1 && (obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'NUM_HOPS')) > 0))
+							% Proactive, keep bar going same direction
+							if obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'REACTIVE')) == 0
+								% Send turning point, this is end of response window
 								obj.Arduino.SendMessage('T');
+
+								% Edit previus entries in list of thetas so the bar doesn't reverse direction visually
+								obj.Rsc.Bar.UserData.Thetas = obj.Rsc.Bar.UserData.Thetas(end):spatialFrequency:(obj.Rsc.Bar.UserData.Thetas(end) + spatialFrequency*(length(obj.Rsc.Bar.UserData.Thetas(end)) - 1));
+								obj.Rsc.Bar.UserData.Thetas = flip(obj.Rsc.Bar.UserData.Thetas);
 							end
 							hBar.UserData.IsTurningPointReached = true;
 						end
 						nextThetaIndex = obj.Rsc.Bar.UserData.ThetaIndex + hBar.UserData.Direction;
 					end
 					% Omega
-					if (~hBar.UserData.IsOmegaReached && nextThetaIndex <= length(obj.Rsc.Bar.UserData.Thetas) && hBar.UserData.Direction < 0 && ((max(obj.Rsc.Bar.UserData.Thetas) - obj.Rsc.Bar.UserData.Thetas(nextThetaIndex)) > windowDuration*speed*spatialFrequency))
+					if (~hBar.UserData.IsOmegaReached && nextThetaIndex <= length(obj.Rsc.Bar.UserData.Thetas) && hBar.UserData.Direction < 0 && abs(obj.Rsc.Bar.UserData.Thetas(end) - obj.Rsc.Bar.UserData.Thetas(nextThetaIndex)) > windowDuration*speed*spatialFrequency)
 						obj.Arduino.SendMessage('W');
 						hBar.UserData.IsOmegaReached = true;
 					end
@@ -1802,7 +1811,7 @@ classdef MouseBehaviorInterface < handle
 						obj.Arduino.SendMessage('W');
 						hBar.UserData.IsOmegaReached = true;
 					end
-					nextTheta = obj.Rsc.Bar.UserData.Thetas(1) + spatialFrequency*(nextThetaIndex - 1);
+					nextTheta = obj.Rsc.Bar.UserData.Thetas(1) + mode(diff(obj.Rsc.Bar.UserData.Thetas))*(nextThetaIndex - 1);
 				end
 
 				obj.Rsc.Bar.UserData.ThetaIndex = nextThetaIndex;
