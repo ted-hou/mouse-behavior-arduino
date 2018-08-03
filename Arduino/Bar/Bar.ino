@@ -58,7 +58,6 @@ enum State
 	STATE_BAR_MOVE,				// Moving dots, moving bar, enforced no lick
 	STATE_RESPONSE_WINDOW,		// First lick in this interval rewarded
 	STATE_REWARD,				// Dispense reward, wait for trial timeout
-	STATE_OPERANT_REWARD,		// In operant turn, if mouse licks correctly go to reward
 	STATE_ABORT,				// Basically a transition state for early licks
 	STATE_ABORT_EARLY,			// Early lick
 	STATE_ABORT_BAR_STAT,		// Early lick during stat
@@ -79,7 +78,6 @@ static const char *_stateNames[] =
 	"BAR_MOVE",
 	"RESPONSE_WINDOW",
 	"REWARD",
-	"OPERANT_REWARD",
 	"ABORT",
 	"ABORT_EARLY",
 	"ABORT_BAR_STAT",
@@ -87,7 +85,7 @@ static const char *_stateNames[] =
 };
 
 // Define which states accept parameter update from MATLAB
-static const int _stateCanUpdateParams[] = {0,1,1,0,0,0,0,0,0,0,0,0,0,0}; 
+static const int _stateCanUpdateParams[] = {0,1,1,0,0,0,0,0,0,0,0,0,0}; 
 
 /*****************************************************
 	Event Markers
@@ -520,10 +518,6 @@ void loop()
 			case STATE_REWARD:
 				state_reward();
 				break;
-
-			case STATE_OPERANT_REWARD:
-				state_operant_reward();
-				break;
 			
 			case STATE_ABORT:
 				state_abort();
@@ -838,7 +832,7 @@ void state_bar_move()
 				_firstMoveRegistered = true;
 				sendEventMarker(EVENT_FIRST_MOVE, -1);
 				_resultCode = CODE_OPERANT;
-				_state = STATE_OPERANT_REWARD;
+				_state = STATE_REWARD;
 				return;
 			}
 		}
@@ -956,18 +950,9 @@ void state_response_window()
 				_firstMoveRegistered = true;
 				sendEventMarker(EVENT_FIRST_MOVE, -1);
 			}
-			if (_params[OPERANT_TURN] == 0)
-			{
-				_resultCode = CODE_CORRECT;
-				_state = STATE_REWARD;
-				return;
-			}
-			else
-			{
-				_resultCode = CODE_OPERANT;
-				_state = STATE_OPERANT_REWARD;
-				return;
-			}
+			_resultCode = CODE_CORRECT;
+			_state = STATE_REWARD;
+			return;
 		}
 	}
 	// Pavlovian
@@ -1089,86 +1074,6 @@ void state_reward()
 	}
 
 	_state = STATE_REWARD;
-}
-
-/*****************************************************
-	OPERANT_REWARD - Does exactly what reward does. This was LFH's idea
-*****************************************************/
-void state_operant_reward()
-{
-	static long timeRewardOn;
-	static bool isRewardOn;
-	static bool isRewardComplete;
-	/*****************************************************
-		ACTION LIST
-	*****************************************************/
-	if (_state != _prevState) 
-	{
-		// Register new state
-		_prevState = _state;
-		sendState(_state);
-
-		// Reset variables
-		timeRewardOn = 0;
-		isRewardOn = false;
-		isRewardComplete = false;
-	}
-
-	/*****************************************************
-		OnEachLoop checks
-	*****************************************************/
-	// Lick detected
-	if ((_isLickOnset && (_params[USE_LEVER] == 0)) || (_isLeverPressOnset && (_params[USE_LEVER] == 1)))
-	{
-		// First lick registration
-		if (!_firstMoveRegistered)
-		{
-			_firstMoveRegistered = true;
-			sendEventMarker(EVENT_FIRST_MOVE, -1);
-			return;
-		}
-	}
-
-		// Immediate reward
-	if (!isRewardOn && !isRewardComplete)
-	{
-		timeRewardOn = getTimeSinceStimOn();
-		isRewardOn = true;
-		if (_params[REWARD_DURATION] > 0)
-		{
-			setReward(true);
-		}			
-	}
-
-	// Turn off reward when the time comes
-	if (isRewardOn && !isRewardComplete && getTimeSinceStimOn() - timeRewardOn >= _params[REWARD_DURATION])
-	{
-		isRewardOn = false;
-		isRewardComplete = true;
-		if (_params[REWARD_DURATION] > 0)
-		{
-			setReward(false);
-		}
-	}
-
-	/*****************************************************
-		TRANSITION LIST
-	*****************************************************/
-	// Quit signal from host --> IDLE
-	if (_command == 'Q') 
-	{
-		_state = STATE_IDLE;
-		return;
-	}
-
-	// Trial duration elapsed and reward dispense complete --> INTERTRIAL
-	if (isRewardComplete && _command == 'E')
-	{
-		_state = STATE_INTERTRIAL;
-		return;
-	}
-
-	_state = STATE_OPERANT_REWARD;
 }
 
 /*****************************************************
