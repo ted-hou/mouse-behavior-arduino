@@ -1582,10 +1582,13 @@ classdef MouseBehaviorInterface < handle
                     	mu = obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'MU')); % in seconds
                     	sig = obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'SIGMA')); % in seconds
                     	trialLength = sig * randn(1) + mu; % seconds
+                    	if trialLength < 3
+                    		trialLength = trialLength + 3;
+                    	end
                     % Exponential decay
                     else % is not timing trial
                     	mu = obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'MU')); % in seconds
-                    	trialLength = exprnd(mu) + 1;
+                    	trialLength = exprnd(mu) + 3;
                     end
 
                     turnTheta = trialLength * speed;
