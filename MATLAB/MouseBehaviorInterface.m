@@ -1623,15 +1623,16 @@ classdef MouseBehaviorInterface < handle
 
 					obj.Rsc.UserData.FlashingScreenPresented = false;
 
-					obj.UserData.Theta0							= theta0;
-					obj.Rsc.Bar.UserData.Thetas 				= thetas;
-					obj.Rsc.Bar.UserData.ThetaIndex				= thetaIndex0;
-					obj.Rsc.Bar.UserData.Direction 				= 1;
-					obj.Rsc.Bar.UserData.Speed					= speed;
-					obj.Rsc.Bar.UserData.IsAlphaReached			= false;
-					obj.Rsc.Bar.UserData.IsOmegaReached			= false;
-					obj.Rsc.Bar.UserData.IsTurningPointReached	= false;
-					obj.Rsc.Bar.UserData.IsBarPaused			= false;
+					obj.UserData.Theta0								= theta0;
+					obj.Rsc.Bar.UserData.Thetas 					= thetas;
+					obj.Rsc.Bar.UserData.ThetaIndex					= thetaIndex0;
+					obj.Rsc.Bar.UserData.Direction 					= 1;
+					obj.Rsc.Bar.UserData.Speed						= speed;
+					obj.Rsc.Bar.UserData.IsAlphaReached				= false;
+					obj.Rsc.Bar.UserData.IsOmegaReached				= false;
+					obj.Rsc.Bar.UserData.IsTurningPointReached		= false;
+					obj.Rsc.Bar.UserData.IsBarPaused				= false;
+					obj.Rsc.Bar.UserData.IsListOfThetasTruncated	= false;
 
 					obj.Rsc.BarRefreshTimer = timer;
 					obj.Rsc.BarRefreshTimer.Execution = 'fixedRate';
@@ -1696,6 +1697,7 @@ classdef MouseBehaviorInterface < handle
 					obj.Rsc.OmegaToITITimer.StartDelay = omegaToITIDuration;
 					start(obj.Rsc.OmegaToITITimer);
 					if obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'OPERANT_TURN')) == 1
+						obj.Rsc.Bar.UserData.IsListOfThetasTruncated = true;
 						obj.Rsc.Bar.UserData.Thetas = obj.Rsc.Bar.UserData.Thetas(1:obj.Rsc.Bar.UserData.ThetaIndex);
 					end
 
@@ -1715,7 +1717,7 @@ classdef MouseBehaviorInterface < handle
 				case 'ABORT_NO_MOVE'
 					obj.Rsc.AbortToStimOffTimer = timer;
 					obj.Rsc.AbortToStimOffTimer.TimerFcn = {@obj.AbortToStimOff, true};
-					obj.Rsc.AbortToStimOffTimer.StartDelay = 0; % now immediately stops stim and flashes screen
+					obj.Rsc.AbortToStimOffTimer.StartDelay = 2; % now immediately stops stim and flashes screen
 					start(obj.Rsc.AbortToStimOffTimer);
 					if (isfield(obj.Rsc, 'OmegaToITITimer') && isvalid(obj.Rsc.OmegaToITITimer))
 						omegaToITIDuration = obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'OMEGA_TO_ITI_DURATION'))/1000;
@@ -1775,7 +1777,7 @@ classdef MouseBehaviorInterface < handle
 					% Turning point
 					if (~hBar.UserData.IsTurningPointReached && hBar.UserData.Direction > 0 && nextThetaIndex > length(obj.Rsc.Bar.UserData.Thetas)) % turn when reach end of list of thetas
 						% If we need to stop but haven't yet
-						if obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'NUM_HOPS')) > 0 && ~obj.Rsc.Bar.UserData.IsBarPaused
+						if obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'NUM_HOPS')) > 0 && ~obj.Rsc.Bar.UserData.IsBarPaused && ~obj.Rsc.Bar.UserData.IsListOfThetasTruncated
 							% Stop the bar for a few hops, but send Turning point later
 							if obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'REACTIVE')) == 0
 								obj.Rsc.Bar.UserData.Thetas = [obj.Rsc.Bar.UserData.Thetas, repmat(obj.Rsc.Bar.UserData.Thetas(end), 1, obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'NUM_HOPS')))];
@@ -1824,6 +1826,8 @@ classdef MouseBehaviorInterface < handle
 
 				obj.Rsc.Bar.UserData.ThetaIndex = nextThetaIndex;
 				obj.RotatingBar(nextTheta, 'Bar', hBar);
+
+				disp(['iTheta = ', num2str(obj.Rsc.Bar.UserData.ThetaIndex), '/', num2str(length(obj.Rsc.Bar.UserData.Thetas)), 'Dir = ', num2str(hBar.UserData.Direction)])
 			catch ME
 				nextThetaIndex
 				assignin('base', 'thetas', obj.Rsc.Bar.UserData.Thetas)
