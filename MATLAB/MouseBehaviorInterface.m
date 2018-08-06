@@ -1826,8 +1826,6 @@ classdef MouseBehaviorInterface < handle
 
 				obj.Rsc.Bar.UserData.ThetaIndex = nextThetaIndex;
 				obj.RotatingBar(nextTheta, 'Bar', hBar);
-
-				disp(['iTheta = ', num2str(obj.Rsc.Bar.UserData.ThetaIndex), '/', num2str(length(obj.Rsc.Bar.UserData.Thetas)), 'Dir = ', num2str(hBar.UserData.Direction)])
 			catch ME
 				nextThetaIndex
 				assignin('base', 'thetas', obj.Rsc.Bar.UserData.Thetas)
