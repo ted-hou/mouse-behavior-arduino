@@ -1583,10 +1583,10 @@ classdef MouseBehaviorInterface < handle
 
 					if obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'TIMING')) == 1 % is timing trial
 						pd = makedist('Normal','mu',6,'sigma',2); % Normal distribution
-						trunk = truncate(pd, 3, ((360/spatialFrequency/speed))); % min 3 sec, max 22.5 for 4/4 freq/speed
+						trunk = truncate(pd, 2, ((360/spatialFrequency/speed))); % min 2 sec, max 22.5 for 4/4 freq/speed
 						trialLength(i) = random(trunk); % seconds
                     else % is not timing trial
-                    	trialLength = exprnd(mu) + 3; % Exponential decay
+                    	trialLength = exprnd(mu) + 2; % Exponential decay
                     end
 
                     turnTheta = trialLength * speed;
