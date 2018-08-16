@@ -216,6 +216,7 @@ enum ParamID
 	DOTS,						// 1 to show moving dots
 	MU,							// Mean trial length 
 	SIGMA,						// Standard deviation for trial length
+	MIN_TRIAL_LENGTH,			// Minimum possible trial length in seconds
 	LEVER_POS_RETRACTED,		// Servo (lever) position when lever is retracted
 	LEVER_POS_DEPLOYED,			// Servo (lever) position when lever is deployed
 	LEVER_SPEED_DEPLOY,			// Servo (lever) rotation speed when deploying, 0 for max speed
@@ -257,6 +258,7 @@ static const char *_paramNames[] =
 	"DOTS",						// 1 to show moving dots
 	"MU",						// Mean trial length 
 	"SIGMA",					// Standard deviation for trial length
+	"MIN_TRIAL_LENGTH",			// Minimum possible trial length in seconds
 	"LEVER_POS_RETRACTED",		// Servo (lever) position when lever is retracted
 	"LEVER_POS_DEPLOYED",		// Servo (lever) position when lever is deployed
 	"LEVER_SPEED_DEPLOY",		// Servo (lever) rotation speed when deploying, 0 for max speed
@@ -271,14 +273,14 @@ static const char *_paramNames[] =
 long _params[_NUM_PARAMS] = 
 {
 	0,		// _DEBUG
-	1000,	// BAR_STAT_DURATION
-	12000,	// ITI_DURATION
-	50,		// REWARD_DURATION
-	2000,	// WINDOW_DURATION
+	500,	// BAR_STAT_DURATION
+	10000,	// ITI_DURATION
+	60,		// REWARD_DURATION
+	1500,	// WINDOW_DURATION
 	1500,	// OMEGA_TO_ITI_DURATION
 	1,		// USE_LEVER
 	0,		// ALLOW_EARLY_PRESS
-	0,		// ALLOW_LICK_BAR_STAT
+	1,		// ALLOW_LICK_BAR_STAT
 	0,		// ALLOW_EARLY_LICK
 	1,		// EARLY_MOVE_PUNISHMENT
 	1,		// NO_MOVE_PUNISHMENT
@@ -286,16 +288,18 @@ long _params[_NUM_PARAMS] =
 	0,		// PAVLOVIAN
 	0, 		// REACTIVE
 	0,		// TIMING	
-	0,		// OPERANT_TURN
+	1,		// OPERANT_TURN
+	0,		// FADE_BAR
 	90,		// END_THETA
 	1,		// TRIANGLE_CUE
-	1,		// CUE_LOCATIONS
+	0,		// CUE_LOCATIONS
 	4,		// SPATIAL_FREQUENCY
 	4,		// BAR_SPEED
-	0,		// NUM_HOPS
+	4,		// NUM_HOPS
 	0,		// DOTS
-	6,		// MU
+	4,		// MU
 	2,		// SIGMA
+	2,		// MIN_TRIAL_LENGTH
 	120,	// LEVER_POS_RETRACTED
 	98,		// LEVER_POS_DEPLOYED
 	90,		// LEVER_SPEED_DEPLOY

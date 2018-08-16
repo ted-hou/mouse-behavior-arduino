@@ -1580,13 +1580,14 @@ classdef MouseBehaviorInterface < handle
 
                     mu = obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'MU')); % in seconds
                     sig = obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'SIGMA')); % in seconds
+                    minTrialLength = obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'MIN_TRIAL_LENGTH')); % in seconds
 
 					if obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'TIMING')) == 1 % is timing trial
-						pd = makedist('Normal','mu',6,'sigma',2); % Normal distribution
-						trunk = truncate(pd, 2, ((360/spatialFrequency/speed))); % min 2 sec, max 22.5 for 4/4 freq/speed
+						pd = makedist('Normal', 'mu', mu, 'sigma', sig); % Normal distribution
+						trunk = truncate(pd, minTrialLength, ((360/spatialFrequency/speed))); % min set by param in sec, max 22.5 for 4/4 freq/speed
 						trialLength(i) = random(trunk); % seconds
                     else % is not timing trial
-                    	trialLength = exprnd(mu) + 2; % Exponential decay
+                    	trialLength = exprnd(mu) + minTrialLength; % Exponential decay
                     end
 
                     turnTheta = trialLength * speed;
@@ -1605,7 +1606,7 @@ classdef MouseBehaviorInterface < handle
 					elseif obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'TRIANGLE_CUE')) == 0
 						obj.Rsc.Cue 	= obj.BarCue(thetas(end), 'Ax', obj.Rsc.VisualStimAxes);
 					end
-					obj.Rsc.Bar     	= obj.RotatingBar(theta0, 'Ax', obj.Rsc.VisualStimAxes);
+					obj.Rsc.Bar     	= obj.RotatingBar(theta0, 'Ax', obj.Rsc.VisualStimAxes, lengthThetas);
 
 					% Show or hide dots
 					if obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'DOTS')) == 0
@@ -1619,6 +1620,11 @@ classdef MouseBehaviorInterface < handle
 						set(obj.Rsc.Cue, 'Visible', 'on');
 					else
 						set(obj.Rsc.Cue, 'Visible', 'off');
+					end
+
+					% Hide bar until turning point for training the reactive task
+					if (obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'REACTIVE')) == 1) && (obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'FADE_BAR')) == 1)
+						set(obj.Rsc.Bar, 'Visible', 'off');
 					end
 
 					obj.Rsc.UserData.FlashingScreenPresented = false;
@@ -1787,6 +1793,10 @@ classdef MouseBehaviorInterface < handle
 								obj.Rsc.Bar.UserData.Thetas = [obj.Rsc.Bar.UserData.Thetas, repmat(obj.Rsc.Bar.UserData.Thetas(end), 1, obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'NUM_HOPS')))];
 								obj.Rsc.Bar.UserData.IsBarPaused = true;
 								obj.Arduino.SendMessage('T');
+								% For training reactive task, make bar visible at turning point
+								if (obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'FADE_BAR')) == 1)
+									set(obj.Rsc.Bar, 'Visible', 'on');
+								end
 							end
 						% Reached the end of the list for real this time I promise
 						else
@@ -1797,7 +1807,7 @@ classdef MouseBehaviorInterface < handle
 								% Send turning point, this is end of response window
 								obj.Arduino.SendMessage('T');
 
-								% Edit previus entries in list of thetas so the bar doesn't reverse direction visually
+								% Edit previous entries in list of thetas so the bar doesn't reverse direction visually
 								if ~strcmpi(obj.Arduino.StateNames{obj.Arduino.State}, 'REWARD')
 									obj.Rsc.Bar.UserData.Thetas = obj.Rsc.Bar.UserData.Thetas(end):spatialFrequency:(obj.Rsc.Bar.UserData.Thetas(end) + spatialFrequency*(length(obj.Rsc.Bar.UserData.Thetas) - 1));
 									obj.Rsc.Bar.UserData.Thetas = flip(obj.Rsc.Bar.UserData.Thetas);
