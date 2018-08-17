@@ -1606,7 +1606,9 @@ classdef MouseBehaviorInterface < handle
 					elseif obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'TRIANGLE_CUE')) == 0
 						obj.Rsc.Cue 	= obj.BarCue(thetas(end), 'Ax', obj.Rsc.VisualStimAxes);
 					end
-					obj.Rsc.Bar     	= obj.RotatingBar(theta0, 'Ax', obj.Rsc.VisualStimAxes, lengthThetas);
+					obj.Rsc.Bar     	= obj.RotatingBar(theta0, 'Ax', obj.Rsc.VisualStimAxes);
+
+					% obj.Rsc.Bar     	= obj.RotatingBar(theta0, 'Ax', obj.Rsc.VisualStimAxes, lengthThetas);
 
 					% Show or hide dots
 					if obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'DOTS')) == 0

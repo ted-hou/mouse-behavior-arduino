@@ -207,6 +207,7 @@ enum ParamID
 	REACTIVE,					// Proactive = 0, Reactive = 1
 	TIMING,						// Elapsed time informative = 1, Not = 0
 	OPERANT_TURN,				// Mouse move causes bar to reverse direction
+	FADE_BAR,					// Contrast for moving bar as it approaches TP
 	END_THETA,					// Define location of turning point
 	TRIANGLE_CUE,				// 0 = flashing bar cue, 1 = flashing triangle cue
 	CUE_LOCATIONS,				// For proactive, switches possible locations of cue (cardinal to anywhere)	
@@ -249,6 +250,7 @@ static const char *_paramNames[] =
 	"REACTIVE",					// Is this a reactive or proactive paradigm?
 	"TIMING",					// Elapsed time informative = 1, Not = 0
 	"OPERANT_TURN",				// Mouse move causes bar to reverse direction
+	"FADE_BAR",					// Contrast for moving bar as it approaches TP
 	"END_THETA",				// Define location of turning point
 	"TRIANGLE_CUE",				// 0 = flashing bar cue, 1 = flashing triangle cue
 	"CUE_LOCATIONS",			// For proactive, switches possible locations of cue (cardinal to anywhere)			
