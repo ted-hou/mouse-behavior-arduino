@@ -1024,7 +1024,7 @@ classdef MouseBehaviorInterface < handle
 			ax.XLim 			= [max([-5000, ax.XLim(1) - 100]), ax.XLim(2) + 100];
 			ax.YLim 			= [0, obj.Arduino.TrialsCompleted + 1];
 			ax.YDir				= 'reverse';
-			ax.XLabel.String 	= 'Time (ms)';
+			ax.XLabel.String 	= 'Time (s)';
 			ax.YLabel.String 	= 'Trial';
 
 			% Set ytick labels
@@ -1039,6 +1039,11 @@ classdef MouseBehaviorInterface < handle
 			ax.YTick 		= ticks;
 			ax.YTickLabel 	= ticks;
 
+			% Set xtick labels
+			xtick = ax.XTick;
+			ax.XTickLabel = xtick/1000;
+
+			% Title
 			title(ax, figName)
 
 			% Store plot options cause for some reason it's lost unless we do this.
