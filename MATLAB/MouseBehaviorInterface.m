@@ -1593,7 +1593,9 @@ classdef MouseBehaviorInterface < handle
                     turnTheta = trialLength * speed;
                     thetaIndex0 = length(thetas) - round(turnTheta - 1);
                     thetaIndex0 = max(thetaIndex0, 1);
-                    thetaIndex0 = min(thetaIndex0, (length(thetas) - round(windowDuration * speed)));
+                    if obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'REACTIVE')) == 0
+                   		thetaIndex0 = min(thetaIndex0, (length(thetas) - round(windowDuration * speed)));
+                   	end
                     theta0 = thetas(thetaIndex0);
 
                     theta0 = theta0 + endTheta;
