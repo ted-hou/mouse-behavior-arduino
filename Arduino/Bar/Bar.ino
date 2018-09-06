@@ -1196,14 +1196,14 @@ void state_abort()
 		sendEventMarker(EVENT_ABORT, -1);
 	
 		// Retract lever/tube based on trial type
-		if (_params[USE_LEVER] == 1)
-		{
-			deployLever(false);
-		}
-		else
-		{
-			deployTube(false);
-		}
+		// if (_params[USE_LEVER] == 1)
+		// {
+		// 	deployLever(false);
+		// }
+		// else
+		// {
+		// 	deployTube(false);
+		// }
 	}
 
 	/*****************************************************
@@ -1244,14 +1244,14 @@ void state_abort_no_move()
 		sendEventMarker(EVENT_ABORT, -1);
 	
 		// Retract lever/tube based on trial type
-		if (_params[USE_LEVER] == 1)
-		{
-			deployLever(false);
-		}
-		else
-		{
-			deployTube(false);
-		}
+		// if (_params[USE_LEVER] == 1)
+		// {
+		// 	deployLever(false);
+		// }
+		// else
+		// {
+		// 	deployTube(false);
+		// }
 	}
 
 	/*****************************************************
