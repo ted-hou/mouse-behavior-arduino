@@ -1715,7 +1715,7 @@ classdef MouseBehaviorInterface < handle
 				case 'ABORT'
 					obj.Rsc.AbortToStimOffTimer = timer;
 					obj.Rsc.AbortToStimOffTimer.TimerFcn = {@obj.AbortToStimOff, false};
-					obj.Rsc.AbortToStimOffTimer.StartDelay = 2; % stim continues for 2 sec before flashing screen
+					obj.Rsc.AbortToStimOffTimer.StartDelay = 0;
 					start(obj.Rsc.AbortToStimOffTimer);
 					if (isfield(obj.Rsc, 'OmegaToITITimer') && isvalid(obj.Rsc.OmegaToITITimer))
 						omegaToITIDuration = obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'OMEGA_TO_ITI_DURATION'))/1000;
@@ -1727,7 +1727,7 @@ classdef MouseBehaviorInterface < handle
 				case 'ABORT_NO_MOVE'
 					obj.Rsc.AbortToStimOffTimer = timer;
 					obj.Rsc.AbortToStimOffTimer.TimerFcn = {@obj.AbortToStimOff, true};
-					obj.Rsc.AbortToStimOffTimer.StartDelay = 2; % now immediately stops stim and flashes screen
+					obj.Rsc.AbortToStimOffTimer.StartDelay = 2; % stim continues for 2 sec before flashing screen
 					start(obj.Rsc.AbortToStimOffTimer);
 					if (isfield(obj.Rsc, 'OmegaToITITimer') && isvalid(obj.Rsc.OmegaToITITimer))
 						omegaToITIDuration = obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'OMEGA_TO_ITI_DURATION'))/1000;
