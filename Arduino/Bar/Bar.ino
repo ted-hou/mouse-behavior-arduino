@@ -121,7 +121,7 @@ enum EventMarker
 
 static const char *_eventMarkerNames[] =
 {
-	"TRIAL_START",				// New trial initiated
+	"TRIAL_START",					// New trial initiated
 	"LEVER_PRESSED",				// Lever press onset
 	"LEVER_RELEASED",				// Lever press offset
 	"LEVER_RETRACT_START",			// Lever retract start
@@ -132,19 +132,19 @@ static const char *_eventMarkerNames[] =
 	"TUBE_RETRACT_END",				// Tube retract end
 	"TUBE_DEPLOY_START",			// Tube deploy start
 	"TUBE_DEPLOY_END",				// Tube deploy end
-	"LICK",						// Lick onset
-	"LICK_OFF",					// Lick offset
-	"FIRST_MOVE",				// First lick in trial since cue on
-	"STIM_ON",					// Bar appear
-	"BAR_MOVE",					// Bar begins rotation
-	"ALPHA",					// Proactive, response window open
-	"TURNING_POINT",			// Bar reverse
-	"OMEGA",					// Reactive, response window close
-	"REWARD_ON",				// Reward, juice valve on
-	"REWARD_OFF",				// Reward, juice valve off
-	"ABORT",					// Trial aborted
-	"ABORT_EARLY",				// Trial aborted due to early lick
-	"ITI"						// ITI
+	"LICK",							// Lick onset
+	"LICK_OFF",						// Lick offset
+	"FIRST_MOVE",					// First lick in trial since cue on
+	"STIM_ON",						// Bar appear
+	"BAR_MOVE",						// Bar begins rotation
+	"ALPHA",						// Proactive, response window open
+	"TURNING_POINT",				// Bar reverse
+	"OMEGA",						// Reactive, response window close
+	"REWARD_ON",					// Reward, juice valve on
+	"REWARD_OFF",					// Reward, juice valve off
+	"ABORT",						// Trial aborted
+	"ABORT_EARLY",					// Trial aborted due to early lick
+	"ITI"							// ITI
 };
 
 /*****************************************************
@@ -157,6 +157,7 @@ enum ResultCode
 	CODE_MOVE_REWARD,		// If animal presses/licks, rewarded
 	CODE_PAVLOVIAN,			// Pavlovian (Reward given when bar reverses)
 	CODE_EARLY_MOVE,		// Early Lick/Press (-> Abort)
+	CODE_LATE_MOVE,			// Press after response window (-> Abort)
 	CODE_NO_MOVE,			// No Lick/Press (Timeout -> ITI)
 	_NUM_RESULT_CODES		// (Private) Used to count how many codes there are.
 };
@@ -528,6 +529,10 @@ void loop()
 				state_reward();
 				break;
 
+			case STATE_POST_WINDOW:
+				state_post_window();
+				break;
+
 			case STATE_ABORT:
 				state_abort();
 				break;
@@ -538,10 +543,6 @@ void loop()
 
 			case STATE_ABORT_BAR_STAT:
 				state_abort_bar_stat();
-				break;
-
-			case STATE_POST_WINDOW:
-				state_post_window();
 				break;
 		}
 	}
@@ -985,7 +986,6 @@ void state_response_window()
 		{
 			if (_command == 'T')
 			{
-				_resultCode = CODE_NO_MOVE;
 				_state = STATE_POST_WINDOW;
 				return;
 			}
@@ -994,7 +994,6 @@ void state_response_window()
 		{
 			if (_command == 'W')
 			{
-				_resultCode = CODE_NO_MOVE;
 				_state = STATE_POST_WINDOW;
 				return;
 			}
