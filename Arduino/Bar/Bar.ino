@@ -58,10 +58,10 @@ enum State
 	STATE_BAR_MOVE,				// Moving dots, moving bar, enforced no lick
 	STATE_RESPONSE_WINDOW,		// First lick in this interval rewarded
 	STATE_REWARD,				// Dispense reward, wait for trial timeout
+	STATE_POST_WINDOW,			// No lick - timeout
 	STATE_ABORT,				// Basically a transition state for early licks
 	STATE_ABORT_EARLY,			// Early lick
 	STATE_ABORT_BAR_STAT,		// Early lick during stat
-	STATE_ABORT_NO_MOVE,		// No lick - timeout
 	_NUM_STATES					// (Private) Used to count number of states
 };
 
@@ -78,10 +78,10 @@ static const char *_stateNames[] =
 	"BAR_MOVE",
 	"RESPONSE_WINDOW",
 	"REWARD",
+	"POST_WINDOW",
 	"ABORT",
 	"ABORT_EARLY",
-	"ABORT_BAR_STAT",
-	"ABORT_NO_MOVE"
+	"ABORT_BAR_STAT"
 };
 
 // Define which states accept parameter update from MATLAB
@@ -524,7 +524,7 @@ void loop()
 			case STATE_REWARD:
 				state_reward();
 				break;
-			
+
 			case STATE_ABORT:
 				state_abort();
 				break;
@@ -537,8 +537,8 @@ void loop()
 				state_abort_bar_stat();
 				break;
 
-			case STATE_ABORT_NO_MOVE:
-				state_abort_no_move();
+			case STATE_POST_WINDOW:
+				state_post_window();
 				break;
 		}
 	}
@@ -828,7 +828,7 @@ void state_bar_move()
 	}
 
 	// Move detected
-	// First move registration fir task related movement
+	// First move registration for task related movement
 	if ((_isLickOnset && _params[USE_LEVER] == 0) || (_isLeverPressOnset && _params[USE_LEVER] == 1))
 	{
 		if (_params[MOVE_REWARD] == 1 && _params[OPERANT_TURN] == 1)
@@ -983,7 +983,7 @@ void state_response_window()
 			if (_command == 'T')
 			{
 				_resultCode = CODE_NO_MOVE;
-				_state = STATE_ABORT_NO_MOVE;
+				_state = STATE_POST_WINDOW;
 				return;
 			}
 		}
@@ -992,7 +992,7 @@ void state_response_window()
 			if (_command == 'W')
 			{
 				_resultCode = CODE_NO_MOVE;
-				_state = STATE_ABORT_NO_MOVE;
+				_state = STATE_POST_WINDOW;
 				return;
 			}
 		}
@@ -1080,6 +1080,59 @@ void state_reward()
 	}
 
 	_state = STATE_REWARD;
+}
+
+/*****************************************************
+	ABORT_NO_MOVE - No lick timeout
+*****************************************************/
+void state_post_window()
+{
+	/*****************************************************
+		ACTION LIST
+	*****************************************************/
+	if (_state != _prevState) 
+	{
+		// Register new state
+		_prevState = _state;
+		sendState(_state);
+
+		// Register events
+		sendEventMarker(EVENT_ABORT, -1);
+	}
+
+	/*****************************************************
+		TRANSITION LIST
+	*****************************************************/
+	// Quit signal from host --> IDLE
+	if (_command == 'Q') 
+	{
+		_state = STATE_IDLE;
+		return;
+	}
+
+	if ((_isLickOnset && (_params[USE_LEVER] == 0)) || (_isLeverPressOnset && (_params[USE_LEVER] == 1)))
+	{
+		// First lick registration
+		if (!_firstMoveRegistered)
+		{
+			_firstMoveRegistered = true;
+			sendEventMarker(EVENT_FIRST_MOVE, -1);
+			_resultCode = CODE_LATE_MOVE;
+		}
+	}
+
+	// Trial duration elapsed --> INTERTRIAL
+	if (_command == 'E')
+	{
+		_state = STATE_INTERTRIAL;
+		if (!_firstMoveRegistered)
+		{
+			_resultCode = CODE_NO_MOVE;
+		}
+		return;
+	}
+
+	_state = STATE_POST_WINDOW;
 }
 
 /*****************************************************
@@ -1226,53 +1279,6 @@ void state_abort()
 	_state = STATE_ABORT;
 }
 
-/*****************************************************
-	ABORT_NO_MOVE - No lick timeout
-*****************************************************/
-void state_abort_no_move()
-{
-	/*****************************************************
-		ACTION LIST
-	*****************************************************/
-	if (_state != _prevState) 
-	{
-		// Register new state
-		_prevState = _state;
-		sendState(_state);
-
-		// Register events
-		sendEventMarker(EVENT_ABORT, -1);
-	
-		// Retract lever/tube based on trial type
-		// if (_params[USE_LEVER] == 1)
-		// {
-		// 	deployLever(false);
-		// }
-		// else
-		// {
-		// 	deployTube(false);
-		// }
-	}
-
-	/*****************************************************
-		TRANSITION LIST
-	*****************************************************/
-	// Quit signal from host --> IDLE
-	if (_command == 'Q') 
-	{
-		_state = STATE_IDLE;
-		return;
-	}
-
-	// Trial duration elapsed --> INTERTRIAL
-	if (_command == 'E')
-	{
-		_state = STATE_INTERTRIAL;
-		return;
-	}
-
-	_state = STATE_ABORT_NO_MOVE;
-}
 
 /*****************************************************
 	INTERTRIAL
