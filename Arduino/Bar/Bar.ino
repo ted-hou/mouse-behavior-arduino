@@ -193,9 +193,10 @@ enum ParamID
 	_DEBUG,						// (Private) 1 to enable debug mode. Default 0.
 	BAR_STAT_DURATION, 			// Length of moving dots, stationary bar
 	ITI_DURATION,				// ITI length, fixed
+	ITI_LICK_TIMEOUT,
 	REWARD_DURATION,			// Reward duration (ms)
 	WINDOW_DURATION,			// Time from Alpha to Turning Point (or from Turning Point to Omega)
-	OMEGA_TO_ITI_DURATION,		// Time from Omega to ITI (ms)
+	OMEGA_TO_ITI_DURATION,		// Time from Omega to ITI (ms) 
 	USE_LEVER,					// 0 to use lick to trigger reward. 1 to use lever press.
 	ALLOW_EARLY_PRESS,			// 1 to abort trial if animal presses early
 	ALLOW_LICK_BAR_STAT,		// Allow early lick when stim first comes on
@@ -236,6 +237,7 @@ static const char *_paramNames[] =
 	"_DEBUG",					// (Private) 1 to enable debug mode. Default 0.
 	"BAR_STAT_DURATION", 		// Length of moving dots, stationary bar
 	"ITI_DURATION",				// ITI length, fixed
+	"ITI_LICK_TIMEOUT",
 	"REWARD_DURATION",			// Reward duration (ms)
 	"WINDOW_DURATION",			// Time from Alpha to Turning Point (or from Turning Point to Omega)
 	"OMEGA_TO_ITI_DURATION",	// Time from Omega to ITI (ms)
@@ -277,6 +279,7 @@ long _params[_NUM_PARAMS] =
 	0,		// _DEBUG
 	500,	// BAR_STAT_DURATION
 	10000,	// ITI_DURATION
+	2000,	// ITI_LICK_TIMEOUT
 	60,		// REWARD_DURATION
 	1500,	// WINDOW_DURATION
 	1500,	// OMEGA_TO_ITI_DURATION
@@ -1358,6 +1361,16 @@ void state_intertrial()
 	{
 		_state = STATE_IDLE;
 		return;
+	}
+
+	// If ITI elapsed --> RANDOM_DELAY
+	if (isParamsUpdateDone || !isParamsUpdateStarted)
+	{
+		if ((getTimeSinceCueOn() - timeIntertrial >= _params[ITI_DURATION]) && getTimeSinceLastLick() >= _params[ITI_LICK_TIMEOUT]))
+		{
+			_state = STATE_START;
+			return;
+		}
 	}
 
 	// If ITI elapsed --> START
