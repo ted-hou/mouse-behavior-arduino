@@ -193,7 +193,7 @@ enum ParamID
 	_DEBUG,						// (Private) 1 to enable debug mode. Default 0.
 	BAR_STAT_DURATION, 			// Length of moving dots, stationary bar
 	ITI_DURATION,				// ITI length, fixed
-	ITI_LICK_TIMEOUT,
+	ITI_LICK_TIMEOUT,			// ITI ends if last lick was this many ms before & ITI_Duration expired
 	REWARD_DURATION,			// Reward duration (ms)
 	WINDOW_DURATION,			// Time from Alpha to Turning Point (or from Turning Point to Omega)
 	OMEGA_TO_ITI_DURATION,		// Time from Omega to ITI (ms) 
@@ -237,7 +237,7 @@ static const char *_paramNames[] =
 	"_DEBUG",					// (Private) 1 to enable debug mode. Default 0.
 	"BAR_STAT_DURATION", 		// Length of moving dots, stationary bar
 	"ITI_DURATION",				// ITI length, fixed
-	"ITI_LICK_TIMEOUT",
+	"ITI_LICK_TIMEOUT",			// ITI ends if last lick was this many ms before & ITI_Duration expired
 	"REWARD_DURATION",			// Reward duration (ms)
 	"WINDOW_DURATION",			// Time from Alpha to Turning Point (or from Turning Point to Omega)
 	"OMEGA_TO_ITI_DURATION",	// Time from Omega to ITI (ms)
@@ -277,12 +277,12 @@ static const char *_paramNames[] =
 long _params[_NUM_PARAMS] = 
 {
 	0,		// _DEBUG
-	500,	// BAR_STAT_DURATION
+	1000,	// BAR_STAT_DURATION
 	10000,	// ITI_DURATION
 	2000,	// ITI_LICK_TIMEOUT
 	60,		// REWARD_DURATION
 	1500,	// WINDOW_DURATION
-	1500,	// OMEGA_TO_ITI_DURATION
+	3000,	// OMEGA_TO_ITI_DURATION
 	1,		// USE_LEVER
 	0,		// ALLOW_EARLY_PRESS
 	1,		// ALLOW_LICK_BAR_STAT
@@ -300,7 +300,7 @@ long _params[_NUM_PARAMS] =
 	0,		// CUE_LOCATIONS
 	4,		// SPATIAL_FREQUENCY
 	4,		// BAR_SPEED
-	4,		// NUM_HOPS
+	0,		// NUM_HOPS
 	0,		// DOTS
 	4,		// MU
 	2,		// SIGMA
