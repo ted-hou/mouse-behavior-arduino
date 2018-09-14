@@ -531,11 +531,11 @@ void state_pre_cue()
 		// Turn off house lamp
 		setHouseLamp(false);
 
-		// Lever task: deploy lever
+		// Lever task: deploy lever, no tube
 		if (_params[USE_LEVER] == 1)
 		{
 			deployLever(true);
-			deployTube(true);
+			deployTube(false);
 		}
 		// Lick task: deploy tube, no lever
 		else
@@ -763,6 +763,10 @@ void state_reward()
 			isRewardOn = true;
 			if (_params[REWARD_DURATION] > 0)
 			{
+				if (_params[USE_LEVER] == 1)
+				{
+					deployTube(true);
+				}
 				setReward(true);
 			}			
 		}
@@ -777,6 +781,10 @@ void state_reward()
 			isRewardOn = true;
 			if (_params[REWARD_DURATION] > 0)
 			{
+				if (_params[USE_LEVER] == 1)
+				{
+					deployTube(true);
+				}
 				setReward(true);
 			}
 		}
@@ -884,6 +892,7 @@ void state_intertrial()
 {
 	static long timeIntertrial;
 	static long randomDelay;
+	static bool isTubeRetracted;
 	static bool isParamsUpdateStarted;
 	static bool isParamsUpdateDone;
 	/*****************************************************
@@ -910,9 +919,12 @@ void state_intertrial()
 		{
 			deployLever(false);
 		}
-		// Retract tube
-		else
+
+		// Retract lick tube immediately if incorrect
+		isTubeRetracted = false;
+		if (_resultCode != CODE_CORRECT)
 		{
+			isTubeRetracted = true;
 			deployTube(false);
 		}
 
@@ -942,6 +954,16 @@ void state_intertrial()
 	if (_command == 'O') 
 	{
 		isParamsUpdateDone = true;
+	}
+
+	// If rewarded, retract lick tube before random delay starts
+	if (_resultCode == CODE_CORRECT && !isTubeRetracted)
+	{
+		if ((getTimeSinceCueOn() - timeIntertrial >= _params[ITI_MAX]) || (getTimeSinceCueOn() - timeIntertrial >= _params[ITI_MIN] && getTimeSinceLastLick() >= _params[ITI_LICK_TIMEOUT]))
+		{
+			isTubeRetracted = true;
+			deployTube(false);
+		}
 	}
 
 	/*****************************************************
