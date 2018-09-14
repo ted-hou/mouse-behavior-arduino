@@ -106,6 +106,7 @@ enum EventMarker
 	EVENT_LICK,						// Lick onset
 	EVENT_LICK_OFF,					// Lick offset
 	EVENT_FIRST_MOVE,				// First lick in trial since cue on
+	EVENT_FIRST_MOVE_BAR_STAT,		// First lick during bar stat, allow lick bar stat
 	EVENT_STIM_ON,					// Stim appear
 	EVENT_BAR_MOVE,					// Bar begins rotation
 	EVENT_ALPHA,					// Proactive, response window open
@@ -135,6 +136,7 @@ static const char *_eventMarkerNames[] =
 	"LICK",							// Lick onset
 	"LICK_OFF",						// Lick offset
 	"FIRST_MOVE",					// First lick in trial since cue on
+	"EVENT_FIRST_MOVE_BAR_STAT",	// First lick during bar stat, allow lick bar stat
 	"STIM_ON",						// Bar appear
 	"BAR_MOVE",						// Bar begins rotation
 	"ALPHA",						// Proactive, response window open
@@ -170,6 +172,7 @@ static const char *_resultCodeNames[] =
 	"MOVE_REWARD",
 	"PAVLOVIAN",
 	"EARLY_MOVE",
+	"CODE_LATE_MOVE",
 	"NO_MOVE"
 };
 
@@ -321,38 +324,39 @@ long _params[_NUM_PARAMS] =
 *****************************************************/
 // Variables declared here can be carried to the next loop, AND read/written in function scope as well as main scope
 // (previously defined):
-static long _timeReset				= 0;			// Reset to signedMillis() at every soft reset
-static long _timeTrialStart			= 0;			// Reset to 0 at start of trial
-static long _timeStimOn				= 0;			// Reset to 0 at cue on
-static long _timeAlpha				= 0;			//	
-static long _timeTurningPoint		= 0;
-static long _timeOmega				= 0;			//	
-static int _resultCode				= -1;			// Result code. -1 if there is no result.
-static State _state					= _STATE_INIT;	// This variable (current _state) get passed into a _state function, which determines what the next _state should be, and updates it to the next _state.
-static State _prevState				= _STATE_INIT;	// Remembers the previous _state from the last loop (actions should only be executed when you enter a _state for the first time, comparing currentState vs _prevState helps us keep track of that).
-static char _command				= ' ';			// Command char received from host, resets on each loop
-static int _arguments[2]			= {0};			// Two integers received from host , resets on each loop
+static long _timeReset						= 0;			// Reset to signedMillis() at every soft reset
+static long _timeTrialStart					= 0;			// Reset to 0 at start of trial
+static long _timeStimOn						= 0;			// Reset to 0 at cue on
+static long _timeAlpha						= 0;			//	
+static long _timeTurningPoint				= 0;
+static long _timeOmega						= 0;			//	
+static int _resultCode						= -1;			// Result code. -1 if there is no result.
+static State _state							= _STATE_INIT;	// This variable (current _state) get passed into a _state function, which determines what the next _state should be, and updates it to the next _state.
+static State _prevState						= _STATE_INIT;	// Remembers the previous _state from the last loop (actions should only be executed when you enter a _state for the first time, comparing currentState vs _prevState helps us keep track of that).
+static char _command						= ' ';			// Command char received from host, resets on each loop
+static int _arguments[2]					= {0};			// Two integers received from host , resets on each loop
 
-static bool _isLicking 				= false;		// True if the little dude is licking
-static bool _isLickOnset 			= false;		// True during lick onset
-static bool _firstMoveRegistered 	= false;		// True when first lick is registered for this trial
-static long _timeLastLick			= 0;			// Time (ms) when last lick occured
-
-static bool _isLeverPressed			= false;		// True as long as lever is pressed down
-static bool _isLeverPressOnset 		= false;		// True when lever first pressed
-static long _timeLastLeverPress		= 0;			// Time (ms) when last lever press occured
-
-static ServoState _servoStateTube	= _SERVOSTATE_INIT;				// Servo state
-static long _servoStartTimeLever	= 0;							// When servo started moving retrieved using getTime()
-static long _servoSpeedLever		= _params[LEVER_SPEED_RETRACT]; // Speed of servo movement (deg/s)
-static long _servoStartPosLever		= _params[LEVER_POS_RETRACTED];	// Starting position of servo when rotation begins
-static long _servoTargetPosLever	= _params[LEVER_POS_RETRACTED];	// Target position of servo
-
-static ServoState _servoStateLever 	= _SERVOSTATE_INIT;				// Servo state
-static long _servoStartTimeTube		= 0;							// When servo started moving retrieved using getTime()
-static long _servoSpeedTube			= _params[TUBE_SPEED_RETRACT]; 	// Speed of servo movement (deg/s)
-static long _servoStartPosTube		= _params[TUBE_POS_DEPLOYED];	// Starting position of servo when rotation begins
-static long _servoTargetPosTube		= _params[TUBE_POS_DEPLOYED];	// Target position of servo
+static bool _isLicking 						= false;		// True if the little dude is licking
+static bool _isLickOnset 					= false;		// True during lick onset
+static bool _firstMoveRegistered 			= false;		// True when first lick is registered for this trial
+static bool _firstMoveBarStatRegistered 	= false;		// True when first lick is registered during bar stat, allow lick during bar stat
+static long _timeLastLick					= 0;			// Time (ms) when last lick occured
+		
+static bool _isLeverPressed					= false;		// True as long as lever is pressed down
+static bool _isLeverPressOnset 				= false;		// True when lever first pressed
+static long _timeLastLeverPress				= 0;			// Time (ms) when last lever press occured
+		
+static ServoState _servoStateTube			= _SERVOSTATE_INIT;				// Servo state
+static long _servoStartTimeLever			= 0;							// When servo started moving retrieved using getTime()
+static long _servoSpeedLever				= _params[LEVER_SPEED_RETRACT]; // Speed of servo movement (deg/s)
+static long _servoStartPosLever				= _params[LEVER_POS_RETRACTED];	// Starting position of servo when rotation begins
+static long _servoTargetPosLever			= _params[LEVER_POS_RETRACTED];	// Target position of servo
+		
+static ServoState _servoStateLever 			= _SERVOSTATE_INIT;				// Servo state
+static long _servoStartTimeTube				= 0;							// When servo started moving retrieved using getTime()
+static long _servoSpeedTube					= _params[TUBE_SPEED_RETRACT]; 	// Speed of servo movement (deg/s)
+static long _servoStartPosTube				= _params[TUBE_POS_DEPLOYED];	// Starting position of servo when rotation begins
+static long _servoTargetPosTube				= _params[TUBE_POS_DEPLOYED];	// Target position of servo
 
 /*****************************************************
 	Setup
@@ -399,38 +403,39 @@ void mySetup()
 	// setIRLamp(true);                        // IR Lamp ON
 
 	// Reset variables
-	_timeReset				= 0;			// Reset to signedMillis() at every soft reset
-	_timeTrialStart			= 0;			// Reset to 0 at start of trial
-	_timeStimOn				= 0;
-	_timeAlpha				= 0;
-	_timeTurningPoint		= 0;
-	_timeOmega				= 0;
-	_resultCode				= -1;			// Result code. -1 if there is no result.
-	_state					= _STATE_INIT;	// This variable (current _state) get passed into a _state function, which determines what the next _state should be, and updates it to the next _state.
-	_prevState				= _STATE_INIT;	// Remembers the previous _state from the last loop (actions should only be executed when you enter a _state for the first time, comparing currentState vs _prevState helps us keep track of that).
-	_command				= ' ';			// Command char received from host, resets on each loop
-	_arguments[2]			= {0};			// Two integers received from host , resets on each loop
+	_timeReset						= 0;			// Reset to signedMillis() at every soft reset
+	_timeTrialStart					= 0;			// Reset to 0 at start of trial
+	_timeStimOn						= 0;
+	_timeAlpha						= 0;
+	_timeTurningPoint				= 0;
+	_timeOmega						= 0;
+	_resultCode						= -1;			// Result code. -1 if there is no result.
+	_state							= _STATE_INIT;	// This variable (current _state) get passed into a _state function, which determines what the next _state should be, and updates it to the next _state.
+	_prevState						= _STATE_INIT;	// Remembers the previous _state from the last loop (actions should only be executed when you enter a _state for the first time, comparing currentState vs _prevState helps us keep track of that).
+	_command						= ' ';			// Command char received from host, resets on each loop
+	_arguments[2]					= {0};			// Two integers received from host , resets on each loop
+		
+	_isLicking 						= false;		// True if the little dude is licking
+	_isLickOnset 					= false;		// True during lick onset
+	_firstMoveRegistered 			= false;		// True when first lick is registered for this trial
+	_firstMoveBarStatRegistered 	= false;		// True when first lick is registered during bar stat, allow lick during bar stat
+	_timeLastLick					= 0;			// Time (ms) when last lick occured
 
-	_isLicking 				= false;		// True if the little dude is licking
-	_isLickOnset 			= false;		// True during lick onset
-	_firstMoveRegistered 	= false;		// True when first lick is registered for this trial
-	_timeLastLick			= 0;			// Time (ms) when last lick occured
+	_isLeverPressed					= false;		// True as long as lever is pressed down
+	_isLeverPressOnset 				= false;		// True when lever first pressed
+	_timeLastLeverPress				= 0;			// Time (ms) when last lever press occured
 
-	_isLeverPressed			= false;		// True as long as lever is pressed down
-	_isLeverPressOnset 		= false;		// True when lever first pressed
-	_timeLastLeverPress		= 0;			// Time (ms) when last lever press occured
+	_servoStateTube					= _SERVOSTATE_INIT;				// Servo state
+	_servoStartTimeLever			= 0;							// When servo started moving retrieved using getTime()
+	_servoSpeedLever				= _params[LEVER_SPEED_RETRACT]; // Speed of servo movement (deg/s)
+	_servoStartPosLever				= _params[LEVER_POS_RETRACTED];	// Starting position of servo when rotation begins
+	_servoTargetPosLever			= _params[LEVER_POS_RETRACTED];	// Target position of servo
 
-	_servoStateTube			= _SERVOSTATE_INIT;				// Servo state
-	_servoStartTimeLever	= 0;							// When servo started moving retrieved using getTime()
-	_servoSpeedLever		= _params[LEVER_SPEED_RETRACT]; // Speed of servo movement (deg/s)
-	_servoStartPosLever		= _params[LEVER_POS_RETRACTED];	// Starting position of servo when rotation begins
-	_servoTargetPosLever	= _params[LEVER_POS_RETRACTED];	// Target position of servo
-
-	_servoStateLever 		= _SERVOSTATE_INIT;				// Servo state
-	_servoStartTimeTube		= 0;							// When servo started moving retrieved using getTime()
-	_servoSpeedTube			= _params[TUBE_SPEED_RETRACT]; 	// Speed of servo movement (deg/s)
-	_servoStartPosTube		= _params[TUBE_POS_DEPLOYED];	// Starting position of servo when rotation begins
-	_servoTargetPosTube		= _params[TUBE_POS_DEPLOYED];	// Target position of servo
+	_servoStateLever 				= _SERVOSTATE_INIT;				// Servo state
+	_servoStartTimeTube				= 0;							// When servo started moving retrieved using getTime()
+	_servoSpeedTube					= _params[TUBE_SPEED_RETRACT]; 	// Speed of servo movement (deg/s)
+	_servoStartPosTube				= _params[TUBE_POS_DEPLOYED];	// Starting position of servo when rotation begins
+	_servoTargetPosTube				= _params[TUBE_POS_DEPLOYED];	// Target position of servo
 
 	// Sends all parameters, states and error codes to Matlab, then tell PC that we're running by sending '~' message:
 	hostInit();
@@ -618,6 +623,7 @@ void state_start()
 		// Reset variables
 		_resultCode = -1;
 		_firstMoveRegistered = false;
+		_firstMoveBarStatRegistered = false;
 	}
 
 	/*****************************************************
@@ -770,17 +776,34 @@ void state_bar_stat()
 		}
 	}
 
-	// Move detected
-	if (_isLickOnset || _isLeverPressOnset)
+	// First lick registration
+	if (_isLickOnset)
 	{
-		// First move registration
-		if ((_isLickOnset && _params[USE_LEVER] == 0) || (_isLeverPressOnset && _params[USE_LEVER] == 1))
+		if (_params[ALLOW_LICK_BAR_STAT] == 1)
+		{
+			if (!_firstMoveBarStatRegistered)
+			{
+				_firstMoveBarStatRegistered = true;
+				sendEventMarker(EVENT_FIRST_MOVE_BAR_STAT, -1);		
+			}
+		}
+		else
 		{
 			if (!_firstMoveRegistered)
 			{
 				_firstMoveRegistered = true;
 				sendEventMarker(EVENT_FIRST_MOVE, -1);
 			}
+		}
+	}
+
+	// First press
+	if (_isLeverPressOnset)
+	{
+		if (!_firstMoveRegistered)
+		{
+			_firstMoveRegistered = true;
+			sendEventMarker(EVENT_FIRST_MOVE, -1);
 		}
 	}
 	
@@ -792,7 +815,6 @@ void state_bar_stat()
 		_state = STATE_ABORT_BAR_STAT;
 		return;	
 	}
-
 
 	// bar_stat elapsed --> BAR_MOVE
 	if (getTimeSinceStimOn() >= _params[BAR_STAT_DURATION])
