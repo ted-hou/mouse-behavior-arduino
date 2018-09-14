@@ -572,7 +572,7 @@ void state_pre_cue()
 	// Lever mode: make sure both are deployed
 	if (_params[USE_LEVER] == 1)
 	{
-		if (_servoStateLever == SERVOSTATE_DEPLOYED && _servoStateTube == SERVOSTATE_DEPLOYED)
+		if (_servoStateLever == SERVOSTATE_DEPLOYED)
 		{
 			_state = STATE_PRE_WINDOW;
 			return;
