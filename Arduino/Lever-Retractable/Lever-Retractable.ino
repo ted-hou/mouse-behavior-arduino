@@ -179,7 +179,8 @@ enum ParamID
 	ALLOW_EARLY_PRESS,			// 1 to abort trial if animal presses early
 	ALLOW_EARLY_LICK,			// 1 to abort trial if animal licks early
 	PAVLOVIAN, 					// 1 to issue reward at INTERVAL_TARGET in lick task
-	DELAY_REWARD,				// 0 to reward as soon as correct movement is made. 1 to give reward at end of trial.
+	DELAY_REWARD,				// After correct move, wait this amount of time before delivering reward(ms).
+	DELAY_REWARD_TILL_END,		// 1 to always give reward at end of trial (overrides previous parameter).
 	INTERVAL_MIN,				// Time to start of reward window (ms)
 	INTERVAL_TARGET,			// Target time (ms)
 	INTERVAL_MAX,				// Time to end of reward window (ms)
@@ -211,6 +212,7 @@ static const char *_paramNames[] =
 	"ALLOW_EARLY_LICK",
 	"PAVLOVIAN",
 	"DELAY_REWARD",
+	"DELAY_REWARD_TILL_END",
 	"INTERVAL_MIN",
 	"INTERVAL_TARGET",
 	"INTERVAL_MAX",
@@ -240,6 +242,7 @@ long _params[_NUM_PARAMS] =
 	0,		// ALLOW_EARLY_LICK
 	0, 		// PAVLOVIAN
 	0,		// DELAY_REWARD
+	0,		// DELAY_REWARD_TILL_END
 	4000,	// INTERVAL_MIN
 	7000,	// INTERVAL_TARGET
 	10000,	// INTERVAL_MAX
@@ -728,6 +731,7 @@ void state_response_window()
 *****************************************************/
 void state_reward()
 {
+	static long timeCorrectMove;
 	static long timeRewardOn;
 	static bool isRewardOn;
 	static bool isRewardComplete;
@@ -741,6 +745,7 @@ void state_reward()
 		sendState(_state);
 
 		// Reset variables
+		timeCorrectMove = getTimeSinceCueOn();
 		timeRewardOn = 0;
 		isRewardOn = false;
 		isRewardComplete = false;
@@ -749,10 +754,10 @@ void state_reward()
 	/*****************************************************
 		OnEachLoop checks
 	*****************************************************/
-	// Immediate reward
-	if (_params[DELAY_REWARD] == 0)
+	// Immediate/slightly delayed reward
+	if (_params[DELAY_REWARD_TILL_END] == 0)
 	{
-		if (!isRewardOn && !isRewardComplete)
+		if (!isRewardOn && !isRewardComplete && getTimeSinceCueOn() - timeCorrectMove >= _params[DELAY_REWARD])
 		{
 			timeRewardOn = getTimeSinceCueOn();
 			isRewardOn = true;
@@ -762,7 +767,7 @@ void state_reward()
 			}			
 		}
 	}
-	// Delayed reward
+	// Delay reward till end of trial
 	else
 	{
 		// Start dispensing reward at end of trial
