@@ -241,16 +241,16 @@ long _params[_NUM_PARAMS] =
 	0,		// ALLOW_EARLY_PRESS
 	0,		// ALLOW_EARLY_LICK
 	0, 		// PAVLOVIAN
-	0,		// DELAY_REWARD
+	0,	// DELAY_REWARD
 	0,		// DELAY_REWARD_TILL_END
 	4000,	// INTERVAL_MIN
 	7000,	// INTERVAL_TARGET
 	10000,	// INTERVAL_MAX
-	1000,	// ITI_MIN
+	3000,	// ITI_MIN
 	10000,	// ITI_MAX
 	1000,	// ITI_LICK_TIMEOUT
-	1000,	// RANDOM_DELAY_MIN
-	5000,	// RANDOM_DELAY_MAX
+	3000,	// RANDOM_DELAY_MIN
+	6000,	// RANDOM_DELAY_MAX
 	50,		// CUE_DURATION
 	100, 	// REWARD_DURATION
 	120,	// LEVER_POS_RETRACTED
@@ -754,8 +754,25 @@ void state_reward()
 	/*****************************************************
 		OnEachLoop checks
 	*****************************************************/
+	// Pavlovian rewards are immediate
+	if (_resultCode == CODE_PAVLOVIAN)
+	{
+		if (!isRewardOn && !isRewardComplete)
+		{
+			timeRewardOn = getTimeSinceCueOn();
+			isRewardOn = true;
+			if (_params[REWARD_DURATION] > 0)
+			{
+				if (_params[USE_LEVER] == 1)
+				{
+					deployTube(true);
+				}
+				setReward(true);
+			}			
+		}		
+	}
 	// Immediate/slightly delayed reward
-	if (_params[DELAY_REWARD_TILL_END] == 0)
+	else if (_params[DELAY_REWARD_TILL_END] == 0)
 	{
 		if (!isRewardOn && !isRewardComplete && getTimeSinceCueOn() - timeCorrectMove >= _params[DELAY_REWARD])
 		{
@@ -907,6 +924,14 @@ void state_intertrial()
 		// Register events
 		sendEventMarker(EVENT_ITI, -1);
 
+		// Retract lick tube immediately if incorrect
+		isTubeRetracted = false;
+		if (_resultCode != CODE_CORRECT)
+		{
+			isTubeRetracted = true;
+			deployTube(false);
+		}
+
 		// Send results
 		sendResultCode(_resultCode);
 		_resultCode = -1;
@@ -918,14 +943,6 @@ void state_intertrial()
 		if (_params[USE_LEVER] == 1)
 		{
 			deployLever(false);
-		}
-
-		// Retract lick tube immediately if incorrect
-		isTubeRetracted = false;
-		if (_resultCode != CODE_CORRECT)
-		{
-			isTubeRetracted = true;
-			deployTube(false);
 		}
 
 		// Register time of state entry
@@ -957,7 +974,7 @@ void state_intertrial()
 	}
 
 	// If rewarded, retract lick tube before random delay starts
-	if (_resultCode == CODE_CORRECT && !isTubeRetracted)
+	if (!isTubeRetracted)
 	{
 		if ((getTimeSinceCueOn() - timeIntertrial >= _params[ITI_MAX]) || (getTimeSinceCueOn() - timeIntertrial >= _params[ITI_MIN] && getTimeSinceLastLick() >= _params[ITI_LICK_TIMEOUT]))
 		{
