@@ -1387,7 +1387,7 @@ void state_intertrial()
 	// If ITI elapsed --> RANDOM_DELAY
 	if (isParamsUpdateDone || !isParamsUpdateStarted)
 	{
-		if ((getTimeSinceCueOn() - timeIntertrial >= _params[ITI_DURATION]) && getTimeSinceLastLick() >= _params[ITI_LICK_TIMEOUT]))
+		if (((getTimeSinceStimOn() - timeIntertrial) >= _params[ITI_DURATION]) && (getTimeSinceLastLick() >= _params[ITI_LICK_TIMEOUT]))
 		{
 			_state = STATE_START;
 			return;
@@ -1834,7 +1834,7 @@ long getTimeSinceTrialStart()
 	return time;
 }
 
-// Returns time since cue on in milliseconds
+// Returns time since stim on in milliseconds
 long getTimeSinceStimOn()
 {
 	long time = signedMillis() - _timeStimOn;
