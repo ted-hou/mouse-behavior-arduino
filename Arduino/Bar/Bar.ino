@@ -681,9 +681,20 @@ void state_pre_stim()
 			deployLever(false);
 			deployTube(true);
 		}
+	}
 
-		// Register cue on time
-		_timeStimOn = signedMillis();
+	/*****************************************************
+		OnEachLoop checks
+	*****************************************************/
+	// Lick detected
+	if (_isLickOnset)
+	{
+		// First lick registration
+		if (!_firstMoveRegistered)
+		{
+			_firstMoveRegistered = true;
+			sendEventMarker(EVENT_FIRST_MOVE, -1);
+		}
 	}
 
 	/*****************************************************
@@ -704,7 +715,7 @@ void state_pre_stim()
 		return;
 	}
 
-	// Lever/tube deployed --> BAR_MOVE
+	// Lever/tube deployed --> BAR_STAT
 	// Lever mode: make sure both are deployed
 	if (_params[USE_LEVER] == 1)
 	{
@@ -714,25 +725,15 @@ void state_pre_stim()
 			return;
 		}
 	}
-
-	// Lick detected
-	if (_isLickOnset)
+	else
 	{
-		// First lick registration
-		if (!_firstMoveRegistered)
+		// Tube mode: make sure tube is deployed
+		if (_servoStateTube == SERVOSTATE_DEPLOYED)
 		{
-			_firstMoveRegistered = true;
-			sendEventMarker(EVENT_FIRST_MOVE, -1);
+			_state = STATE_BAR_STAT;
+			return;
 		}
 	}
-
-	// Tube mode: make sure tube is deployed
-	if (_servoStateTube == SERVOSTATE_DEPLOYED)
-	{
-		_state = STATE_BAR_STAT;
-		return;
-	}
-
 }
 
 /*****************************************************
@@ -756,26 +757,8 @@ void state_bar_stat()
 	}
 
 	/*****************************************************
-		TRANSITION LIST
+		OnEachLoop checks
 	*****************************************************/
-	// Quit signal from host --> IDLE
-	if (_command == 'Q') 
-	{
-		_state = STATE_IDLE;
-		return;
-	}
-
-	// Lever/tube deployed --> BAR_MOVE
-	// Lever mode: make sure both are deployed
-	if (_params[USE_LEVER] == 1)
-	{
-		if (_servoStateLever == SERVOSTATE_DEPLOYED && _servoStateTube == SERVOSTATE_DEPLOYED)
-		{
-			_state = STATE_BAR_MOVE;
-			return;
-		}
-	}
-
 	// First lick registration
 	if (_isLickOnset)
 	{
@@ -806,7 +789,17 @@ void state_bar_stat()
 			sendEventMarker(EVENT_FIRST_MOVE, -1);
 		}
 	}
-	
+
+	/*****************************************************
+		TRANSITION LIST
+	*****************************************************/
+	// Quit signal from host --> IDLE
+	if (_command == 'Q') 
+	{
+		_state = STATE_IDLE;
+		return;
+	}
+
 	// Early lick/lever-press detected --> ABORT
 	if ((_isLickOnset && (_params[ALLOW_LICK_BAR_STAT] == 0)) || (_isLeverPressOnset && (_params[ALLOW_EARLY_PRESS] == 0)))
 	{
@@ -1384,20 +1377,10 @@ void state_intertrial()
 		return;
 	}
 
-	// If ITI elapsed --> RANDOM_DELAY
-	if (isParamsUpdateDone || !isParamsUpdateStarted)
-	{
-		if (((getTimeSinceStimOn() - timeIntertrial) >= _params[ITI_DURATION]) && (getTimeSinceLastLick() >= _params[ITI_LICK_TIMEOUT]))
-		{
-			_state = STATE_START;
-			return;
-		}
-	}
-
 	// If ITI elapsed --> START
 	if (isParamsUpdateDone || !isParamsUpdateStarted)
 	{
-		if (getTimeSinceStimOn() - timeIntertrial >= _params[ITI_DURATION])
+		if (((getTimeSinceStimOn() - timeIntertrial) >= _params[ITI_DURATION]) && (getTimeSinceLastLick() >= _params[ITI_LICK_TIMEOUT]))
 		{
 			_state = STATE_START;
 			return;

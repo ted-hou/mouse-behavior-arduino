@@ -1727,7 +1727,7 @@ classdef MouseBehaviorInterface < handle
 				case 'POST_WINDOW'
 					obj.Rsc.AbortToStimOffTimer = timer;
 					obj.Rsc.AbortToStimOffTimer.TimerFcn = {@obj.AbortToStimOff, true};
-					obj.Rsc.AbortToStimOffTimer.StartDelay = 0; % stim continues for 2 sec before flashing screen
+					obj.Rsc.AbortToStimOffTimer.StartDelay = 3; % stim continues for 2 sec before flashing screen
 					start(obj.Rsc.AbortToStimOffTimer);
 					if (isfield(obj.Rsc, 'OmegaToITITimer') && isvalid(obj.Rsc.OmegaToITITimer))
 						omegaToITIDuration = obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'OMEGA_TO_ITI_DURATION'))/1000;
