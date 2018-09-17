@@ -106,7 +106,6 @@ enum EventMarker
 	EVENT_LICK,						// Lick onset
 	EVENT_LICK_OFF,					// Lick offset
 	EVENT_FIRST_MOVE,				// First lick in trial since cue on
-	EVENT_FIRST_MOVE_BAR_STAT,		// First lick during bar stat, allow lick bar stat
 	EVENT_STIM_ON,					// Stim appear
 	EVENT_BAR_MOVE,					// Bar begins rotation
 	EVENT_ALPHA,					// Proactive, response window open
@@ -136,7 +135,6 @@ static const char *_eventMarkerNames[] =
 	"LICK",							// Lick onset
 	"LICK_OFF",						// Lick offset
 	"FIRST_MOVE",					// First lick in trial since cue on
-	"EVENT_FIRST_MOVE_BAR_STAT",	// First lick during bar stat, allow lick bar stat
 	"STIM_ON",						// Bar appear
 	"BAR_MOVE",						// Bar begins rotation
 	"ALPHA",						// Proactive, response window open
@@ -762,21 +760,10 @@ void state_bar_stat()
 	// First lick registration
 	if (_isLickOnset)
 	{
-		if (_params[ALLOW_LICK_BAR_STAT] == 1)
+		if (!_firstMoveRegistered)
 		{
-			if (!_firstMoveBarStatRegistered)
-			{
-				_firstMoveBarStatRegistered = true;
-				sendEventMarker(EVENT_FIRST_MOVE_BAR_STAT, -1);		
-			}
-		}
-		else
-		{
-			if (!_firstMoveRegistered)
-			{
-				_firstMoveRegistered = true;
-				sendEventMarker(EVENT_FIRST_MOVE, -1);
-			}
+			_firstMoveRegistered = true;
+			sendEventMarker(EVENT_FIRST_MOVE, -1);
 		}
 	}
 
