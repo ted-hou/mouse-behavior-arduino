@@ -172,7 +172,7 @@ static const char *_resultCodeNames[] =
 	"MOVE_REWARD",
 	"PAVLOVIAN",
 	"EARLY_MOVE",
-	"CODE_LATE_MOVE",
+	"LATE_MOVE",
 	"NO_MOVE"
 };
 
