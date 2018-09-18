@@ -1346,6 +1346,8 @@ void state_intertrial()
 		{
 			deployLever(false);
 			isLeverRetracted = true;
+			deployTube(false);
+			isTubeRetracted = true;
 		}
 		else if ((_params[USE_LEVER] == 0) && isTubeRetracted == false)
 		{
