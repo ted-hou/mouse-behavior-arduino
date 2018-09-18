@@ -1051,6 +1051,10 @@ void state_reward()
 		isRewardOn = true;
 		if (_params[REWARD_DURATION] > 0)
 		{
+			if (_params[USE_LEVER] == 1)
+			{
+				deployTube(true);
+			}
 			setReward(true);
 		}			
 	}
