@@ -156,7 +156,6 @@ enum ResultCode
 	CODE_OPERANT,			// Operant (reward given if animal licks/presses to make bar reverse)
 	CODE_MOVE_REWARD,		// If animal presses/licks, rewarded
 	CODE_PAVLOVIAN,			// Pavlovian (Reward given when bar reverses)
-	CODE_IGNORE,			// If animal licks during start (-> ITI)
 	CODE_EARLY_MOVE,		// Early Lick/Press (-> Abort)
 	CODE_LATE_MOVE,			// Press after response window (-> Abort)
 	CODE_NO_MOVE,			// No Lick/Press (Timeout -> ITI)
@@ -170,7 +169,6 @@ static const char *_resultCodeNames[] =
 	"OPERANT",
 	"MOVE_REWARD",
 	"PAVLOVIAN",
-	"IGNORE",
 	"EARLY_MOVE",
 	"LATE_MOVE",
 	"NO_MOVE"
@@ -640,7 +638,7 @@ void state_start()
 	if ((_isLeverPressOnset && _params[ALLOW_EARLY_PRESS] == 0) || (_isLickOnset && _params[ALLOW_EARLY_LICK] == 0))
 	{
 		// Register result
-		_resultCode = CODE_IGNORE;
+		_resultCode = CODE_EARLY_MOVE;
 		_state = STATE_ABORT;
 		return;
 	}
@@ -710,7 +708,7 @@ void state_pre_stim()
 	// Early lick/lever-press detected --> ABORT
 	if ((_isLeverPressOnset && _params[ALLOW_EARLY_PRESS] == 0) || (_isLickOnset && _params[ALLOW_EARLY_LICK] == 0))
 	{
-		_resultCode = CODE_IGNORE;
+		_resultCode = CODE_EARLY_MOVE;
 		_state = STATE_ABORT;
 		return;
 	}
