@@ -1259,7 +1259,6 @@ void state_abort()
 		if (_params[USE_LEVER] == 1)
 		{
 			deployLever(false);
-			deployTube(false);
 		}
 		else
 		{
