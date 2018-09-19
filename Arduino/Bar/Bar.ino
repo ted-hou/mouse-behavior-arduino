@@ -573,7 +573,7 @@ void state_idle()
 		// setIRLamp(true);
 		setReward(false);
 		deployLever(false);
-		deployTube(true);
+		deployTube(false);
 	}
 
 	/*****************************************************
@@ -670,7 +670,7 @@ void state_pre_stim()
 		if (_params[USE_LEVER] == 1)
 		{
 			deployLever(true);
-			deployTube(true);
+			deployTube(false);
 		}
 		// Lick task: deploy tube, no lever
 		else
