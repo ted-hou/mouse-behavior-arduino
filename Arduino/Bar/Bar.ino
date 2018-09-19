@@ -339,6 +339,7 @@ static int _arguments[2]					= {0};			// Two integers received from host , reset
 static bool _isLicking 						= false;		// True if the little dude is licking
 static bool _isLickOnset 					= false;		// True during lick onset
 static bool _firstMoveRegistered 			= false;		// True when first lick is registered for this trial
+static bool _firstMoveBarStatRegistered 	= false;		// True when first lick is registered during bar stat, allow lick during bar stat
 static long _timeLastLick					= 0;			// Time (ms) when last lick occured
 		
 static bool _isLeverPressed					= false;		// True as long as lever is pressed down
@@ -417,6 +418,7 @@ void mySetup()
 	_isLicking 						= false;		// True if the little dude is licking
 	_isLickOnset 					= false;		// True during lick onset
 	_firstMoveRegistered 			= false;		// True when first lick is registered for this trial
+	_firstMoveBarStatRegistered 	= false;		// True when first lick is registered during bar stat, allow lick during bar stat
 	_timeLastLick					= 0;			// Time (ms) when last lick occured
 
 	_isLeverPressed					= false;		// True as long as lever is pressed down
@@ -621,6 +623,7 @@ void state_start()
 		// Reset variables
 		_resultCode = -1;
 		_firstMoveRegistered = false;
+		_firstMoveBarStatRegistered = false;
 	}
 
 	/*****************************************************
