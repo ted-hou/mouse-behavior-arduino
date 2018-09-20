@@ -156,6 +156,7 @@ enum ResultCode
 	CODE_OPERANT,			// Operant (reward given if animal licks/presses to make bar reverse)
 	CODE_MOVE_REWARD,		// If animal presses/licks, rewarded
 	CODE_PAVLOVIAN,			// Pavlovian (Reward given when bar reverses)
+	CODE_IGNORE,			// Ignore (animal moves during start or pre-stim)
 	CODE_EARLY_MOVE,		// Early Lick/Press (-> Abort)
 	CODE_LATE_MOVE,			// Press after response window (-> Abort)
 	CODE_NO_MOVE,			// No Lick/Press (Timeout -> ITI)
@@ -169,6 +170,7 @@ static const char *_resultCodeNames[] =
 	"OPERANT",
 	"MOVE_REWARD",
 	"PAVLOVIAN",
+	"IGNORE",
 	"EARLY_MOVE",
 	"LATE_MOVE",
 	"NO_MOVE"
@@ -621,7 +623,6 @@ void state_start()
 		// Reset variables
 		_resultCode = -1;
 		_firstMoveRegistered = false;
-		_firstMoveBarStatRegistered = false;
 	}
 
 	/*****************************************************
@@ -638,7 +639,7 @@ void state_start()
 	if ((_isLeverPressOnset && _params[ALLOW_EARLY_PRESS] == 0) || (_isLickOnset && _params[ALLOW_EARLY_LICK] == 0))
 	{
 		// Register result
-		_resultCode = CODE_EARLY_MOVE;
+		_resultCode = CODE_IGNORE;
 		_state = STATE_ABORT;
 		return;
 	}
@@ -708,16 +709,16 @@ void state_pre_stim()
 	// Early lick/lever-press detected --> ABORT
 	if ((_isLeverPressOnset && _params[ALLOW_EARLY_PRESS] == 0) || (_isLickOnset && _params[ALLOW_EARLY_LICK] == 0))
 	{
-		_resultCode = CODE_EARLY_MOVE;
+		_resultCode = CODE_IGNORE;
 		_state = STATE_ABORT;
 		return;
 	}
 
 	// Lever/tube deployed --> BAR_STAT
-	// Lever mode: make sure both are deployed
+	// Lever mode: make sure lever is deployed
 	if (_params[USE_LEVER] == 1)
 	{
-		if (_servoStateLever == SERVOSTATE_DEPLOYED && _servoStateTube == SERVOSTATE_DEPLOYED)
+		if (_servoStateLever == SERVOSTATE_DEPLOYED) //&& _servoStateTube == SERVOSTATE_DEPLOYED)
 		{
 			_state = STATE_BAR_STAT;
 			return;
