@@ -573,7 +573,7 @@ void state_idle()
 		// setIRLamp(true);
 		setReward(false);
 		deployLever(false);
-		deployTube(false);
+		deployTube(true);
 	}
 
 	/*****************************************************
@@ -1349,8 +1349,8 @@ void state_intertrial()
 		{
 			deployLever(false);
 			isLeverRetracted = true;
-			deployTube(false);
-			isTubeRetracted = true;
+			// deployTube(false);
+			// isTubeRetracted = true;
 		}
 		else if ((_params[USE_LEVER] == 0) && isTubeRetracted == false)
 		{
