@@ -670,7 +670,7 @@ void state_pre_stim()
 		if (_params[USE_LEVER] == 1)
 		{
 			deployLever(true);
-			deployTube(false);
+			deployTube(true);
 		}
 		// Lick task: deploy tube, no lever
 		else
@@ -716,7 +716,7 @@ void state_pre_stim()
 	// Lever mode: make sure lever is deployed
 	if (_params[USE_LEVER] == 1)
 	{
-		if (_servoStateLever == SERVOSTATE_DEPLOYED) //&& _servoStateTube == SERVOSTATE_DEPLOYED)
+		if (_servoStateLever == SERVOSTATE_DEPLOYED && _servoStateTube == SERVOSTATE_DEPLOYED)
 		{
 			_state = STATE_BAR_STAT;
 			return;
@@ -1050,10 +1050,10 @@ void state_reward()
 		isRewardOn = true;
 		if (_params[REWARD_DURATION] > 0)
 		{
-			if (_params[USE_LEVER] == 1)
-			{
-				deployTube(true);
-			}
+			// if (_params[USE_LEVER] == 1)
+			// {
+			// 	deployTube(true);
+			// }
 			setReward(true);
 		}			
 	}
