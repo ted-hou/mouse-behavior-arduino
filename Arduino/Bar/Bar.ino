@@ -197,11 +197,12 @@ enum ParamID
 	_DEBUG,						// (Private) 1 to enable debug mode. Default 0.
 	BAR_STAT_DURATION, 			// Length of moving dots, stationary bar
 	ITI_DURATION,				// ITI length, fixed
-	ITI_LICK_TIMEOUT,			// ITI ends if last lick was this many ms before & ITI_Duration expired
+	MOVE_TIMEOUT,				// ITI/Bar_Stat ends if last lick/press was this many ms before & ITI/Bar_Stat_Duration expired
 	REWARD_DURATION,			// Reward duration (ms)
 	WINDOW_DURATION,			// Time from Alpha to Turning Point (or from Turning Point to Omega)
 	OMEGA_TO_ITI_DURATION,		// Time from Omega to ITI (ms) 
 	USE_LEVER,					// 0 to use lick to trigger reward. 1 to use lever press.
+	ALLOW_PRESS_BAR_STAT,		// Allow early press when stim first comes on
 	ALLOW_EARLY_PRESS,			// 1 to abort trial if animal presses early
 	ALLOW_LICK_BAR_STAT,		// Allow early lick when stim first comes on
 	ALLOW_EARLY_LICK,			// 0 to abort trial if animal licks after in pre-window
@@ -241,11 +242,12 @@ static const char *_paramNames[] =
 	"_DEBUG",					// (Private) 1 to enable debug mode. Default 0.
 	"BAR_STAT_DURATION", 		// Length of moving dots, stationary bar
 	"ITI_DURATION",				// ITI length, fixed
-	"ITI_LICK_TIMEOUT",			// ITI ends if last lick was this many ms before & ITI_Duration expired
+	"MOVE_TIMEOUT",				// ITI/Bar_Stat ends if last lick/press was this many ms before & ITI/Bar_Stat_Duration expired
 	"REWARD_DURATION",			// Reward duration (ms)
 	"WINDOW_DURATION",			// Time from Alpha to Turning Point (or from Turning Point to Omega)
 	"OMEGA_TO_ITI_DURATION",	// Time from Omega to ITI (ms)
 	"USE_LEVER",				// 0 to use lick to trigger reward. 1 to use lever press
+	"ALLOW_PRESS_BAR_STAT",		// Allow early press when stim first comes on
 	"ALLOW_EARLY_PRESS",		// 1 to abort trial if animal presses early
 	"ALLOW_LICK_BAR_STAT",		// Allow early lick when stim first comes on
 	"ALLOW_EARLY_LICK",			// 0 to abort trial if animal licks after in pre-window
@@ -283,11 +285,12 @@ long _params[_NUM_PARAMS] =
 	0,		// _DEBUG
 	1000,	// BAR_STAT_DURATION
 	10000,	// ITI_DURATION
-	2000,	// ITI_LICK_TIMEOUT
+	1500,	// MOVE_TIMEOUT
 	60,		// REWARD_DURATION
 	1500,	// WINDOW_DURATION
 	3000,	// OMEGA_TO_ITI_DURATION
 	1,		// USE_LEVER
+	1,		// ALLOW_PRESS_BAR_STAT
 	0,		// ALLOW_EARLY_PRESS
 	1,		// ALLOW_LICK_BAR_STAT
 	0,		// ALLOW_EARLY_LICK
@@ -340,10 +343,10 @@ static bool _isLicking 						= false;		// True if the little dude is licking
 static bool _isLickOnset 					= false;		// True during lick onset
 static bool _firstMoveRegistered 			= false;		// True when first lick is registered for this trial
 static long _timeLastLick					= 0;			// Time (ms) when last lick occured
-		
+
 static bool _isLeverPressed					= false;		// True as long as lever is pressed down
 static bool _isLeverPressOnset 				= false;		// True when lever first pressed
-static long _timeLastLeverPress				= 0;			// Time (ms) when last lever press occured
+static long _timeLastLeverPress				= 0;			// Time (ms) when last lever press (release) occured
 		
 static ServoState _servoStateTube			= _SERVOSTATE_INIT;				// Servo state
 static long _servoStartTimeLever			= 0;							// When servo started moving retrieved using getTime()
@@ -421,7 +424,7 @@ void mySetup()
 
 	_isLeverPressed					= false;		// True as long as lever is pressed down
 	_isLeverPressOnset 				= false;		// True when lever first pressed
-	_timeLastLeverPress				= 0;			// Time (ms) when last lever press occured
+	_timeLastLeverPress				= 0;			// Time (ms) when last lever press (release) occured
 
 	_servoStateTube					= _SERVOSTATE_INIT;				// Servo state
 	_servoStartTimeLever			= 0;							// When servo started moving retrieved using getTime()
@@ -787,7 +790,7 @@ void state_bar_stat()
 	}
 
 	// Early lick/lever-press detected --> ABORT
-	if ((_isLickOnset && (_params[ALLOW_LICK_BAR_STAT] == 0)) || (_isLeverPressOnset && (_params[ALLOW_EARLY_PRESS] == 0)))
+	if ((_isLickOnset && (_params[ALLOW_LICK_BAR_STAT] == 0)) || (_isLeverPressOnset && (_params[ALLOW_PRESS_BAR_STAT] == 0)))
 	{
 		// Register result
 		_resultCode = CODE_EARLY_MOVE;
@@ -796,7 +799,7 @@ void state_bar_stat()
 	}
 
 	// bar_stat elapsed --> BAR_MOVE
-	if (getTimeSinceStimOn() >= _params[BAR_STAT_DURATION])
+	if (getTimeSinceStimOn() >= _params[BAR_STAT_DURATION] && (getTimeSinceLastLick() >= _params[MOVE_TIMEOUT]) && (getTimeSinceLastPress() >= _params[MOVE_TIMEOUT]))
 	{
 		_state = STATE_BAR_MOVE;
 		return;
@@ -1370,7 +1373,7 @@ void state_intertrial()
 	// If ITI elapsed --> START
 	if (isParamsUpdateDone || !isParamsUpdateStarted)
 	{
-		if (((getTimeSinceStimOn() - timeIntertrial) >= _params[ITI_DURATION]) && (getTimeSinceLastLick() >= _params[ITI_LICK_TIMEOUT]))
+		if (((getTimeSinceStimOn() - timeIntertrial) >= _params[ITI_DURATION]) && (getTimeSinceLastLick() >= _params[MOVE_TIMEOUT]))
 		{
 			_state = STATE_START;
 			return;
@@ -1472,7 +1475,6 @@ void handleLever()
 		_isLeverPressed = true;
 		_isLeverPressOnset = true;
 		sendEventMarker(EVENT_LEVER_PRESSED, -1);
-		_timeLastLeverPress = getTime();
 	}
 	else
 	{
@@ -1480,6 +1482,7 @@ void handleLever()
 		{
 			_isLeverPressed = false;
 			sendEventMarker(EVENT_LEVER_RELEASED, -1);
+			_timeLastLeverPress = getTime();
 		}
 		_isLeverPressOnset = false;
 	}
@@ -1818,5 +1821,12 @@ long getTimeSinceStimOn()
 long getTimeSinceLastLick()
 {
 	long time = signedMillis() - _timeLastLick;
+	return time;
+}
+
+// Returns time since last press in milliseconds
+long getTimeSinceLastPress()
+{
+	long time = signedMillis() - _timeLastLeverPress;
 	return time;
 }
