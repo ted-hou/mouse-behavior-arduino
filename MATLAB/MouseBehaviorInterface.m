@@ -54,15 +54,20 @@ classdef MouseBehaviorInterface < handle
 						position = [];
 					end
 
-					obj.Arduino.Camera = CameraConnection(...
-						'CameraID', [],...
-						'Format', '',...
-						'FrameRate', [],...
-						'FileFormat', 'MPEG-4',...
-						'FrameGrabInterval', 1,...
-						'TimestampInterval', 10,...
-						'DialogPosition', position...
-					);
+					numCamerasToUse = inputdlg('Number of cameras to use (max ', num2str(numCameras), '):');
+					if numCamerasToUse > 0
+						for iCam = 1:numCamerasToUse
+							obj.Arduino.Camera(iCam) = CameraConnection(...
+								'CameraID', [],...
+								'Format', '',...
+								'FrameRate', [],...
+								'FileFormat', 'MPEG-4',...
+								'FrameGrabInterval', 1,...
+								'TimestampInterval', 10,...
+								'DialogPosition', position...
+							);
+						end
+					end
 				end
 			end
 		end
@@ -589,7 +594,9 @@ classdef MouseBehaviorInterface < handle
 				else
 					position = [];
 				end
-				obj.Arduino.Camera.CreateDialog_CameraControl(position);
+				for iCam = 1:length(obj.Arduino.Camera)
+					obj.Arduino.Camera(iCam).CreateDialog_CameraControl(position);
+				end
 			end
 		end
 
@@ -1472,8 +1479,10 @@ classdef MouseBehaviorInterface < handle
 					if isfield(obj.Rsc, 'TaskScheduler')
 						delete(obj.Rsc.TaskScheduler)
 					end
-					if ~isempty(obj.Arduino.Camera) && ~isempty(obj.Arduino.Camera.VideoInput)
-						obj.Arduino.Camera.Delete();
+					for iCam = 1:length(obj.Arduino.Camera)
+						if ~isempty(obj.Arduino.Camera(iCam)) && ~isempty(obj.Arduino.Camera(iCam).VideoInput)
+							obj.Arduino.Camera(iCam).Delete();
+						end
 					end
 					fprintf('Arduino connection closed.\n')
 				case 'No'
@@ -1519,12 +1528,14 @@ classdef MouseBehaviorInterface < handle
 		function ArduinoSaveAsExperiment(obj, ~, ~)
 			obj.Arduino.SaveAsExperiment()
 
-			if ~isempty(obj.Arduino.Camera)
-				if isvalid(obj.Arduino.Camera)
-					if ~isempty(obj.Arduino.ExperimentFileName)
-						videoPath = strsplit(obj.Arduino.ExperimentFileName, '.mat');
-						videoPath = videoPath{1};
-						obj.Arduino.Camera.SaveAs(videoPath);
+			for iCam = 1:length(obj.Arduino.Camera)
+				if ~isempty(obj.Arduino.Camera(iCam))
+					if isvalid(obj.Arduino.Camera(iCam))
+						if ~isempty(obj.Arduino.ExperimentFileName)
+							videoPath = strsplit(obj.Arduino.ExperimentFileName, '.mat');
+							videoPath = videoPath{1};
+							obj.Arduino.Camera(iCam).SaveAs([videoPath, '_', num2str(iCam)]);
+						end
 					end
 				end
 			end
