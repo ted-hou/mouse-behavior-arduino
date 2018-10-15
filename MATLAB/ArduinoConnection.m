@@ -10,7 +10,7 @@ classdef ArduinoConnection < handle
 		EventMarkerNames = {}
 		Trials = struct([])
 		ExperimentFileName = ''			% Contains 'C://path/filename.mat'
-		Camera
+		Cameras = struct([])
 	end
 
 	properties (SetObservable, AbortSet)
@@ -234,8 +234,8 @@ classdef ArduinoConnection < handle
 				obj.TrialsCompleted 		= p.obj.TrialsCompleted;
 
 				% Load camera stuff if available
-				if ~isempty(p.obj.Camera)
-					obj.Camera = p.obj.Camera;
+				if ~isempty(p.obj.Cameras)
+					obj.Cameras = p.obj.Cameras;
 				end
 
 				% Add all parameters to update queue

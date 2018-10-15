@@ -54,20 +54,21 @@ classdef MouseBehaviorInterface < handle
 						position = [];
 					end
 
-					numCamerasToUse = inputdlg('Number of cameras to use (max ', num2str(numCameras), '):');
-					if numCamerasToUse > 0
-						for iCam = 1:numCamerasToUse
-							obj.Arduino.Camera(iCam) = CameraConnection(...
-								'CameraID', [],...
-								'Format', '',...
-								'FrameRate', [],...
+					% numCamerasToUse = inputdlg(['Number of cameras to use (max ', num2str(numCameras), '):']);
+					% numCamerasToUse = str2num(numCamerasToUse{1});
+					% if numCamerasToUse > 0
+						for iCam = 1:numCameras
+							obj.Arduino.Cameras(iCam).Camera = CameraConnection(...
+								'CameraID', iCam,...
+								'Format', 'YUY2_640x480',...
+								'FrameRate', 30,...
 								'FileFormat', 'MPEG-4',...
 								'FrameGrabInterval', 1,...
 								'TimestampInterval', 10,...
 								'DialogPosition', position...
 							);
 						end
-					end
+					% end
 				end
 			end
 		end
@@ -588,14 +589,14 @@ classdef MouseBehaviorInterface < handle
 
 		function CreateDialog_CameraControl(obj)
 			% If object already exists, show window
-			if isvalid(obj.Arduino.Camera)
+			if ~isempty(obj.Arduino.Cameras)
 				if isfield(obj.Rsc, 'TaskScheduler') && isvalid(obj.Rsc.TaskScheduler)
 					position = obj.Rsc.TaskScheduler.OuterPosition(1:2) + [0, obj.Rsc.TaskScheduler.OuterPosition(4)];
 				else
 					position = [];
 				end
-				for iCam = 1:length(obj.Arduino.Camera)
-					obj.Arduino.Camera(iCam).CreateDialog_CameraControl(position);
+				for iCam = 1:length(obj.Arduino.Cameras)
+					obj.Arduino.Cameras(iCam).Camera.CreateDialog_CameraControl(position);
 				end
 			end
 		end
@@ -1479,9 +1480,9 @@ classdef MouseBehaviorInterface < handle
 					if isfield(obj.Rsc, 'TaskScheduler')
 						delete(obj.Rsc.TaskScheduler)
 					end
-					for iCam = 1:length(obj.Arduino.Camera)
-						if ~isempty(obj.Arduino.Camera(iCam)) && ~isempty(obj.Arduino.Camera(iCam).VideoInput)
-							obj.Arduino.Camera(iCam).Delete();
+					for iCam = 1:length(obj.Arduino.Cameras)
+						if ~isempty(obj.Arduino.Cameras(iCam).Camera) && ~isempty(obj.Arduino.Cameras(iCam).Camera.VideoInput)
+							obj.Arduino.Cameras(iCam).Camera.Delete();
 						end
 					end
 					fprintf('Arduino connection closed.\n')
@@ -1528,13 +1529,13 @@ classdef MouseBehaviorInterface < handle
 		function ArduinoSaveAsExperiment(obj, ~, ~)
 			obj.Arduino.SaveAsExperiment()
 
-			for iCam = 1:length(obj.Arduino.Camera)
-				if ~isempty(obj.Arduino.Camera(iCam))
-					if isvalid(obj.Arduino.Camera(iCam))
+			for iCam = 1:length(obj.Arduino.Cameras)
+				if ~isempty(obj.Arduino.Cameras(iCam).Camera)
+					if isvalid(obj.Arduino.Cameras(iCam).Camera)
 						if ~isempty(obj.Arduino.ExperimentFileName)
 							videoPath = strsplit(obj.Arduino.ExperimentFileName, '.mat');
 							videoPath = videoPath{1};
-							obj.Arduino.Camera(iCam).SaveAs([videoPath, '_', num2str(iCam)]);
+							obj.Arduino.Cameras(iCam).Camera.SaveAs([videoPath, '_', num2str(iCam)]);
 						end
 					end
 				end
