@@ -656,11 +656,15 @@ classdef MouseBehaviorInterface < handle
 			addOptional(p, 'CamIDs', [], @isnumeric); % Cameras to operate
 			parse(p, action, varargin{:});
 			action 	= p.Results.Action;
-			camIDs 	= p.Results.CamID;
+			camIDs 	= p.Results.CamIDs;
 
 			if isempty(obj.Arduino.Cameras)
 				warning('No cameras connected.')
 				return
+			end
+
+			if isempty(camIDs)
+				camIDs = 1:length(obj.Arduino.Cameras);
 			end
 
 			switch lower(action)
