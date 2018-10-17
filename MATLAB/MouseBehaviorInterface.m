@@ -195,6 +195,12 @@ classdef MouseBehaviorInterface < handle
 			uimenu(menu_arduino, 'Label', 'Reset', 'Callback', @obj.ArduinoReset, 'Separator', 'on');
 			uimenu(menu_arduino, 'Label', 'Reconnect', 'Callback', @obj.ArduinoReconnect);
 
+			menu_window = uimenu(dlg, 'Label', '&Camera');
+			uimenu(menu_window, 'Label', 'Start All', 'Callback', @(~, ~) obj.ControlCameras('start'));
+			uimenu(menu_window, 'Label', 'Stop All', 'Callback', @(~, ~) obj.ControlCameras('stop'));
+			uimenu(menu_window, 'Label', 'Preview All', 'Callback', @(~, ~) obj.ControlCameras('preview'));
+			uimenu(menu_window, 'Label', 'Terminate All', 'Callback', @(~, ~) obj.ControlCameras('terminate'));
+
 			menu_window = uimenu(dlg, 'Label', '&Window');
 			uimenu(menu_window, 'Label', 'Experiment Control', 'Callback', @(~, ~) @obj.CreateDialog_ExperimentControl);
 			uimenu(menu_window, 'Label', 'Monitor', 'Callback', @(~, ~) obj.CreateDialog_Monitor);
@@ -639,6 +645,45 @@ classdef MouseBehaviorInterface < handle
 		function CloseDialog_Splash(obj)
 			stop(obj.Rsc.SplashTimer);
 			obj.Rsc.Splash.dispose;
+		end
+
+		%----------------------------------------------------
+		% 		Camera Stuff
+		%----------------------------------------------------
+		function ControlCameras(obj, action, varargin)
+			p = inputParser;
+			addRequired(p, 'Action', @ischar)
+			addOptional(p, 'CamIDs', [], @isnumeric); % Cameras to operate
+			parse(p, action, varargin{:});
+			action 	= p.Results.Action;
+			camIDs 	= p.Results.CamID;
+
+			if isempty(obj.Arduino.Cameras)
+				warning('No cameras connected.')
+				return
+			end
+
+			switch lower(action)
+				case 'start'
+					for iCam = transpose(camIDs(:))
+						obj.Arduino.Cameras(iCam).Camera.Start();
+					end
+				case 'stop'
+					for iCam = transpose(camIDs(:))
+						obj.Arduino.Cameras(iCam).Camera.Stop();
+					end
+				case 'preview'
+					for iCam = transpose(camIDs(:))
+						obj.Arduino.Cameras(iCam).Camera.Preview();
+					end
+				case 'terminate'
+					for iCam = transpose(camIDs(:))
+						obj.Arduino.Cameras(iCam).Camera.Delete();
+					end
+				otherwise
+					warning('Unrecognized action.')
+					return
+			end			
 		end
 
 		%----------------------------------------------------
