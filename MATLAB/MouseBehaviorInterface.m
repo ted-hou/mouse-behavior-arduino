@@ -2286,7 +2286,7 @@ classdef MouseBehaviorInterface < handle
 
 			theta = theta/180*pi; % theta in radians
 			l = .2; % length of side of triangle cue
-			alphie = pi/8; % alpha (half angle of vertex) 
+			alphie = pi/6; % alpha (half angle of vertex) 
 
 			xs = [cos(theta), (cos(theta) + (l * cos(theta - alphie))), cos(theta) + (l * cos(theta + alphie))];
 			ys = [sin(theta), (sin(theta) + (l * sin(theta - alphie))), sin(theta) + (l * sin(theta + alphie))];
