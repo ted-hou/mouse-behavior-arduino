@@ -1609,8 +1609,7 @@ classdef MouseBehaviorInterface < handle
 						obj.Rsc.Cue 	= obj.BarCue(thetas(end), 'Ax', obj.Rsc.VisualStimAxes);
 					end
 					obj.Rsc.Bar     	= obj.RotatingBar(theta0, 'Ax', obj.Rsc.VisualStimAxes);
-
-					% obj.Rsc.Bar     	= obj.RotatingBar(theta0, 'Ax', obj.Rsc.VisualStimAxes, lengthThetas);
+					obj.Rsc.Bar2     	= obj.StationaryBar(theta0, 'Ax', obj.Rsc.VisualStimAxes);
 
 					% Show or hide dots
 					if obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'DOTS')) == 0
@@ -1650,10 +1649,15 @@ classdef MouseBehaviorInterface < handle
 					obj.Rsc.BarRefreshTimer.TimerFcn = {@obj.OnBarRefresh, obj.Rsc.Bar};
 
 					% Bar flashing during bar_stat only
+					obj.Rsc.Bar2.UserData.Thetas 					= thetas;
+					obj.Rsc.Bar2.UserData.ThetaIndex				= thetaIndex0;
+					obj.Rsc.Bar2.UserData.Speed						= speed;
+					obj.Rsc.Bar2.FaceColor 							= [1 1 1];
+
 					obj.Rsc.BarStatTimer = timer;
 					obj.Rsc.BarStatTimer. Execution = 'fixedRate';
 					obj.Rsc.BarStatTimer.Period = 1/speed;
-					obj.Rsc.BarStatTimer.TimerFcn = {@obj.OnBarRefresh, obj.Rsc.Bar};
+					obj.Rsc.BarStatTimer.TimerFcn = {@obj.OnBarStatRefresh, obj.Rsc.Bar2};
 					start(obj.Rsc.BarStatTimer);
 
 					obj.Rsc.DotsRefreshTimer = timer;
@@ -1664,7 +1668,7 @@ classdef MouseBehaviorInterface < handle
 
 					obj.Rsc.CueRefreshTimer = timer;
 					obj.Rsc.CueRefreshTimer.Execution = 'fixedRate';
-					obj.Rsc.CueRefreshTimer.Period = 0.333;
+					obj.Rsc.CueRefreshTimer.Period = 1;
 					obj.Rsc.CueRefreshTimer.TimerFcn = {@obj.OnCueRefresh, obj.Rsc.Cue};
 					start(obj.Rsc.CueRefreshTimer);
                     
@@ -1673,6 +1677,7 @@ classdef MouseBehaviorInterface < handle
 					stop(obj.Rsc.BarStatTimer);
 					delete(obj.Rsc.BarStatTimer);
 					start(obj.Rsc.BarRefreshTimer);
+					delete(obj.Rsc.Bar2);
 
 				case 'ABORT_BAR_STAT'
 					start(obj.Rsc.BarRefreshTimer);
@@ -1778,16 +1783,6 @@ classdef MouseBehaviorInterface < handle
 			obj.Arduino.Trials(end).Theta0 = obj.UserData.Theta0;		
 		end
 
-		function OnBarStatRefresh(obj, t, ~, hBar)
-			% Read parameters from Arduino
-			speed 				= obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'BAR_SPEED'));
-			spatialFrequency 	= obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'SPATIAL_FREQUENCY'));
-
-			nextThetaIndex = obj.Rsc.Bar.UserData.ThetaIndex;
-			obj.Rsc.Bar.UserData.ThetaIndex = nextThetaIndex;
-			obj.RotatingBar(nextTheta, 'Bar', hBar);
-		end
-
 		function OnBarRefresh(obj, t, ~, hBar)
 			try
 				nextThetaIndex = obj.Rsc.Bar.UserData.ThetaIndex + hBar.UserData.Direction;
@@ -1879,16 +1874,30 @@ classdef MouseBehaviorInterface < handle
 			end
 		end
 
+		function OnBarStatRefresh(obj, t, ~, hBar)
+			% Read parameters from Arduino
+			speed 				= obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'BAR_SPEED'));
+
+			if obj.Rsc.Bar2.FaceColor(1) == 1
+				obj.Rsc.Bar2.FaceColor = [0 0 0];
+			else
+				obj.Rsc.Bar2.FaceColor = [1 1 1];
+			end
+		end
+
 		function OnDotsRefresh(obj, t, ~, hDots)
 			obj.MovingDots('Dots', hDots, 'Time', t.TasksExecuted*t.Period, 'RefreshRate', t.Period);
 		end
 
 		function OnCueRefresh(obj, t, ~, hCue)
-			if obj.Rsc.Cue.FaceColor(1) == 1
-				obj.Rsc.Cue.FaceColor = [0 0 0];
-			else
-				obj.Rsc.Cue.FaceColor = [1 1 1];
-			end
+			% This makes the cue just a solid image instead of flashing
+			obj.Rsc.Cue.FaceColor = [1 1 1];
+
+			% if obj.Rsc.Cue.FaceColor(1) == 1
+			% 	obj.Rsc.Cue.FaceColor = [0 0 0];
+			% else
+			% 	obj.Rsc.Cue.FaceColor = [1 1 1];
+			% end
 		end
 
 		function AbortToStimOff(obj, ~, ~, noMovePun)
@@ -2326,11 +2335,11 @@ classdef MouseBehaviorInterface < handle
 			parse(p, varargin{:});
 			hCue = p.Results.Cue;
 			hAxes = p.Results.Ax;
+			w 			= p.Results.Width;
+			h 			= p.Results.Height;
 
 			theta = theta/180*pi; % theta in radians
 
-			w 			= p.Results.Width;
-			h 			= p.Results.Height;
 
 			X = [0 + h*sin(theta), cos(theta) + h*sin(theta), cos(theta) - h*sin(theta), 0 - h*sin(theta), 0 + h*sin(theta)];
 			Y = [0 - h*cos(theta), sin(theta) - h*cos(theta), sin(theta) + h*cos(theta), 0 + h*cos(theta), 0 - h*cos(theta)];
@@ -2342,6 +2351,34 @@ classdef MouseBehaviorInterface < handle
 			end
 
 			varargout = {hCue};
+		end
+
+		function varargout = StationaryBar(theta, varargin)
+			p = inputParser;
+			addRequired(p, 'Theta', @isnumeric);
+			addParameter(p, 'Ax', []);
+			addParameter(p, 'Bar', []);
+			addParameter(p, 'Width', 1, @isnumeric);
+			addParameter(p, 'Height', 0.03, @isnumeric);
+			parse(p, theta, varargin{:});
+			hAxes		= p.Results.Ax;
+			hBar 		= p.Results.Bar;
+			w 			= p.Results.Width;
+			h 			= p.Results.Height;
+			
+			theta = theta/180*pi;
+			
+			X = [0 + h*sin(theta), cos(theta) + h*sin(theta), cos(theta) - h*sin(theta), 0 - h*sin(theta), 0 + h*sin(theta)];
+			Y = [0 - h*cos(theta), sin(theta) - h*cos(theta), sin(theta) + h*cos(theta), 0 + h*cos(theta), 0 - h*cos(theta)];
+			
+
+			if isempty(hBar)
+				hBar = fill(hAxes, X, Y, 'w');
+			else
+				hBar.Vertices = [X', Y'];
+			end
+			
+			varargout = {hBar};
 		end
 	end
 end
