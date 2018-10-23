@@ -1782,6 +1782,10 @@ classdef MouseBehaviorInterface < handle
 			% Read parameters from Arduino
 			speed 				= obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'BAR_SPEED'));
 			spatialFrequency 	= obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'SPATIAL_FREQUENCY'));
+
+			nextThetaIndex = obj.Rsc.Bar.UserData.ThetaIndex;
+			obj.Rsc.Bar.UserData.ThetaIndex = nextThetaIndex;
+			obj.RotatingBar(nextTheta, 'Bar', hBar);
 		end
 
 		function OnBarRefresh(obj, t, ~, hBar)
