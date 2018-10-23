@@ -1876,7 +1876,7 @@ classdef MouseBehaviorInterface < handle
 
 		function OnBarStatRefresh(obj, t, ~, hBar)
 			% Read parameters from Arduino
-			speed 				= obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'BAR_SPEED'));
+			speed = obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'BAR_SPEED'));
 
 			if obj.Rsc.Bar2.FaceColor(1) == 1
 				obj.Rsc.Bar2.FaceColor = [0 0 0];
@@ -2230,11 +2230,11 @@ classdef MouseBehaviorInterface < handle
 			addParameter(p, 'Width', 1, @isnumeric);
 			addParameter(p, 'Height', 0.03, @isnumeric);
 			parse(p, theta, varargin{:});
-			theta 		= p.Results.Theta;
-			hAxes		= p.Results.Ax;
-			hBar 		= p.Results.Bar;
-			w 			= p.Results.Width;
-			h 			= p.Results.Height;
+			theta 	= p.Results.Theta;
+			hAxes	= p.Results.Ax;
+			hBar 	= p.Results.Bar;
+			w 		= p.Results.Width;
+			h 		= p.Results.Height;
 			
 			theta = theta/180*pi;
 			
@@ -2309,11 +2309,11 @@ classdef MouseBehaviorInterface < handle
 			addParameter(p, 'Ax', []);
 			addParameter(p, 'Cue', []);
 			parse(p, varargin{:});
-			hCue = p.Results.Cue;
-			hAxes = p.Results.Ax;
+			hCue 	= p.Results.Cue;
+			hAxes 	= p.Results.Ax;
 
 			theta = theta/180*pi; % theta in radians
-			l = .2; % length of side of triangle cue
+			l = .3; % length of side of triangle cue
 			alphie = pi/6; % alpha (half angle of vertex) 
 
 			xs = [cos(theta), (cos(theta) + (l * cos(theta - alphie))), cos(theta) + (l * cos(theta + alphie))];
@@ -2331,12 +2331,12 @@ classdef MouseBehaviorInterface < handle
 			addParameter(p, 'Ax', []);
 			addParameter(p, 'Cue', []);
 			addParameter(p, 'Width', 1, @isnumeric);
-			addParameter(p, 'Height', 0.04, @isnumeric);
+			addParameter(p, 'Height', 0.03, @isnumeric);
 			parse(p, varargin{:});
-			hCue = p.Results.Cue;
-			hAxes = p.Results.Ax;
-			w 			= p.Results.Width;
-			h 			= p.Results.Height;
+			hCue 	= p.Results.Cue;
+			hAxes 	= p.Results.Ax;
+			w 		= p.Results.Width;
+			h 		= p.Results.Height;
 
 			theta = theta/180*pi; % theta in radians
 
