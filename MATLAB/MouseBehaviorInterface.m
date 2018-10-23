@@ -1649,6 +1649,13 @@ classdef MouseBehaviorInterface < handle
 					obj.Rsc.BarRefreshTimer.Period = 1/speed;
 					obj.Rsc.BarRefreshTimer.TimerFcn = {@obj.OnBarRefresh, obj.Rsc.Bar};
 
+					% Bar flashing during bar_stat only
+					obj.Rsc.BarStatTimer = timer;
+					obj.Rsc.BarStatTimer. Execution = 'fixedRate';
+					obj.Rsc.BarStatTimer.Period = 1/speed;
+					obj.Rsc.BarStatTimer.TimerFcn = {@obj.OnBarRefresh, obj.Rsc.Bar};
+					start(obj.Rsc.BarStatTimer);
+
 					obj.Rsc.DotsRefreshTimer = timer;
 					obj.Rsc.DotsRefreshTimer.Execution = 'fixedRate';
 					obj.Rsc.DotsRefreshTimer.Period = round(1000/60)/1000;
@@ -1663,6 +1670,8 @@ classdef MouseBehaviorInterface < handle
                     
 				% Bar starts moving
 				case 'BAR_MOVE'
+					stop(obj.Rsc.BarStatTimer);
+					delete(obj.Rsc.BarStatTimer);
 					start(obj.Rsc.BarRefreshTimer);
 
 				case 'ABORT_BAR_STAT'

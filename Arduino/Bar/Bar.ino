@@ -1093,7 +1093,7 @@ void state_reward()
 }
 
 /*****************************************************
-	ABORT_NO_MOVE - No lick timeout
+	Post Window - No lick or late lick timeout
 *****************************************************/
 void state_post_window()
 {
@@ -1128,6 +1128,16 @@ void state_post_window()
 			_firstMoveRegistered = true;
 			sendEventMarker(EVENT_FIRST_MOVE, -1);
 			_resultCode = CODE_LATE_MOVE;
+			
+			// Retract lever/tube based on trial type
+			if (_params[USE_LEVER] == 1)
+			{
+				deployLever(false);
+			}
+			else
+			{
+				deployTube(false);
+			}
 		}
 	}
 
