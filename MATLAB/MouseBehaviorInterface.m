@@ -1778,6 +1778,12 @@ classdef MouseBehaviorInterface < handle
 			obj.Arduino.Trials(end).Theta0 = obj.UserData.Theta0;		
 		end
 
+		function OnBarStatRefresh(obj, t, ~, hBar)
+			% Read parameters from Arduino
+			speed 				= obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'BAR_SPEED'));
+			spatialFrequency 	= obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'SPATIAL_FREQUENCY'));
+		end
+
 		function OnBarRefresh(obj, t, ~, hBar)
 			try
 				nextThetaIndex = obj.Rsc.Bar.UserData.ThetaIndex + hBar.UserData.Direction;
