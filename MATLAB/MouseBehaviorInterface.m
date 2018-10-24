@@ -1681,7 +1681,7 @@ classdef MouseBehaviorInterface < handle
 
 				case 'ABORT_BAR_STAT'
 					start(obj.Rsc.BarRefreshTimer);
-					objects = {'Bar', 'Dots', 'Cue'};
+					objects = {'Bar', 'Bar2', 'Dots', 'Cue'};
 					for iObject = 1:length(objects)
 						if isfield(obj.Rsc, objects{iObject})
 							if isvalid(obj.Rsc.(objects{iObject}))
@@ -1699,7 +1699,7 @@ classdef MouseBehaviorInterface < handle
 
 				% Early lick: hide visual stim
 				case 'ABORT_EARLY'
-					objects = {'Bar', 'Dots', 'Cue'};
+					objects = {'Bar', 'Bar2', 'Dots', 'Cue'};
 					for iObject = 1:length(objects)
 						if isfield(obj.Rsc, objects{iObject})
 							if isvalid(obj.Rsc.(objects{iObject}))
@@ -1902,7 +1902,7 @@ classdef MouseBehaviorInterface < handle
 
 		function AbortToStimOff(obj, ~, ~, noMovePun)
 			if obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'NO_MOVE_PUNISHMENT')) == 1 && noMovePun
-				objects = {'Bar', 'Dots', 'Cue'};
+				objects = {'Bar', 'Bar2', 'Dots', 'Cue'};
 				for iObject = 1:length(objects)
 					if isfield(obj.Rsc, objects{iObject})
 						if isvalid(obj.Rsc.(objects{iObject}))
