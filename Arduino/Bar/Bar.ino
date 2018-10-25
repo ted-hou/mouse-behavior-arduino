@@ -1152,11 +1152,11 @@ void state_post_window()
 	// Trial duration elapsed --> INTERTRIAL
 	if (_command == 'E')
 	{
-		_state = STATE_INTERTRIAL;
 		if (!_firstMoveRegistered)
 		{
 			_resultCode = CODE_NO_MOVE;
 		}
+		_state = STATE_INTERTRIAL;
 		return;
 	}
 
