@@ -1523,7 +1523,7 @@ classdef MouseBehaviorInterface < handle
 		end
 		
 		function DeleteVisualStim(obj, ~, ~)
-			timers = {'OmegaToITITimer', 'BarRefreshTimer', 'DotsRefreshTimer', 'CueRefreshTimer', 'AbortToStimOffTimer', 'FlashingScreenTimer'};
+			timers = {'OmegaToITITimer', 'BarRefreshTimer', 'BarStatTimer', 'DotsRefreshTimer', 'CueRefreshTimer', 'AbortToStimOffTimer', 'FlashingScreenTimer'};
 			for iTimer = 1:length(timers)
 				if isfield(obj.Rsc, timers{iTimer})
 					if isvalid(obj.Rsc.(timers{iTimer}))
@@ -1681,7 +1681,7 @@ classdef MouseBehaviorInterface < handle
 
 				case 'ABORT_BAR_STAT'
 					start(obj.Rsc.BarRefreshTimer);
-					objects = {'Bar', 'Dots', 'Cue'};
+					objects = {'Bar', 'Bar2', 'Dots', 'Cue'};
 					for iObject = 1:length(objects)
 						if isfield(obj.Rsc, objects{iObject})
 							if isvalid(obj.Rsc.(objects{iObject}))
@@ -1699,7 +1699,7 @@ classdef MouseBehaviorInterface < handle
 
 				% Early lick: hide visual stim
 				case 'ABORT_EARLY'
-					objects = {'Bar', 'Dots', 'Cue'};
+					objects = {'Bar', 'Bar2', 'Dots', 'Cue'};
 					for iObject = 1:length(objects)
 						if isfield(obj.Rsc, objects{iObject})
 							if isvalid(obj.Rsc.(objects{iObject}))
@@ -1751,7 +1751,7 @@ classdef MouseBehaviorInterface < handle
 
 				case 'INTERTRIAL'
 					obj.Rsc.VisualStimFigure.Color = [0 0 0];
-					timers = {'BarRefreshTimer', 'DotsRefreshTimer', 'CueRefreshTimer'};
+					timers = {'BarRefreshTimer', 'BarStatTimer', 'DotsRefreshTimer', 'CueRefreshTimer'};
 					for iTimer = 1:length(timers)
 						if isfield(obj.Rsc, timers{iTimer})
 							if isvalid(obj.Rsc.(timers{iTimer}))
@@ -1760,7 +1760,7 @@ classdef MouseBehaviorInterface < handle
 							end
 						end			
 					end
-					objects = {'Bar', 'Dots', 'Cue'};
+					objects = {'Bar', 'Bar2', 'Dots', 'Cue'};
 					for iObject = 1:length(objects)
 						if isfield(obj.Rsc, objects{iObject})
 							if isvalid(obj.Rsc.(objects{iObject}))
@@ -1902,7 +1902,7 @@ classdef MouseBehaviorInterface < handle
 
 		function AbortToStimOff(obj, ~, ~, noMovePun)
 			if obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'NO_MOVE_PUNISHMENT')) == 1 && noMovePun
-				objects = {'Bar', 'Dots', 'Cue'};
+				objects = {'Bar', 'Bar2', 'Dots', 'Cue'};
 				for iObject = 1:length(objects)
 					if isfield(obj.Rsc, objects{iObject})
 						if isvalid(obj.Rsc.(objects{iObject}))
@@ -2313,7 +2313,7 @@ classdef MouseBehaviorInterface < handle
 			hAxes 	= p.Results.Ax;
 
 			theta = theta/180*pi; % theta in radians
-			l = .3; % length of side of triangle cue
+			l = .2; % length of side of triangle cue
 			alphie = pi/6; % alpha (half angle of vertex) 
 
 			xs = [cos(theta), (cos(theta) + (l * cos(theta - alphie))), cos(theta) + (l * cos(theta + alphie))];
