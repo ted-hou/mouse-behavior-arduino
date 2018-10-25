@@ -158,7 +158,7 @@ enum ResultCode
 	CODE_PAVLOVIAN,			// Pavlovian (Reward given when bar reverses)
 	CODE_IGNORE,			// Ignore (animal moves during start or pre-stim)
 	CODE_EARLY_MOVE,		// Early Lick/Press (-> Abort)
-	CODE_LATE_MOVE,			// Press after response window (-> Abort)
+	CODE_LATE_MOVE,			// Lick/Press after response window (-> Abort)
 	CODE_NO_MOVE,			// No Lick/Press (Timeout -> ITI)
 	_NUM_RESULT_CODES		// (Private) Used to count how many codes there are.
 };
@@ -1120,24 +1120,32 @@ void state_post_window()
 		return;
 	}
 
-	if ((_isLickOnset && (_params[USE_LEVER] == 0)) || (_isLeverPressOnset && (_params[USE_LEVER] == 1)))
+	if (_isLickOnset || _isLeverPressOnset)
 	{
-		// First lick registration
-		if (!_firstMoveRegistered)
+		if ((_isLickOnset && (_params[USE_LEVER] == 0)) || (_isLeverPressOnset && (_params[USE_LEVER] == 1)))
 		{
-			_firstMoveRegistered = true;
-			sendEventMarker(EVENT_FIRST_MOVE, -1);
-			_resultCode = CODE_LATE_MOVE;
-			
-			// Retract lever/tube based on trial type
-			if (_params[USE_LEVER] == 1)
+			// First lick registration
+			if (!_firstMoveRegistered)
 			{
-				deployLever(false);
+				_firstMoveRegistered = true;
+				sendEventMarker(EVENT_FIRST_MOVE, -1);
+				_resultCode = CODE_LATE_MOVE;
+				
+				// Retract lever/tube based on trial type
+				if (_params[USE_LEVER] == 1)
+				{
+					deployLever(false);
+				}
+				else
+				{
+					deployTube(false);
+				}
 			}
-			else
-			{
-				deployTube(false);
-			}
+		}
+		else
+		{
+			_resultCode = CODE_NO_MOVE;
+			_state = STATE_ABORT;
 		}
 	}
 
@@ -1355,7 +1363,7 @@ void state_intertrial()
 		isParamsUpdateDone = true;
 	}
 
-	if (getTimeSinceStimOn() - timeIntertrial >= (_params[ITI_DURATION] / 2))
+	if (getTimeSinceStimOn() - timeIntertrial >= (_params[ITI_DURATION]) / 2)
 	{
 		// Retract lever/tube based on trial type
 		if ((_params[USE_LEVER] == 1) && isLeverRetracted == false)
