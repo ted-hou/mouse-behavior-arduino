@@ -1144,7 +1144,7 @@ void state_post_window()
 		}
 		else
 		{
-			_resultCode = CODE_NO_MOVE;
+			_resultCode = CODE_LATE_MOVE;
 			_state = STATE_ABORT;
 		}
 	}
