@@ -1130,7 +1130,6 @@ void state_post_window()
 				_firstMoveRegistered = true;
 				sendEventMarker(EVENT_FIRST_MOVE, -1);
 				_resultCode = CODE_LATE_MOVE;
-				
 				// Retract lever/tube based on trial type
 				if (_params[USE_LEVER] == 1)
 				{
@@ -1140,12 +1139,24 @@ void state_post_window()
 				{
 					deployTube(false);
 				}
+				_state = STATE_ABORT;
+				return;
 			}
 		}
 		else
 		{
 			_resultCode = CODE_LATE_MOVE;
+			// Retract lever/tube based on trial type
+			if (_params[USE_LEVER] == 1)
+			{
+				deployLever(false);
+			}
+			else
+			{
+				deployTube(false);
+			}
 			_state = STATE_ABORT;
+			return;
 		}
 	}
 
