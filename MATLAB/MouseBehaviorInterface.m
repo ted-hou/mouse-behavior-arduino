@@ -1502,7 +1502,7 @@ classdef MouseBehaviorInterface < handle
 			obj.Rsc.VisualStimFigure = hFigure;
 			obj.Rsc.VisualStimAxes = hAxes;
 
-			if ~isfield(obj.Rsc, 'OmegaToITITimer')
+			if ~(isfield(obj.Rsc, 'OmegaToITITimer') && isvalid(obj.Rsc.OmegaToITITimer))
 				obj.Rsc.OmegaToITITimer = timer;
 				obj.Rsc.OmegaToITITimer.TimerFcn = {@(~, ~) obj.Arduino.SendMessage('E')};
 			end
@@ -1731,7 +1731,7 @@ classdef MouseBehaviorInterface < handle
 					obj.Rsc.AbortToStimOffTimer.TimerFcn = {@obj.AbortToStimOff, false};
 					obj.Rsc.AbortToStimOffTimer.StartDelay = 0;
 					start(obj.Rsc.AbortToStimOffTimer);
-					if (isfield(obj.Rsc, 'OmegaToITITimer') && isvalid(obj.Rsc.OmegaToITITimer))
+					if isfield(obj.Rsc, 'OmegaToITITimer') && isvalid(obj.Rsc.OmegaToITITimer) && strcmpi(obj.Rsc.OmegaToITITimer.Running, 'off')
 						omegaToITIDuration = obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'OMEGA_TO_ITI_DURATION'))/1000;
 						obj.Rsc.OmegaToITITimer.StartDelay = omegaToITIDuration;
 						start(obj.Rsc.OmegaToITITimer);
@@ -1743,7 +1743,7 @@ classdef MouseBehaviorInterface < handle
 					obj.Rsc.AbortToStimOffTimer.TimerFcn = {@obj.AbortToStimOff, true};
 					obj.Rsc.AbortToStimOffTimer.StartDelay = 3; % stim continues for 2 sec before flashing screen
 					start(obj.Rsc.AbortToStimOffTimer);
-					if (isfield(obj.Rsc, 'OmegaToITITimer') && isvalid(obj.Rsc.OmegaToITITimer))
+					if isfield(obj.Rsc, 'OmegaToITITimer') && isvalid(obj.Rsc.OmegaToITITimer) && strcmpi(obj.Rsc.OmegaToITITimer.Running, 'off')
 						omegaToITIDuration = obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'OMEGA_TO_ITI_DURATION'))/1000;
 						obj.Rsc.OmegaToITITimer.StartDelay = omegaToITIDuration;
 						start(obj.Rsc.OmegaToITITimer);
@@ -1751,7 +1751,7 @@ classdef MouseBehaviorInterface < handle
 
 				case 'INTERTRIAL'
 					obj.Rsc.VisualStimFigure.Color = [0 0 0];
-					timers = {'BarRefreshTimer', 'BarStatTimer', 'OmegaToITITimer', 'DotsRefreshTimer', 'CueRefreshTimer'};
+					timers = {'BarRefreshTimer', 'BarStatTimer', 'DotsRefreshTimer', 'CueRefreshTimer'};
 					for iTimer = 1:length(timers)
 						if isfield(obj.Rsc, timers{iTimer})
 							if isvalid(obj.Rsc.(timers{iTimer}))
