@@ -1751,7 +1751,7 @@ classdef MouseBehaviorInterface < handle
 
 				case 'INTERTRIAL'
 					obj.Rsc.VisualStimFigure.Color = [0 0 0];
-					timers = {'BarRefreshTimer', 'BarStatTimer', 'DotsRefreshTimer', 'CueRefreshTimer'};
+					timers = {'BarRefreshTimer', 'BarStatTimer', 'OmegaToITITimer', 'DotsRefreshTimer', 'CueRefreshTimer'};
 					for iTimer = 1:length(timers)
 						if isfield(obj.Rsc, timers{iTimer})
 							if isvalid(obj.Rsc.(timers{iTimer}))
