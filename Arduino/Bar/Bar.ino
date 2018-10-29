@@ -1105,9 +1105,6 @@ void state_post_window()
 		// Register new state
 		_prevState = _state;
 		sendState(_state);
-
-		// Register events
-		sendEventMarker(EVENT_ABORT, -1);
 	}
 
 	/*****************************************************
@@ -1166,6 +1163,8 @@ void state_post_window()
 		if (!_firstMoveRegistered)
 		{
 			_resultCode = CODE_NO_MOVE;
+			sendEventMarker(EVENT_ABORT, -1);
+
 		}
 		_state = STATE_INTERTRIAL;
 		return;
