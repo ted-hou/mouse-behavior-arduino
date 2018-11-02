@@ -1584,7 +1584,8 @@ classdef MouseBehaviorInterface < handle
 
 					if obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'TIMING')) == 1 % is timing trial
 						pd = makedist('Normal', 'mu', mu, 'sigma', sig); % Normal distribution
-						trunk = truncate(pd, minTrialLength, ((360/spatialFrequency/speed))); % min set by param in sec, max 22.5 for 4/4 freq/speed
+						% trunk = truncate(pd, minTrialLength, ((360/spatialFrequency/speed))); % min set by param in sec, max 22.5 for 4/4 freq/speed
+						trunk = truncate(pd, minTrialLength, 6); % max out at 6 sec trial
 						trialLength(i) = random(trunk); % seconds
                     else % is not timing trial
                     	trialLength = exprnd(mu) + minTrialLength; % Exponential decay
@@ -1741,7 +1742,7 @@ classdef MouseBehaviorInterface < handle
 				case 'POST_WINDOW'
 					obj.Rsc.AbortToStimOffTimer = timer;
 					obj.Rsc.AbortToStimOffTimer.TimerFcn = {@obj.AbortToStimOff, true};
-					obj.Rsc.AbortToStimOffTimer.StartDelay = 3; % stim continues for 2 sec before flashing screen
+					obj.Rsc.AbortToStimOffTimer.StartDelay = 2; % stim continues for 2 sec before flashing screen
 					start(obj.Rsc.AbortToStimOffTimer);
 					if isfield(obj.Rsc, 'OmegaToITITimer') && isvalid(obj.Rsc.OmegaToITITimer) && strcmpi(obj.Rsc.OmegaToITITimer.Running, 'off')
 						omegaToITIDuration = obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'OMEGA_TO_ITI_DURATION'))/1000;
