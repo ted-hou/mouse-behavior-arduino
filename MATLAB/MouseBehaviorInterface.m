@@ -1589,6 +1589,11 @@ classdef MouseBehaviorInterface < handle
 						trialLength(i) = random(trunk); % seconds
                     else % is not timing trial
                     	pd = makedist('Exponential', 'mu', mu); % Exponential decay
+                    	if obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'REACTIVE')) == 0
+                    		minTrialLength = minTrialLength;
+                    	else
+                    		minTrialLength =  minTrialLength - 1;
+                    	end
                     	trunk = truncate(pd, minTrialLength, 6)
                     	trialLength(i) = random(trunk); % seconds
                     	% trialLength = exprnd(mu) + minTrialLength; 
