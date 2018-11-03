@@ -1588,7 +1588,10 @@ classdef MouseBehaviorInterface < handle
 						trunk = truncate(pd, minTrialLength, 6); % max out at 6 sec trial
 						trialLength(i) = random(trunk); % seconds
                     else % is not timing trial
-                    	trialLength = exprnd(mu) + minTrialLength; % Exponential decay
+                    	pd = exprnd(mu); % Exponential decay
+                    	trunk = truncate(pd, minTrialLength, 6)
+                    	trialLength(i) = random(trunk); % seconds
+                    	% trialLength = exprnd(mu) + minTrialLength; 
                     end
 
                     turnTheta = trialLength * speed;
