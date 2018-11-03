@@ -1588,7 +1588,7 @@ classdef MouseBehaviorInterface < handle
 						trunk = truncate(pd, minTrialLength, 6); % max out at 6 sec trial
 						trialLength(i) = random(trunk); % seconds
                     else % is not timing trial
-                    	pd = exprnd(mu); % Exponential decay
+                    	pd = makedist('Exponential', 'mu', mu); % Exponential decay
                     	trunk = truncate(pd, minTrialLength, 6)
                     	trialLength(i) = random(trunk); % seconds
                     	% trialLength = exprnd(mu) + minTrialLength; 
