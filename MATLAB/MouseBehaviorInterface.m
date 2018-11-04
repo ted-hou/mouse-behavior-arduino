@@ -1597,7 +1597,7 @@ classdef MouseBehaviorInterface < handle
                     	% trunk = truncate(pd, minTrialLength, 6)
                     	% trialLength(i) = random(trunk); % seconds
                     	trialLength = exprnd(mu) + minTrialLength; 
-                        if trialLength > 6
+                        while trialLength > 6
                             trialLength = exprnd(mu) + minTrialLength; 
                         end
                     end
