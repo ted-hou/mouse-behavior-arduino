@@ -1,6 +1,6 @@
 %% MouseBehaviorInterface: construct graphical user interface to interact with arduino
 
-classdef MouseBehaviorInterface < handle
+classdef MouseBehaviorInterfaceNew < handle
 	properties
 		Arduino
 		UserData
@@ -13,9 +13,9 @@ classdef MouseBehaviorInterface < handle
 	%		Methods
 	%----------------------------------------------------
 	methods
-		function obj = MouseBehaviorInterface()
+		function obj = MouseBehaviorInterfaceNew()
 			% Find arduino port
-			arduinoPortName = MouseBehaviorInterface.QueryPort();
+			arduinoPortName = MouseBehaviorInterfaceNew.QueryPort();
 			
 			% Splash
 			if ~strcmp(arduinoPortName, '/offline')
@@ -407,8 +407,8 @@ classdef MouseBehaviorInterface < handle
 				);
 			dlg.UserData.Ctrl.Table_Events_Raster = table_events_raster;
 			
-			tab_params_raster.SizeChangedFcn = @(~, ~) MouseBehaviorInterface.OnPlotOptionsTabResized(table_params_raster);
-			tab_events_raster.SizeChangedFcn = @(~, ~) MouseBehaviorInterface.OnPlotOptionsTabResized(table_events_raster);
+			tab_params_raster.SizeChangedFcn = @(~, ~) MouseBehaviorInterfaceNew.OnPlotOptionsTabResized(table_params_raster);
+			tab_events_raster.SizeChangedFcn = @(~, ~) MouseBehaviorInterfaceNew.OnPlotOptionsTabResized(table_events_raster);
 			
 			button_plot_raster = uicontrol(...
 				'Parent', tab_raster,...
@@ -565,7 +565,7 @@ classdef MouseBehaviorInterface < handle
 			uimenu(menu_window, 'Label', 'Task Scheduler', 'Callback', @(~, ~) obj.CreateDialog_TaskScheduler);
 			
 			% Stretch barchart When dialog window is resized
-			dlg.SizeChangedFcn = @MouseBehaviorInterface.OnMonitorDialogResized;
+			dlg.SizeChangedFcn = @MouseBehaviorInterfaceNew.OnMonitorDialogResized;
 			
 			% Unhide dialog now that all controls have been created
 			dlg.Visible = 'on';
@@ -580,7 +580,7 @@ classdef MouseBehaviorInterface < handle
 
 		function CreateDialog_Splash(obj)
 			% Load image
-			[fncpath, ~, ~] = fileparts(which('MouseBehaviorInterface'));
+			[fncpath, ~, ~] = fileparts(which('MouseBehaviorInterfaceNew'));
 			img = imread([fncpath, '\logo.png']);
 			
 			% Create java window object
@@ -883,7 +883,7 @@ classdef MouseBehaviorInterface < handle
 					allResultCodes = 1:(length(resultCodeNames) + 1);
 					resultCodeCounts = histcounts(resultCodes, allResultCodes);
 
-					MouseBehaviorInterface.StackedBar(ax, resultCodeCounts, resultCodeNames);
+					MouseBehaviorInterfaceNew.StackedBar(ax, resultCodeCounts, resultCodeNames);
 				else
 					cla(ax)
 				end
@@ -941,7 +941,7 @@ classdef MouseBehaviorInterface < handle
 			if ~isfield(ax.UserData, 'Listener') || ~isvalid(ax.UserData.Listener)
 				ax.UserData.Listener = addlistener(obj.Arduino, 'TrialsCompleted', 'PostSet', @(~, ~) obj.Raster_Execute(figId));
 			end
-			f.CloseRequestFcn = {@MouseBehaviorInterface.OnLooseFigureClosed, ax.UserData.Listener};
+			f.CloseRequestFcn = {@MouseBehaviorInterfaceNew.OnLooseFigureClosed, ax.UserData.Listener};
 		end
 		function Raster_Execute(obj, figId)
 			% Do not plot if the Grad Student decides we should stop plotting stuff.
@@ -1162,7 +1162,7 @@ classdef MouseBehaviorInterface < handle
 			if ~isfield(ax.UserData, 'Listener') || ~isvalid(ax.UserData.Listener)
 				ax.UserData.Listener = addlistener(obj.Arduino, 'TrialsCompleted', 'PostSet', @(~, ~) obj.Hist_Execute(figId, numBins));
 			end
-			f.CloseRequestFcn = {@MouseBehaviorInterface.OnLooseFigureClosed, ax.UserData.Listener};
+			f.CloseRequestFcn = {@MouseBehaviorInterfaceNew.OnLooseFigureClosed, ax.UserData.Listener};
 		end
 		function Hist_Execute(obj, figId, numBins)
 			% Do not plot if the Grad Student decides we should stop plotting stuff.
@@ -2168,7 +2168,7 @@ classdef MouseBehaviorInterface < handle
 				end
 				
 				% Show bar text when clicked
-				bars(iData).ButtonDownFcn = @MouseBehaviorInterface.OnStackedBarSingleClick;
+				bars(iData).ButtonDownFcn = @MouseBehaviorInterfaceNew.OnStackedBarSingleClick;
 				
 				% Set bar color
 				if iData <= length(colors)
