@@ -1622,7 +1622,7 @@ classdef MouseBehaviorInterfaceNew < handle
 					end
 					body
 					obj.Rsc.Circle     	= obj.movingCircle(theta0, 'Ax', obj.Rsc.VisualStimAxes);
-					obj.Rsc.Circle2     = obj.StationaryCircle(theta0, 'Ax', obj.Rsc.VisualStimAxes);
+					obj.Rsc.Circle2     = obj.stationaryCircle(theta0, 'Ax', obj.Rsc.VisualStimAxes);
 
 					% Hide visual cue during reactive trials
 					% if obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'REACTIVE')) == 0
