@@ -1854,7 +1854,7 @@ classdef MouseBehaviorInterfaceNew < handle
 				obj.Rsc.Circle.UserData.ThetaIndex = nextThetaIndex;
 				obj.MovingCircle(nextTheta, 'Circle', hCircle);
 			catch ME
-				nextThetaIndex;
+				nextThetaIndex
 				assignin('base', 'thetas', obj.Rsc.Circle.UserData.Thetas)
 				assignin('base', 'ME', ME) 
 				warning('Circle refresh error. Aborting current trial.')
