@@ -1586,7 +1586,7 @@ classdef MouseBehaviorInterfaceNew < handle
 					if obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'TIMING')) == 1 % is timing trial
 						pd = makedist('Normal', 'mu', mu, 'sigma', sig); % Normal distribution
 						trunk = truncate(pd, minTrialLength, maxTrialLength); % define possible trial lengths
-						trialLength(i) = random(trunk); % seconds
+						trialLength = random(trunk); % seconds
                     else % is not timing trial
                     	if obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'REACTIVE')) == 0
                     		minTrialLength = minTrialLength;
@@ -1618,9 +1618,8 @@ classdef MouseBehaviorInterfaceNew < handle
 							obj.Rsc.Cue 	= obj.BarCue(thetas(end), 'Ax', obj.Rsc.VisualStimAxes);
 						end
 					else
-						obj.Rsc.Cue 	= obj.TriangleCue(90, 'Ax', obj.Rsc.VisualStimAxes); % don't hard code it, but this is just so end is in same location
+						obj.Rsc.Cue 	= obj.TriangleCue(90, 'Ax', obj.Rsc.VisualStimAxes); % currently hard coded to 90, but this is just so end is in same location
 					end
-					body
 					obj.Rsc.Circle     	= obj.movingCircle(theta0, 'Ax', obj.Rsc.VisualStimAxes);
 					obj.Rsc.Circle2     = obj.stationaryCircle(theta0, 'Ax', obj.Rsc.VisualStimAxes);
 
@@ -1855,7 +1854,7 @@ classdef MouseBehaviorInterfaceNew < handle
 				obj.Rsc.Circle.UserData.ThetaIndex = nextThetaIndex;
 				obj.MovingCircle(nextTheta, 'Circle', hCircle);
 			catch ME
-				nextThetaIndex
+				nextThetaIndex;
 				assignin('base', 'thetas', obj.Rsc.Circle.UserData.Thetas)
 				assignin('base', 'ME', ME) 
 				warning('Circle refresh error. Aborting current trial.')
@@ -2225,7 +2224,7 @@ classdef MouseBehaviorInterfaceNew < handle
 			
 			theta = theta/180*pi;
 
-			center = [(0.8 * cos(theta)) (0.8 * sin(theta))]
+			center = [(0.8 * cos(theta)) (0.8 * sin(theta))];
 			
 			X = center(1) + (r * cos(theta));
 			Y = center(2) + (r * sin(theta));
@@ -2253,7 +2252,7 @@ classdef MouseBehaviorInterfaceNew < handle
 			
 			theta = theta/180*pi;
 
-			center = [(0.8 * cos(theta)) (0.8 * sin(theta))]
+			center = [(0.8 * cos(theta)) (0.8 * sin(theta))];
 			
 			X = center(1) + (r * cos(theta));
 			Y = center(2) + (r * sin(theta));
