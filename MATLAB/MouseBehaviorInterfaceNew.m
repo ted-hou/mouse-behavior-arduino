@@ -1613,7 +1613,7 @@ classdef MouseBehaviorInterfaceNew < handle
 					% Create objects
 					if obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'REACTIVE')) == 0
 						if obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'TARGET')) == 1
-							obj.Rsc.Target 	= obj.Target(thetas('Ax', obj.Rsc.VisualStimAxes);
+							obj.Rsc.Target 	= obj.Target('Ax', obj.Rsc.VisualStimAxes);
 						end
 					else
 						obj.Rsc.Target 	= obj.Target('Ax', obj.Rsc.VisualStimAxes);
