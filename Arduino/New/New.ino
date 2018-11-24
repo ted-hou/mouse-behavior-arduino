@@ -54,8 +54,8 @@ enum State
 	STATE_INTERTRIAL,			// Write data to HOST and DISK, receive new params
 	STATE_START,				// random delay before cue presentation
 	STATE_PRE_STIM,				// Deploy lever/tube
-	STATE_STIM_ON,				// Moving dots, stationary stim, enforced no lick
-	STATE_STIM_MOVE,				// Moving dots, moving stim, enforced no lick
+	STATE_STIM_ON,				// Stationary stim, enforced no lick
+	STATE_STIM_MOVE,			// Moving stim, enforced no lick
 	STATE_RESPONSE_WINDOW,		// First lick in this interval rewarded
 	STATE_REWARD,				// Dispense reward, wait for trial timeout
 	STATE_POST_WINDOW,			// No lick - timeout
@@ -215,8 +215,8 @@ enum ParamID
 	OPERANT_TURN,				// Mouse move causes stim to reverse direction
 	FADE_STIM,					// Contrast for moving stim as it approaches TP
 	END_THETA,					// Define location of turning point
-	TRIANGLE_CUE,				// 0 = flashing stim cue, 1 = flashing triangle cue
-	CUE_LOCATIONS,				// For proactive, switches possible locations of cue (cardinal to anywhere)	
+	TARGET,						// 1 = solid wedge cue
+	TARGET_LOCATIONS,			// For proactive, switches possible locations of cue	
 	SPATIAL_FREQUENCY,			// Distance (degrees) between stim locations
 	STIM_SPEED,					// In hops/seconds
 	NUM_HOPS,					// In num. of hops, how long the stim stays stationary at Turning Point
@@ -259,10 +259,10 @@ static const char *_paramNames[] =
 	"REACTIVE",					// Is this a reactive or proactive paradigm?
 	"TIMING",					// Elapsed time informative = 1, Not = 0
 	"OPERANT_TURN",				// Mouse move causes stim to reverse direction
-	"FADE_STIM",					// Contrast for moving stim as it approaches TP
+	"FADE_STIM",				// Contrast for moving stim as it approaches TP
 	"END_THETA",				// Define location of turning point
-	"TRIANGLE_CUE",				// 0 = flashing stim cue, 1 = flashing triangle cue
-	"CUE_LOCATIONS",			// For proactive, switches possible locations of cue (cardinal to anywhere)			
+	"TARGET",						// 1 = solid wedge cue
+	"TARGET_LOCATIONS",			// For proactive, switches possible locations of cue			
 	"SPATIAL_FREQUENCY",		// Distance (degrees) between stim locations; degrees/hop
 	"STIM_SPEED",				// In hops/seconds
 	"NUM_HOPS",					// In num. of hops, how long the stim stays stationary at Turning Point
@@ -305,8 +305,8 @@ long _params[_NUM_PARAMS] =
 	1,		// OPERANT_TURN
 	0,		// FADE_STIM
 	90,		// END_THETA
-	1,		// TRIANGLE_CUE
-	0,		// CUE_LOCATIONS
+	1,		// TARGET
+	0,		// TARGET_LOCATIONS
 	4,		// SPATIAL_FREQUENCY
 	4,		// STIM_SPEED
 	0,		// NUM_HOPS

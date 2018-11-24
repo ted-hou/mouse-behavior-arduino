@@ -1613,25 +1613,20 @@ classdef MouseBehaviorInterfaceNew < handle
 					% Create objects
 					if obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'REACTIVE')) == 0
 						if obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'TARGET')) == 1
-							obj.Rsc.Target 	= obj.Target('Ax', obj.Rsc.VisualStimAxes);
-						end
-					else
-						obj.Rsc.Target 	= obj.Target('Ax', obj.Rsc.VisualStimAxes);
-					end
-					obj.Rsc.Circle     	= obj.movingCircle(theta0, 'Ax', obj.Rsc.VisualStimAxes);
-					obj.Rsc.Circle2     = obj.stationaryCircle(theta0, 'Ax', obj.Rsc.VisualStimAxes);
-
-					% Hide visual Target during reactive trials
-					% if obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'REACTIVE')) == 0
-					% 	set(obj.Rsc.Target, 'Visible', 'on');
-					% else
-					% 	set(obj.Rsc.Target, 'Visible', 'off');
-					% end
+                            obj.Rsc.Target      = obj.Target('Ax', obj.Rsc.VisualStimAxes);
+                            obj.Rsc.Target2 	= obj.Target2('Ax', obj.Rsc.VisualStimAxes);
+                        end
+                    else
+                        obj.Rsc.Target      = obj.Target('Ax', obj.Rsc.VisualStimAxes);
+                        obj.Rsc.Target2 	= obj.Target2('Ax', obj.Rsc.VisualStimAxes);
+                    end
+                    obj.Rsc.Circle     	= obj.movingCircle(theta0, 'Ax', obj.Rsc.VisualStimAxes);
+                    obj.Rsc.Circle2     = obj.stationaryCircle(theta0, 'Ax', obj.Rsc.VisualStimAxes);
 
 					% Hide stim until turning point for training the reactive task
-					if (obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'REACTIVE')) == 1) && (obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'FADE_STIM')) == 1)
-						set(obj.Rsc.Circle, 'Visible', 'off');
-					end
+% 					if (obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'REACTIVE')) == 1) && (obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'FADE_STIM')) == 1)
+% 						set(obj.Rsc.Circle, 'Visible', 'off');
+% 					end
 
 					obj.Rsc.UserData.FlashingScreenPresented = false;
 
@@ -1678,7 +1673,7 @@ classdef MouseBehaviorInterfaceNew < handle
 
 				case 'ABORT_STIM_ON'
 					start(obj.Rsc.CircleRefreshTimer);
-					objects = {'Circle', 'Circle2', 'Target'};
+					objects = {'Circle', 'Circle2', 'Target', 'Target2'};
 					for iObject = 1:length(objects)
 						if isfield(obj.Rsc, objects{iObject})
 							if isvalid(obj.Rsc.(objects{iObject}))
@@ -1696,7 +1691,7 @@ classdef MouseBehaviorInterfaceNew < handle
 
 				% Early lick: hide visual stim
 				case 'ABORT_EARLY'
-					objects = {'Circle', 'Circle2', 'Target'};
+					objects = {'Circle', 'Circle2', 'Target', 'Target2'};
 					for iObject = 1:length(objects)
 						if isfield(obj.Rsc, objects{iObject})
 							if isvalid(obj.Rsc.(objects{iObject}))
@@ -1757,7 +1752,7 @@ classdef MouseBehaviorInterfaceNew < handle
 							end
 						end			
 					end
-					objects = {'Circle', 'Circle2', 'Target'};
+					objects = {'Circle', 'Circle2', 'Target', 'Target2'};
 					for iObject = 1:length(objects)
 						if isfield(obj.Rsc, objects{iObject})
 							if isvalid(obj.Rsc.(objects{iObject}))
@@ -1889,7 +1884,7 @@ classdef MouseBehaviorInterfaceNew < handle
 
 		function AbortToStimOff(obj, ~, ~, noMovePun)
 			if obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'NO_MOVE_PUNISHMENT')) == 1 && noMovePun
-				objects = {'Circle', 'Circle2', 'Target'};
+				objects = {'Circle', 'Circle2', 'Target', 'Target2'};
 				for iObject = 1:length(objects)
 					if isfield(obj.Rsc, objects{iObject})
 						if isvalid(obj.Rsc.(objects{iObject}))
@@ -2265,14 +2260,12 @@ classdef MouseBehaviorInterfaceNew < handle
 			varargout = {hCircle};
 		end
 
-		function varargout = target(varargin)
+		function varargout = Target(varargin)
 			p = inputParser;
 			addParameter(p, 'Ax', []);
 			addParameter(p, 'Target', []);
-			addParameter(p, 'Target2', []);
 			parse(p, varargin{:});
 			hTarget = p.Results.Target;
-			hTarget2 	= p.Results.Target2;
 			hAxes 	= p.Results.Ax;
 
 			% Plot a circular arc as a pie wedge.
@@ -2280,9 +2273,9 @@ classdef MouseBehaviorInterfaceNew < handle
 			% b is end of arc in radians,
 			% (h,k) is the center of the circle.
 			% r is the radius.
-			rightEdge = 45;
+			rightEdge = 65;
 			rightEdge = rightEdge/180*pi;
-			leftEdge = 135;
+			leftEdge = 90;
 			leftEdge = leftEdge/180*pi;
 			h = 0;
 			k = 0;
@@ -2293,29 +2286,42 @@ classdef MouseBehaviorInterfaceNew < handle
 			y = r*sin(t) + k;
 			x = [x h x(1)];
 			y = [y k y(1)];
-			
+
+			if isempty(hTarget)
+				hTarget = fill(x, y, 'w');
+            end
+
+			varargout = {hTarget};
+        end
+        
+        function varargout = Target2(varargin)
+			p = inputParser;
+			addParameter(p, 'Ax', []);
+			addParameter(p, 'Target2', []);
+			parse(p, varargin{:});
+			hTarget2 = p.Results.Target2;
+			hAxes 	 = p.Results.Ax;
+            
 			% Inner wedge
-			rightEdge2 = 45;
-			rightEdge2 = rightEdge2/180*pi;
-			leftEdge2 = 135;
-			leftEdge2 = leftEdge2/180*pi;
-			r2 = 0.8;
-			
-			t2 = linspace(rightEdge2,leftEdge2);
+            rightEdge2 = 65;
+            rightEdge2 = rightEdge2/180*pi;
+            leftEdge2 = 90;
+            leftEdge2 = leftEdge2/180*pi;
+            h = 0;
+            k = 0;
+            r2 = 0.8;
+            
+            t2 = linspace(rightEdge2,leftEdge2);
 			x2 = r2 * cos(t2) + h;
 			y2 = r2 * sin(t2) + k;
 			x2 = [x2 h x2(1)];
 			y2 = [y2 k y2(1)];
 
-			if isempty(hTarget)
-				hTarget = fill(x, y, 'w');
-			end
-
 			if isempty(hTarget2)
 				hTarget2 = fill(x2, y2, 'k');
 			end
 
-			varargout = {hTarget, hTarget2};
+			varargout = {hTarget2};
 		end
 	end
 end
