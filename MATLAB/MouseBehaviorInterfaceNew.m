@@ -1523,7 +1523,7 @@ classdef MouseBehaviorInterfaceNew < handle
 		end
 		
 		function DeleteVisualStim(obj, ~, ~)
-			timers = {'OmegaToITITimer', 'BarRefreshTimer', 'BarStatTimer', 'CueRefreshTimer', 'AbortToStimOffTimer', 'FlashingScreenTimer'};
+			timers = {'OmegaToITITimer', 'BarRefreshTimer', 'BarStatTimer', 'TargetRefreshTimer', 'AbortToStimOffTimer', 'FlashingScreenTimer'};
 			for iTimer = 1:length(timers)
 				if isfield(obj.Rsc, timers{iTimer})
 					if isvalid(obj.Rsc.(timers{iTimer}))
@@ -1563,12 +1563,12 @@ classdef MouseBehaviorInterfaceNew < handle
 					thetas 				= flip(thetas);
 
 					if obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'REACTIVE')) == 0
-						if obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'CUE_LOCATIONS')) == 0
+						if obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'TARGET_LOCATIONS')) == 0
 							endTheta 	= obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'END_THETA'));
-						elseif obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'CUE_LOCATIONS')) == 1
+						elseif obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'ARGET_LOCATIONS')) == 1
 							endThetas 	= [0:90:270]; % Training Day 1/2/3
 							endTheta 	= endThetas(randi(length(endThetas))); % Training Day 6-inf
-						elseif obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'CUE_LOCATIONS')) == 2
+						elseif obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'ARGET_LOCATIONS')) == 2
 							endThetas	= [0:45:315]; % Training Day 4/5
 							endTheta 	= endThetas(randi(length(endThetas))); 
 						else
@@ -1612,22 +1612,20 @@ classdef MouseBehaviorInterfaceNew < handle
 
 					% Create objects
 					if obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'REACTIVE')) == 0
-						if obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'TRIANGLE_CUE')) == 1
-							obj.Rsc.Cue 	= obj.TriangleCue(thetas(end), 'Ax', obj.Rsc.VisualStimAxes);
-						elseif obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'TRIANGLE_CUE')) == 0
-							obj.Rsc.Cue 	= obj.BarCue(thetas(end), 'Ax', obj.Rsc.VisualStimAxes);
+						if obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'TARGET')) == 1
+							obj.Rsc.Target 	= obj.Target(thetas('Ax', obj.Rsc.VisualStimAxes);
 						end
 					else
-						obj.Rsc.Cue 	= obj.TriangleCue(90, 'Ax', obj.Rsc.VisualStimAxes); % currently hard coded to 90, but this is just so end is in same location
+						obj.Rsc.Target 	= obj.Target('Ax', obj.Rsc.VisualStimAxes);
 					end
 					obj.Rsc.Circle     	= obj.movingCircle(theta0, 'Ax', obj.Rsc.VisualStimAxes);
 					obj.Rsc.Circle2     = obj.stationaryCircle(theta0, 'Ax', obj.Rsc.VisualStimAxes);
 
-					% Hide visual cue during reactive trials
+					% Hide visual Target during reactive trials
 					% if obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'REACTIVE')) == 0
-					% 	set(obj.Rsc.Cue, 'Visible', 'on');
+					% 	set(obj.Rsc.Target, 'Visible', 'on');
 					% else
-					% 	set(obj.Rsc.Cue, 'Visible', 'off');
+					% 	set(obj.Rsc.Target, 'Visible', 'off');
 					% end
 
 					% Hide stim until turning point for training the reactive task
@@ -1665,11 +1663,11 @@ classdef MouseBehaviorInterfaceNew < handle
 					obj.Rsc.CircleStatTimer.TimerFcn					= {@obj.OnCircleStatRefresh, obj.Rsc.Circle2};
 					start(obj.Rsc.CircleStatTimer);
 
-					obj.Rsc.CueRefreshTimer								= timer;
-					obj.Rsc.CueRefreshTimer.Execution					= 'fixedRate';
-					obj.Rsc.CueRefreshTimer.Period						= 1;
-					obj.Rsc.CueRefreshTimer.TimerFcn					= {@obj.OnCueRefresh, obj.Rsc.Cue};
-					start(obj.Rsc.CueRefreshTimer);
+					obj.Rsc.TargetRefreshTimer								= timer;
+					obj.Rsc.TargetRefreshTimer.Execution					= 'fixedRate';
+					obj.Rsc.TargetRefreshTimer.Period						= 1;
+					obj.Rsc.TargetRefreshTimer.TimerFcn					= {@obj.OnTargetRefresh, obj.Rsc.Target};
+					start(obj.Rsc.TargetRefreshTimer);
                     
 				% Circle starts moving
 				case 'STIM_MOVE'
@@ -1680,7 +1678,7 @@ classdef MouseBehaviorInterfaceNew < handle
 
 				case 'ABORT_STIM_ON'
 					start(obj.Rsc.CircleRefreshTimer);
-					objects = {'Circle', 'Circle2', 'Cue'};
+					objects = {'Circle', 'Circle2', 'Target'};
 					for iObject = 1:length(objects)
 						if isfield(obj.Rsc, objects{iObject})
 							if isvalid(obj.Rsc.(objects{iObject}))
@@ -1698,7 +1696,7 @@ classdef MouseBehaviorInterfaceNew < handle
 
 				% Early lick: hide visual stim
 				case 'ABORT_EARLY'
-					objects = {'Circle', 'Circle2', 'Cue'};
+					objects = {'Circle', 'Circle2', 'Target'};
 					for iObject = 1:length(objects)
 						if isfield(obj.Rsc, objects{iObject})
 							if isvalid(obj.Rsc.(objects{iObject}))
@@ -1750,7 +1748,7 @@ classdef MouseBehaviorInterfaceNew < handle
 
 				case 'INTERTRIAL'
 					obj.Rsc.VisualStimFigure.Color = [0 0 0];
-					timers = {'CircleRefreshTimer', 'CircleStatTimer', 'CueRefreshTimer'};
+					timers = {'CircleRefreshTimer', 'CircleStatTimer', 'TargetRefreshTimer'};
 					for iTimer = 1:length(timers)
 						if isfield(obj.Rsc, timers{iTimer})
 							if isvalid(obj.Rsc.(timers{iTimer}))
@@ -1759,7 +1757,7 @@ classdef MouseBehaviorInterfaceNew < handle
 							end
 						end			
 					end
-					objects = {'Circle', 'Circle2', 'Cue'};
+					objects = {'Circle', 'Circle2', 'Target'};
 					for iObject = 1:length(objects)
 						if isfield(obj.Rsc, objects{iObject})
 							if isvalid(obj.Rsc.(objects{iObject}))
@@ -1884,14 +1882,14 @@ classdef MouseBehaviorInterfaceNew < handle
 			end
 		end
 
-		function OnCueRefresh(obj, t, ~, hCue)
-			% This makes the cue just a solid image instead of flashing
-			obj.Rsc.Cue.FaceColor = [1 1 1];
+		function OnTargetRefresh(obj, t, ~, hTarget)
+			% This makes the Target just a solid image instead of flashing
+			obj.Rsc.Target.FaceColor = [1 1 1];
 		end
 
 		function AbortToStimOff(obj, ~, ~, noMovePun)
 			if obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'NO_MOVE_PUNISHMENT')) == 1 && noMovePun
-				objects = {'Circle', 'Circle2', 'Cue'};
+				objects = {'Circle', 'Circle2', 'Target'};
 				for iObject = 1:length(objects)
 					if isfield(obj.Rsc, objects{iObject})
 						if isvalid(obj.Rsc.(objects{iObject}))
@@ -2216,7 +2214,7 @@ classdef MouseBehaviorInterfaceNew < handle
 			addRequired(p, 'Theta', @isnumeric);
 			addParameter(p, 'Ax', []);
 			addParameter(p, 'Circle', []);
-			addParameter(p, 'Radius', 0.2, @isnumeric);
+			addParameter(p, 'Radius', 0.175, @isnumeric);
 			parse(p, theta, varargin{:});
 			hAxes		= p.Results.Ax;
 			hCircle		= p.Results.Circle;
@@ -2244,7 +2242,7 @@ classdef MouseBehaviorInterfaceNew < handle
 			addRequired(p, 'Theta', @isnumeric);
 			addParameter(p, 'Ax', []);
 			addParameter(p, 'Circle', []);
-			addParameter(p, 'Radius', 0.2, @isnumeric);
+			addParameter(p, 'Radius', 0.175, @isnumeric);
 			parse(p, theta, varargin{:});
 			hAxes		= p.Results.Ax;
 			hCircle		= p.Results.Circle;
@@ -2267,26 +2265,57 @@ classdef MouseBehaviorInterfaceNew < handle
 			varargout = {hCircle};
 		end
 
-		function varargout = TriangleCue(theta, varargin)
+		function varargout = target(varargin)
 			p = inputParser;
 			addParameter(p, 'Ax', []);
-			addParameter(p, 'Cue', []);
+			addParameter(p, 'Target', []);
+			addParameter(p, 'Target2', []);
 			parse(p, varargin{:});
-			hCue 	= p.Results.Cue;
+			hTarget = p.Results.Target;
+			hTarget2 	= p.Results.Target2;
 			hAxes 	= p.Results.Ax;
 
-			theta = theta/180*pi; % theta in radians
-			l = .2; % length of side of triangle cue
-			alphie = pi/6; % alpha (half angle of vertex) 
+			% Plot a circular arc as a pie wedge.
+			% rightEdge is start of arc in radians,
+			% b is end of arc in radians,
+			% (h,k) is the center of the circle.
+			% r is the radius.
+			rightEdge = 45;
+			rightEdge = rightEdge/180*pi;
+			leftEdge = 135;
+			leftEdge = leftEdge/180*pi;
+			h = 0;
+			k = 0;
+			r = 1.15;
+			
+			t = linspace(rightEdge,leftEdge);
+			x = r*cos(t) + h;
+			y = r*sin(t) + k;
+			x = [x h x(1)];
+			y = [y k y(1)];
+			
+			% Inner wedge
+			rightEdge2 = 45;
+			rightEdge2 = rightEdge2/180*pi;
+			leftEdge2 = 135;
+			leftEdge2 = leftEdge2/180*pi;
+			r2 = 0.8;
+			
+			t2 = linspace(rightEdge2,leftEdge2);
+			x2 = r2 * cos(t2) + h;
+			y2 = r2 * sin(t2) + k;
+			x2 = [x2 h x2(1)];
+			y2 = [y2 k y2(1)];
 
-			xs = [cos(theta), (cos(theta) + (l * cos(theta - alphie))), cos(theta) + (l * cos(theta + alphie))];
-			ys = [sin(theta), (sin(theta) + (l * sin(theta - alphie))), sin(theta) + (l * sin(theta + alphie))];
+			if isempty(hTarget)
+				hTarget = fill(x, y, 'w');
+			end
 
-			if isempty(hCue)
-				hCue = patch(hAxes, xs, ys, 'w');
-			end 
+			if isempty(hTarget2)
+				hTarget2 = fill(x2, y2, 'k');
+			end
 
-			varargout = {hCue};
+			varargout = {hTarget, hTarget2};
 		end
 	end
 end
