@@ -1640,6 +1640,7 @@ classdef MouseBehaviorInterfaceNew < handle
 					obj.Rsc.Circle.UserData.IsTurningPointReached		= false;
 					obj.Rsc.Circle.UserData.IsCirclePaused				= false;
 					obj.Rsc.Circle.UserData.IsListOfThetasTruncated		= false;
+					set(obj.Rsc.Circle, 'Visible', 'off');
 
 					obj.Rsc.CircleRefreshTimer							= timer;
 					obj.Rsc.CircleRefreshTimer.Execution				= 'fixedRate';
@@ -1654,7 +1655,7 @@ classdef MouseBehaviorInterfaceNew < handle
 
 					obj.Rsc.CircleStatTimer								= timer;
 					obj.Rsc.CircleStatTimer. Execution					= 'fixedRate';
-					obj.Rsc.CircleStatTimer.Period						= 1/speed;
+					obj.Rsc.CircleStatTimer.Period						= (1/speed) * 2;
 					obj.Rsc.CircleStatTimer.TimerFcn					= {@obj.OnCircleStatRefresh, obj.Rsc.Circle2};
 					start(obj.Rsc.CircleStatTimer);
 
@@ -1668,6 +1669,7 @@ classdef MouseBehaviorInterfaceNew < handle
 				case 'STIM_MOVE'
 					stop(obj.Rsc.CircleStatTimer);
 					delete(obj.Rsc.CircleStatTimer);
+					set(obj.Rsc.Circle, 'Visible', 'on');
 					start(obj.Rsc.CircleRefreshTimer);
 					delete(obj.Rsc.Circle2);
 
@@ -1852,7 +1854,7 @@ classdef MouseBehaviorInterfaceNew < handle
 				end
 
 				obj.Rsc.Circle.UserData.ThetaIndex = nextThetaIndex;
-				obj.MovingCircle(nextTheta, 'Circle', hCircle);
+				obj.movingCircle(nextTheta, 'Circle', hCircle);
 			catch ME
 				nextThetaIndex
 				assignin('base', 'thetas', obj.Rsc.Circle.UserData.Thetas)
@@ -1873,10 +1875,7 @@ classdef MouseBehaviorInterfaceNew < handle
 			end
 		end
 
-		function OnCircleStatRefresh(obj, t, ~, hCircle)
-			% Read parameters from Arduino
-			speed = obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'STIM_SPEED'));
-
+		function OnCircleStatRefresh(obj, t, ~, hCircle2)
 			if obj.Rsc.Circle2.FaceColor(1) == 1
 				obj.Rsc.Circle2.FaceColor = [0 0 0];
 			else
@@ -2226,14 +2225,18 @@ classdef MouseBehaviorInterfaceNew < handle
 
 			center = [(0.8 * cos(theta)) (0.8 * sin(theta))];
 			
-			X = center(1) + (r * cos(theta));
-			Y = center(2) + (r * sin(theta));
+			circlePts = linspace(0,2*pi,1000);
+			rho = ones(1,1000) * r;
+			[X,Y] = pol2cart(circlePts,rho);
+			
+			X = X + center(1);
+			Y = Y + center(2);
 			
 			if isempty(hCircle)
-			%     hCircle = viscircles([X Y], r, 'Color', 'k');
-			    hCircle = filledCircle([X Y],r,1000,'w'); % taken from interwebs, makes a filled circle
+				hCircle = fill(X,Y,'w');
 			else
-			    hCircle.Centers = [X' Y'];
+			    hCircle.XData = X + (r * cos(theta));
+				hCircle.YData = Y + (r * sin(theta));
 			end
 			
 			varargout = {hCircle};
@@ -2247,24 +2250,28 @@ classdef MouseBehaviorInterfaceNew < handle
 			addParameter(p, 'Radius', 0.175, @isnumeric);
 			parse(p, theta, varargin{:});
 			hAxes		= p.Results.Ax;
-			hCircle		= p.Results.Circle;
+			hCircle2	= p.Results.Circle;
 			r 			= p.Results.Radius;
 			
 			theta = theta/180*pi;
 
-			center = [(0.8 * cos(theta)) (0.8 * sin(theta))];
+			center = [(1 * cos(theta)) (1 * sin(theta))];
 			
-			X = center(1) + (r * cos(theta));
-			Y = center(2) + (r * sin(theta));
+			circlePts = linspace(0,2*pi,1000);
+			rho = ones(1,1000) * r;
+			[X,Y] = pol2cart(circlePts,rho);
 			
-			if isempty(hCircle)
-			%     hCircle = viscircles([X Y], r, 'Color', 'k');
-			    hCircle = filledCircle([X Y],r,1000,'w'); % taken from interwebs, makes a filled circle
+			X = X + center(1);
+			Y = Y + center(2);
+			
+			if isempty(hCircle2)
+				hCircle2 = fill(X,Y,'w');
 			else
-			    hCircle.Centers = [X' Y'];
+			    hCircle2.XData = X + (r * cos(theta));
+				hCircle2.YData = Y + (r * sin(theta));
 			end
 			
-			varargout = {hCircle};
+			varargout = {hCircle2};
 		end
 
 		function varargout = Target(varargin)
