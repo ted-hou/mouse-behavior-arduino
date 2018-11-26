@@ -1833,8 +1833,14 @@ classdef MouseBehaviorInterfaceNew < handle
 					if (~hCircle.UserData.IsOmegaReached && nextThetaIndex <= length(obj.Rsc.Circle.UserData.Thetas) && hCircle.UserData.Direction < 0 && abs(obj.Rsc.Circle.UserData.Thetas(end) - obj.Rsc.Circle.UserData.Thetas(nextThetaIndex)) > windowDuration*speed*spatialFrequency)
 						obj.Arduino.SendMessage('W');
 						hCircle.UserData.IsOmegaReached = true;
-					end
-					nextTheta = obj.Rsc.Circle.UserData.Thetas(nextThetaIndex);
+                    end
+                    try 
+                        nextTheta = obj.Rsc.Circle.UserData.Thetas(nextThetaIndex);
+                    catch
+                        disp(obj.Rsc.Circle.UserData.Thetas)
+                        disp(nextThetaIndex)
+                        disp(size(obj.Rsc.Circle.UserData.Thetas))
+                    end
 				% If OmegaToITI interval is too long and bar in going in reverse, the list of thetas might not be long enough (nextThetaIndex <= 0)
 				else
 					if (~hCircle.UserData.IsOmegaReached)
