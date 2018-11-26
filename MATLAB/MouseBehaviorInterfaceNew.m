@@ -1838,6 +1838,7 @@ classdef MouseBehaviorInterfaceNew < handle
                         nextTheta = obj.Rsc.Circle.UserData.Thetas(nextThetaIndex);
                     catch
                         disp(obj.Rsc.Circle.UserData.Thetas)
+                        disp(obj.Rsc.Circle.UserData.ThetaIndex)
                         disp(nextThetaIndex)
                         disp(size(obj.Rsc.Circle.UserData.Thetas))
                     end
