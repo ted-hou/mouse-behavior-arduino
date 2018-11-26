@@ -1565,10 +1565,10 @@ classdef MouseBehaviorInterfaceNew < handle
 					if obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'REACTIVE')) == 0
 						if obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'TARGET_LOCATIONS')) == 0
 							endTheta 	= obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'END_THETA'));
-						elseif obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'ARGET_LOCATIONS')) == 1
+						elseif obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'TARGET_LOCATIONS')) == 1
 							endThetas 	= [0:90:270]; % Training Day 1/2/3
 							endTheta 	= endThetas(randi(length(endThetas))); % Training Day 6-inf
-						elseif obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'ARGET_LOCATIONS')) == 2
+						elseif obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'TARGET_LOCATIONS')) == 2
 							endThetas	= [0:45:315]; % Training Day 4/5
 							endTheta 	= endThetas(randi(length(endThetas))); 
 						else
