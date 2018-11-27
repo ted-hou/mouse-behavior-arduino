@@ -1614,12 +1614,12 @@ classdef MouseBehaviorInterfaceNew < handle
 					% Create objects
 					if obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'REACTIVE')) == 0
 						if obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'TARGET')) == 1
-                            obj.Rsc.Target      = obj.Target(speed,spatialFrequency,windowDuration,'Ax', obj.Rsc.VisualStimAxes);
-                            obj.Rsc.Target2 	= obj.Target2(speed,spatialFrequency,windowDuration,'Ax', obj.Rsc.VisualStimAxes);
+                            obj.Rsc.Target      = obj.Target(speed, spatialFrequency, windowDuration, endTheta, 'Ax', obj.Rsc.VisualStimAxes);
+                            obj.Rsc.Target2 	= obj.Target2(speed, spatialFrequency, windowDuration, endTheta, 'Ax', obj.Rsc.VisualStimAxes);
                         end
                     else
-                        obj.Rsc.Target      = obj.Target('Ax', obj.Rsc.VisualStimAxes);
-                        obj.Rsc.Target2 	= obj.Target2('Ax', obj.Rsc.VisualStimAxes);
+                        obj.Rsc.Target      = obj.Target(speed, spatialFrequency, windowDuration, endTheta, 'Ax', obj.Rsc.VisualStimAxes);
+                        obj.Rsc.Target2 	= obj.Target2(speed, spatialFrequency, windowDuration, endTheta, 'Ax', obj.Rsc.VisualStimAxes);
                     end
                     obj.Rsc.Circle     	= obj.movingCircle(theta0, 'Ax', obj.Rsc.VisualStimAxes);
                     obj.Rsc.Circle2     = obj.stationaryCircle(theta0, 'Ax', obj.Rsc.VisualStimAxes);
@@ -1884,7 +1884,7 @@ classdef MouseBehaviorInterfaceNew < handle
 			end
 		end
 
-		function OnTargetRefresh(obj, t, speed, spatialFrequency, windowDuration, endTheta, ~, hTarget)
+		function OnTargetRefresh(obj, t, ~, hTarget)
 			% This makes the Target just a solid image instead of flashing
 			obj.Rsc.Target.FaceColor = [1 1 1];
 		end
@@ -2280,8 +2280,8 @@ classdef MouseBehaviorInterfaceNew < handle
 			addParameter(p, 'Ax', []);
 			addParameter(p, 'Target', []);
 			parse(p, varargin{:});
-			hTarget = p.Results.Target;
 			hAxes 	= p.Results.Ax;
+            hTarget = p.Results.Target;
 
 			% Plot a circular arc as a pie wedge.
 			% rightEdge is start of arc in radians,
@@ -2315,14 +2315,13 @@ classdef MouseBehaviorInterfaceNew < handle
 			addParameter(p, 'Ax', []);
 			addParameter(p, 'Target2', []);
 			parse(p, varargin{:});
-			hTarget2 = p.Results.Target2;
-			hAxes 	 = p.Results.Ax;
+            hAxes 	= p.Results.Ax;
+            hTarget2 = p.Results.Target2;
             
 			% Inner wedge
-			rightEdge = endTheta - (speed * spatialFrequency * windowDuration);
-			rightEdge = rightEdge/180*pi;
-			leftEdge = endTheta;
-			leftEdge = leftEdge/180*pi;
+			rightEdge2 = endTheta - (speed * spatialFrequency * windowDuration);
+			rightEdge2 = rightEdge2/180*pi;
+			leftEdge2 = endTheta;
             leftEdge2 = leftEdge2/180*pi;
             h = 0;
             k = 0;
