@@ -1659,9 +1659,9 @@ classdef MouseBehaviorInterfaceNew < handle
 					obj.Rsc.CircleStatTimer.TimerFcn					= {@obj.OnCircleStatRefresh, obj.Rsc.Circle2};
 					start(obj.Rsc.CircleStatTimer);
 
-					obj.Rsc.TargetRefreshTimer								= timer;
-					obj.Rsc.TargetRefreshTimer.Execution					= 'fixedRate';
-					obj.Rsc.TargetRefreshTimer.Period						= 1;
+					obj.Rsc.TargetRefreshTimer							= timer;
+					obj.Rsc.TargetRefreshTimer.Execution				= 'fixedRate';
+					obj.Rsc.TargetRefreshTimer.Period					= 1;
 					obj.Rsc.TargetRefreshTimer.TimerFcn					= {@obj.OnTargetRefresh, obj.Rsc.Target};
 					start(obj.Rsc.TargetRefreshTimer);
                     
@@ -2287,9 +2287,15 @@ classdef MouseBehaviorInterfaceNew < handle
 			% b is end of arc in radians,
 			% (h,k) is the center of the circle.
 			% r is the radius.
-			rightEdge = 65;
+
+			speed 				= obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'STIM_SPEED'));
+			spatialFrequency 	= obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'SPATIAL_FREQUENCY'));
+			windowDuration  	= obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'WINDOW_DURATION'))/1000;
+			endTheta 				= obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'END_THETA'));
+
+			rightEdge = endTheta - (speed * spatialFrequency * windowDuration);
 			rightEdge = rightEdge/180*pi;
-			leftEdge = 90;
+			leftEdge = endTheta;
 			leftEdge = leftEdge/180*pi;
 			h = 0;
 			k = 0;
@@ -2317,9 +2323,15 @@ classdef MouseBehaviorInterfaceNew < handle
 			hAxes 	 = p.Results.Ax;
             
 			% Inner wedge
-            rightEdge2 = 65;
-            rightEdge2 = rightEdge2/180*pi;
-            leftEdge2 = 90;
+			speed 				= obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'STIM_SPEED'));
+			spatialFrequency 	= obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'SPATIAL_FREQUENCY'));
+			windowDuration  	= obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'WINDOW_DURATION'))/1000;
+			endTheta 				= obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'END_THETA'));
+
+			rightEdge = endTheta - (speed * spatialFrequency * windowDuration);
+			rightEdge = rightEdge/180*pi;
+			leftEdge = endTheta;
+			leftEdge = leftEdge/180*pi;
             leftEdge2 = leftEdge2/180*pi;
             h = 0;
             k = 0;

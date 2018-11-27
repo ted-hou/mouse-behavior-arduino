@@ -204,7 +204,7 @@ enum ParamID
 	USE_LEVER,					// 0 to use lick to trigger reward. 1 to use lever press.
 	ALLOW_PRESS_STIM_ON,		// Allow early press when stim first comes on
 	ALLOW_EARLY_PRESS,			// 1 to abort trial if animal presses early
-	ALLOW_LICK_STIM_ON,		// Allow early lick when stim first comes on
+	ALLOW_LICK_STIM_ON,			// Allow early lick when stim first comes on
 	ALLOW_EARLY_LICK,			// 0 to abort trial if animal licks after in pre-window
 	EARLY_MOVE_PUNISHMENT,		// 1 = Flashing screen in early move abort
 	NO_MOVE_PUNISHMENT,			// 1 = Flashing screen in no move abort
@@ -224,7 +224,7 @@ enum ParamID
 	MU,							// Mean trial length 
 	SIGMA,						// Standard deviation for trial length
 	MIN_TRIAL_LENGTH,			// Minimum possible trial length in seconds
-	MAX_TRIAL_LENGTH,
+	MAX_TRIAL_LENGTH,			// Maximum possible trial length in seconds
 	LEVER_POS_RETRACTED,		// Servo (lever) position when lever is retracted
 	LEVER_POS_DEPLOYED,			// Servo (lever) position when lever is deployed
 	LEVER_SPEED_DEPLOY,			// Servo (lever) rotation speed when deploying, 0 for max speed
@@ -261,7 +261,7 @@ static const char *_paramNames[] =
 	"OPERANT_TURN",				// Mouse move causes stim to reverse direction
 	"FADE_STIM",				// Contrast for moving stim as it approaches TP
 	"END_THETA",				// Define location of turning point
-	"TARGET",						// 1 = solid wedge cue
+	"TARGET",					// 1 = solid wedge cue
 	"TARGET_LOCATIONS",			// For proactive, switches possible locations of cue			
 	"SPATIAL_FREQUENCY",		// Distance (degrees) between stim locations; degrees/hop
 	"STIM_SPEED",				// In hops/seconds
@@ -270,7 +270,7 @@ static const char *_paramNames[] =
 	"MU",						// Mean trial length 
 	"SIGMA",					// Standard deviation for trial length
 	"MIN_TRIAL_LENGTH",			// Minimum possible trial length in seconds
-	"MAX_TRIAL_LENGTH",
+	"MAX_TRIAL_LENGTH",			// Maximum possible trial length in seconds
 	"LEVER_POS_RETRACTED",		// Servo (lever) position when lever is retracted
 	"LEVER_POS_DEPLOYED",		// Servo (lever) position when lever is deployed
 	"LEVER_SPEED_DEPLOY",		// Servo (lever) rotation speed when deploying, 0 for max speed
@@ -299,7 +299,7 @@ long _params[_NUM_PARAMS] =
 	1,		// EARLY_MOVE_PUNISHMENT
 	1,		// NO_MOVE_PUNISHMENT
 	0,		// MOVE_REWARD
-	0,		// PAVLOVIAN
+	1,		// PAVLOVIAN
 	0, 		// REACTIVE
 	0,		// TIMING	
 	1,		// OPERANT_TURN
@@ -311,10 +311,10 @@ long _params[_NUM_PARAMS] =
 	8,		// STIM_SPEED
 	0,		// NUM_HOPS
 	0,		// DOTS
-	4,		// MU
+	3,		// MU
 	2,		// SIGMA
 	2,		// MIN_TRIAL_LENGTH
-	6,		// MAX_TRIAL_LENGTH
+	5,		// MAX_TRIAL_LENGTH
 	120,	// LEVER_POS_RETRACTED
 	98,		// LEVER_POS_DEPLOYED
 	90,		// LEVER_SPEED_DEPLOY
