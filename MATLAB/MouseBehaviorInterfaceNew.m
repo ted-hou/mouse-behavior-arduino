@@ -1556,7 +1556,8 @@ classdef MouseBehaviorInterfaceNew < handle
 					% Read Arduino parameters
 					speed 				= obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'STIM_SPEED'));
 					spatialFrequency 	= obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'SPATIAL_FREQUENCY'));
-					windowDuration  	= obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'WINDOW_DURATION'))/1000;                
+					windowDuration  	= obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'WINDOW_DURATION'))/1000;        
+					endTheta 			= obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'END_THETA'));        
 
 					% Generate list of stim angles for proactive trials
 					thetas				= [360:-obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'SPATIAL_FREQUENCY')):0];
@@ -1613,8 +1614,8 @@ classdef MouseBehaviorInterfaceNew < handle
 					% Create objects
 					if obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'REACTIVE')) == 0
 						if obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'TARGET')) == 1
-                            obj.Rsc.Target      = obj.Target('Ax', obj.Rsc.VisualStimAxes);
-                            obj.Rsc.Target2 	= obj.Target2('Ax', obj.Rsc.VisualStimAxes);
+                            obj.Rsc.Target      = obj.Target(speed,spatialFrequency,windowDuration,'Ax', obj.Rsc.VisualStimAxes);
+                            obj.Rsc.Target2 	= obj.Target2(speed,spatialFrequency,windowDuration,'Ax', obj.Rsc.VisualStimAxes);
                         end
                     else
                         obj.Rsc.Target      = obj.Target('Ax', obj.Rsc.VisualStimAxes);
@@ -1883,7 +1884,7 @@ classdef MouseBehaviorInterfaceNew < handle
 			end
 		end
 
-		function OnTargetRefresh(obj, t, ~, hTarget)
+		function OnTargetRefresh(obj, t, speed, spatialFrequency, windowDuration, endTheta, ~, hTarget)
 			% This makes the Target just a solid image instead of flashing
 			obj.Rsc.Target.FaceColor = [1 1 1];
 		end
@@ -2274,7 +2275,7 @@ classdef MouseBehaviorInterfaceNew < handle
 			varargout = {hCircle2};
 		end
 
-		function varargout = Target(varargin)
+		function varargout = Target(speed, spatialFrequency, windowDuration, endTheta, varargin)
 			p = inputParser;
 			addParameter(p, 'Ax', []);
 			addParameter(p, 'Target', []);
@@ -2287,11 +2288,6 @@ classdef MouseBehaviorInterfaceNew < handle
 			% b is end of arc in radians,
 			% (h,k) is the center of the circle.
 			% r is the radius.
-
-			speed 				= obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'STIM_SPEED'));
-			spatialFrequency 	= obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'SPATIAL_FREQUENCY'));
-			windowDuration  	= obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'WINDOW_DURATION'))/1000;
-			endTheta 				= obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'END_THETA'));
 
 			rightEdge = endTheta - (speed * spatialFrequency * windowDuration);
 			rightEdge = rightEdge/180*pi;
@@ -2314,7 +2310,7 @@ classdef MouseBehaviorInterfaceNew < handle
 			varargout = {hTarget};
         end
         
-        function varargout = Target2(varargin)
+        function varargout = Target2(speed, spatialFrequency, windowDuration, endTheta, varargin)
 			p = inputParser;
 			addParameter(p, 'Ax', []);
 			addParameter(p, 'Target2', []);
@@ -2323,11 +2319,6 @@ classdef MouseBehaviorInterfaceNew < handle
 			hAxes 	 = p.Results.Ax;
             
 			% Inner wedge
-			speed 				= obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'STIM_SPEED'));
-			spatialFrequency 	= obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'SPATIAL_FREQUENCY'));
-			windowDuration  	= obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'WINDOW_DURATION'))/1000;
-			endTheta 				= obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'END_THETA'));
-
 			rightEdge = endTheta - (speed * spatialFrequency * windowDuration);
 			rightEdge = rightEdge/180*pi;
 			leftEdge = endTheta;
