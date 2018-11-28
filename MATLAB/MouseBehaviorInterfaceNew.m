@@ -1612,14 +1612,15 @@ classdef MouseBehaviorInterfaceNew < handle
                     thetas = thetas + endTheta;
 
 					% Create objects
+					reactive = obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'REACTIVE'));
 					if obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'REACTIVE')) == 0
 						if obj.Arduino.ParamValues(ismember(obj.Arduino.ParamNames, 'TARGET')) == 1
-                            obj.Rsc.Target      = obj.Target(speed, spatialFrequency, windowDuration, endTheta, 'Ax', obj.Rsc.VisualStimAxes);
-                            obj.Rsc.Target2 	= obj.Target2(speed, spatialFrequency, windowDuration, endTheta, 'Ax', obj.Rsc.VisualStimAxes);
+                            obj.Rsc.Target      = obj.Target(reactive, speed, spatialFrequency, windowDuration, endTheta, 'Ax', obj.Rsc.VisualStimAxes);
+                            obj.Rsc.Target2 	= obj.Target2(reactive, speed, spatialFrequency, windowDuration, endTheta, 'Ax', obj.Rsc.VisualStimAxes);
                         end
                     else
-                        obj.Rsc.Target      = obj.Target(speed, spatialFrequency, windowDuration, endTheta, 'Ax', obj.Rsc.VisualStimAxes);
-                        obj.Rsc.Target2 	= obj.Target2(speed, spatialFrequency, windowDuration, endTheta, 'Ax', obj.Rsc.VisualStimAxes);
+                        obj.Rsc.Target      = obj.Target(reactive, speed, spatialFrequency, windowDuration, endTheta, 'Ax', obj.Rsc.VisualStimAxes);
+                        obj.Rsc.Target2 	= obj.Target2(reactive, speed, spatialFrequency, windowDuration, endTheta, 'Ax', obj.Rsc.VisualStimAxes);
                     end
                     obj.Rsc.Circle     	= obj.movingCircle(theta0, 'Ax', obj.Rsc.VisualStimAxes);
                     obj.Rsc.Circle2     = obj.stationaryCircle(theta0, 'Ax', obj.Rsc.VisualStimAxes);
@@ -2275,7 +2276,7 @@ classdef MouseBehaviorInterfaceNew < handle
 			varargout = {hCircle2};
 		end
 
-		function varargout = Target(speed, spatialFrequency, windowDuration, endTheta, varargin)
+		function varargout = Target(reactive, speed, spatialFrequency, windowDuration, endTheta, varargin)
 			p = inputParser;
 			addParameter(p, 'Ax', []);
 			addParameter(p, 'Target', []);
@@ -2289,10 +2290,17 @@ classdef MouseBehaviorInterfaceNew < handle
 			% (h,k) is the center of the circle.
 			% r is the radius.
 
-			rightEdge = endTheta - (speed * spatialFrequency * windowDuration);
-			rightEdge = rightEdge/180*pi;
-			leftEdge = endTheta;
-			leftEdge = leftEdge/180*pi;
+			if reactive == 0
+				rightEdge = endTheta - (speed * spatialFrequency * windowDuration);
+				rightEdge = rightEdge/180*pi;
+				leftEdge = endTheta;
+				leftEdge = leftEdge/180*pi;
+			else
+				rightEdge = 90 - (speed * spatialFrequency * windowDuration);
+				rightEdge = rightEdge/180*pi;
+				leftEdge = 90;
+				leftEdge = leftEdge/180*pi;
+			end
 			h = 0;
 			k = 0;
 			r = 1.15;
@@ -2310,7 +2318,7 @@ classdef MouseBehaviorInterfaceNew < handle
 			varargout = {hTarget};
         end
         
-        function varargout = Target2(speed, spatialFrequency, windowDuration, endTheta, varargin)
+        function varargout = Target2(reactive, speed, spatialFrequency, windowDuration, endTheta, varargin)
 			p = inputParser;
 			addParameter(p, 'Ax', []);
 			addParameter(p, 'Target2', []);
@@ -2319,10 +2327,17 @@ classdef MouseBehaviorInterfaceNew < handle
             hTarget2 = p.Results.Target2;
             
 			% Inner wedge
-			rightEdge2 = endTheta - (speed * spatialFrequency * windowDuration);
-			rightEdge2 = rightEdge2/180*pi;
-			leftEdge2 = endTheta;
-            leftEdge2 = leftEdge2/180*pi;
+			if reactive == 0
+				rightEdge2 = endTheta - (speed * spatialFrequency * windowDuration);
+				rightEdge2 = rightEdge2/180*pi;
+				leftEdge2 = endTheta;
+            	leftEdge2 = leftEdge2/180*pi;
+        	else
+        		rightEdge2 = 90 - (speed * spatialFrequency * windowDuration);
+				rightEdge2 = rightEdge2/180*pi;
+				leftEdge2 = 90;
+            	leftEdge2 = leftEdge2/180*pi;
+        	end
             h = 0;
             k = 0;
             r2 = 0.8;
