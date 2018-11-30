@@ -11,6 +11,7 @@ classdef ArduinoConnection < handle
 		Trials = struct([])
 		ExperimentFileName = ''			% Contains 'C://path/filename.mat'
 		Cameras = struct([])
+		Camera = []
 	end
 
 	properties (SetObservable, AbortSet)
