@@ -2291,12 +2291,12 @@ classdef MouseBehaviorInterfaceNew < handle
 			% r is the radius.
 
 			if reactive == 0
-				rightEdge = endTheta - (speed * spatialFrequency * (windowDuration/2);
+				rightEdge = endTheta - (speed * spatialFrequency * (windowDuration/2));
 				rightEdge = rightEdge/180*pi;
 				leftEdge = endTheta;
 				leftEdge = leftEdge/180*pi;
 			else
-				rightEdge = 90 - (speed * spatialFrequency * (windowDuration/2);
+				rightEdge = 90 - (speed * spatialFrequency * (windowDuration/2));
 				rightEdge = rightEdge/180*pi;
 				leftEdge = 90;
 				leftEdge = leftEdge/180*pi;
@@ -2328,12 +2328,12 @@ classdef MouseBehaviorInterfaceNew < handle
             
 			% Inner wedge
 			if reactive == 0
-				rightEdge2 = endTheta - (speed * spatialFrequency * (windowDuration/2);
+				rightEdge2 = endTheta - (speed * spatialFrequency * (windowDuration/2));
 				rightEdge2 = rightEdge2/180*pi;
 				leftEdge2 = endTheta;
             	leftEdge2 = leftEdge2/180*pi;
         	else
-        		rightEdge2 = 90 - (speed * spatialFrequency * (windowDuration/2);
+        		rightEdge2 = 90 - (speed * spatialFrequency * (windowDuration/2));
 				rightEdge2 = rightEdge2/180*pi;
 				leftEdge2 = 90;
             	leftEdge2 = leftEdge2/180*pi;
