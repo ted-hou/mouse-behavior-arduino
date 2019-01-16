@@ -976,9 +976,17 @@ void state_response_window()
 	else if (_params[PAVLOVIAN] == 1)
 	{
 		if (_params[REACTIVE] == 0)
-		// deliver reward some time in this window from alpha to turning pt
 		{
-			if ((getTimeSinceStimOn() - _timeAlpha) >= randDelay)
+			if (_command == 'A')
+			{
+				_resultCode = CODE_PAVLOVIAN;
+				_state = STATE_REWARD;
+				return;
+			}
+		}
+		else if (_params[REACTIVE] == 1)
+		{
+			if (_command == 'T')
 			{
 				_resultCode = CODE_PAVLOVIAN;
 				_state = STATE_REWARD;
