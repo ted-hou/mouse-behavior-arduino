@@ -31,6 +31,7 @@ Servo _servoTube;
 // Digital OUT
 #define PIN_REWARD		24	// SOL_1, which is Juice 2  
 #define PIN_IR_LAMP		8	// DIO_2
+#define PIN_SPEAKER		9	// PWM
 
 // PWM OUT
 #define PIN_SERVO_LEVER	6	// DIO_0
