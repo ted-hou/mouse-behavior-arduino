@@ -53,7 +53,7 @@ enum State
 	_STATE_INIT,				// (Private) Initial state used on first loop. 
 	STATE_IDLE,					// Idle state. Wait for go signal from host.
 	STATE_INTERTRIAL,			// Write data to HOST and DISK, receive new params
-	STATE_START,				// random delay before cue presentation
+	STATE_START,				// Start trial
 	STATE_PRE_STIM,				// Deploy lever/tube
 	STATE_STIM_ON,				// Stationary stim, enforced no lick
 	STATE_STIM_MOVE,			// Moving stim, enforced no lick
@@ -955,7 +955,7 @@ void state_stim_move()
 void state_response_window() 
 {
 	// Declare local variable
-	static long randDelay;
+	static long pavDelay;
 
 	/*****************************************************
 		ACTION LIST
