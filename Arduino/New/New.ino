@@ -943,7 +943,7 @@ void state_response_window()
 		_prevState = _state;
 		sendState(_state);
 
-		pavDelay = (_params[WINDOW_DURATION] / 2);
+		randDelay = random((_params[WINDOW_DURATION] - 400), _params[WINDOW_DURATION] + 1);
 	}
 
 	/*****************************************************
@@ -977,14 +977,22 @@ void state_response_window()
 	{
 		if (_params[REACTIVE] == 0)
 		{
-			if ((getTimeSinceStimOn() - _timeAlpha) >= pavDelay)
+			if (_command == 'A')
 			{
 				_resultCode = CODE_PAVLOVIAN;
 				_state = STATE_REWARD;
 				return;
 			}
 		}
-		// Reactive Pav in stim_move transition
+		else if (_params[REACTIVE] == 1)
+		{
+			if (_command == 'T')
+			{
+				_resultCode = CODE_PAVLOVIAN;
+				_state = STATE_REWARD;
+				return;
+			}
+		}
 	}
 	// Response window elapsed --> ITI
 	else
