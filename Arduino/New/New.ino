@@ -932,7 +932,7 @@ void state_stim_move()
 void state_response_window() 
 {
 	// Declare local variable
-	static long randDelay;
+	static long pavDelay;
 
 	/*****************************************************
 		ACTION LIST
@@ -943,7 +943,7 @@ void state_response_window()
 		_prevState = _state;
 		sendState(_state);
 
-		randDelay = random((_params[WINDOW_DURATION] - 400), _params[WINDOW_DURATION] + 1);
+		pavDelay = (_params[WINDOW_DURATION] / 2);
 	}
 
 	/*****************************************************
@@ -978,7 +978,7 @@ void state_response_window()
 		if (_params[REACTIVE] == 0)
 		// deliver reward some time in this window from alpha to turning pt
 		{
-			if ((getTimeSinceStimOn() - _timeAlpha) >= randDelay)
+			if ((getTimeSinceStimOn() - _timeAlpha) >= pavDelay)
 			{
 				_resultCode = CODE_PAVLOVIAN;
 				_state = STATE_REWARD;
