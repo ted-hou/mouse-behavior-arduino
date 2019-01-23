@@ -1041,7 +1041,6 @@ void state_response_window()
 		}
 	}
 	
-
 	_state = STATE_RESPONSE_WINDOW;
 }
 
