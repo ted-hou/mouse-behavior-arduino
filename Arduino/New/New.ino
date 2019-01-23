@@ -977,16 +977,16 @@ void state_response_window()
 		return;
 	}
 
+	if ((getTimeSinceStimOn() - _timeAlpha) >= pavDelay)
+	{	
+		playSound(TONE_CUE);
+	}
+
 	// Correct lick/press --> REWARD
 	if (_isLickOnset || _isLeverPressOnset)
 	{
 		if ((_isLickOnset && _params[USE_LEVER] == 0) || (_isLeverPressOnset && _params[USE_LEVER] == 1))
 		{
-			if ((getTimeSinceStimOn() - _timeAlpha) >= pavDelay)
-			{	
-				playSound(TONE_CUE);
-			}
-
 			// First lick registration
 			if (!_firstMoveRegistered)
 			{
