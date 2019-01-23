@@ -968,6 +968,15 @@ void state_response_window()
 	}
 
 	/*****************************************************
+		OnEachLoop checks
+	*****************************************************/
+	// Non-pavlovian
+	if ((getTimeSinceStimOn() - _timeAlpha) >= pavDelay)
+	{	
+		playSound(TONE_CUE);
+	}
+
+	/*****************************************************
 		TRANSITION LIST
 	*****************************************************/
 	// Quit signal from host --> IDLE
@@ -975,11 +984,6 @@ void state_response_window()
 	{
 		_state = STATE_IDLE;
 		return;
-	}
-
-	if ((getTimeSinceStimOn() - _timeAlpha) >= pavDelay)
-	{	
-		playSound(TONE_CUE);
 	}
 
 	// Correct lick/press --> REWARD
