@@ -909,7 +909,7 @@ void state_stim_move()
 		{
 			if (_command == 'T')
 			{
-				playSound(TONE_CUE);
+				// playSound(TONE_CUE);
 				_resultCode = CODE_PAVLOVIAN;
 				_state = STATE_REWARD;
 				return;
@@ -930,7 +930,7 @@ void state_stim_move()
 		{
 			if (_command == 'T')
 			{
-				playSound(TONE_CUE);
+				// playSound(TONE_CUE);
 				_state = STATE_RESPONSE_WINDOW;
 				return;
 			}
