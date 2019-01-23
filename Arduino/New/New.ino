@@ -978,6 +978,7 @@ void state_response_window()
 			if ((getTimeSinceStimOn() - _timeAlpha) >= pavDelay)
 			{	
 				playSound(TONE_CUE);
+				sendEventMarker(EVENT_TONE_ON, -1);
 			}
 		}
 	}
