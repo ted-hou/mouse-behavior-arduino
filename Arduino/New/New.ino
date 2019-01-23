@@ -971,11 +971,14 @@ void state_response_window()
 		OnEachLoop checks
 	*****************************************************/
 	// Non-pavlovian
-	if (_params[PAVLOVIAN] == 0 && (_params[REACTIVE] == 0))
+	if (_params[PAVLOVIAN] == 0)
 	{
-		if ((getTimeSinceStimOn() - _timeAlpha) >= pavDelay)
-		{	
-			playSound(TONE_CUE);
+		if (_params[REACTIVE] == 0)
+		{
+			if ((getTimeSinceStimOn() - _timeAlpha) >= pavDelay)
+			{	
+				playSound(TONE_CUE);
+			}
 		}
 	}
 
