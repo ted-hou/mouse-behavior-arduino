@@ -954,6 +954,7 @@ void state_response_window()
 {
 	// Declare local variable
 	static long pavDelay;
+	static long collisionTime;
 
 	/*****************************************************
 		ACTION LIST
@@ -965,13 +966,14 @@ void state_response_window()
 		sendState(_state);
 
 		pavDelay = (_params[WINDOW_DURATION] / 2); // should be at collision time
+		collisionTime = 
 	}
 
 	/*****************************************************
 		OnEachLoop checks
 	*****************************************************/
 	// Non-pavlovian
-	if (_params[PAVLOVIAN] == 0)
+	if (_params[PAVLOVIAN] == 0 && (_params[REACTIVE] == 0))
 	{
 		if ((getTimeSinceStimOn() - _timeAlpha) >= pavDelay)
 		{	
