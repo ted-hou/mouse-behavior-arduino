@@ -954,7 +954,6 @@ void state_response_window()
 {
 	// Declare local variable
 	static long pavDelay;
-	static long collisionTime;
 
 	/*****************************************************
 		ACTION LIST
@@ -966,7 +965,6 @@ void state_response_window()
 		sendState(_state);
 
 		pavDelay = (_params[WINDOW_DURATION] / 2); // should be at collision time
-		collisionTime = 
 	}
 
 	/*****************************************************
