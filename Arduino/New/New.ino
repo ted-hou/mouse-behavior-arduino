@@ -31,6 +31,7 @@ Servo _servoTube;
 // Digital OUT
 #define PIN_REWARD		24	// SOL_1, which is Juice 2  
 #define PIN_IR_LAMP		8	// DIO_2
+#define PIN_SPEAKER		9	// PWM
 
 // PWM OUT
 #define PIN_SERVO_LEVER	6	// DIO_0
@@ -52,7 +53,7 @@ enum State
 	_STATE_INIT,				// (Private) Initial state used on first loop. 
 	STATE_IDLE,					// Idle state. Wait for go signal from host.
 	STATE_INTERTRIAL,			// Write data to HOST and DISK, receive new params
-	STATE_START,				// random delay before cue presentation
+	STATE_START,				// Start trial
 	STATE_PRE_STIM,				// Deploy lever/tube
 	STATE_STIM_ON,				// Stationary stim, enforced no lick
 	STATE_STIM_MOVE,			// Moving stim, enforced no lick
@@ -111,6 +112,8 @@ enum EventMarker
 	EVENT_ALPHA,					// Proactive, response window open
 	EVENT_TURNING_POINT,			// Bar reverse
 	EVENT_OMEGA,					// Reactive, response window close
+	EVENT_TONE_ON,					// Begin tone presentation
+	EVENT_TONE_OFF,					// End tone presentation
 	EVENT_REWARD_ON,				// Reward, juice valve on
 	EVENT_REWARD_OFF,				// Reward, juice valve off
 	EVENT_ABORT,					// Trial aborted
@@ -140,6 +143,8 @@ static const char *_eventMarkerNames[] =
 	"ALPHA",						// Proactive, response window open
 	"TURNING_POINT",				// Bar reverse
 	"OMEGA",						// Reactive, response window close
+	"TONE_ON",						// Begin tone presentation
+	"TONE_OFF",						// End tone presentation
 	"REWARD_ON",					// Reward, juice valve on
 	"REWARD_OFF",					// Reward, juice valve off
 	"ABORT",						// Trial aborted
@@ -177,6 +182,15 @@ static const char *_resultCodeNames[] =
 };
 
 /*****************************************************
+	Audio cue frequencies in Hz
+*****************************************************/
+// Use integers. 1kHz - 100kHz for mice
+enum SoundEventFrequencyEnum
+{
+	TONE_CUE     = 6272
+};
+
+/*****************************************************
 	Servo state
 *****************************************************/
 enum ServoState
@@ -198,6 +212,7 @@ enum ParamID
 	STIM_ON_DURATION, 			// Length of moving dots, stationary stim
 	ITI_DURATION,				// ITI length, fixed
 	MOVE_TIMEOUT,				// ITI/Stim_On ends if last lick/press was this many ms before & ITI/Stim_On_Duration expired
+	TONE_DURATION,				// Duration of the tone
 	REWARD_DURATION,			// Reward duration (ms)
 	WINDOW_DURATION,			// Time from Alpha to Turning Point (or from Turning Point to Omega)
 	OMEGA_TO_ITI_DURATION,		// Time from Omega to ITI (ms) 
@@ -244,6 +259,7 @@ static const char *_paramNames[] =
 	"STIM_ON_DURATION", 		// Length of moving dots, stationary stim
 	"ITI_DURATION",				// ITI length, fixed
 	"MOVE_TIMEOUT",				// ITI/Stim_On ends if last lick/press was this many ms before & ITI/Stim_On_Duration expired
+	"TONE_DURATION",				// Duration of the tone
 	"REWARD_DURATION",			// Reward duration (ms)
 	"WINDOW_DURATION",			// Time from Alpha to Turning Point (or from Turning Point to Omega)
 	"OMEGA_TO_ITI_DURATION",	// Time from Omega to ITI (ms)
@@ -285,9 +301,10 @@ static const char *_paramNames[] =
 long _params[_NUM_PARAMS] = 
 {
 	0,		// _DEBUG
-	1500,	// STIM_ON_DURATION
+	2000,	// STIM_ON_DURATION
 	10000,	// ITI_DURATION
-	1500,	// MOVE_TIMEOUT
+	2000,	// MOVE_TIMEOUT
+	60,		// TONE_DURATION
 	60,		// REWARD_DURATION
 	2000,	// WINDOW_DURATION
 	2000,	// OMEGA_TO_ITI_DURATION
@@ -371,6 +388,7 @@ void setup()
 	// Init pins
 	pinMode(PIN_IR_LAMP, OUTPUT);	// IR LED for camera recording
 	pinMode(PIN_REWARD, OUTPUT);	// Reward, set to HIGH to open juice valve
+	pinMode(PIN_SPEAKER, OUTPUT);   // Speaker for tone
 	pinMode(PIN_LICK, INPUT);		// Lick detector
 	pinMode(PIN_LEVER, INPUT);		// Lever press detector
 
@@ -577,6 +595,7 @@ void state_idle()
 
 		// Reset output
 		// setIRLamp(true);
+		noTone(PIN_SPEAKER);
 		setReward(false);
 		deployLever(false);
 		deployTube(true);
@@ -890,6 +909,7 @@ void state_stim_move()
 		{
 			if (_command == 'T')
 			{
+				playSound(TONE_CUE);
 				_resultCode = CODE_PAVLOVIAN;
 				_state = STATE_REWARD;
 				return;
@@ -904,12 +924,13 @@ void state_stim_move()
 			} 
 		}
 	}
-	else
+	else // OPERANT
 	{
 		if (_params[REACTIVE] == 1)
 		{
 			if (_command == 'T')
 			{
+				playSound(TONE_CUE);
 				_state = STATE_RESPONSE_WINDOW;
 				return;
 			}
@@ -943,7 +964,7 @@ void state_response_window()
 		_prevState = _state;
 		sendState(_state);
 
-		pavDelay = (_params[WINDOW_DURATION] / 2);
+		pavDelay = (_params[WINDOW_DURATION] / 2); // should be at collision time
 	}
 
 	/*****************************************************
@@ -961,6 +982,11 @@ void state_response_window()
 	{
 		if ((_isLickOnset && _params[USE_LEVER] == 0) || (_isLeverPressOnset && _params[USE_LEVER] == 1))
 		{
+			if ((getTimeSinceStimOn() - _timeAlpha) >= pavDelay)
+			{	
+				playSound(TONE_CUE);
+			}
+
 			// First lick registration
 			if (!_firstMoveRegistered)
 			{
@@ -976,15 +1002,16 @@ void state_response_window()
 	else if (_params[PAVLOVIAN] == 1)
 	{
 		if (_params[REACTIVE] == 0)
-		// deliver reward some time in this window from alpha to turning pt
 		{
 			if ((getTimeSinceStimOn() - _timeAlpha) >= pavDelay)
 			{
+				playSound(TONE_CUE);
 				_resultCode = CODE_PAVLOVIAN;
 				_state = STATE_REWARD;
 				return;
 			}
 		}
+		// Reactive Pav in stim_move transition
 	}
 	// Response window elapsed --> ITI
 	else
@@ -1679,6 +1706,20 @@ void handleServoTube()
 			}
 		}
 	}
+}
+
+// Play a tone defined in SoundEventFrequencyEnum
+void playSound(SoundEventFrequencyEnum soundEventFrequency) 
+{
+	long duration = 200;
+
+	if (soundEventFrequency == TONE_CUE)
+	{
+		duration = _params[TONE_DURATION];
+	}
+
+	noTone(PIN_SPEAKER);
+	tone(PIN_SPEAKER, soundEventFrequency, duration);
 }
 
 // Toggle juice valve, register event when state is changed
