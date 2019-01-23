@@ -2234,11 +2234,21 @@ classdef MouseBehaviorInterfaceNew < handle
 			X = X + center(1);
 			Y = Y + center(2);
 			
+			% Take the cross product
+			% https://math.stackexchange.com/questions/274712/calculate-on-which-side-of-a-straight-line-is-a-given-point-located
+			d = (circleX * sin(theta)) - (circleY * cos(theta));
+			for i = 1:length(d)
+			    if d(i) > 0
+			        newX(i) = circleX(i);
+			        newY(i) = circleY(i);
+			    end
+			end
+
 			if isempty(hCircle)
-				hCircle = fill(X,Y,'w');
+				hCircle = patch(newX,newY,'w');
 			else
-			    hCircle.XData = X + (r * cos(theta));
-				hCircle.YData = Y + (r * sin(theta));
+			    hCircle.XData = newX + (r * cos(theta));
+				hCircle.YData = newY + (r * sin(theta));
 			end
 			
 			varargout = {hCircle};
@@ -2265,12 +2275,20 @@ classdef MouseBehaviorInterfaceNew < handle
 			
 			X = X + center(1);
 			Y = Y + center(2);
-			
+
+			d = (circleX * sin(theta)) - (circleY * cos(theta));
+			for i = 1:length(d)
+			    if d(i) > 0
+			        newX(i) = circleX(i);
+			        newY(i) = circleY(i);
+			    end
+			end
+
 			if isempty(hCircle2)
-				hCircle2 = fill(X,Y,'w');
+				hCircle2 = patch(newX,newY,'w');
 			else
-			    hCircle2.XData = X + (r * cos(theta));
-				hCircle2.YData = Y + (r * sin(theta));
+			    hCircle2.XData = newX + (r * cos(theta));
+				hCircle2.YData = newY + (r * sin(theta));
 			end
 			
 			varargout = {hCircle2};
