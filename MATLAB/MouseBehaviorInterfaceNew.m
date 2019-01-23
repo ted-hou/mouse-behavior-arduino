@@ -2236,11 +2236,11 @@ classdef MouseBehaviorInterfaceNew < handle
 			
 			% Take the cross product
 			% https://math.stackexchange.com/questions/274712/calculate-on-which-side-of-a-straight-line-is-a-given-point-located
-			d = (circleX * sin(theta)) - (circleY * cos(theta));
+			d = (X * sin(theta)) - (Y * cos(theta));
 			for i = 1:length(d)
 			    if d(i) > 0
-			        newX(i) = circleX(i);
-			        newY(i) = circleY(i);
+			        newX(i) = X(i);
+			        newY(i) = Y(i);
 			    end
 			end
 
@@ -2276,11 +2276,11 @@ classdef MouseBehaviorInterfaceNew < handle
 			X = X + center(1);
 			Y = Y + center(2);
 
-			d = (circleX * sin(theta)) - (circleY * cos(theta));
+			d = (X * sin(theta)) - (Y * cos(theta));
 			for i = 1:length(d)
 			    if d(i) > 0
-			        newX(i) = circleX(i);
-			        newY(i) = circleY(i);
+			        newX(i) = X(i);
+			        newY(i) = Y(i);
 			    end
 			end
 
