@@ -364,8 +364,6 @@ static bool _isLickOnset 					= false;		// True during lick onset
 static bool _firstMoveRegistered 			= false;		// True when first lick is registered for this trial
 static long _timeLastLick					= 0;			// Time (ms) when last lick occured
 
-static bool _tonePlayed						= false;		// True when tone played for this trial
-
 static bool _isLeverPressed					= false;		// True as long as lever is pressed down
 static bool _isLeverPressOnset 				= false;		// True when lever first pressed
 static long _timeLastLeverPress				= 0;			// Time (ms) when last lever press (release) occured
@@ -399,6 +397,8 @@ void setup()
 	digitalWrite(4, LOW);
 	pinMode(5, OUTPUT);
 	digitalWrite(5, LOW);
+	pinMode(9, OUTPUT);
+	digitalWrite(9, LOW);
 	pinMode(10, OUTPUT);
 	digitalWrite(10, LOW);
 	pinMode(11, OUTPUT);
@@ -442,8 +442,6 @@ void mySetup()
 	_isLickOnset 					= false;		// True during lick onset
 	_firstMoveRegistered 			= false;		// True when first lick is registered for this trial
 	_timeLastLick					= 0;			// Time (ms) when last lick occured
-
-	_tonePlayed						= false;		// True when tone played for this trial
 
 	_isLeverPressed					= false;		// True as long as lever is pressed down
 	_isLeverPressOnset 				= false;		// True when lever first pressed
@@ -977,14 +975,10 @@ void state_response_window()
 	{
 		if (_params[REACTIVE] == 0)
 		{
-			if (!_tonePlayed)
-			{
-				if ((getTimeSinceStimOn() - _timeAlpha) >= pavDelay)
-				{	
-					playSound(TONE_CUE);
-					_tonePlayed = true;
-					sendEventMarker(EVENT_TONE_ON, -1);
-				}
+			if ((getTimeSinceStimOn() - _timeAlpha) >= pavDelay)
+			{	
+				playSound(TONE_CUE);
+				sendEventMarker(EVENT_TONE_ON, -1);
 			}
 		}
 	}
