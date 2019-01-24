@@ -364,8 +364,6 @@ static bool _isLickOnset 					= false;		// True during lick onset
 static bool _firstMoveRegistered 			= false;		// True when first lick is registered for this trial
 static long _timeLastLick					= 0;			// Time (ms) when last lick occured
 
-static bool _toneRegistered					= false;
-
 static bool _isLeverPressed					= false;		// True as long as lever is pressed down
 static bool _isLeverPressOnset 				= false;		// True when lever first pressed
 static long _timeLastLeverPress				= 0;			// Time (ms) when last lever press (release) occured
@@ -442,8 +440,6 @@ void mySetup()
 	_isLickOnset 					= false;		// True during lick onset
 	_firstMoveRegistered 			= false;		// True when first lick is registered for this trial
 	_timeLastLick					= 0;			// Time (ms) when last lick occured
-
-	_toneRegistered					= false;
 
 	_isLeverPressed					= false;		// True as long as lever is pressed down
 	_isLeverPressOnset 				= false;		// True when lever first pressed
@@ -648,7 +644,6 @@ void state_start()
 		// Reset variables
 		_resultCode = -1;
 		_firstMoveRegistered = false;
-		_toneRegistered = false;
 	}
 
 	/*****************************************************
@@ -957,6 +952,8 @@ void state_response_window()
 {
 	// Declare local variable
 	static long pavDelay;
+	static long timeResponseWindowStart;
+	static bool isTonePlayed;
 
 	/*****************************************************
 		ACTION LIST
@@ -967,27 +964,21 @@ void state_response_window()
 		_prevState = _state;
 		sendState(_state);
 
-		pavDelay = (_params[WINDOW_DURATION] / 2); // should be at collision time
-		_toneRegistered = false;
-	}
+		isTonePlayed = false;
+		timeResponseWindowStart = getTimeSinceStimOn();
 
-	/*****************************************************
-		OnEachLoop checks
-	*****************************************************/
-	// Non-pavlovian
-	if (_params[PAVLOVIAN] == 0)
+		pavDelay = _params[WINDOW_DURATION] / 2; // should be at collision time
+	}
+	if (_params[PAVLOVIAN] == 0 && _params[REACTIVE] == 0 && !isTonePlayed && getTimeSinceStimOn() - timeResponseWindowStart >= pavDelay)
 	{
-		if (_params[REACTIVE] == 0)
-		{
-			if (((getTimeSinceStimOn() - _timeAlpha) >= pavDelay) && !_toneRegistered)
-			{	
-				playSound(TONE_CUE);
-				_toneRegistered = true;
-				sendEventMarker(EVENT_TONE_ON, -1);
-			}
-		}
+		playSound(TONE_CUE);
+		isTonePlayed = true;
 	}
-
+	if (_params[REACTIVE] == 1 && !isTonePlayed)
+	{
+		playSound(TONE_CUE);
+		isTonePlayed = true;
+	}
 	/*****************************************************
 		TRANSITION LIST
 	*****************************************************/
@@ -1014,12 +1005,12 @@ void state_response_window()
 			return;
 		}
 	}
-	// Pavlovian
-	else if (_params[PAVLOVIAN] == 1)
+	// // Pavlovian
+	if (_params[PAVLOVIAN] == 1)
 	{
 		if (_params[REACTIVE] == 0)
 		{
-			if ((getTimeSinceStimOn() - _timeAlpha) >= pavDelay)
+			if (getTimeSinceStimOn() - timeResponseWindowStart >= pavDelay)
 			{
 				playSound(TONE_CUE);
 				_resultCode = CODE_PAVLOVIAN;
