@@ -14,19 +14,23 @@ Servo _servoTube;
 	Arduino Pin Outs
 *****************************************************/
 // Digital OUT
-#define PIN_HOUSE_LAMP	6
-#define PIN_IR_LAMP		8
-#define PIN_LED_CUE		4
-#define PIN_REWARD		7
+#define PIN_HOUSE_LAMP		10
+#define PIN_LED_CUE			5
+#define PIN_REWARD			12
+
+// Mirrors to blackrock
+#define PIN_MIRROR_REWARD 	6
+#define PIN_MIRROR_LICK 	7
+#define PIN_MIRROR_LEVER 	8
 
 // PWM OUT
-#define PIN_SPEAKER		5
-#define PIN_SERVO_LEVER	3
-#define PIN_SERVO_TUBE	9
+#define PIN_SPEAKER			21
+#define PIN_SERVO_LEVER		22
+#define PIN_SERVO_TUBE		23
 
 // Digital IN
-#define PIN_LICK		2
-#define PIN_LEVER		1
+#define PIN_LICK			25
+#define PIN_LEVER			26
 
 #define SERVO_READ_ACCURACY 1
 
@@ -311,12 +315,16 @@ void setup()
 {
 	// Init pins
 	pinMode(PIN_HOUSE_LAMP, OUTPUT);            // LED for illumination
-	pinMode(PIN_IR_LAMP, OUTPUT);            	// IR LED for camera recording
 	pinMode(PIN_LED_CUE, OUTPUT);               // LED for 'start' cue
 	pinMode(PIN_SPEAKER, OUTPUT);               // Speaker for cue tone
-	pinMode(PIN_REWARD, OUTPUT);                // Reward, set to HIGH to open juice valve
-	pinMode(PIN_LICK, INPUT);                   // Lick detector
-	pinMode(PIN_LEVER, INPUT);					// Lever press detector
+	pinMode(PIN_REWARD, OUTPUT);				// Reward, set to HIGH to open juice valve
+
+	pinMode(PIN_LICK, INPUT);					// Lick detector (input)
+	pinMode(PIN_LEVER, INPUT);					// Lever press detector (input)
+
+	pinMode(PIN_MIRROR_REWARD, OUTPUT);			// Reward (mirrored output to blackrock)
+	pinMode(PIN_MIRROR_LICK, OUTPUT);			// Lick detector (mirrored output to blackrock)
+	pinMode(PIN_MIRROR_LEVER, OUTPUT);			// Lever press detector (mirrored output to blackrock)
 
 	// Initiate servo
 	_servoLever.attach(PIN_SERVO_LEVER);
@@ -330,7 +338,6 @@ void mySetup()
 {
 	// Reset output
 	setHouseLamp(true);                          // House Lamp ON
-	setIRLamp(true);                          	 // IR Lamp ON
 	setCueLED(false);                            // Cue LED OFF
 
 	// Reset variables
@@ -481,7 +488,6 @@ void state_idle()
 
 		// Reset output
 		setHouseLamp(true);
-		setIRLamp(true);
 		setCueLED(false);
 		noTone(PIN_SPEAKER);
 		setReward(false);
@@ -1033,19 +1039,6 @@ void setHouseLamp(bool turnOn)
 	}
 }
 
-// Toggle IR Lamp
-void setIRLamp(bool turnOn) 
-{
-	if (turnOn) 
-	{
-		digitalWrite(PIN_IR_LAMP, HIGH);
-	}
-	else 
-	{
-		digitalWrite(PIN_IR_LAMP, LOW);
-	}
-}
-
 // Toggle cue led, register event when state is changed
 void setCueLED(bool turnOn) 
 {
@@ -1075,10 +1068,12 @@ bool getLickState()
 {
 	if (digitalRead(PIN_LICK) == HIGH) 
 	{
+		digitalWrite(PIN_MIRROR_LICK, HIGH);
 		return true;
 	}
 	else 
 	{
+		digitalWrite(PIN_MIRROR_LICK, LOW);
 		return false;
 	}
 }
@@ -1109,10 +1104,12 @@ bool getLeverState()
 {
 	if (digitalRead(PIN_LEVER) == HIGH) 
 	{
+		digitalWrite(PIN_MIRROR_LEVER, HIGH);
 		return true;
 	}
 	else 
 	{
+		digitalWrite(PIN_MIRROR_LEVER, LOW);
 		return false;
 	}
 }
@@ -1348,6 +1345,7 @@ void setReward(bool turnOn)
 	if (turnOn)
 	{
 		digitalWrite(PIN_REWARD, HIGH);
+		digitalWrite(PIN_MIRROR_REWARD, HIGH);
 		if (!rewardOn)
 		{
 			rewardOn = true;
@@ -1357,6 +1355,7 @@ void setReward(bool turnOn)
 	else
 	{
 		digitalWrite(PIN_REWARD, LOW);
+		digitalWrite(PIN_MIRROR_REWARD, LOW);
 		if (rewardOn)
 		{
 			rewardOn = false;
