@@ -34,6 +34,8 @@ Servo _servoTube;
 
 #define SERVO_READ_ACCURACY 1
 
+static const int _allPins[] = {6, 7, 8, 9, 10, 11, 5, 4, 20, 21, 22, 23};
+
 /*****************************************************
 	Enums - DEFINE States
 *****************************************************/
@@ -313,6 +315,13 @@ static unsigned long _whiteNoiseLastClick 	= 0;					// (us)
 *****************************************************/
 void setup()
 {
+	// Turn off
+	for(unsigned int i = 0; i < sizeof(_allPins)/sizeof(_allPins[0]); i++)
+	{
+		pinMode(_allPins[i], OUTPUT);
+		digitalWrite(_allPins[i], LOW);
+	}
+
 	// Init pins
 	pinMode(PIN_HOUSE_LAMP, OUTPUT);            // LED for illumination
 	pinMode(PIN_LED_CUE, OUTPUT);               // LED for 'start' cue
