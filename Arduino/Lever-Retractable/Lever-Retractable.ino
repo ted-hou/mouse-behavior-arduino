@@ -19,9 +19,10 @@ Servo _servoTube;
 #define PIN_REWARD			12
 
 // Mirrors to blackrock
-#define PIN_MIRROR_REWARD 	6
-#define PIN_MIRROR_LICK 	7
-#define PIN_MIRROR_LEVER 	8
+#define PIN_MIRROR_CUE 		6
+#define PIN_MIRROR_REWARD 	7
+#define PIN_MIRROR_LICK 	8
+#define PIN_MIRROR_LEVER 	9
 
 // PWM OUT
 #define PIN_SPEAKER			21
@@ -331,6 +332,7 @@ void setup()
 	pinMode(PIN_LICK, INPUT);					// Lick detector (input)
 	pinMode(PIN_LEVER, INPUT);					// Lever press detector (input)
 
+	pinMode(PIN_MIRROR_CUE, OUTPUT);			// LED for 'start' cue (mirrored output to blackrock)
 	pinMode(PIN_MIRROR_REWARD, OUTPUT);			// Reward (mirrored output to blackrock)
 	pinMode(PIN_MIRROR_LICK, OUTPUT);			// Lick detector (mirrored output to blackrock)
 	pinMode(PIN_MIRROR_LEVER, OUTPUT);			// Lever press detector (mirrored output to blackrock)
@@ -1055,6 +1057,7 @@ void setCueLED(bool turnOn)
 	if (turnOn) 
 	{
 		digitalWrite(PIN_LED_CUE, HIGH);
+		digitalWrite(PIN_MIRROR_CUE, HIGH);
 		if (!cueLEDOn)
 		{
 			cueLEDOn = true;
@@ -1064,6 +1067,7 @@ void setCueLED(bool turnOn)
 	else 
 	{
 		digitalWrite(PIN_LED_CUE, LOW);
+		digitalWrite(PIN_MIRROR_CUE, LOW);
 		if (cueLEDOn)
 		{
 			cueLEDOn = false;
