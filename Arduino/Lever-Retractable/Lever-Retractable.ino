@@ -14,24 +14,26 @@ Servo _servoTube;
 	Arduino Pin Outs
 *****************************************************/
 // Digital OUT
-#define PIN_HOUSE_LAMP		10
-#define PIN_LED_CUE			5
-#define PIN_REWARD			12
+#define PIN_HOUSE_LAMP			20
+#define PIN_LED_CUE				5
+#define PIN_REWARD				12
+#define PIN_OPTOGEN_STIM		4
 
 // Mirrors to blackrock
-#define PIN_MIRROR_CUE 		6
-#define PIN_MIRROR_REWARD 	7
-#define PIN_MIRROR_LICK 	8
-#define PIN_MIRROR_LEVER 	9
+#define PIN_MIRROR_CUE 			6
+#define PIN_MIRROR_REWARD 		7
+#define PIN_MIRROR_LICK 		8
+#define PIN_MIRROR_LEVER 		9
+#define PIN_MIRROR_OPTOGEN_STIM	10
 
 // PWM OUT
-#define PIN_SPEAKER			21
-#define PIN_SERVO_LEVER		22
-#define PIN_SERVO_TUBE		23
+#define PIN_SPEAKER				21
+#define PIN_SERVO_LEVER			22
+#define PIN_SERVO_TUBE			23
 
 // Digital IN
-#define PIN_LICK			25
-#define PIN_LEVER			26
+#define PIN_LICK				25
+#define PIN_LEVER				26
 
 #define SERVO_READ_ACCURACY 1
 
@@ -51,6 +53,7 @@ enum State
 	STATE_RESPONSE_WINDOW,	// First lick in this interval rewarded (operant). Reward delivered at target time (pavlov)
 	STATE_REWARD,			// Dispense reward, wait for trial timeout
 	STATE_ABORT,			// Pre window lick - House lamps ON, timeout
+	STATE_OPTOGEN_STIM,		// Optogenetic stimulation
 	_NUM_STATES				// (Private) Used to count number of states
 };
 
@@ -65,11 +68,12 @@ static const char *_stateNames[] =
 	"PRE_WINDOW",
 	"RESPONSE_WINDOW",
 	"REWARD",
-	"ABORT"
+	"ABORT",
+	"OPTOGEN_STIM"
 };
 
 // Define which states accept parameter update from MATLAB
-static const int _stateCanUpdateParams[] = {0,1,1,0,0,0,0,0}; 
+static const int _stateCanUpdateParams[] = {0,1,1,0,0,0,0,0,0}; 
 
 /*****************************************************
 	Event Markers
@@ -100,6 +104,10 @@ enum EventMarker
 	EVENT_REWARD_OFF,				// Reward, juice valve off
 	EVENT_ABORT,					// Trial aborted
 	EVENT_ITI,						// ITI
+	EVENT_OPTOGEN_STIM_ON,			// Begin optogenetic stim (single pulse start)
+	EVENT_OPTOGEN_STIM_OFF,			// End optogenetic stim (single pulse end)
+	EVENT_OPTOGEN_STIM_START,		// Begin optogenetic stim (pulse train start)
+	EVENT_OPTOGEN_STIM_END,			// End optogenetic stim (pulse train end)
 	_NUM_OF_EVENT_MARKERS
 };
 
@@ -128,7 +136,11 @@ static const char *_eventMarkerNames[] =
 	"REWARD_ON",					// Reward, juice valve on
 	"REWARD_OFF",					// Reward, juice valve off
 	"ABORT",						// Trial aborted
-	"ITI"							// ITI
+	"ITI",							// ITI
+	"OPTOGEN_STIM_ON",				// Begin optogenetic stim (single pulse start)
+	"OPTOGEN_STIM_OFF",				// End optogenetic stim (single pulse end)
+	"OPTOGEN_STIM_START",			// Begin optogenetic stim (pulse train start)
+	"OPTOGEN_STIM_END"				// End optogenetic stim (pulse train end)
 };
 
 /*****************************************************
@@ -181,32 +193,36 @@ enum ServoState
 // Storing everything in array _params[]. Using enum ParamID as array indices so it's easier to add/remove parameters. 
 enum ParamID
 {
-	_DEBUG,						// (Private) 1 to enable debug mode. Default 0.
-	USE_LEVER,					// 0 to use lick to trigger reward. 1 to use lever press.
-	ALLOW_EARLY_PRESS,			// 1 to abort trial if animal presses early
-	ALLOW_EARLY_LICK,			// 1 to abort trial if animal licks early
-	PAVLOVIAN, 					// 1 to issue reward at INTERVAL_TARGET in lick task
-	DELAY_REWARD,				// After correct move, wait this amount of time before delivering reward(ms).
-	DELAY_REWARD_TILL_END,		// 1 to always give reward at end of trial (overrides previous parameter).
-	INTERVAL_MIN,				// Time to start of reward window (ms)
-	INTERVAL_TARGET,			// Target time (ms)
-	INTERVAL_MAX,				// Time to end of reward window (ms)
-	ITI_MIN,					// Intertrial interval duration, min (ms)
-	ITI_MAX,					// Intertrial interval duration, max (ms)
-	ITI_LICK_TIMEOUT,			// ITI ends if last lick was this many ms before, and ITI_MIN has expired (ms)
-	RANDOM_DELAY_MIN,			// Minimum random pre-Cue delay (ms)
-	RANDOM_DELAY_MAX,			// Maximum random pre-Cue delay (ms)
-	CUE_DURATION,				// Duration of the cue tone and LED flash (ms)
-	REWARD_DURATION,			// Reward duration (ms)
-	LEVER_POS_RETRACTED,		// Servo (lever) position when lever is retracted
-	LEVER_POS_DEPLOYED,			// Servo (lever) position when lever is deployed
-	LEVER_SPEED_DEPLOY,			// Servo (lever) rotation speed when deploying, 0 for max speed
-	LEVER_SPEED_RETRACT,		// Servo (lever) rotaiton speed when retracting, 0 for max speed
-	TUBE_POS_RETRACTED,			// Servo (juice tube) position when juice tube is retracted (full is ~ 50)
-	TUBE_POS_DEPLOYED,			// Servo (juice tube) position when juice tube is deployed (full is ~ 125)
-	TUBE_SPEED_DEPLOY,			// Servo (juice tube) advance speed when deploying, 0 for max speed
-	TUBE_SPEED_RETRACT,			// Servo (juice tube) retract speed when retracting, 0 for max speed
-	_NUM_PARAMS					// (Private) Used to count how many parameters there are so we can initialize the param array with the correct size. Insert additional parameters before this.
+	_DEBUG,							// (Private) 1 to enable debug mode. Default 0.
+	USE_LEVER,						// 0 to use lick to trigger reward. 1 to use lever press.
+	ALLOW_EARLY_PRESS,				// 1 to abort trial if animal presses early
+	ALLOW_EARLY_LICK,				// 1 to abort trial if animal licks early
+	PAVLOVIAN, 						// 1 to issue reward at INTERVAL_TARGET in lick task
+	DELAY_REWARD,					// After correct move, wait this amount of time before delivering reward(ms).
+	DELAY_REWARD_TILL_END,			// 1 to always give reward at end of trial (overrides previous parameter).
+	INTERVAL_MIN,					// Time to start of reward window (ms)
+	INTERVAL_TARGET,				// Target time (ms)
+	INTERVAL_MAX,					// Time to end of reward window (ms)
+	ITI_MIN,						// Intertrial interval duration, min (ms)
+	ITI_MAX,						// Intertrial interval duration, max (ms)
+	ITI_LICK_TIMEOUT,				// ITI ends if last lick was this many ms before, and ITI_MIN has expired (ms)
+	RANDOM_DELAY_MIN,				// Minimum random pre-Cue delay (ms)
+	RANDOM_DELAY_MAX,				// Maximum random pre-Cue delay (ms)
+	CUE_DURATION,					// Duration of the cue tone and LED flash (ms)
+	REWARD_DURATION,				// Reward duration (ms)
+	LEVER_POS_RETRACTED,			// Servo (lever) position when lever is retracted
+	LEVER_POS_DEPLOYED,				// Servo (lever) position when lever is deployed
+	LEVER_SPEED_DEPLOY,				// Servo (lever) rotation speed when deploying, 0 for max speed
+	LEVER_SPEED_RETRACT,			// Servo (lever) rotaiton speed when retracting, 0 for max speed
+	TUBE_POS_RETRACTED,				// Servo (juice tube) position when juice tube is retracted (full is ~ 50)
+	TUBE_POS_DEPLOYED,				// Servo (juice tube) position when juice tube is deployed (full is ~ 125)
+	TUBE_SPEED_DEPLOY,				// Servo (juice tube) advance speed when deploying, 0 for max speed
+	TUBE_SPEED_RETRACT,				// Servo (juice tube) retract speed when retracting, 0 for max speed
+	OPTOGEN_STIM_ENABLED_ITI,		// 1 to enable optogen stim during ITI and idle
+	OPTOGEN_STIM_PULSE_DURATION,	// Optogenetic stim, duration of single pulse (ms)
+	OPTOGEN_STIM_PULSE_INTERVAL,	// Optogenetic stim, interval between pulses (ms)
+	OPTOGEN_STIM_NUM_PULSES,		// Optogenetic stim, number of pulses to deliver
+	_NUM_PARAMS						// (Private) Used to count how many parameters there are so we can initialize the param array with the correct size. Insert additional parameters before this.
 };
 
 // Store parameter names as strings, will be sent to host
@@ -237,7 +253,11 @@ static const char *_paramNames[] =
 	"TUBE_POS_RETRACTED",
 	"TUBE_POS_DEPLOYED",
 	"TUBE_SPEED_DEPLOY",
-	"TUBE_SPEED_RETRACT"
+	"TUBE_SPEED_RETRACT",
+	"OPTOGEN_STIM_ENABLED_ITI",
+	"OPTOGEN_STIM_PULSE_DURATION",
+	"OPTOGEN_STIM_PULSE_INTERVAL",
+	"OPTOGEN_STIM_NUM_PULSES",
 };
 
 // Initialize parameters
@@ -267,7 +287,11 @@ long _params[_NUM_PARAMS] =
 	85,		// TUBE_POS_RETRACTED (~ 50 == 0 mm)
 	100,	// TUBE_POS_DEPLOYED (~ 125 == 30 mm)
 	18,		// TUBE_SPEED_DEPLOY
-	18		// TUBE_SPEED_RETRACT
+	18,		// TUBE_SPEED_RETRACT
+	1,		// OPTOGEN_STIM_ENABLED_ITI
+	100,	// OPTOGEN_STIM_PULSE_DURATION
+	100,	// OPTOGEN_STIM_PULSE_INTERVAL
+	10		// OPTOGEN_STIM_NUM_PULSES
 };
 
 /*****************************************************
@@ -311,6 +335,9 @@ static unsigned long _whiteNoiseDuration 	= 200;					// Noise duration (ms)
 static unsigned long _whiteNoiseFirstClick 	= 0;					// (us)
 static unsigned long _whiteNoiseLastClick 	= 0;					// (us)
 
+// Optogenetics stimulation
+static bool _isOptogenStimOn 		= false;		// Whether optogenetic stimulation is currently on
+
 /*****************************************************
 	Setup
 *****************************************************/
@@ -328,6 +355,7 @@ void setup()
 	pinMode(PIN_LED_CUE, OUTPUT);               // LED for 'start' cue
 	pinMode(PIN_SPEAKER, OUTPUT);               // Speaker for cue tone
 	pinMode(PIN_REWARD, OUTPUT);				// Reward, set to HIGH to open juice valve
+	pinMode(PIN_OPTOGEN_STIM, OUTPUT);			// Laser/LED for optogentics stim
 
 	pinMode(PIN_LICK, INPUT);					// Lick detector (input)
 	pinMode(PIN_LEVER, INPUT);					// Lever press detector (input)
@@ -336,6 +364,7 @@ void setup()
 	pinMode(PIN_MIRROR_REWARD, OUTPUT);			// Reward (mirrored output to blackrock)
 	pinMode(PIN_MIRROR_LICK, OUTPUT);			// Lick detector (mirrored output to blackrock)
 	pinMode(PIN_MIRROR_LEVER, OUTPUT);			// Lever press detector (mirrored output to blackrock)
+	pinMode(PIN_MIRROR_OPTOGEN_STIM, OUTPUT);	// Laser/LED for optogentics stim (mirrored output to blackrock)
 
 	// Initiate servo
 	_servoLever.attach(PIN_SERVO_LEVER);
@@ -348,8 +377,9 @@ void setup()
 void mySetup()
 {
 	// Reset output
-	setHouseLamp(true);                          // House Lamp ON
-	setCueLED(false);                            // Cue LED OFF
+	setHouseLamp(true);						// House Lamp ON
+	setCueLED(false);						// Cue LED OFF
+	setOptogenStim(false);					// Optogenetic stim OFF
 
 	// Reset variables
 	_timeReset				= 0;			// Reset to signedMillis() at every soft reset
@@ -386,6 +416,8 @@ void mySetup()
 	_whiteNoiseDuration 	= 200;					// Noise duration (ms)
 	_whiteNoiseFirstClick 	= 0;					// (us)
 	_whiteNoiseLastClick 	= 0;					// (us)
+
+	_isOptogenStimOn 		= false;		// Whether optogenetic stimulation is currently on
 
 	// Sends all parameters, states and error codes to Matlab, then tell PC that we're running by sending '~' message:
 	hostInit();
@@ -500,6 +532,7 @@ void state_idle()
 		// Reset output
 		setHouseLamp(true);
 		setCueLED(false);
+		setOptogenStim(false);
 		noTone(PIN_SPEAKER);
 		setReward(false);
 		deployLever(false);
@@ -525,6 +558,13 @@ void state_idle()
 		return;
 	}
 	
+	// LASER command from host --> STATE_OPTOGEN_STIM
+	if (_command == 'L')
+	{
+		_state = STATE_OPTOGEN_STIM;
+		return;
+	}
+
 	_state = STATE_IDLE;
 }
 
@@ -1010,17 +1050,129 @@ void state_intertrial()
 		return;
 	}
 
-	// If ITI elapsed --> RANDOM_DELAY
+	// If ITI elapsed --> either RANDOM_DELAY or OPTOGEN_STIM if enabled
 	if (isParamsUpdateDone || !isParamsUpdateStarted)
 	{
-		if ((getTimeSinceCueOn() - timeIntertrial >= _params[ITI_MAX] + randomDelay) || (getTimeSinceCueOn() - timeIntertrial >= _params[ITI_MIN] + randomDelay && getTimeSinceLastLick() >= _params[ITI_LICK_TIMEOUT]))
+		if (_params[OPTOGEN_STIM_ENABLED_ITI] == 0)
 		{
-			_state = STATE_PRE_CUE;
-			return;
+			if ((getTimeSinceCueOn() - timeIntertrial >= _params[ITI_MAX] + randomDelay) || (getTimeSinceCueOn() - timeIntertrial >= _params[ITI_MIN] + randomDelay && getTimeSinceLastLick() >= _params[ITI_LICK_TIMEOUT]))
+			{
+				_state = STATE_PRE_CUE;
+				return;
+			}
+		}
+		else
+		{
+			if ((getTimeSinceCueOn() - timeIntertrial >= _params[ITI_MAX]) || (getTimeSinceCueOn() - timeIntertrial >= _params[ITI_MIN] && getTimeSinceLastLick() >= _params[ITI_LICK_TIMEOUT]))
+			{
+				_state = STATE_OPTOGEN_STIM;
+				return;
+			}
 		}
 	}
 
 	_state = STATE_INTERTRIAL;
+}
+
+/*****************************************************
+	STIM
+*****************************************************/
+void state_optogen_stim()
+{
+	static State entryState;
+	static long timeTrainStart;
+	static long timePulseStart;
+	static long timePulseEnd;
+	static long numPulsesComplete;
+	static long randomDelay;
+	/*****************************************************
+		ACTION LIST
+	*****************************************************/
+	if (_state != _prevState) 
+	{
+		// Write down previous state, return to it when done
+		entryState = _prevState;
+
+		// Register new state
+		_prevState = _state;
+		sendState(_state);
+
+		// Generate random interval length
+		if (entryState == STATE_INTERTRIAL)
+		{
+			randomDelay = random(_params[RANDOM_DELAY_MIN], _params[RANDOM_DELAY_MAX]);
+		}
+
+		// Register events
+		sendEventMarker(EVENT_OPTOGEN_STIM_START, -1);
+
+		// Register time of state entry
+		timeTrainStart = getTime();
+		timePulseStart = getTime();
+		timePulseEnd = getTime();
+		numPulsesComplete = 0;
+
+		// Start the first pulse
+		setOptogenStim(true);
+	}
+
+	/*****************************************************
+		OnEachLoop checks
+	*****************************************************/
+	if (numPulsesComplete < _params[OPTOGEN_STIM_NUM_PULSES])
+	{
+		// If stim is on, check if it needs to be turned off
+		if (_isOptogenStimOn)
+		{
+			if (getTime() - timePulseStart >= _params[OPTOGEN_STIM_PULSE_DURATION])
+			{
+				setOptogenStim(false);
+				timePulseEnd = getTime();
+				numPulsesComplete = numPulsesComplete + 1;
+			}
+		}
+		// If stim is off, check if it needs to be turned on
+		else
+		{
+			if (getTime() - timePulseEnd >= _params[OPTOGEN_STIM_PULSE_INTERVAL])
+			{
+				setOptogenStim(true);
+				timePulseStart = getTime();
+			}
+		}
+	}
+
+	/*****************************************************
+		TRANSITION LIST
+	*****************************************************/
+	// Quit signal from host --> IDLE
+	if (_command == 'Q') 
+	{
+		sendEventMarker(EVENT_OPTOGEN_STIM_END, -1);
+		_state = STATE_IDLE;
+		return;
+	}
+
+	// Stim train complete --> PRE_CUE (after random delay) or IDLE
+	if (numPulsesComplete >= _params[OPTOGEN_STIM_NUM_PULSES])
+	{
+		sendEventMarker(EVENT_OPTOGEN_STIM_END, -1);
+		if (entryState == STATE_INTERTRIAL)
+		{
+			if (getTime() - timePulseEnd >= randomDelay)
+			{
+				_state = STATE_PRE_CUE;
+				return;
+			}
+		}
+		else
+		{
+			_state = STATE_IDLE;
+			return;
+		}
+	}
+
+	_state = STATE_OPTOGEN_STIM;
 }
 
 /*****************************************************
@@ -1072,6 +1224,31 @@ void setCueLED(bool turnOn)
 		{
 			cueLEDOn = false;
 			sendEventMarker(EVENT_CUE_OFF, -1);
+		}
+	}
+} 
+
+// Toggle optogenetic stimulation
+void setOptogenStim(bool turnOn) 
+{
+	if (turnOn) 
+	{
+		if (!_isOptogenStimOn)
+		{
+			_isOptogenStimOn = true;
+			digitalWrite(PIN_OPTOGEN_STIM, HIGH);
+			digitalWrite(PIN_MIRROR_OPTOGEN_STIM, HIGH);
+			sendEventMarker(EVENT_OPTOGEN_STIM_ON, -1);
+		}
+	}
+	else 
+	{
+		if (_isOptogenStimOn)
+		{
+			_isOptogenStimOn = false;
+			digitalWrite(PIN_OPTOGEN_STIM, LOW);
+			digitalWrite(PIN_MIRROR_OPTOGEN_STIM, LOW);
+			sendEventMarker(EVENT_OPTOGEN_STIM_OFF, -1);
 		}
 	}
 } 

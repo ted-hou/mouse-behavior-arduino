@@ -184,6 +184,29 @@ classdef MouseBehaviorInterface < handle
 				'Callback', @obj.ArduinoReset...
 			);
 
+			% Optogen stim button
+			ctrlPosBase = button_reset.Position;
+			ctrlPos = [...
+				ctrlPosBase(1),...
+				ctrlPosBase(2) - buttonHeight - ctrlSpacing,...
+				buttonWidth,...	
+				buttonHeight...
+			];
+			button_stim = uicontrol(...
+				'Parent', dlg,...
+				'Style', 'pushbutton',...
+				'Position', ctrlPos,...
+				'String', 'Stim',...
+				'TooltipString', 'Send a series of optogenetic stimulation.',...
+				'Callback', @obj.ArduinoOptogenStim...
+			);
+			dlg.UserData.Ctrl.ButtonStim = button_stim;
+			if obj.Arduino.OptogenStimAvailable()
+				button_stim.Enable = 'on';
+			else
+				button_stim.Enable = 'off';
+			end
+
 			% Resize dialog so it fits all controls
 			dlg.Position(1:2) = [10, 50];
 			dlg.Position(3) = table_params.Position(3) + buttonWidth + 4*ctrlSpacing;
@@ -995,6 +1018,14 @@ classdef MouseBehaviorInterface < handle
 				t = obj.Rsc.Monitor.UserData.Ctrl.CurrentStateText;
 				t.String = sprintf('Current state: \n%s', obj.Arduino.StateNames{obj.Arduino.State});
 			end
+
+			if isvalid(obj.Rsc.ExperimentControl)
+				if obj.Arduino.OptogenStimAvailable()
+					obj.Rsc.ExperimentControl.UserData.Ctrl.ButtonStim.Enable = 'on';
+				else
+					obj.Rsc.ExperimentControl.UserData.Ctrl.ButtonStim.Enable = 'off';
+				end
+			end
 		end
 
 		%----------------------------------------------------
@@ -1602,6 +1633,10 @@ classdef MouseBehaviorInterface < handle
 
 		function ArduinoLoadExperiment(obj, ~, ~)
 			obj.Arduino.LoadExperiment()
+		end
+
+		function ArduinoOptogenStim(obj, ~, ~)
+			obj.Arduino.OptogenStim()
 		end
 	end
 

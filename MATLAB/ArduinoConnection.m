@@ -386,6 +386,25 @@ classdef ArduinoConnection < handle
 			end
 		end
 
+		% Read a parameter
+		function varargout = GetParam(obj, index)
+			p = inputParser;
+			addRequired(p, 'Index', @(x) isnumeric(x) || ischar(x));
+			parse(p, index);
+			index = p.Results.Index;
+
+			if ischar(index)
+				index = find(strcmpi(index, obj.ParamNames));
+			end
+
+			if isempty(index)
+				varargout = {[]};
+			else
+				index = index(1);
+				varargout = {obj.ParamValues(index)};
+			end
+		end
+
 		% Update a single parameter by index
 		function SetParam(obj, paramId, value)
 			% Update parameter value in MATLAB
@@ -465,6 +484,25 @@ classdef ArduinoConnection < handle
 			if ~isempty(obj.SerialConnection)
 				fclose(obj.SerialConnection);
 				fopen(obj.SerialConnection);
+			end
+		end
+
+		% Send optogenetic pulse train
+		function OpgtogenStim(obj)
+			if obj.OptogenStimAvailable()
+				obj.SendMessage('L')
+			end
+		end
+
+		function canStim = OptogenStimAvailable(obj)
+			if obj.Connected
+				if strcmpi(obj.StateNames{obj.State}, 'IDLE')
+					canStim = true;
+				else
+					canStim = false;
+				end
+			else
+				canStim = false;
 			end
 		end
 	end
