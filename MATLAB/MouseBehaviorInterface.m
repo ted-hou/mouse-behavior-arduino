@@ -13,9 +13,19 @@ classdef MouseBehaviorInterface < handle
 	%		Methods
 	%----------------------------------------------------
 	methods
-		function obj = MouseBehaviorInterface()
+		function obj = MouseBehaviorInterface(varargin)
+			p = inputParser;
+			addOptional(p, 'COM', '', @ischar) % 'COM6'
+			addOptional(p, 'CamID', [], @isnumeric); % [1, 2]
+			parse(p, varargin{:});
+			arduinoPortName	= p.Results.COM;
+			camID 			= p.Results.CamID;
+			camID 			= transpose(camID(:));
+
 			% Find arduino port
-			arduinoPortName = MouseBehaviorInterface.QueryPort();
+			if isempty(arduinoPortName)
+				arduinoPortName = MouseBehaviorInterface.QueryPort();
+			end
 
 			% Splash
 			if ~strcmp(arduinoPortName, '/offline')
@@ -54,21 +64,20 @@ classdef MouseBehaviorInterface < handle
 						position = [];
 					end
 
-					% numCamerasToUse = inputdlg(['Number of cameras to use (max ', num2str(numCameras), '):']);
-					% numCamerasToUse = str2num(numCamerasToUse{1});
-					% if numCamerasToUse > 0
-						for iCam = 1:numCameras
-							obj.Arduino.Cameras(iCam).Camera = CameraConnection(...
-								'CameraID', iCam,...
-								'Format', 'YUY2_640x480',...
-								'FrameRate', 30,...
-								'FileFormat', 'MPEG-4',...
-								'FrameGrabInterval', 1,...
-								'TimestampInterval', 10,...
-								'DialogPosition', position...
-							);
-						end
-					% end
+					if isempty(camID)
+						camID = 1:numCameras
+					end
+					for iCam = camID
+						obj.Arduino.Cameras(iCam).Camera = CameraConnection(...
+							'CameraID', iCam,...
+							'Format', 'YUY2_640x480',...
+							'FrameRate', 30,...
+							'FileFormat', 'MPEG-4',...
+							'FrameGrabInterval', 1,...
+							'TimestampInterval', 10,...
+							'DialogPosition', position...
+						);
+					end
 				end
 			end
 		end
