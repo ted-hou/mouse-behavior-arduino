@@ -65,7 +65,7 @@ classdef MouseBehaviorInterface < handle
 					end
 
 					if isempty(camID)
-						camID = 1:numCameras
+						camID = 1:numCameras;
 					end
 					for iCam = camID
 						obj.Arduino.Cameras(iCam).Camera = CameraConnection(...

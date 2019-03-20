@@ -487,7 +487,7 @@ void loop()
 			case STATE_INTERTRIAL:
 				state_intertrial();
 				break;
-			
+
 			case STATE_PRE_CUE:
 				state_pre_cue();
 				break;
@@ -506,6 +506,10 @@ void loop()
 			
 			case STATE_ABORT:
 				state_abort();
+				break;
+
+			case STATE_OPTOGEN_STIM:
+				state_optogen_stim();
 				break;
 		}
 	}
@@ -566,6 +570,121 @@ void state_idle()
 	}
 
 	_state = STATE_IDLE;
+}
+
+/*****************************************************
+	INTERTRIAL
+*****************************************************/
+void state_intertrial()
+{
+	static long timeIntertrial;
+	static long randomDelay;
+	static bool isTubeRetracted;
+	static bool isParamsUpdateStarted;
+	static bool isParamsUpdateDone;
+	/*****************************************************
+		ACTION LIST
+	*****************************************************/
+	if (_state != _prevState) 
+	{
+		// Register new state
+		_prevState = _state;
+		sendState(_state);
+
+		// Register events
+		sendEventMarker(EVENT_ITI, -1);
+
+		// Retract lick tube immediately if incorrect
+		isTubeRetracted = false;
+		if (_resultCode != CODE_CORRECT)
+		{
+			isTubeRetracted = true;
+			deployTube(false);
+		}
+
+		// Send results
+		sendResultCode(_resultCode);
+		_resultCode = -1;
+
+		// Houselamp on (if not already on)
+		setHouseLamp(true);
+
+		// Retract lever
+		if (_params[USE_LEVER] == 1)
+		{
+			deployLever(false);
+		}
+
+		// Register time of state entry
+		timeIntertrial = getTimeSinceCueOn();
+
+		// Generate random interval length
+		randomDelay = random(_params[RANDOM_DELAY_MIN], _params[RANDOM_DELAY_MAX]);
+
+		// Variables for handling parameter update
+		isParamsUpdateStarted = false;
+		isParamsUpdateDone = false;
+	}
+
+	/*****************************************************
+		OnEachLoop checks
+	*****************************************************/
+	// Received new param from HOST: format "P paramID newValue"
+	// Mark transmission start. Don't start next trial until we've finished.
+	if (_command == 'P') 
+	{
+		isParamsUpdateStarted = true;
+		_params[_arguments[0]] = _arguments[1];
+	}
+
+	// Parameter transmission complete:
+	if (_command == 'O') 
+	{
+		isParamsUpdateDone = true;
+	}
+
+	// If rewarded, retract lick tube before random delay starts
+	if (!isTubeRetracted)
+	{
+		if ((getTimeSinceCueOn() - timeIntertrial >= _params[ITI_MAX]) || (getTimeSinceCueOn() - timeIntertrial >= _params[ITI_MIN] && getTimeSinceLastLick() >= _params[ITI_LICK_TIMEOUT]))
+		{
+			isTubeRetracted = true;
+			deployTube(false);
+		}
+	}
+
+	/*****************************************************
+		TRANSITION LIST
+	*****************************************************/
+	// Quit signal from host --> IDLE
+	if (_command == 'Q') 
+	{
+		_state = STATE_IDLE;
+		return;
+	}
+
+	// If ITI elapsed --> either RANDOM_DELAY or OPTOGEN_STIM if enabled
+	if (isParamsUpdateDone || !isParamsUpdateStarted)
+	{
+		if (_params[OPTOGEN_STIM_ENABLED_ITI] == 0)
+		{
+			if ((getTimeSinceCueOn() - timeIntertrial >= _params[ITI_MAX] + randomDelay) || (getTimeSinceCueOn() - timeIntertrial >= _params[ITI_MIN] + randomDelay && getTimeSinceLastLick() >= _params[ITI_LICK_TIMEOUT]))
+			{
+				_state = STATE_PRE_CUE;
+				return;
+			}
+		}
+		else
+		{
+			if ((getTimeSinceCueOn() - timeIntertrial >= _params[ITI_MAX]) || (getTimeSinceCueOn() - timeIntertrial >= _params[ITI_MIN] && getTimeSinceLastLick() >= _params[ITI_LICK_TIMEOUT]))
+			{
+				_state = STATE_OPTOGEN_STIM;
+				return;
+			}
+		}
+	}
+
+	_state = STATE_INTERTRIAL;
 }
 
 /*****************************************************
@@ -957,121 +1076,6 @@ void state_abort()
 	}
 
 	_state = STATE_ABORT;
-}
-
-/*****************************************************
-	INTERTRIAL
-*****************************************************/
-void state_intertrial()
-{
-	static long timeIntertrial;
-	static long randomDelay;
-	static bool isTubeRetracted;
-	static bool isParamsUpdateStarted;
-	static bool isParamsUpdateDone;
-	/*****************************************************
-		ACTION LIST
-	*****************************************************/
-	if (_state != _prevState) 
-	{
-		// Register new state
-		_prevState = _state;
-		sendState(_state);
-
-		// Register events
-		sendEventMarker(EVENT_ITI, -1);
-
-		// Retract lick tube immediately if incorrect
-		isTubeRetracted = false;
-		if (_resultCode != CODE_CORRECT)
-		{
-			isTubeRetracted = true;
-			deployTube(false);
-		}
-
-		// Send results
-		sendResultCode(_resultCode);
-		_resultCode = -1;
-
-		// Houselamp on (if not already on)
-		setHouseLamp(true);
-
-		// Retract lever
-		if (_params[USE_LEVER] == 1)
-		{
-			deployLever(false);
-		}
-
-		// Register time of state entry
-		timeIntertrial = getTimeSinceCueOn();
-
-		// Generate random interval length
-		randomDelay = random(_params[RANDOM_DELAY_MIN], _params[RANDOM_DELAY_MAX]);
-
-		// Variables for handling parameter update
-		isParamsUpdateStarted = false;
-		isParamsUpdateDone = false;
-	}
-
-	/*****************************************************
-		OnEachLoop checks
-	*****************************************************/
-	// Received new param from HOST: format "P paramID newValue"
-	// Mark transmission start. Don't start next trial until we've finished.
-	if (_command == 'P') 
-	{
-		isParamsUpdateStarted = true;
-		_params[_arguments[0]] = _arguments[1];
-	}
-
-	// Parameter transmission complete:
-	if (_command == 'O') 
-	{
-		isParamsUpdateDone = true;
-	}
-
-	// If rewarded, retract lick tube before random delay starts
-	if (!isTubeRetracted)
-	{
-		if ((getTimeSinceCueOn() - timeIntertrial >= _params[ITI_MAX]) || (getTimeSinceCueOn() - timeIntertrial >= _params[ITI_MIN] && getTimeSinceLastLick() >= _params[ITI_LICK_TIMEOUT]))
-		{
-			isTubeRetracted = true;
-			deployTube(false);
-		}
-	}
-
-	/*****************************************************
-		TRANSITION LIST
-	*****************************************************/
-	// Quit signal from host --> IDLE
-	if (_command == 'Q') 
-	{
-		_state = STATE_IDLE;
-		return;
-	}
-
-	// If ITI elapsed --> either RANDOM_DELAY or OPTOGEN_STIM if enabled
-	if (isParamsUpdateDone || !isParamsUpdateStarted)
-	{
-		if (_params[OPTOGEN_STIM_ENABLED_ITI] == 0)
-		{
-			if ((getTimeSinceCueOn() - timeIntertrial >= _params[ITI_MAX] + randomDelay) || (getTimeSinceCueOn() - timeIntertrial >= _params[ITI_MIN] + randomDelay && getTimeSinceLastLick() >= _params[ITI_LICK_TIMEOUT]))
-			{
-				_state = STATE_PRE_CUE;
-				return;
-			}
-		}
-		else
-		{
-			if ((getTimeSinceCueOn() - timeIntertrial >= _params[ITI_MAX]) || (getTimeSinceCueOn() - timeIntertrial >= _params[ITI_MIN] && getTimeSinceLastLick() >= _params[ITI_LICK_TIMEOUT]))
-			{
-				_state = STATE_OPTOGEN_STIM;
-				return;
-			}
-		}
-	}
-
-	_state = STATE_INTERTRIAL;
 }
 
 /*****************************************************

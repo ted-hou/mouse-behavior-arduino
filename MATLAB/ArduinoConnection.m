@@ -488,7 +488,7 @@ classdef ArduinoConnection < handle
 		end
 
 		% Send optogenetic pulse train
-		function OpgtogenStim(obj)
+		function OptogenStim(obj)
 			if obj.OptogenStimAvailable()
 				obj.SendMessage('L')
 			end
