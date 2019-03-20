@@ -1133,6 +1133,10 @@ void state_optogen_stim()
 				setOptogenStim(false);
 				timePulseEnd = getTime();
 				numPulsesComplete = numPulsesComplete + 1;
+				if (numPulsesComplete >= _params[OPTOGEN_STIM_NUM_PULSES])
+				{
+					sendEventMarker(EVENT_OPTOGEN_STIM_END, -1);
+				}
 			}
 		}
 		// If stim is off, check if it needs to be turned on
@@ -1160,7 +1164,6 @@ void state_optogen_stim()
 	// Stim train complete --> PRE_CUE (after random delay) or IDLE
 	if (numPulsesComplete >= _params[OPTOGEN_STIM_NUM_PULSES])
 	{
-		sendEventMarker(EVENT_OPTOGEN_STIM_END, -1);
 		if (entryState == STATE_INTERTRIAL)
 		{
 			if (getTime() - timePulseEnd >= randomDelay)
