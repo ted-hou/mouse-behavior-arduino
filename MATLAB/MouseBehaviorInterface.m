@@ -777,7 +777,7 @@ classdef MouseBehaviorInterface < handle
 			if isfield(obj.UserData, 'TaskSchedule')
 				data = obj.UserData.TaskSchedule;
 			else
-				data = repmat({'', 'NONE', []}, [12, 1]);
+				data = repmat({'', 'NONE', []}, [24, 1]);
 			end
 			table_tasks = uitable(...
 				'Parent', dlg,...
