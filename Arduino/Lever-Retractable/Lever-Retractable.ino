@@ -18,6 +18,7 @@ Servo _servoTube;
 #define PIN_LED_CUE				5
 #define PIN_REWARD				12
 #define PIN_OPTOGEN_STIM		4
+#define PIN_LASER_GATE 			14
 
 // Mirrors to blackrock
 #define PIN_MIRROR_CUE 			6
@@ -25,6 +26,7 @@ Servo _servoTube;
 #define PIN_MIRROR_LICK 		8
 #define PIN_MIRROR_LEVER 		9
 #define PIN_MIRROR_OPTOGEN_STIM	10
+#define PIN_MIRROR_LASER_GATE 	11
 
 // PWM OUT
 #define PIN_SPEAKER				21
@@ -108,6 +110,8 @@ enum EventMarker
 	EVENT_OPTOGEN_STIM_OFF,			// End optogenetic stim (single pulse end)
 	EVENT_OPTOGEN_STIM_START,		// Begin optogenetic stim (pulse train start)
 	EVENT_OPTOGEN_STIM_END,			// End optogenetic stim (pulse train end)
+	EVENT_LASER_POWER_ON,			// Laser powered on (not AOM)
+	EVENT_LASER_POWER_OFF,			// Laser powered off (not AOM)
 	_NUM_OF_EVENT_MARKERS
 };
 
@@ -140,7 +144,9 @@ static const char *_eventMarkerNames[] =
 	"OPTOGEN_STIM_ON",				// Begin optogenetic stim (single pulse start)
 	"OPTOGEN_STIM_OFF",				// End optogenetic stim (single pulse end)
 	"OPTOGEN_STIM_START",			// Begin optogenetic stim (pulse train start)
-	"OPTOGEN_STIM_END"				// End optogenetic stim (pulse train end)
+	"OPTOGEN_STIM_END",				// End optogenetic stim (pulse train end)
+	"EVENT_LASER_POWER_ON",			// Laser powered on (not AOM)
+	"EVENT_LASER_POWER_OFF",		// Laser powered off (not AOM)
 };
 
 /*****************************************************
@@ -218,10 +224,11 @@ enum ParamID
 	TUBE_POS_DEPLOYED,				// Servo (juice tube) position when juice tube is deployed (full is ~ 125)
 	TUBE_SPEED_DEPLOY,				// Servo (juice tube) advance speed when deploying, 0 for max speed
 	TUBE_SPEED_RETRACT,				// Servo (juice tube) retract speed when retracting, 0 for max speed
-	OPTOGEN_STIM_ENABLED_ITI,		// 1 to enable optogen stim during ITI and idle
-	OPTOGEN_STIM_PULSE_DURATION,	// Optogenetic stim, duration of single pulse (ms)
-	OPTOGEN_STIM_PULSE_INTERVAL,	// Optogenetic stim, interval between pulses (ms)
-	OPTOGEN_STIM_NUM_PULSES,		// Optogenetic stim, number of pulses to deliver
+	OPTO_ENABLED,					// 1 to enable optogen stim during ITI and idle
+	OPTO_PULSE_DURATION,			// Optogenetic stim, duration of single pulse (ms)
+	OPTO_PULSE_INTERVAL,			// Optogenetic stim, interval between pulses (ms)
+	OPTO_NUM_PULSES,				// Optogenetic stim, number of pulses to deliver
+	OPTO_GATE_WIGGLEROOM,			// Time before and after stim train when laser (not AOM) is turned on/off.
 	_NUM_PARAMS						// (Private) Used to count how many parameters there are so we can initialize the param array with the correct size. Insert additional parameters before this.
 };
 
@@ -254,10 +261,11 @@ static const char *_paramNames[] =
 	"TUBE_POS_DEPLOYED",
 	"TUBE_SPEED_DEPLOY",
 	"TUBE_SPEED_RETRACT",
-	"OPTOGEN_STIM_ENABLED_ITI",
-	"OPTOGEN_STIM_PULSE_DURATION",
-	"OPTOGEN_STIM_PULSE_INTERVAL",
-	"OPTOGEN_STIM_NUM_PULSES",
+	"OPTO_ENABLED",
+	"OPTO_PULSE_DURATION",
+	"OPTO_PULSE_INTERVAL",
+	"OPTO_NUM_PULSES",
+	"OPTO_GATE_WIGGLEROOM"
 };
 
 // Initialize parameters
@@ -280,18 +288,19 @@ long _params[_NUM_PARAMS] =
 	6000,	// RANDOM_DELAY_MAX
 	50,		// CUE_DURATION
 	100, 	// REWARD_DURATION
-	120,	// LEVER_POS_RETRACTED
-	85,		// LEVER_POS_DEPLOYED
+	115,	// LEVER_POS_RETRACTED
+	80,		// LEVER_POS_DEPLOYED
 	42,		// LEVER_SPEED_DEPLOY
 	42,		// LEVER_SPEED_RETRACT
 	85,		// TUBE_POS_RETRACTED (~ 50 == 0 mm)
 	100,	// TUBE_POS_DEPLOYED (~ 125 == 30 mm)
 	18,		// TUBE_SPEED_DEPLOY
 	18,		// TUBE_SPEED_RETRACT
-	1,		// OPTOGEN_STIM_ENABLED_ITI
-	100,	// OPTOGEN_STIM_PULSE_DURATION
-	100,	// OPTOGEN_STIM_PULSE_INTERVAL
-	10		// OPTOGEN_STIM_NUM_PULSES
+	1,		// OPTO_ENABLED,
+	100,	// OPTO_PULSE_DURATION,
+	100,	// OPTO_PULSE_INTERVAL,
+	10,		// OPTO_NUM_PULSES,
+	500		// OPTO_GATE_WIGGLEROOM
 };
 
 /*****************************************************
@@ -337,6 +346,7 @@ static unsigned long _whiteNoiseLastClick 	= 0;					// (us)
 
 // Optogenetics stimulation
 static bool _isOptogenStimOn 		= false;		// Whether optogenetic stimulation is currently on
+static bool _isLaserGateOn 			= false;		// Whether laser gate is open
 
 /*****************************************************
 	Setup
@@ -418,6 +428,7 @@ void mySetup()
 	_whiteNoiseLastClick 	= 0;					// (us)
 
 	_isOptogenStimOn 		= false;		// Whether optogenetic stimulation is currently on
+	_isLaserGateOn 			= false;
 
 	// Sends all parameters, states and error codes to Matlab, then tell PC that we're running by sending '~' message:
 	hostInit();
@@ -537,6 +548,7 @@ void state_idle()
 		setHouseLamp(true);
 		setCueLED(false);
 		setOptogenStim(false);
+		setLaserGate(false);
 		noTone(PIN_SPEAKER);
 		setReward(false);
 		deployLever(false);
@@ -666,7 +678,7 @@ void state_intertrial()
 	// If ITI elapsed --> either RANDOM_DELAY or OPTOGEN_STIM if enabled
 	if (isParamsUpdateDone || !isParamsUpdateStarted)
 	{
-		if (_params[OPTOGEN_STIM_ENABLED_ITI] == 0)
+		if (_params[OPTO_ENABLED] == 0)
 		{
 			if ((getTimeSinceCueOn() - timeIntertrial >= _params[ITI_MAX] + randomDelay) || (getTimeSinceCueOn() - timeIntertrial >= _params[ITI_MIN] + randomDelay && getTimeSinceLastLick() >= _params[ITI_LICK_TIMEOUT]))
 			{
@@ -1084,7 +1096,7 @@ void state_abort()
 void state_optogen_stim()
 {
 	static State entryState;
-	static long timeTrainStart;
+	static long timeEnter;
 	static long timePulseStart;
 	static long timePulseEnd;
 	static long numPulsesComplete;
@@ -1111,29 +1123,27 @@ void state_optogen_stim()
 		sendEventMarker(EVENT_OPTOGEN_STIM_START, -1);
 
 		// Register time of state entry
-		timeTrainStart = getTime();
-		timePulseStart = getTime();
-		timePulseEnd = getTime();
+		timeEnter = getTime();
 		numPulsesComplete = 0;
 
 		// Start the first pulse
-		setOptogenStim(true);
+		setLaserGate(true);
 	}
 
 	/*****************************************************
 		OnEachLoop checks
 	*****************************************************/
-	if (numPulsesComplete < _params[OPTOGEN_STIM_NUM_PULSES])
+	if (getTime() - timeEnter >= _params[OPTO_GATE_WIGGLEROOM] && numPulsesComplete < _params[OPTO_NUM_PULSES])
 	{
 		// If stim is on, check if it needs to be turned off
 		if (_isOptogenStimOn)
 		{
-			if (getTime() - timePulseStart >= _params[OPTOGEN_STIM_PULSE_DURATION])
+			if (getTime() - timePulseStart >= _params[OPTO_PULSE_DURATION])
 			{
 				setOptogenStim(false);
 				timePulseEnd = getTime();
 				numPulsesComplete = numPulsesComplete + 1;
-				if (numPulsesComplete >= _params[OPTOGEN_STIM_NUM_PULSES])
+				if (numPulsesComplete >= _params[OPTO_NUM_PULSES])
 				{
 					sendEventMarker(EVENT_OPTOGEN_STIM_END, -1);
 				}
@@ -1142,7 +1152,7 @@ void state_optogen_stim()
 		// If stim is off, check if it needs to be turned on
 		else
 		{
-			if (getTime() - timePulseEnd >= _params[OPTOGEN_STIM_PULSE_INTERVAL])
+			if (getTime() - timePulseEnd >= _params[OPTO_PULSE_INTERVAL])
 			{
 				setOptogenStim(true);
 				timePulseStart = getTime();
@@ -1162,8 +1172,9 @@ void state_optogen_stim()
 	}
 
 	// Stim train complete --> PRE_CUE (after random delay) or IDLE
-	if (numPulsesComplete >= _params[OPTOGEN_STIM_NUM_PULSES])
+	if (getTime() >= timePulseEnd + _params[OPTO_GATE_WIGGLEROOM] && numPulsesComplete >= _params[OPTO_NUM_PULSES])
 	{
+		setLaserGate(false);
 		if (entryState == STATE_INTERTRIAL)
 		{
 			if (getTime() - timePulseEnd >= randomDelay)
@@ -1235,7 +1246,7 @@ void setCueLED(bool turnOn)
 	}
 } 
 
-// Toggle optogenetic stimulation
+// Toggle optogenetic stimulation (via AOM or LED)
 void setOptogenStim(bool turnOn) 
 {
 	if (turnOn) 
@@ -1259,6 +1270,32 @@ void setOptogenStim(bool turnOn)
 		}
 	}
 } 
+
+// Toggle laser on/off
+void setLaserGate(bool turnOn)
+{
+	if (turnOn)
+	{
+		if (!_isLaserGateOn)
+		{
+			_isLaserGateOn = true;
+			digitalWrite(PIN_LASER_GATE, HIGH);
+			digitalWrite(PIN_MIRROR_LASER_GATE, HIGH);
+			sendEventMarker(EVENT_LASER_POWER_ON, -1);
+		}
+	}
+	else
+	{
+		if (_isLaserGateOn)
+		{
+			_isLaserGateOn = false;
+			digitalWrite(PIN_LASER_GATE, LOW);
+			digitalWrite(PIN_MIRROR_LASER_GATE, LOW);
+			sendEventMarker(EVENT_LASER_POWER_OFF, -1);
+		}
+	}
+}
+
 
 // Lick detection
 bool getLickState() 
