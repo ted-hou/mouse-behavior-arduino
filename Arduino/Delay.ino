@@ -144,9 +144,9 @@ enum ResultCode
 	CODE_CORRECT,			// Correct lick L or R
 	CODE_INCORRECT,			// Incorrect lick L or R
 	CODE_PAVLOVIAN,			// Pavlovian (Reward given at tone)
-	CODE_EARLY_LICK,		// Early Lick (-> Abort)
-	CODE_LATE_LICK,			// Lick after response window (-> Abort)
-	CODE_NO_LICK,			// No Lick (Timeout -> ITI)
+	CODE_EARLY_LICK,		// Early Lick/Press (-> Abort)
+	CODE_LATE_LICK,			// Lick/Press after response window (-> Abort)
+	CODE_NO_LICK,			// No Lick/Press (Timeout -> ITI)
 	_NUM_RESULT_CODES		// (Private) Used to count how many codes there are.
 };
 
@@ -213,7 +213,7 @@ static const char *_paramNames[] =
 	"STIM_DURATION", 			// White noise stim length
 	"GO_CUE_DURATION",			// Tone length
 	"ITI_DURATION",				// ITI length, fixed
-	"LICK_TIMEOUT",				// Delay ends if premature lick 
+	"LICK_TIMEOUT",				// Delay ends if premature lick --> 
 	"REWARD_DURATION",			// Reward duration (ms)
 	"DELAY_DURATION",			// Delay length
 	"ALLOW_EARLY_LICK",			// 0 to abort trial if animal licks after in pre-window
@@ -627,14 +627,25 @@ void state_pre_stim()
 		return;
 	}
 
-	// Tube deployed --> STIM_ON
-	// Tube mode: make sure tube is deployed
-	if (_servoStateTube == SERVOSTATE_DEPLOYED)
+	// Lever/tube deployed --> BAR_STAT
+	// Lever mode: make sure lever is deployed
+	if (_params[USE_LEVER] == 1)
 	{
-		_state = STATE_STIM_ON;
-		return;
+		if (_servoStateLever == SERVOSTATE_DEPLOYED && _servoStateTube == SERVOSTATE_DEPLOYED)
+		{
+			_state = STATE_STIM_ON;
+			return;
+		}
 	}
-	
+	else
+	{
+		// Tube mode: make sure tube is deployed
+		if (_servoStateTube == SERVOSTATE_DEPLOYED)
+		{
+			_state = STATE_STIM_ON;
+			return;
+		}
+	}
 }
 
 /*****************************************************
@@ -689,23 +700,23 @@ void state_stim_on()
 	}
 
 	// Early lick detected --> ABORT
-	if (_isLickOnset && (_params[ALLOW_EARLY_LICK] == 0)
+	if (_isLickOnset && (_params[ALLOW_LICK_BAR_STAT] == 0)
 	{
 		// Register result
 		_resultCode = CODE_EARLY_LICK;
-		_state = STATE_ABORT;
+		_state = STATE_ABORT_BAR_STAT;
 		return;	
 	}
 
-	// stim_on elapsed --> DELAY
-	if getTimeSinceStimOn() >= _params[STIM_DURATION]
+	// bar_stat elapsed --> BAR_MOVE
+	if (getTimeSinceStimOn() >= _params[STIM_DURATION] && (getTimeSinceLastLick() >= _params[MOVE_TIMEOUT])
 	{
 		_state = STATE_DELAY;
 		return;
 	}
 
 	_state = STATE_STIM_ON;
-
+}
 
 /*****************************************************
 	DELAY
@@ -734,30 +745,93 @@ void state_delay()
 		return;
 	}
 
-
-	if (!_firstLickRegistered)
+	// Move detected
+	// First move registration for task related movement
+	if (_isLickOnset && _params[USE_LEVER] == 0)
 	{
-		_firstLickRegistered = true;
-		sendEventMarker(EVENT_FIRST_LICK, -1);
+		if (_params[MOVE_REWARD] == 1 && _params[OPERANT_TURN] == 1)
+		{
+			if (!_firstMoveRegistered)
+			{
+				_firstMoveRegistered = true;
+				sendEventMarker(EVENT_FIRST_MOVE, -1);
+				_resultCode = CODE_OPERANT;
+				_state = STATE_REWARD;
+				return;
+			}
+		}
+		else if (_params[MOVE_REWARD] == 1 && _params[OPERANT_TURN] == 0)
+		{
+			if (!_firstMoveRegistered)
+			{
+				_firstMoveRegistered = true;
+				sendEventMarker(EVENT_FIRST_MOVE, -1);
+				_resultCode = CODE_MOVE_REWARD;
+				_state = STATE_REWARD;
+				return;
+			}
+		}
+		else 
+		{
+			if (!_firstMoveRegistered)
+			{
+				_firstMoveRegistered = true;
+				sendEventMarker(EVENT_FIRST_MOVE, -1);
+			}
+		}
 	}
 
-	// Early lick detected --> ABORT
-	if (_isLickOnset && (_params[ALLOW_EARLY_LICK] == 0))
+	// Early lick/lever-press detected --> ABORT
+	if ((_isLickOnset && (_params[ALLOW_EARLY_LICK] == 0)) || (_isLeverPressOnset && (_params[ALLOW_EARLY_PRESS] == 0)))
 	{
 		// Register result
-		_resultCode = CODE_EARLY_LICK;
+		_resultCode = CODE_EARLY_MOVE;
 		_state = STATE_ABORT_EARLY;
 		return;	
 	}
 
-	// _delay elapsed --> RESPONSE_WINDOW
-	if getTimeSinceStimOn() >= _params[DELAY_DURATION]
+	// bar_move elapsed --> RESPONSE_WINDOW
+	if (_params[PAVLOVIAN] == 1)
 	{
-		_state = STATE_RESPONSE_WINDOW;
-		return;
+		if (_params[REACTIVE] == 1)
+		{
+			if (_command == 'T')
+			{
+				_resultCode = CODE_PAVLOVIAN;
+				_state = STATE_REWARD;
+				return;
+			}
+		}
+		else // PROACTIVE
+		{
+			if (_command == 'A')
+			{
+				_state = STATE_RESPONSE_WINDOW;
+				return;
+			} 
+		}
 	}
+	else
+	{
+		if (_params[REACTIVE] == 1)
+		{
+			if (_command == 'T')
+			{
+				_state = STATE_RESPONSE_WINDOW;
+				return;
+			}
+		}
+		else // PROACTIVE
+		{
+			if (_command == 'A')
+			{
+				_state = STATE_RESPONSE_WINDOW;
+				return;
+			}
+		}
+	} 
 
-	_state = STATE_DELAY;
+	_state = STATE_BAR_MOVE;
 }
 /*****************************************************
 	RESPONSE_WINDOW - Licking triggers reward
@@ -792,13 +866,13 @@ void state_response_window()
 	// Correct lick/press --> REWARD
 	if (_isLickOnset || _isLeverPressOnset)
 	{
-		if _isLickOnset
+		if ((_isLickOnset && _params[USE_LEVER] == 0) || (_isLeverPressOnset && _params[USE_LEVER] == 1))
 		{
 			// First lick registration
-			if (!_firstLickRegistered)
+			if (!_firstMoveRegistered)
 			{
-				_firstLickRegistered = true;
-				sendEventMarker(EVENT_FIRST_LICK, -1);
+				_firstMoveRegistered = true;
+				sendEventMarker(EVENT_FIRST_MOVE, -1);
 			}
 			_resultCode = CODE_CORRECT;
 			_state = STATE_REWARD;
@@ -871,13 +945,13 @@ void state_reward()
 		OnEachLoop checks
 	*****************************************************/
 	// Lick detected
-	if _isLickOnset
+	if ((_isLickOnset && (_params[USE_LEVER] == 0)) || (_isLeverPressOnset && (_params[USE_LEVER] == 1)))
 	{
 		// First lick registration
-		if (!_firstLickRegistered)
+		if (!_firstMoveRegistered)
 		{
-			_firstLickRegistered = true;
-			sendEventMarker(EVENT_FIRST_LICK, -1);
+			_firstMoveRegistered = true;
+			sendEventMarker(EVENT_FIRST_MOVE, -1);
 			return;
 		}
 	}
@@ -1009,6 +1083,52 @@ void state_post_window()
 	_state = STATE_POST_WINDOW;
 }
 
+/*****************************************************
+	ABORT - Early lick during bar_stat
+*****************************************************/
+void state_abort_bar_stat()
+{
+	/*****************************************************
+		ACTION LIST
+	*****************************************************/
+	if (_state != _prevState) 
+	{
+		// Register new state
+		_prevState = _state;
+		sendState(_state);
+
+		// Register events
+		sendEventMarker(EVENT_ABORT_EARLY, -1);
+
+		// Retract lever/tube based on trial type
+		if (_params[USE_LEVER] == 1)
+		{
+			deployLever(false);
+		}
+		else
+		{
+			deployTube(false);
+		}
+	}
+
+	/*****************************************************
+		TRANSITION LIST
+	*****************************************************/
+	// Quit signal from host --> IDLE
+	if (_command == 'Q') 
+	{
+		_state = STATE_IDLE;
+		return;
+	}
+
+	if (_command == 'W')
+	{
+		_state = STATE_ABORT;
+		return;
+	}
+
+	_state = STATE_ABORT_BAR_STAT;
+}
 
 /*****************************************************
 	ABORT - Early lick timeout
@@ -1231,22 +1351,9 @@ void setHouseLamp(bool turnOn)
 }
 
 // Lick detection
-bool getLickStateR() 
+bool getLickState() 
 {
-	if (digitalRead(PIN_LICK_R) == HIGH) 
-	{
-		return true;
-	}
-	else 
-	{
-		return false;
-	}
-}
-
-// Lick detection
-bool getLickStateL() 
-{
-	if (digitalRead(PIN_LICK_L) == HIGH) 
+	if (digitalRead(PIN_LICK) == HIGH) 
 	{
 		return true;
 	}
@@ -1257,9 +1364,9 @@ bool getLickStateL()
 }
 
 // Must be called once and only once on each loop. Returns true during lick onset
-void handleLickR() 
+void handleLick() 
 {
-	if (getLickStateR() && !_isLicking)
+	if (getLickState() && !_isLicking)
 	{
 		_isLicking = true;
 		_isLickOnset = true;
@@ -1268,27 +1375,7 @@ void handleLickR()
 	}
 	else
 	{
-		if (!getLickStateR() && _isLicking)
-		{
-			_isLicking = false;
-			sendEventMarker(EVENT_LICK_OFF, -1);
-		}
-		_isLickOnset = false;
-	}
-}
-
-void handleLickL() 
-{
-	if (getLickStateL() && !_isLicking)
-	{
-		_isLicking = true;
-		_isLickOnset = true;
-		_timeLastLick = getTime();
-		sendEventMarker(EVENT_LICK, -1);
-	}
-	else
-	{
-		if (!getLickStateL() && _isLicking)
+		if (!getLickState() && _isLicking)
 		{
 			_isLicking = false;
 			sendEventMarker(EVENT_LICK_OFF, -1);
@@ -1298,7 +1385,7 @@ void handleLickL()
 }
 
 // Use servo to retract/present lever to the little dude
-void deployTubeR(bool deploy)
+void deployTube(bool deploy)
 {
 	if (deploy)
 	{

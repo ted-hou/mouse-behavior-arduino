@@ -2233,5 +2233,164 @@ classdef MouseBehaviorInterface < handle
 				uistack(tLong, 'top') % Bring to top
 			end
 		end
+
+		function varargout = RotatingBar(theta, varargin)
+			p = inputParser;
+			addRequired(p, 'Theta', @isnumeric);
+			addParameter(p, 'Ax', []);
+			addParameter(p, 'Bar', []);
+			addParameter(p, 'Width', 1, @isnumeric);
+			addParameter(p, 'Height', 0.03, @isnumeric);
+			parse(p, theta, varargin{:});
+			theta 	= p.Results.Theta;
+			hAxes	= p.Results.Ax;
+			hBar 	= p.Results.Bar;
+			w 		= p.Results.Width;
+			h 		= p.Results.Height;
+			
+			theta = theta/180*pi;
+			
+			X = [0 + h*sin(theta), cos(theta) + h*sin(theta), cos(theta) - h*sin(theta), 0 - h*sin(theta), 0 + h*sin(theta)];
+			Y = [0 - h*cos(theta), sin(theta) - h*cos(theta), sin(theta) + h*cos(theta), 0 + h*cos(theta), 0 - h*cos(theta)];
+			
+			if isempty(hBar)
+				hBar = fill(hAxes, X, Y, 'w');
+			else
+				hBar.Vertices = [X', Y'];
+			end
+			
+			varargout = {hBar};
+		end
+		
+		function varargout = MovingDots(varargin)
+			p = inputParser;
+			addParameter(p, 'Ax', []);
+			addParameter(p, 'Dots', []);
+			addParameter(p, 'NumDots', 100, @isnumeric);
+			addParameter(p, 'Radius', 1, @isnumeric);
+			addParameter(p, 'DotSize', 12, @isnumeric);
+			addParameter(p, 'DotAlpha', 0.5, @isnumeric);
+			addParameter(p, 'AverageLifeTime', 10, @isnumeric);
+			addParameter(p, 'Time', 0, @isnumeric);
+			addParameter(p, 'RefreshRate', 1/60, @isnumeric);
+			parse(p, varargin{:});
+			hDots			= p.Results.Dots;
+			hAxes			= p.Results.Ax;
+			numDots			= p.Results.NumDots;
+			radius 			= p.Results.Radius;
+			dotSize			= p.Results.DotSize;
+			dotAlpha		= p.Results.DotAlpha;
+			averageLifeTime = p.Results.AverageLifeTime;
+			time			= p.Results.Time;
+			refreshRate		= p.Results.RefreshRate;
+			
+			if isempty(hDots)
+				randRadius = rand(1, numDots) + rand(1, numDots);
+				randRadius(randRadius > 1) = 2 - randRadius(randRadius > 1);
+				randRadius = radius*randRadius;
+				randTheta = 2*pi*rand(1, numDots);
+				hDots = plot(hAxes, randRadius.*cos(randTheta), randRadius.*sin(randTheta), 'wo', 'MarkerFaceColor', dotAlpha*[1, 1, 1], 'MarkerEdgeColor', dotAlpha*[1, 1, 1], 'MarkerSize', dotSize);
+				hDots.UserData.Speed 	= randn(1, numDots)*0.1;
+				hDots.UserData.Dir 		= rand(1, numDots)*pi;
+				hDots.UserData.DOB 		= zeros(1, numDots);
+				hDots.UserData.Life 	= max(averageLifeTime*0.1, min(exprnd(averageLifeTime, [1, numDots]), averageLifeTime*10)); % in seconds
+			else
+				xData = hDots.XData + refreshRate*hDots.UserData.Speed.*cos(hDots.UserData.Dir);
+				yData = hDots.YData + refreshRate*hDots.UserData.Speed.*sin(hDots.UserData.Dir);
+				
+				undead = hDots.UserData.DOB + hDots.UserData.Life < time | sqrt(xData.^2 + yData.^2) >= radius;
+				hDots.XData(~undead) 			= xData(~undead);
+				hDots.YData(~undead) 			= yData(~undead);
+				randRadius = rand(1, nnz(undead)) + rand(1, nnz(undead));
+				randRadius(randRadius > 1) = 2 - randRadius(randRadius > 1);
+				randRadius = radius*randRadius;
+				randTheta = 2*pi*rand(1, nnz(undead));
+				hDots.XData(undead) 			= randRadius.*cos(randTheta);
+				hDots.YData(undead) 			= randRadius.*sin(randTheta);
+				hDots.UserData.Speed(undead) 	= randn(1, nnz(undead))*0.1;
+				hDots.UserData.Dir(undead) 		= rand(1, nnz(undead))*pi;
+				hDots.UserData.DOB(undead) 		= time;
+				hDots.UserData.Life(undead) 	= max(averageLifeTime*0.1, min(exprnd(averageLifeTime, [1, nnz(undead)]), averageLifeTime*10)); % in seconds
+			end
+
+			varargout = {hDots};
+		end
+
+		function varargout = TriangleCue(theta, varargin)
+			p = inputParser;
+			addParameter(p, 'Ax', []);
+			addParameter(p, 'Cue', []);
+			parse(p, varargin{:});
+			hCue 	= p.Results.Cue;
+			hAxes 	= p.Results.Ax;
+
+			theta = theta/180*pi; % theta in radians
+			l = .2; % length of side of triangle cue
+			alphie = pi/6; % alpha (half angle of vertex) 
+
+			xs = [cos(theta), (cos(theta) + (l * cos(theta - alphie))), cos(theta) + (l * cos(theta + alphie))];
+			ys = [sin(theta), (sin(theta) + (l * sin(theta - alphie))), sin(theta) + (l * sin(theta + alphie))];
+
+			if isempty(hCue)
+				hCue = patch(hAxes, xs, ys, 'w');
+			end 
+
+			varargout = {hCue};
+		end
+
+		function varargout = BarCue(theta, varargin)
+			p = inputParser;
+			addParameter(p, 'Ax', []);
+			addParameter(p, 'Cue', []);
+			addParameter(p, 'Width', 1, @isnumeric);
+			addParameter(p, 'Height', 0.03, @isnumeric);
+			parse(p, varargin{:});
+			hCue 	= p.Results.Cue;
+			hAxes 	= p.Results.Ax;
+			w 		= p.Results.Width;
+			h 		= p.Results.Height;
+
+			theta = theta/180*pi; % theta in radians
+
+
+			X = [0 + h*sin(theta), cos(theta) + h*sin(theta), cos(theta) - h*sin(theta), 0 - h*sin(theta), 0 + h*sin(theta)];
+			Y = [0 - h*cos(theta), sin(theta) - h*cos(theta), sin(theta) + h*cos(theta), 0 + h*cos(theta), 0 - h*cos(theta)];
+
+			if isempty(hCue)
+				hCue = fill(hAxes, X, Y, 'w');
+			else
+				hCue.Vertices = [X', Y'];
+			end
+
+			varargout = {hCue};
+		end
+
+		function varargout = StationaryBar(theta, varargin)
+			p = inputParser;
+			addRequired(p, 'Theta', @isnumeric);
+			addParameter(p, 'Ax', []);
+			addParameter(p, 'Bar', []);
+			addParameter(p, 'Width', 1, @isnumeric);
+			addParameter(p, 'Height', 0.03, @isnumeric);
+			parse(p, theta, varargin{:});
+			hAxes		= p.Results.Ax;
+			hBar 		= p.Results.Bar;
+			w 			= p.Results.Width;
+			h 			= p.Results.Height;
+			
+			theta = theta/180*pi;
+			
+			X = [0 + h*sin(theta), cos(theta) + h*sin(theta), cos(theta) - h*sin(theta), 0 - h*sin(theta), 0 + h*sin(theta)];
+			Y = [0 - h*cos(theta), sin(theta) - h*cos(theta), sin(theta) + h*cos(theta), 0 + h*cos(theta), 0 - h*cos(theta)];
+			
+
+			if isempty(hBar)
+				hBar = fill(hAxes, X, Y, 'w');
+			else
+				hBar.Vertices = [X', Y'];
+			end
+			
+			varargout = {hBar};
+		end
 	end
 end
