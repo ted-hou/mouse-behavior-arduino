@@ -953,52 +953,29 @@ void state_post_window()
 		return;
 	}
 
-	if (_isLickOnset || _isLeverPressOnset)
+	if _isLickOnset
 	{
-		if ((_isLickOnset && (_params[USE_LEVER] == 0)) || (_isLeverPressOnset && (_params[USE_LEVER] == 1)))
+		// First lick registration
+		if (!_firstLickRegistered)
 		{
-			// First lick registration
-			if (!_firstMoveRegistered)
-			{
-				_firstMoveRegistered = true;
-				sendEventMarker(EVENT_FIRST_MOVE, -1);
-				_resultCode = CODE_LATE_MOVE;
-				// Retract lever/tube based on trial type
-				if (_params[USE_LEVER] == 1)
-				{
-					deployLever(false);
-				}
-				else
-				{
-					deployTube(false);
-				}
-				_state = STATE_ABORT;
-				return;
-			}
-		}
-		else
-		{
-			_resultCode = CODE_LATE_MOVE;
-			// Retract lever/tube based on trial type
-			if (_params[USE_LEVER] == 1)
-			{
-				deployLever(false);
-			}
-			else
-			{
-				deployTube(false);
-			}
+			_firstLickRegistered = true;
+			sendEventMarker(EVENT_FIRST_LICK, -1);
+			_resultCode = CODE_LATE_LICK;
+
+			// Retract tubes
+			deployTubeL(false);
+			deployTubeR(false);
+				
 			_state = STATE_ABORT;
 			return;
-		}
 	}
 
 	// Trial duration elapsed --> INTERTRIAL
 	if (_command == 'E')
 	{
-		if (!_firstMoveRegistered)
+		if (!_firstLickegistered)
 		{
-			_resultCode = CODE_NO_MOVE;
+			_resultCode = CODE_NO_LICK;
 			sendEventMarker(EVENT_ABORT, -1);
 
 		}
@@ -1027,15 +1004,9 @@ void state_abort_early()
 		// Register events
 		sendEventMarker(EVENT_ABORT_EARLY, -1);
 
-		// Retract lever/tube based on trial type
-		if (_params[USE_LEVER] == 1)
-		{
-			deployLever(false);
-		}
-		else
-		{
-			deployTube(false);
-		}
+		// Retract tubes
+		deployTubeL(false);
+		deployTubeR(false);
 	}
 
 
@@ -1076,15 +1047,9 @@ void state_abort()
 		// Register events
 		sendEventMarker(EVENT_ABORT, -1);
 	
-		// Retract lever/tube based on trial type
-		if (_params[USE_LEVER] == 1)
-		{
-			deployLever(false);
-		}
-		else
-		{
-			deployTube(false);
-		}
+		// Retract tubes
+		deployTubeL(false);
+		deployTubeR(false);
 	}
 
 	/*****************************************************
@@ -1141,8 +1106,7 @@ void state_intertrial()
 		isParamsUpdateStarted = false;
 		isParamsUpdateDone = false;
 
-		// Set lever/tube retracted to false
-		isLeverRetracted = false;
+		// Set tube retracted to false
 		isTubeRetracted = false;
 	}
 
@@ -1165,17 +1129,9 @@ void state_intertrial()
 
 	if (getTimeSinceStimOn() - timeIntertrial >= (_params[ITI_DURATION]) / 2)
 	{
-		// Retract lever/tube based on trial type
-		if ((_params[USE_LEVER] == 1) && isLeverRetracted == false)
-		{
-			deployLever(false);
-			isLeverRetracted = true;
-		}
-		else if ((_params[USE_LEVER] == 0) && isTubeRetracted == false)
-		{
-			deployTube(false);
-			isTubeRetracted = true;
-		}
+		deployLeverL(false);
+		deployLeverR(false);
+		isLeverRetracted = true;
 	}
 
 	/*****************************************************
@@ -1191,7 +1147,7 @@ void state_intertrial()
 	// If ITI elapsed --> START
 	if (isParamsUpdateDone || !isParamsUpdateStarted)
 	{
-		if (((getTimeSinceStimOn() - timeIntertrial) >= _params[ITI_DURATION]) && (getTimeSinceLastLick() >= _params[MOVE_TIMEOUT]))
+		if (((getTimeSinceStimOn() - timeIntertrial) >= _params[ITI_DURATION]) && (getTimeSinceLastLick() >= _params[LICK_TIMEOUT]))
 		{
 			_state = STATE_START;
 			return;
@@ -1302,27 +1258,27 @@ void deployTubeR(bool deploy)
 {
 	if (deploy)
 	{
-		if (_servoStateTube != SERVOSTATE_DEPLOYED)
+		if (_servoStateTubeR != SERVOSTATE_DEPLOYED)
 		{
-			_servoStateTube = SERVOSTATE_DEPLOYING;
+			_servoStateTubeR = SERVOSTATE_DEPLOYING;
 			sendEventMarker(EVENT_TUBE_DEPLOY_START, -1);
 		}
-		_servoStartTimeTube = getTime();
-		_servoSpeedTube = _params[TUBE_SPEED_DEPLOY];
-		_servoStartPosTube = _servoTube.read();
-		_servoTargetPosTube = _params[TUBE_POS_DEPLOYED];
+		_servoStartTimeTubeR = getTime();
+		_servoSpeedTubeR = _params[TUBE_R_SPEED_DEPLOY];
+		_servoStartPosTubeR = _servoTube.read();
+		_servoTargetPosTubeR = _params[TUBE_R_POS_DEPLOYED];
 	}
 	else
 	{
-		if (_servoStateTube != SERVOSTATE_RETRACTED)
+		if (_servoStateTubeR != SERVOSTATE_RETRACTED)
 		{
-			_servoStateTube = SERVOSTATE_RETRACTING;
-			sendEventMarker(EVENT_TUBE_RETRACT_START, -1);
+			_servoStateTubeR = SERVOSTATE_RETRACTING;
+			sendEventMarker(EVENT_TUBE_R_RETRACT_START, -1);
 		}
-		_servoStartTimeTube = getTime();
-		_servoSpeedTube = _params[TUBE_SPEED_RETRACT];
-		_servoStartPosTube = _servoTube.read();
-		_servoTargetPosTube = _params[TUBE_POS_RETRACTED];
+		_servoStartTimeTubeR = getTime();
+		_servoSpeedTubeR = _params[TUBE_SPEED_RETRACT];
+		_servoStartPosTubeR = _servoTube.read();
+		_servoTargetPosTubeR = _params[TUBE_R_POS_RETRACTED];
 	}
 }
 

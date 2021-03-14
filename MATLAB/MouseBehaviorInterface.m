@@ -1370,7 +1370,7 @@ classdef MouseBehaviorInterface < handle
 		end
 		
 		%----------------------------------------------------
-		%		Commmunicating with Arduino
+		%		Communicating with Arduino
 		%----------------------------------------------------
 		function ArduinoStart(obj, ~, ~)
 			if ((~obj.Arduino.AutosaveEnabled) || isempty(obj.Arduino.ExperimentFileName))
@@ -1471,83 +1471,7 @@ classdef MouseBehaviorInterface < handle
 		%----------------------------------------------------
 		%		Visual stimulation for Julia's task
 		%----------------------------------------------------
-		function CreateVisualStim(obj)
-			% make black background
-			opengl hardwarebasic % Big performance improvement, might not be necessary on a computer w/ decent GPU
-
-			hFigure = figure();
-			hAxes = axes(hFigure);
-			hold(hAxes, 'on')
-
-			hFigure.Color = 'k';
-			set(hFigure, 'MenuBar', 'none')
-			set(hFigure, 'NumberTitle', 'off')
-			hFigure.Units = 'Pixels';
-			hFigure.Position = [1920, 30, 1920, 1080]; %if you have a different resolution, change
-
-			undecorateFig(hFigure);	% Stuff from interweb, makes the window borderless
-
-			hAxes.Units = 'Normalized';
-			hAxes.Position = [0, 0, 1, 1];
-
-			axis equal
-
-			hAxes.Visible = 'off';
-
-			xlim(hAxes, 'manual')
-			ylim(hAxes, 'manual')
-			xlim(hAxes, [-1.2, 1.2]);
-			ylim(hAxes, [-1.2, 1.2]);
-
-			obj.Rsc.VisualStimFigure = hFigure;
-			obj.Rsc.VisualStimAxes = hAxes;
-
-			if ~(isfield(obj.Rsc, 'OmegaToITITimer') && isvalid(obj.Rsc.OmegaToITITimer))
-				obj.Rsc.OmegaToITITimer = timer;
-				obj.Rsc.OmegaToITITimer.TimerFcn = {@(~, ~) obj.Arduino.SendMessage('E')};
-			end
-
-			if ~isfield(obj.Rsc, 'FlashingScreenTimer')
-				obj.Rsc.FlashingScreenTimer = timer;
-				obj.Rsc.FlashingScreenTimer.Execution = 'fixedRate';
-				obj.Rsc.FlashingScreenTimer.Period = .167;
-				obj.Rsc.FlashingScreenTimer.TasksToExecute = 6;
-				obj.Rsc.FlashingScreenTimer.TimerFcn = @obj.FlashingScreen;
-			end
-
-			% OnStateChanged Callback
-			obj.Arduino.Listeners.StateChanged_VisualStim = addlistener(obj.Arduino, 'StateChanged', @obj.OnStateChanged_VisualStim);
-
-			% OnTrialRegistered Callback
-			obj.Arduino.Listeners.TrialRegistered_VisualStim = addlistener(obj.Arduino, 'TrialsCompleted', 'PostSet', @obj.OnTrialRegistered_VisualStim);
-		end
 		
-		function DeleteVisualStim(obj, ~, ~)
-			timers = {'OmegaToITITimer', 'BarRefreshTimer', 'BarStatTimer', 'DotsRefreshTimer', 'CueRefreshTimer', 'AbortToStimOffTimer', 'FlashingScreenTimer'};
-			for iTimer = 1:length(timers)
-				if isfield(obj.Rsc, timers{iTimer})
-					if isvalid(obj.Rsc.(timers{iTimer}))
-						stop(obj.Rsc.(timers{iTimer}));
-						delete(obj.Rsc.(timers{iTimer}));
-					end
-				end			
-			end
-			if isfield(obj.Rsc, 'VisualStimFigure')
-				if isvalid(obj.Rsc.VisualStimFigure)
-					delete(obj.Rsc.VisualStimFigure)
-				end
-			end
-			if isfield(obj.Arduino.Listeners, 'StateChanged_VisualStim')
-				if isvalid(obj.Arduino.Listeners.StateChanged_VisualStim)
-					delete(obj.Arduino.Listeners.StateChanged_VisualStim)
-				end
-			end
-			if isfield(obj.Arduino.Listeners, 'TrialRegistered_VisualStim')
-				if isvalid(obj.Arduino.Listeners.TrialRegistered_VisualStim)
-					delete(obj.Arduino.Listeners.TrialRegistered_VisualStim)
-				end
-			end
-		end
 
 		function OnStateChanged_VisualStim(obj, ~, ~)
 			switch upper(obj.Arduino.StateNames{obj.Arduino.State})
