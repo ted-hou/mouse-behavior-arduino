@@ -1116,7 +1116,7 @@ classdef MouseBehaviorInterface < handle
 		end
 		
 		%----------------------------------------------------
-		%		Plot - Histogram of first licks/press duration
+		%		Plot - Histogram of first lick duration
 		%----------------------------------------------------
 		function Hist_GUI(obj, ~, ~)
 			ctrl = obj.Rsc.Monitor.UserData.Ctrl;
@@ -1388,13 +1388,13 @@ classdef MouseBehaviorInterface < handle
 						return
 				end
 			end
-			obj.CreateVisualStim()
+			%obj.CreateVisualStim()
 			obj.Arduino.Start()
 		end
 
 		function ArduinoStop(obj, ~, ~)
 			obj.Arduino.Stop()
-			obj.DeleteVisualStim()
+			ob%j.DeleteVisualStim()
 		end
 
 		function ArduinoReset(obj, ~, ~)
