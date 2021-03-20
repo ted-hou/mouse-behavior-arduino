@@ -28,16 +28,20 @@ Servo _servoTube;
 #define PIN_REWARD_L		24	// SOL_1, which is Juice 2  
 #define PIN_REWARD_R		12	// SOL_0, which is Juice 1  
 
-#define PIN_IR_LAMP		8	// DIO_2
-#define PIN_HOUSE_LAMP	9	// DIO_3?
+#define PIN_IR_LAMP			8	// DIO_2
+#define PIN_HOUSE_LAMP		9	// DIO_3?
+
+#define PIN_SPEAKER_L 		10	// DIO_4
+#define PIN_SPEAKER_R 		11	// DIO_5
+//#define PIN_SPEAKER_CENTER // should I have a center one for go cue?
 // need to check pcb schematic
 
 // PWM OUT
-#define PIN_SERVO_TUBE	6	// DIO_0
+#define PIN_SERVO_TUBE		6	// DIO_0
 
 // Digital IN
-#define PIN_LICK_L		25	// Dedicated, not broken out
-#define PIN_LICK_R		26	// Dedicated, not broken out
+#define PIN_LICK_L			25	// Dedicated, not broken out
+#define PIN_LICK_R			26	// Dedicated, not broken out
 
 #define SERVO_READ_ACCURACY  2
 
@@ -160,6 +164,16 @@ static const char *_resultCodeNames[] =
 	"LATE_LICK",
 	"NO_LICK"
 };
+
+/*****************************************************
+	Audio cue frequencies in Hz
+*****************************************************/
+// Use integers. 1kHz - 100kHz for mice
+enum SoundEventFrequencyEnum
+{
+	TONE_CUE     = 6272
+};
+
 
 /*****************************************************
 	Servo state
@@ -286,8 +300,12 @@ void setup()
 	pinMode(PIN_REWARD_R, OUTPUT);		// Reward, set to HIGH to open juice valve
 	pinMode(PIN_IR_LAMP, OUTPUT);		// IR LED for camera recording
 	pinMode(PIN_HOUSE_LAMP, OUTPUT);	// LED
+	pinMode(PIN_SPEAKER_L, OUTPUT);   	// Speaker for tone
+	pinMode(PIN_SPEAKER_R, OUTPUT);   	// Speaker for tone
+	//pinMode(PIN_SPEAKER_CENTER, OUTPUT);   	// Speaker for tone
 	pinMode(PIN_LICK_L, INPUT);			// Lick detector
 	pinMode(PIN_LICK_R, INPUT);			// Lick detector
+
 
 
 	// Setting unused pins low
@@ -295,12 +313,12 @@ void setup()
 	digitalWrite(4, LOW);
 	pinMode(5, OUTPUT);
 	digitalWrite(5, LOW);
-	// ppinMode(9, OUTPUT);
-	// ddigitalWrite(9, LOW);
-	pinMode(10, OUTPUT);
-	digitalWrite(10, LOW);
-	pinMode(11, OUTPUT);
-	digitalWrite(11, LOW);
+	//pinMode(9, OUTPUT);
+	//digitalWrite(9, LOW);
+	//pinMode(10, OUTPUT);
+	//digitalWrite(10, LOW);
+	//pinMode(11, OUTPUT);
+	//digitalWrite(11, LOW);
 	pinMode(20, OUTPUT);
 	digitalWrite(20, LOW);
 	pinMode(21, OUTPUT);
@@ -1352,6 +1370,20 @@ void handleServoTube()
 			}
 		}
 	}
+}
+
+// Play a tone defined in SoundEventFrequencyEnum
+void playSound(SoundEventFrequencyEnum soundEventFrequency) 
+{
+	long duration = 200;
+
+	if (soundEventFrequency == TONE_CUE)
+	{
+		duration = _params[TONE_DURATION];
+	}
+
+	noTone(PIN_SPEAKER);
+	tone(PIN_SPEAKER, soundEventFrequency, duration);
 }
 
 // Toggle juice valve, register event when state is changed
