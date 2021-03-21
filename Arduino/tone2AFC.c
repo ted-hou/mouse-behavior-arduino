@@ -33,7 +33,7 @@ Servo _servoTube;
 
 #define PIN_SPEAKER_L 		10	// DIO_4
 #define PIN_SPEAKER_R 		11	// DIO_5
-//#define PIN_SPEAKER_CENTER // should I have a center one for go cue?
+#define PIN_SPEAKER_CENTER 	4	// should I have a center one for go cue?
 // need to check pcb schematic
 
 // PWM OUT
@@ -62,7 +62,6 @@ enum State
 	STATE_GO_CUE,				// High-low tone
 	STATE_RESPONSE_WINDOW,		// First lick in this interval rewarded
 	STATE_REWARD,				// Dispense reward, wait for trial timeout
-	STATE_POST_WINDOW,			// No lick - timeout
 	STATE_ABORT,				// Basically a transition state for early licks
 	STATE_ABORT_EARLY,			// Early lick
 	_NUM_STATES					// (Private) Used to count number of states
@@ -82,7 +81,6 @@ static const char *_stateNames[] =
 	"GO_CUE"
 	"RESPONSE_WINDOW",
 	"REWARD",
-	"POST_WINDOW",
 	"ABORT",
 	"ABORT_EARLY",
 };
@@ -171,7 +169,11 @@ static const char *_resultCodeNames[] =
 // Use integers. 1kHz - 100kHz for mice
 enum SoundEventFrequencyEnum
 {
-	TONE_CUE     = 6272
+	//TONE_CUE    = 6272
+	HIGH_TONE	= 32000
+	LOW_TONE	= 8000
+	MID_TONE 	= 16000
+	// salience difference?? WHITE_NOISE	=
 };
 
 
@@ -200,6 +202,7 @@ enum ParamID
 	LICK_TIMEOUT,				// Delay ends if premature lick --> 
 	REWARD_DURATION,			// Reward duration (ms)
 	DELAY_DURATION,				// Delay length
+	RESPONSE_DURATION,			// Alloted time for lick response
 	ALLOW_EARLY_LICK,			// 0 to abort trial if animal licks after in pre-window
 	NO_LICK_TIMEOUT,			// Timeout before next trial
 	LICK_REWARD,				// If mouse presses licks, gets reward
@@ -226,6 +229,7 @@ static const char *_paramNames[] =
 	"LICK_TIMEOUT",				// Delay ends if premature lick 
 	"REWARD_DURATION",			// Reward duration (ms)
 	"DELAY_DURATION",			// Delay length
+	"RESPONSE_DURATION",		// Alloted time for lick response
 	"ALLOW_EARLY_LICK",			// 0 to abort trial if animal licks after in pre-window
 	"NO_LICK_TIMEOUT",			// Timeout before next trial
 	"LICK_REWARD",				// If mouse presses licks, gets reward
@@ -250,6 +254,7 @@ long _params[_NUM_PARAMS] =
 	1500,	// LICK_TIMEOUT
 	60,		// REWARD_DURATION
 	3000,	// DELAY_DURATION
+	3000,	// RESPONSE_DURATION
 	0,		// ALLOW_EARLY_LICK
 	1,		// EARLY_LICK_TIMEOUT
 	0,		// LICK_REWARD
@@ -302,15 +307,15 @@ void setup()
 	pinMode(PIN_HOUSE_LAMP, OUTPUT);	// LED
 	pinMode(PIN_SPEAKER_L, OUTPUT);   	// Speaker for tone
 	pinMode(PIN_SPEAKER_R, OUTPUT);   	// Speaker for tone
-	//pinMode(PIN_SPEAKER_CENTER, OUTPUT);   	// Speaker for tone
+	pinMode(PIN_SPEAKER_CENTER, OUTPUT);// Speaker for tone
 	pinMode(PIN_LICK_L, INPUT);			// Lick detector
 	pinMode(PIN_LICK_R, INPUT);			// Lick detector
 
 
 
 	// Setting unused pins low
-	pinMode(4, OUTPUT);
-	digitalWrite(4, LOW);
+	//pinMode(4, OUTPUT);
+	//digitalWrite(4, LOW);
 	pinMode(5, OUTPUT);
 	digitalWrite(5, LOW);
 	//pinMode(9, OUTPUT);
@@ -453,10 +458,6 @@ void loop()
 				state_reward();
 				break;
 
-			case STATE_POST_WINDOW:
-				state_post_window();
-				break;
-
 			case STATE_ABORT:
 				state_abort();
 				break;
@@ -488,6 +489,9 @@ void state_idle()
 
 		// Reset output
 		// setIRLamp(true);
+		noTone(PIN_SPEAKER_L);
+		noTone(PIN_SPEAKER_R);
+		noTone(PIN_SPEAKER_CENTER);
 		setReward(false);
 		deployTube(true);
 	}
@@ -651,6 +655,7 @@ void state_stim_on()
 
 
 		// PLAY STIM	
+		// playSound()
 		// will need outputfor L and R speakers
 
 		//event_Stim_on
@@ -800,7 +805,7 @@ void state_go_cue()
 		return;	
 	}
 
-	// _delay elapsed --> RESPONSE_WINDOW
+	// go cue elapsed --> RESPONSE_WINDOW
 	if getTimeSinceStimOn() >= _params[GO_CUE_DURATION]
 	{
 		sendEventMarker(EVENT_GO_CUE_OFF, -1);
@@ -875,6 +880,14 @@ void state_response_window()
 	{
 		_resultCode = CODE_PAVLOVIAN;
 		_state = STATE_REWARD;
+		return;
+	}
+
+	// response window elapsed --> ABORT
+	if getTimeSinceStimOn() >= _params[RESPONSE_DURATION]
+	{
+		_resultCode = CODE_NO_LICK;
+		_state = STATE_ABORT;
 		return;
 	}
 
@@ -967,64 +980,6 @@ void state_reward()
 	}
 
 	_state = STATE_REWARD;
-}
-
-/*****************************************************
-	Post Window - No lick or late lick timeout
-*****************************************************/
-void state_post_window()
-{
-	/*****************************************************
-		ACTION LIST
-	*****************************************************/
-	if (_state != _prevState) 
-	{
-		// Register new state
-		_prevState = _state;
-		sendState(_state);
-	}
-
-	/*****************************************************
-		TRANSITION LIST
-	*****************************************************/
-	// Quit signal from host --> IDLE
-	if (_command == 'Q') 
-	{
-		_state = STATE_IDLE;
-		return;
-	}
-
-	if _isLickOnset
-	{
-		// First lick registration
-		if (!_firstLickRegistered)
-		{
-			_firstLickRegistered = true;
-			sendEventMarker(EVENT_FIRST_LICK, -1);
-			_resultCode = CODE_LATE_LICK;
-
-			// Retract tubes
-			deployTubeL(false);
-			deployTubeR(false);
-				
-			_state = STATE_ABORT;
-			return;
-	}
-
-	// Trial duration elapsed --> INTERTRIAL
-	if (_command == 'E')
-	{
-		if (!_firstLickegistered)
-		{
-			_resultCode = CODE_NO_LICK;
-			sendEventMarker(EVENT_ABORT, -1);
-
-		}
-		_state = STATE_INTERTRIAL;
-		return;
-	}
-
-	_state = STATE_POST_WINDOW;
 }
 
 
