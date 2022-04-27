@@ -15,23 +15,23 @@ Servo _servoTube;
 *****************************************************/
 // Digital OUT
 #define PIN_HOUSE_LAMP			20
+#define PIN_HOUSE_LAMP_2		11
 #define PIN_LED_CUE				5
 #define PIN_REWARD				12
-#define PIN_OPTOGEN_STIM		4
-#define PIN_LASER_GATE 			14
+#define PIN_OPTOGEN_STIM		22
+#define PIN_OPTOGEN_GALVO		23
 
 // Mirrors to blackrock
 #define PIN_MIRROR_CUE 			6
 #define PIN_MIRROR_REWARD 		7
 #define PIN_MIRROR_LICK 		8
 #define PIN_MIRROR_LEVER 		9
-#define PIN_MIRROR_OPTOGEN_STIM	10
-#define PIN_MIRROR_LASER_GATE 	11
+#define PIN_MIRROR_HOUSE_LAMP 	10
 
 // PWM OUT
 #define PIN_SPEAKER				21
-#define PIN_SERVO_LEVER			22
-#define PIN_SERVO_TUBE			23
+#define PIN_SERVO_LEVER			14
+#define PIN_SERVO_TUBE			15
 
 // Digital IN
 #define PIN_LICK				25
@@ -39,7 +39,7 @@ Servo _servoTube;
 
 #define SERVO_READ_ACCURACY 1
 
-static const int _allPins[] = {6, 7, 8, 9, 10, 11, 5, 4, 20, 21, 22, 23};
+static const int _allPins[] = {20, 11, 5, 12, 22, 23, 6, 7, 8, 9, 10, 21};
 
 /*****************************************************
 	Enums - DEFINE States
@@ -110,8 +110,8 @@ enum EventMarker
 	EVENT_OPTOGEN_STIM_OFF,			// End optogenetic stim (single pulse end)
 	EVENT_OPTOGEN_STIM_START,		// Begin optogenetic stim (pulse train start)
 	EVENT_OPTOGEN_STIM_END,			// End optogenetic stim (pulse train end)
-	EVENT_LASER_POWER_ON,			// Laser powered on (not AOM)
-	EVENT_LASER_POWER_OFF,			// Laser powered off (not AOM)
+	EVENT_OPTOGEN_GALVO_ON,			// Begin galvo voltage
+	EVENT_OPTOGEN_GALVO_OFF,		// End galvo voltage
 	_NUM_OF_EVENT_MARKERS
 };
 
@@ -145,8 +145,8 @@ static const char *_eventMarkerNames[] =
 	"OPTOGEN_STIM_OFF",				// End optogenetic stim (single pulse end)
 	"OPTOGEN_STIM_START",			// Begin optogenetic stim (pulse train start)
 	"OPTOGEN_STIM_END",				// End optogenetic stim (pulse train end)
-	"EVENT_LASER_POWER_ON",			// Laser powered on (not AOM)
-	"EVENT_LASER_POWER_OFF",		// Laser powered off (not AOM)
+	"OPTOGEN_GALVO_ON",				// End optogenetic stim (pulse train end)
+	"OPTOGEN_GALVO_OFF"				// Begin galvo voltage
 };
 
 /*****************************************************
@@ -228,7 +228,7 @@ enum ParamID
 	OPTO_PULSE_DURATION,			// Optogenetic stim, duration of single pulse (ms)
 	OPTO_PULSE_INTERVAL,			// Optogenetic stim, interval between pulses (ms)
 	OPTO_NUM_PULSES,				// Optogenetic stim, number of pulses to deliver
-	OPTO_GATE_WIGGLEROOM,			// Time before and after stim train when laser (not AOM) is turned on/off.
+	OPTO_GALVO_MARGIN,				// Time margin used to set galvo before stim train, and unset after stim train (ms) 
 	_NUM_PARAMS						// (Private) Used to count how many parameters there are so we can initialize the param array with the correct size. Insert additional parameters before this.
 };
 
@@ -265,7 +265,7 @@ static const char *_paramNames[] =
 	"OPTO_PULSE_DURATION",
 	"OPTO_PULSE_INTERVAL",
 	"OPTO_NUM_PULSES",
-	"OPTO_GATE_WIGGLEROOM"
+	"OPTO_GALVO_MARGIN"
 };
 
 // Initialize parameters
@@ -281,26 +281,26 @@ long _params[_NUM_PARAMS] =
 	4000,	// INTERVAL_MIN
 	7000,	// INTERVAL_TARGET
 	10000,	// INTERVAL_MAX
-	3000,	// ITI_MIN
-	10000,	// ITI_MAX
-	2000,	// ITI_LICK_TIMEOUT
-	3000,	// RANDOM_DELAY_MIN
-	6000,	// RANDOM_DELAY_MAX
-	50,		// CUE_DURATION
+	2000,	// ITI_MIN
+	4000,	// ITI_MAX
+	500,	// ITI_LICK_TIMEOUT
+	2000,	// RANDOM_DELAY_MIN
+	3000,	// RANDOM_DELAY_MAX
+	99,		// CUE_DURATION
 	100, 	// REWARD_DURATION
-	115,	// LEVER_POS_RETRACTED
+	110,	// LEVER_POS_RETRACTED
 	80,		// LEVER_POS_DEPLOYED
 	42,		// LEVER_SPEED_DEPLOY
 	42,		// LEVER_SPEED_RETRACT
-	85,		// TUBE_POS_RETRACTED (~ 50 == 0 mm)
-	100,	// TUBE_POS_DEPLOYED (~ 125 == 30 mm)
-	18,		// TUBE_SPEED_DEPLOY
-	18,		// TUBE_SPEED_RETRACT
-	1,		// OPTO_ENABLED,
-	100,	// OPTO_PULSE_DURATION,
-	100,	// OPTO_PULSE_INTERVAL,
-	10,		// OPTO_NUM_PULSES,
-	500		// OPTO_GATE_WIGGLEROOM
+	60,		// TUBE_POS_RETRACTED (~ 50 == 0 mm)
+	90,		// TUBE_POS_DEPLOYED (~ 125 == 30 mm)
+	36,		// TUBE_SPEED_DEPLOY
+	36,		// TUBE_SPEED_RETRACT
+	0,		// OPTO_ENABLED,
+	10,		// OPTO_PULSE_DURATION,
+	250,	// OPTO_PULSE_INTERVAL,
+	5,		// OPTO_NUM_PULSES
+	500 	// OPTO_GALVO_MARGIN
 };
 
 /*****************************************************
@@ -346,7 +346,7 @@ static unsigned long _whiteNoiseLastClick 	= 0;					// (us)
 
 // Optogenetics stimulation
 static bool _isOptogenStimOn 		= false;		// Whether optogenetic stimulation is currently on
-static bool _isLaserGateOn 			= false;		// Whether laser gate is open
+static bool _isGalvoOn 				= false;		// Whether galvo is deployed
 
 /*****************************************************
 	Setup
@@ -362,19 +362,21 @@ void setup()
 
 	// Init pins
 	pinMode(PIN_HOUSE_LAMP, OUTPUT);            // LED for illumination
+	pinMode(PIN_HOUSE_LAMP_2, OUTPUT);          // LED for illumination
 	pinMode(PIN_LED_CUE, OUTPUT);               // LED for 'start' cue
 	pinMode(PIN_SPEAKER, OUTPUT);               // Speaker for cue tone
 	pinMode(PIN_REWARD, OUTPUT);				// Reward, set to HIGH to open juice valve
 	pinMode(PIN_OPTOGEN_STIM, OUTPUT);			// Laser/LED for optogentics stim
+	pinMode(PIN_OPTOGEN_GALVO, OUTPUT);			// Galvo mirror trigger
 
 	pinMode(PIN_LICK, INPUT);					// Lick detector (input)
 	pinMode(PIN_LEVER, INPUT);					// Lever press detector (input)
 
+	pinMode(PIN_MIRROR_HOUSE_LAMP, OUTPUT);		// LED for illumination during 10 second trial
 	pinMode(PIN_MIRROR_CUE, OUTPUT);			// LED for 'start' cue (mirrored output to blackrock)
 	pinMode(PIN_MIRROR_REWARD, OUTPUT);			// Reward (mirrored output to blackrock)
 	pinMode(PIN_MIRROR_LICK, OUTPUT);			// Lick detector (mirrored output to blackrock)
 	pinMode(PIN_MIRROR_LEVER, OUTPUT);			// Lever press detector (mirrored output to blackrock)
-	pinMode(PIN_MIRROR_OPTOGEN_STIM, OUTPUT);	// Laser/LED for optogentics stim (mirrored output to blackrock)
 
 	// Initiate servo
 	_servoLever.attach(PIN_SERVO_LEVER);
@@ -390,12 +392,13 @@ void mySetup()
 	setHouseLamp(true);						// House Lamp ON
 	setCueLED(false);						// Cue LED OFF
 	setOptogenStim(false);					// Optogenetic stim OFF
+	setGalvo(false);
 
 	// Reset variables
 	_timeReset				= 0;			// Reset to signedMillis() at every soft reset
 	_timeTrialStart			= 0;			// Reset to 0 at start of trial
 	_timeCueOn				= 0;			// Reset to 0 at cue on
-	 _resultCode			= -1;			// Result code. -1 if there is no result.
+	_resultCode				= -1;			// Result code. -1 if there is no result.
 	_state					= _STATE_INIT;	// This variable (current _state) get passed into a _state function, which determines what the next _state should be, and updates it to the next _state.
 	_prevState				= _STATE_INIT;	// Remembers the previous _state from the last loop (actions should only be executed when you enter a _state for the first time, comparing currentState vs _prevState helps us keep track of that).
 	_command				= ' ';			// Command char received from host, resets on each loop
@@ -428,7 +431,7 @@ void mySetup()
 	_whiteNoiseLastClick 	= 0;					// (us)
 
 	_isOptogenStimOn 		= false;		// Whether optogenetic stimulation is currently on
-	_isLaserGateOn 			= false;
+	_isGalvoOn				= false;		// Whether galvo mirror is deployed
 
 	// Sends all parameters, states and error codes to Matlab, then tell PC that we're running by sending '~' message:
 	hostInit();
@@ -545,10 +548,10 @@ void state_idle()
 		sendState(_state);
 
 		// Reset output
-		setHouseLamp(true);
+		setHouseLamp(false);
 		setCueLED(false);
 		setOptogenStim(false);
-		setLaserGate(false);
+		setGalvo(false);
 		noTone(PIN_SPEAKER);
 		setReward(false);
 		deployLever(false);
@@ -618,8 +621,8 @@ void state_intertrial()
 		sendResultCode(_resultCode);
 		_resultCode = -1;
 
-		// Houselamp on (if not already on)
-		setHouseLamp(true);
+		// Houselamp off
+		setHouseLamp(false);
 
 		// Retract lever
 		if (_params[USE_LEVER] == 1)
@@ -717,7 +720,7 @@ void state_pre_cue()
 		sendEventMarker(EVENT_TRIAL_START, -1);
 
 		// Turn off house lamp
-		setHouseLamp(true);
+		setHouseLamp(false);
 
 		// Lever task: deploy lever, no tube
 		if (_params[USE_LEVER] == 1)
@@ -795,6 +798,7 @@ void state_pre_window()
 
 		// LED and audio cue
 		setCueLED(true);
+		setHouseLamp(true);
 		playSound(TONE_CUE);
 
 		// Register cue on time
@@ -1052,9 +1056,6 @@ void state_abort()
 		// Play abort tone
 		playWhiteNoise(50, 200);
 
-		// Houselamp on
-		setHouseLamp(true);
-
 		// Cue LED off just in case
 		setCueLED(false);
 
@@ -1126,14 +1127,14 @@ void state_optogen_stim()
 		timeEnter = getTime();
 		numPulsesComplete = 0;
 
-		// Start the first pulse
-		setLaserGate(true);
+		// Set galvo
+		setGalvo(true);
 	}
 
 	/*****************************************************
 		OnEachLoop checks
 	*****************************************************/
-	if (getTime() - timeEnter >= _params[OPTO_GATE_WIGGLEROOM] && numPulsesComplete < _params[OPTO_NUM_PULSES])
+	if (getTime() - timeEnter >= _params[OPTO_GALVO_MARGIN] && numPulsesComplete < _params[OPTO_NUM_PULSES])
 	{
 		// If stim is on, check if it needs to be turned off
 		if (_isOptogenStimOn)
@@ -1172,9 +1173,9 @@ void state_optogen_stim()
 	}
 
 	// Stim train complete --> PRE_CUE (after random delay) or IDLE
-	if (getTime() >= timePulseEnd + _params[OPTO_GATE_WIGGLEROOM] && numPulsesComplete >= _params[OPTO_NUM_PULSES])
+	if (getTime() >= timePulseEnd + _params[OPTO_GALVO_MARGIN] && numPulsesComplete >= _params[OPTO_NUM_PULSES])
 	{
-		setLaserGate(false);
+		setGalvo(false);
 		if (entryState == STATE_INTERTRIAL)
 		{
 			if (getTime() - timePulseEnd >= randomDelay)
@@ -1203,6 +1204,8 @@ void setHouseLamp(bool turnOn)
 	if (turnOn) 
 	{
 		digitalWrite(PIN_HOUSE_LAMP, HIGH);
+		digitalWrite(PIN_HOUSE_LAMP_2, HIGH);
+		digitalWrite(PIN_MIRROR_HOUSE_LAMP, HIGH);
 		if (!houseLampOn)
 		{
 			houseLampOn = true;
@@ -1212,6 +1215,8 @@ void setHouseLamp(bool turnOn)
 	else 
 	{
 		digitalWrite(PIN_HOUSE_LAMP, LOW);
+		digitalWrite(PIN_HOUSE_LAMP_2, LOW);
+		digitalWrite(PIN_MIRROR_HOUSE_LAMP, LOW);
 		if (houseLampOn)
 		{
 			houseLampOn = false;
@@ -1255,7 +1260,6 @@ void setOptogenStim(bool turnOn)
 		{
 			_isOptogenStimOn = true;
 			digitalWrite(PIN_OPTOGEN_STIM, HIGH);
-			digitalWrite(PIN_MIRROR_OPTOGEN_STIM, HIGH);
 			sendEventMarker(EVENT_OPTOGEN_STIM_ON, -1);
 		}
 	}
@@ -1265,37 +1269,33 @@ void setOptogenStim(bool turnOn)
 		{
 			_isOptogenStimOn = false;
 			digitalWrite(PIN_OPTOGEN_STIM, LOW);
-			digitalWrite(PIN_MIRROR_OPTOGEN_STIM, LOW);
 			sendEventMarker(EVENT_OPTOGEN_STIM_OFF, -1);
 		}
 	}
 } 
 
-// Toggle laser on/off
-void setLaserGate(bool turnOn)
+// Toggle galvo
+void setGalvo(bool turnOn)
 {
 	if (turnOn)
 	{
-		if (!_isLaserGateOn)
+		if (!_isGalvoOn)
 		{
-			_isLaserGateOn = true;
-			digitalWrite(PIN_LASER_GATE, HIGH);
-			digitalWrite(PIN_MIRROR_LASER_GATE, HIGH);
-			sendEventMarker(EVENT_LASER_POWER_ON, -1);
+			_isGalvoOn = true;
+			digitalWrite(PIN_OPTOGEN_GALVO, HIGH);
+			sendEventMarker(EVENT_OPTOGEN_GALVO_ON, -1);
 		}
 	}
 	else
 	{
-		if (_isLaserGateOn)
+		if (_isGalvoOn)
 		{
-			_isLaserGateOn = false;
-			digitalWrite(PIN_LASER_GATE, LOW);
-			digitalWrite(PIN_MIRROR_LASER_GATE, LOW);
-			sendEventMarker(EVENT_LASER_POWER_OFF, -1);
+			_isGalvoOn = false;
+			digitalWrite(PIN_OPTOGEN_GALVO, LOW);
+			sendEventMarker(EVENT_OPTOGEN_GALVO_OFF, -1);
 		}
 	}
 }
-
 
 // Lick detection
 bool getLickState() 
