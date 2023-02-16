@@ -936,6 +936,11 @@ void state_intertrial()
 		// Register events
 		sendEventMarker(EVENT_ITI, -1);
 
+		// Set lever position randomly using setLevelPosition function
+		int leverPosition = random(0, 4);
+		char leverPositionNames[4] = {'A', 'B', 'C', 'D'}; 
+		setLeverPosition(leverPositionNames(leverPosition));
+
 		// Retract lick tube immediately if incorrect
 		isTubeRetracted = false;
 		if (_resultCode != CODE_CORRECT)
