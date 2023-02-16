@@ -24,6 +24,7 @@ classdef ArduinoConnection < handle
 		Connected = false
 		AutosaveEnabled = false
 		SerialConnection = []
+		MotorConnection = []
 		State = []
 		ParamUpdateQueue = []
 		EventMarkersBuffer = []
@@ -51,8 +52,12 @@ classdef ArduinoConnection < handle
 				%-----------------------------------------------
 				%		Start Serial Connection
 				%-----------------------------------------------
+				% Define the serial port object for the motor controller
+				motorPortName = '/dev/cu.usbmodem142301';
+				motorSerial = serialport(motorPortName,115200); 
+				obj.MotorConnection = motorSerial;
 
-				% Define the serial port object.
+				% Define the serial port object for the experiment controller.
 				fprintf('Starting serial on port: %s\n', arduinoPortName)
 				serialPort = serial(arduinoPortName);
 				
@@ -63,7 +68,7 @@ classdef ArduinoConnection < handle
 				% to be read from the port's buffer.
 				serialPort.BytesAvailableFcn = @obj.OnMessageReceived;
 				serialPort.BytesAvailableFcnMode = 'terminator';
-
+				
 				% Open the serial port for reading and writing.
 				obj.SerialConnection = serialPort;
 				fopen(serialPort);
@@ -370,6 +375,13 @@ classdef ArduinoConnection < handle
 					codeId = str2num(subStrings{1}) + 1;
 					% Register parameter name and value
 					obj.ResultCodeNames{codeId} = subStrings{2};
+				case 'M'
+					% Arduino sent a motor command
+					motorCommand = value(2:end); % trim off first character (M)
+					motorCommand = strtrim(value); % trim empty spaces
+					write(obj.MotorConnection, motorCommand, 'string');
+					response = readline(obj.MotorConnection);
+					fprintf(response);
 				case '~'
 					fprintf('\nUp and running.\n')
 				otherwise
@@ -457,6 +469,9 @@ classdef ArduinoConnection < handle
 		function Close(obj)
 			if ~isempty(obj.SerialConnection)
 				fclose(obj.SerialConnection);
+			end
+			if ~isempty(obj.MotorConnection)
+				delete(obj.MotorConnection)
 			end
 		end
 

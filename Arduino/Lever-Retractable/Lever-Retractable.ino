@@ -199,6 +199,10 @@ enum ParamID
 	TUBE_POS_DEPLOYED,			// Servo (juice tube) position when juice tube is deployed (full is ~ 125)
 	TUBE_SPEED_DEPLOY,			// Servo (juice tube) advance speed when deploying, 0 for max speed
 	TUBE_SPEED_RETRACT,			// Servo (juice tube) retract speed when retracting, 0 for max speed
+	LEVER_POSITION_A,			// Motor position A
+	LEVER_POSITION_B,			// Motor position B
+	LEVER_POSITION_C,			// Motor position C
+	LEVER_POSITION_D,			// Motor position D
 	_NUM_PARAMS					// (Private) Used to count how many parameters there are so we can initialize the param array with the correct size. Insert additional parameters before this.
 };
 
@@ -230,7 +234,11 @@ static const char *_paramNames[] =
 	"TUBE_POS_RETRACTED",
 	"TUBE_POS_DEPLOYED",
 	"TUBE_SPEED_DEPLOY",
-	"TUBE_SPEED_RETRACT"
+	"TUBE_SPEED_RETRACT",
+	"LEVER_POSITION_A",
+	"LEVER_POSITION_B",
+	"LEVER_POSITION_C",
+	"LEVER_POSITION_D"
 };
 
 // Initialize parameters
@@ -261,6 +269,10 @@ long _params[_NUM_PARAMS] =
 	100,	// TUBE_POS_DEPLOYED (~ 125 == 30 mm)
 	18,		// TUBE_SPEED_DEPLOY
 	18		// TUBE_SPEED_RETRACT
+	0,		// LEVER_POSITION_A
+	90,		// LEVER_POSITION_B
+	180,	// LEVER_POSITION_C
+	270		// LEVER_POSITION_D
 };
 
 /*****************************************************
@@ -1166,7 +1178,7 @@ void deployLever(bool deploy)
 	}
 }
 
-// Use servo to retract/present lever to the little dude
+// Use servo to retract/present tube to the little dude
 void deployTube(bool deploy)
 {
 	if (deploy)
@@ -1299,6 +1311,22 @@ void handleServoTube()
 	}
 }
 
+void setLeverPosition(char position) {
+	switch (position) {
+	case 'A':
+		sendMessage("M G " + String(_params[LEVER_POSITION_A]) + ';');")
+		break;
+	case 'B':
+		sendMessage("M G " + String(_params[LEVER_POSITION_B]) + ';');")
+		break;
+	case 'C':
+		sendMessage("M G " + String(_params[LEVER_POSITION_C]) + ';');")
+		break;
+	case 'D':
+		sendMessage("M G " + String(_params[LEVER_POSITION_D]) + ';');")
+		break;
+	}
+}
 // Play a tone defined in SoundEventFrequencyEnum
 void playSound(SoundEventFrequencyEnum soundEventFrequency) 
 {

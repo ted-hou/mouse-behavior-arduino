@@ -22,9 +22,9 @@ classdef MouseBehaviorInterface < handle
 				obj.CreateDialog_Splash()
 			end
 
-			% Establish arduino connection
+			% Establish arduino connection to experiment controller
 			obj.Arduino = ArduinoConnection(arduinoPortName);
-
+                
 			% If offline and no file selected quit
 			if strcmp(arduinoPortName, '/offline') && isempty(obj.Arduino.ExperimentFileName)
 				return
@@ -610,7 +610,7 @@ classdef MouseBehaviorInterface < handle
 		function CreateDialog_Splash(obj)
 			% Load image
 			[fncpath, ~, ~] = fileparts(which('MouseBehaviorInterface'));
-			img = imread([fncpath, '\logo.png']);
+			img = imread([fncpath, filesep, 'logo.png']);
 
 			% Create java window object
 			splashImage = im2java(img);
