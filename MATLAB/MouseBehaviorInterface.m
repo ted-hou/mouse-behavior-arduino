@@ -207,6 +207,29 @@ classdef MouseBehaviorInterface < handle
 				button_stim.Enable = 'off';
 			end
 
+			% Zero motor stim button
+			ctrlPosBase = button_stim.Position;
+			ctrlPos = [...
+				ctrlPosBase(1),...
+				ctrlPosBase(2) - buttonHeight - ctrlSpacing,...
+				buttonWidth,...	
+				buttonHeight...
+			];
+			button_zero = uicontrol(...
+				'Parent', dlg,...
+				'Style', 'pushbutton',...
+				'Position', ctrlPos,...
+				'String', 'Zero',...
+				'TooltipString', 'Set current motor position as zero.',...
+				'Callback', @obj.ArduinoZeroMotor...
+			);
+			dlg.UserData.Ctrl.ButtonZero = button_zero;
+			if obj.Arduino.CanZeroMotor()
+				button_zero.Enable = 'on';
+			else
+				button_zero.Enable = 'off';
+			end
+
 			% Resize dialog so it fits all controls
 			dlg.Position(1:2) = [10, 50];
 			dlg.Position(3) = table_params.Position(3) + buttonWidth + 4*ctrlSpacing;
@@ -1021,10 +1044,15 @@ classdef MouseBehaviorInterface < handle
 
 			if isvalid(obj.Rsc.ExperimentControl)
 				if obj.Arduino.OptogenStimAvailable()
-					obj.Rsc.ExperimentControl.UserData.Ctrl.ButtonStim.Enable = 'on';
+                    obj.Rsc.ExperimentControl.UserData.Ctrl.ButtonStim.Enable = 'on';
+                else
+                    obj.Rsc.ExperimentControl.UserData.Ctrl.ButtonStim.Enable = 'off';
+                end
+				if obj.Arduino.CanZeroMotor()
+					obj.Rsc.ExperimentControl.UserData.Ctrl.ButtonZero.Enable = 'on';
 				else
-					obj.Rsc.ExperimentControl.UserData.Ctrl.ButtonStim.Enable = 'off';
-				end
+					obj.Rsc.ExperimentControl.UserData.Ctrl.ButtonZero.Enable = 'off';
+                end
 			end
 		end
 
@@ -1113,9 +1141,9 @@ classdef MouseBehaviorInterface < handle
 			hold(ax, 'off')
 
 			% Annotations
-			lgd = legend(ax, 'Location', 'northoutside');
-			lgd.Interpreter = 'none';
-			lgd.Orientation = 'horizontal';
+% 			lgd = legend(ax, 'Location', 'northoutside');
+% 			lgd.Interpreter = 'none';
+% 			lgd.Orientation = 'horizontal';
 
 			ax.XLimMode 		= 'auto';
 			ax.XLim 			= [max([-5000, ax.XLim(1) - 100]), ax.XLim(2) + 100];
@@ -1374,8 +1402,8 @@ classdef MouseBehaviorInterface < handle
 			eventTimesOfInterest 	= eventTimesOfInterest - eventTimesZero;
 
 			% Plot histogram of selected event times
-			histogram(ax, eventTimesOfInterest/1000, 'BinEdges', round(min(eventTimesOfInterest/1000)):numBins:round(max(eventTimesOfInterest/1000)), 'DisplayName', obj.Arduino.EventMarkerNames{eventCodeOfInterest})
-			lgd = legend(ax, 'Location', 'northoutside');
+			hHist = histogram(ax, eventTimesOfInterest/1000, 'BinEdges', round(min(eventTimesOfInterest/1000)):numBins:round(max(eventTimesOfInterest/1000)), 'DisplayName', obj.Arduino.EventMarkerNames{eventCodeOfInterest});
+			lgd = legend(ax, hHist, 'Location', 'northoutside');
 			lgd.Interpreter 	= 'none';
 			lgd.Orientation 	= 'horizontal';
 			ax.XLabel.String 	= 'Time (s)';
@@ -1637,6 +1665,10 @@ classdef MouseBehaviorInterface < handle
 
 		function ArduinoOptogenStim(obj, ~, ~)
 			obj.Arduino.OptogenStim()
+        end
+
+		function ArduinoZeroMotor(obj, ~, ~)
+			obj.Arduino.ZeroMotor()
 		end
 	end
 

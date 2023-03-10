@@ -504,7 +504,26 @@ classdef ArduinoConnection < handle
 			else
 				canStim = false;
 			end
-		end
+        end
+
+        % Zero motor
+        function ZeroMotor(obj)
+            if obj.CanZeroMotor()
+                obj.SendMessage('Z');
+            end
+        end
+
+        function b = CanZeroMotor(obj)
+            if obj.Connected
+                if any(strcmpi(obj.ParamNames, 'UNITS_PER_REV')) && strcmpi(obj.StateNames{obj.State}, 'IDLE')
+                    b = true;
+                else
+                    b = false;
+                end
+            else
+                b = false;
+            end
+        end
 	end
 
 	methods (Static)
