@@ -31,7 +31,7 @@
 // How many phyical units of translation in one complete motor revolution?
 //    (Units could be pixels, mm, degrees, etc...)
 // We can compute our conversion factor:
-#define UNITS_PER_MICROSTEP ((float)_params[UNITS_PER_REV] / (float)MICROSTEPS_PER_MOTOR_REV)
+#define UNITS_PER_MICROSTEP (_params[UNITS_PER_REV] / (float)MICROSTEPS_PER_MOTOR_REV)
 
 // Extra boost for acceleration; Reduce power for holding still
 #define K_ACCL 1.2 // fraction of full voltage for acceleration
@@ -50,8 +50,6 @@ XNucleoStepper motor2(1, PIN_CS, PIN_RESET);
 #define PIN_MOTOR_TARGET_1 5
 #define PIN_MOTOR_TARGET_2 6
 #define PIN_MOTOR_BUSY 7
-
-#define MOTOR_POS_TOLERANCE 2
 
 /*****************************************************
 	States, Events, Results
@@ -77,6 +75,8 @@ enum ParamID
 	TARGET_2,
 	TARGET_3,
 	TARGET_4,
+	MOVE_DISTANCE,
+	TARGET_TOLERANCE,
 	_NUM_PARAMS
 };
 
@@ -90,10 +90,12 @@ static const char *_paramNames[] =
 	"TARGET_1",
 	"TARGET_2",
 	"TARGET_3",
-	"TARGET_4"
+	"TARGET_4",
+	"MOVE_DISTANCE",
+	"TARGET_TOLERANCE"
 };
 
-long _params[_NUM_PARAMS] =
+float _params[_NUM_PARAMS] =
 {
 	0,		// _DEBUG
 	360,	// UNITS_PER_REV
@@ -104,6 +106,8 @@ long _params[_NUM_PARAMS] =
 	360+90,	// TARGET_2
 	720+180,	// TARGET_3
 	1080+270,	// TARGET_4
+	0,	// MOVE_DISTANCE
+	5	// TARGET_TOLERANCE
 };
 
 bool _isMotorParam[_NUM_PARAMS] =
@@ -116,7 +120,9 @@ bool _isMotorParam[_NUM_PARAMS] =
 	false,	// TARGET_1
 	false,	// TARGET_2
 	false,	// TARGET_3
-	false	// TARGET_4
+	false,	// TARGET_4
+	false,	// MOVE_DISTANCE
+	false	// TARGET_TOLERANCE
 };
 
 // Framework variables
@@ -125,8 +131,10 @@ static int _resultCode = -1;
 static State _state = _STATE_INIT;
 static State _prevState = _STATE_INIT;
 static char _command = ' ';
-static int _arguments[2] = {0};
+static float _arguments[2] = {0};
 static float motorTarget = 0;
+static bool useMoveCommand = false;
+static float moveCommandDistance = 0;
 
 void setup()
 {
@@ -156,6 +164,8 @@ void mySetup()
 {
 	// Reset variables
 	motorTarget = 0;
+	useMoveCommand = false;
+	moveCommandDistance = 0;
 	_timeReset				= 0;			// Reset to signedMillis() at every soft reset
 	_resultCode				= -1;			// Result code. -1 if there is no result.
 	_state					= _STATE_INIT;	// This variable (current _state) get passed into a _state function, which determines what the next _state should be, and updates it to the next _state.
@@ -238,7 +248,8 @@ void state_idle()
 		// Register new state
 		_prevState = _state;
 		sendState(_state);
-		softHiZ();
+		softStop();
+		useMoveCommand = false;
 		digitalWrite(PIN_MOTOR_BUSY, LOW);
 	}
 
@@ -248,8 +259,9 @@ void state_idle()
 	// Received new param from host: format "P _paramID _newValue" ('P' for Parameters)
 	if (_command == 'P') 
 	{
-		_params[_arguments[0]] = _arguments[1];
-		if (_isMotorParam[_arguments[0]])
+		int iParam = (int)_arguments[0];
+		_params[iParam] = _arguments[1];
+		if (_isMotorParam[iParam])
 		{
 			updateMotor(&motor);
 		}
@@ -263,14 +275,19 @@ void state_idle()
 	/*****************************************************
 		TRANSITION LIST
 	*****************************************************/
-	// if (abs(parseMotorTarget() - motorTarget) > MOTOR_POS_TOLERANCE)
-	// {
-	// 	_state = STATE_MOVING;
-	// 	return;
-	// }
+	if (_command == 'M')
+	{
+		useMoveCommand = true;
+		moveCommandDistance = _arguments[0];
+		motorTarget = getPos() + moveCommandDistance;
+		_state = STATE_MOVING;
+		return;
+	}
 
 	if (_command == 'G')
 	{
+		useMoveCommand = false;
+		motorTarget = parseMotorTarget();
 		_state = STATE_MOVING;
 		return;
 	}
@@ -289,8 +306,6 @@ void state_moving()
 		_prevState = _state;
 		sendState(_state);
 
-		// sendMessage("Moving from " + String(motorTarget) + "to new target" + String(parseMotorTarget()));	
-		motorTarget = parseMotorTarget();
 		moveTo(motorTarget);
 
 		digitalWrite(PIN_MOTOR_BUSY, HIGH);
@@ -307,8 +322,17 @@ void state_moving()
 
 	if (!motor.busyCheck()) 
 	{
-		_state = STATE_AT_TARGET;
-		return;
+		sendDebugMessage("Target reached, current position: " + String(getPos()));
+		if (useMoveCommand)
+		{
+			_state = STATE_IDLE;
+			return;
+		}
+		else
+		{
+			_state = STATE_AT_TARGET;
+			return;
+		}
 	}
 
 	_state = STATE_MOVING;
@@ -335,12 +359,14 @@ void state_at_target()
 	// Received new param from host: format "P _paramID _newValue" ('P' for Parameters)
 	if (_command == 'P') 
 	{
-		_params[_arguments[0]] = _arguments[1];
-		if (_isMotorParam[_arguments[0]])
+		int iParam = (int)_arguments[0];
+		_params[iParam] = _arguments[1];
+		if (_isMotorParam[iParam])
 		{
 			updateMotor(&motor);
 		}
 	}
+
 
 	/*****************************************************
 		TRANSITION LIST
@@ -351,8 +377,10 @@ void state_at_target()
 		return;
 	}
 
-	if (abs(parseMotorTarget() - motorTarget) > MOTOR_POS_TOLERANCE)
+	if (abs(parseMotorTarget() - motorTarget) > _params[TARGET_TOLERANCE])
 	{
+		useMoveCommand = false;
+		motorTarget = parseMotorTarget();
 		_state = STATE_MOVING;
 		return;
 	}
@@ -367,6 +395,14 @@ void state_at_target()
 void sendMessage(String message)	// Uses String object from arduino library
 {
 	Serial.println(message);
+}
+
+void sendDebugMessage(String message) 
+{
+	if (_params[_DEBUG] > 0)
+	{
+		Serial.println(message.c_str());
+	}
 }
 
 // Register eventMarker on host.
@@ -407,8 +443,8 @@ char getCommand(String message)
 	return message[0];			// 1st character in a message string is the command
 }
 
-// GET ARGUMENTS (of the command) from HOST (2 int array)
-void getArguments(String message, int *_arguments)
+// GET ARGUMENTS (of the command) from HOST (2 float array)
+void getArguments(String message, float *_arguments)
 {
 	_arguments[0] = 0;
 	_arguments[1] = 0;
@@ -420,25 +456,25 @@ void getArguments(String message, int *_arguments)
 	parameters.remove(0,1);
 	parameters.trim();
 
-	// Parse first (optional) integer argument if it exists
-	String intString = "";
-	while ((parameters.length() > 0) && (isDigit(parameters[0]))) 
+	// Parse first (optional) float argument if it exists
+	String flaotString = "";
+	while ((parameters.length() > 0) && (isDigit(parameters[0]) || parameters[0]=='-' || parameters[0]=='.')) 
 	{
-		intString += parameters[0];
+		flaotString += parameters[0];
 		parameters.remove(0,1);
 	}
-	_arguments[0] = intString.toInt();
+	_arguments[0] = flaotString.toFloat();
 
 
 	// Parse second (optional) integer argument if it exists
 	parameters.trim();
-	intString = "";
-	while ((parameters.length() > 0) && (isDigit(parameters[0]))) 
+	flaotString = "";
+	while ((parameters.length() > 0) && (isDigit(parameters[0]) || parameters[0]=='-' || parameters[0]=='.')) 
 	{
-		intString += parameters[0];
+		flaotString += parameters[0];
 		parameters.remove(0,1);
 	}
-	_arguments[1] = intString.toInt();
+	_arguments[1] = flaotString.toFloat();
 }
 
 // Send States, Names/Value of Parameters to host
@@ -584,23 +620,18 @@ void configMotor(XNucleoStepper* motor)
 	// motor->setSwitchMode(SW_USER);    // Switch is not hard stop
 	// motor->setOscMode(INT_16MHZ_OSCOUT_16MHZ); // 16MHz internal oscil
 
-	PRINT_DEBUG(String("POS: ") + motor->getPos());
-	PRINT_DEBUG(String("OCThreshold: ") + motor->getOCThreshold());
-	PRINT_DEBUG(String("RunKVAL: ") + motor->getRunKVAL());
-	PRINT_DEBUG(String("AccKVAL: ") + motor->getAccKVAL());
-	PRINT_DEBUG(String("DecKVAL: ") + motor->getDecKVAL());
-	PRINT_DEBUG(String("HoldKVAL: ") + motor->getHoldKVAL());
-	PRINT_DEBUG(String("MinSpeed: ") + motor->getMinSpeed());
-	PRINT_DEBUG(String("MaxSpeed: ") + motor->getMaxSpeed());
-	PRINT_DEBUG(String("FullSpeed: ") + motor->getFullSpeed());
-	PRINT_DEBUG(String("Acc: ") + motor->getAcc());
-	PRINT_DEBUG(String("Dec: ") + motor->getDec());
-	PRINT_DEBUG(String("StepMode: ") + motor->getStepMode());
-}
-
-void PRINT_DEBUG(String message) 
-{
-	Serial.println(message.c_str()); // comment this out when not debugging !!!!!!!
+	sendDebugMessage(String("POS: ") + motor->getPos());
+	sendDebugMessage(String("OCThreshold: ") + motor->getOCThreshold());
+	sendDebugMessage(String("RunKVAL: ") + motor->getRunKVAL());
+	sendDebugMessage(String("AccKVAL: ") + motor->getAccKVAL());
+	sendDebugMessage(String("DecKVAL: ") + motor->getDecKVAL());
+	sendDebugMessage(String("HoldKVAL: ") + motor->getHoldKVAL());
+	sendDebugMessage(String("MinSpeed: ") + motor->getMinSpeed());
+	sendDebugMessage(String("MaxSpeed: ") + motor->getMaxSpeed());
+	sendDebugMessage(String("FullSpeed: ") + motor->getFullSpeed());
+	sendDebugMessage(String("Acc: ") + motor->getAcc());
+	sendDebugMessage(String("Dec: ") + motor->getDec());
+	sendDebugMessage(String("StepMode: ") + motor->getStepMode());
 }
 
 void updateMotor(XNucleoStepper* motor)
@@ -611,11 +642,11 @@ void updateMotor(XNucleoStepper* motor)
 	motor->setAcc(getAccel());
 	motor->setDec(getAccel());
 
-	PRINT_DEBUG(String("MinSpeed: ") + motor->getMinSpeed());
-	PRINT_DEBUG(String("MaxSpeed: ") + motor->getMaxSpeed());
-	PRINT_DEBUG(String("FullSpeed: ") + motor->getFullSpeed());
-	PRINT_DEBUG(String("Acc: ") + motor->getAcc());
-	PRINT_DEBUG(String("Dec: ") + motor->getDec());
+	sendDebugMessage(String("MinSpeed: ") + motor->getMinSpeed());
+	sendDebugMessage(String("MaxSpeed: ") + motor->getMaxSpeed());
+	sendDebugMessage(String("FullSpeed: ") + motor->getFullSpeed());
+	sendDebugMessage(String("Acc: ") + motor->getAcc());
+	sendDebugMessage(String("Dec: ") + motor->getDec());
 }
 
 void setMaxSpeed(float speed)
@@ -643,10 +674,10 @@ void move(float distance)
 {
 	if (abs(distance) < 1)
 	{
-		// sendMessage("bad deltaMove = " + String(distance/UNITS_PER_MICROSTEP));
+		sendDebugMessage("Move command not executed, distance = " + String(distance/UNITS_PER_MICROSTEP));
 		return;
 	}
-	// sendMessage("deltaMove = " + String(distance/UNITS_PER_MICROSTEP));
+	sendDebugMessage("Move command, distance = " + String(distance/UNITS_PER_MICROSTEP));
 	if (distance >= 0)
 	{
 		motor.move(FWD, distance/UNITS_PER_MICROSTEP);
@@ -659,7 +690,7 @@ void move(float distance)
 
 void moveTo(float pos)
 {
-	// sendMessage("MoveTo command, from " + String(getPos()) + " to " + String(pos));
+	sendDebugMessage("MoveTo command, from " + String(getPos()) + " to " + String(pos));
 	move(pos - getPos());
 }
 
@@ -671,22 +702,22 @@ void zero()
 
 int getMinSpeed()
 {
-	return round((float)_params[MOTOR_MIN_SPEED] / (float)_params[UNITS_PER_REV] * FULL_STEPS_PER_MOTOR_REV);
+	return round(_params[MOTOR_MIN_SPEED] / _params[UNITS_PER_REV] * FULL_STEPS_PER_MOTOR_REV);
 }
 
 int getMaxSpeed()
 {
-	return round((float)_params[MOTOR_MAX_SPEED] / (float)_params[UNITS_PER_REV] * FULL_STEPS_PER_MOTOR_REV);
+	return round(_params[MOTOR_MAX_SPEED] / _params[UNITS_PER_REV] * FULL_STEPS_PER_MOTOR_REV);
 }
 
 int getAccel()
 {
-	return round((float)_params[MOTOR_ACCEL] / (float)_params[UNITS_PER_REV] * FULL_STEPS_PER_MOTOR_REV);
+	return round(_params[MOTOR_ACCEL] / _params[UNITS_PER_REV] * FULL_STEPS_PER_MOTOR_REV);
 }
 
 float parseMotorTarget()
 {
-	// sendMessage("PIN1 = " + String(digitalRead(PIN_MOTOR_TARGET_1)) + "," + "PIN2 = " + String(digitalRead(PIN_MOTOR_TARGET_2)));
+	// sendDebugMessage("PIN1 = " + String(digitalRead(PIN_MOTOR_TARGET_1)) + "," + "PIN2 = " + String(digitalRead(PIN_MOTOR_TARGET_2)));
 	int targetIndex = 0;
 	if (digitalRead(PIN_MOTOR_TARGET_1) == LOW)
 	{
@@ -746,6 +777,6 @@ bool atPos(float target, float tolerance)
 
 float getPos() 
 {
-	// sendMessage("getPos request returned: " + String(motor.getPos()) + " * " + String(UNITS_PER_MICROSTEP));
+	// sendDebugMessage("getPos request returned: " + String(motor.getPos()) + " * " + String(UNITS_PER_MICROSTEP));
 	return motor.getPos() * UNITS_PER_MICROSTEP;
 }

@@ -1517,8 +1517,8 @@ int translateLever(int position)
 			sendEventMarker(EVENT_MOTOR_POS_4_STARTED, -1);
 			break;
 	}
+	sendDebugMessage("Moving to target " + String(position + 1));
 	return position;
-	// sendMessage("Moving to target " + String(position + 1));
 }
 
 // Use servo to retract/present lever to the little dude
@@ -1764,6 +1764,14 @@ bool isMotorBusy()
 void sendMessage(String message)	// Uses String object from arduino library
 {
 	Serial.println(message);
+}
+
+void sendDebugMessage(String message)
+{
+	if (_params[_DEBUG] > 0)
+	{
+		Serial.println(message);
+	}
 }
 
 // Register eventMarker on host.

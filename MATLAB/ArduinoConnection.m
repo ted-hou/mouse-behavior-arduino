@@ -506,7 +506,19 @@ classdef ArduinoConnection < handle
 			end
         end
 
-        % Zero motor
+        % Motor
+        function b = IsMotorController(obj)
+            if obj.Connected
+                if any(strcmpi(obj.ParamNames, 'UNITS_PER_REV'))
+                    b = true;
+                else
+                    b = false;
+                end
+            else
+                b = false;
+            end
+        end
+
         function ZeroMotor(obj)
             if obj.CanZeroMotor()
                 obj.SendMessage('Z');
@@ -514,12 +526,22 @@ classdef ArduinoConnection < handle
         end
 
         function b = CanZeroMotor(obj)
-            if obj.Connected
-                if any(strcmpi(obj.ParamNames, 'UNITS_PER_REV')) && strcmpi(obj.StateNames{obj.State}, 'IDLE')
-                    b = true;
-                else
-                    b = false;
-                end
+            if obj.IsMotorController() && strcmpi(obj.StateNames{obj.State}, 'IDLE')
+                b = true;
+            else
+                b = false;
+            end
+        end
+
+        function MoveMotor(obj, distance)
+            if obj.CanMoveMotor()
+                obj.SendMessage(sprintf('M %.4f', distance));
+            end
+        end
+
+        function b = CanMoveMotor(obj)
+            if obj.IsMotorController() && strcmpi(obj.StateNames{obj.State}, 'IDLE')
+                b = true;
             else
                 b = false;
             end
