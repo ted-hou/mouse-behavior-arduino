@@ -14,7 +14,7 @@ Servo _servoTube;
 	Arduino Pin Outs
 *****************************************************/
 // Digital OUT
-#define PIN_HOUSE_LAMP			4
+#define PIN_HOUSE_LAMP			15
 #define PIN_HOUSE_LAMP_2		20
 #define PIN_LED_CUE				8
 #define PIN_REWARD				22
@@ -31,7 +31,7 @@ Servo _servoTube;
 // PWM OUT
 #define PIN_SPEAKER				21
 #define PIN_SERVO_LEVER			14
-#define PIN_SERVO_TUBE			15
+#define PIN_SERVO_TUBE			4
 
 // Digital IN
 #define PIN_LICK				25
@@ -39,7 +39,7 @@ Servo _servoTube;
 
 #define SERVO_READ_ACCURACY 1
 
-static const int _digOutPins[] = {4, 20, 8, 22, 23, 11, 5, 6, 7, 9, 10, 21};
+static const int _digOutPins[] = {15, 20, 8, 22, 23, 11, 5, 6, 7, 9, 10, 21};
 
 /*****************************************************
 	Enums - DEFINE States
