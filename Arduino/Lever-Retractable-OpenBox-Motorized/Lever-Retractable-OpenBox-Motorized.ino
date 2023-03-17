@@ -14,22 +14,19 @@ Servo _servoTube;
 	Arduino Pin Outs
 *****************************************************/
 // Digital OUT
-#define PIN_HOUSE_LAMP			20
-#define PIN_HOUSE_LAMP_2		11
-#define PIN_LED_CUE				5
-#define PIN_REWARD				12
-#define PIN_OPTOGEN_STIM		22
-#define PIN_OPTOGEN_GALVO		23
-#define PIN_MOTOR_BUSY			15
-#define PIN_MOTOR_CONTROLLER_1	16
-#define PIN_MOTOR_CONTROLLER_2	17
+#define PIN_HOUSE_LAMP			4
+#define PIN_HOUSE_LAMP_2		20
+#define PIN_LED_CUE				8
+#define PIN_REWARD				22
+#define PIN_OPTOGEN_STIM		23
+#define PIN_OPTOGEN_GALVO		11
+#define PIN_MOTOR_CONTROLLER_1	5
+#define PIN_MOTOR_CONTROLLER_2	6
+#define PIN_MOTOR_BUSY			7
 
 // Mirrors to blackrock
-#define PIN_MIRROR_CUE 			6
-#define PIN_MIRROR_REWARD 		7
-#define PIN_MIRROR_LICK 		8
-#define PIN_MIRROR_LEVER 		9
-#define PIN_MIRROR_HOUSE_LAMP 	10
+#define PIN_MIRROR_LICK 		9
+#define PIN_MIRROR_LEVER 		10
 
 // PWM OUT
 #define PIN_SPEAKER				21
@@ -42,7 +39,7 @@ Servo _servoTube;
 
 #define SERVO_READ_ACCURACY 1
 
-static const int _digOutPins[] = {20, 11, 5, 12, 22, 23, 15, 16, 17, 6, 7, 8, 9, 10, 21};
+static const int _digOutPins[] = {4, 20, 8, 22, 23, 11, 5, 6, 7, 9, 10, 21};
 
 /*****************************************************
 	Enums - DEFINE States
@@ -409,9 +406,6 @@ void setup()
 	pinMode(PIN_LICK, INPUT);					// Lick detector (input)
 	pinMode(PIN_LEVER, INPUT);					// Lever press detector (input)
 
-	pinMode(PIN_MIRROR_HOUSE_LAMP, OUTPUT);		// LED for illumination during 10 second trial
-	pinMode(PIN_MIRROR_CUE, OUTPUT);			// LED for 'start' cue (mirrored output to blackrock)
-	pinMode(PIN_MIRROR_REWARD, OUTPUT);			// Reward (mirrored output to blackrock)
 	pinMode(PIN_MIRROR_LICK, OUTPUT);			// Lick detector (mirrored output to blackrock)
 	pinMode(PIN_MIRROR_LEVER, OUTPUT);			// Lever press detector (mirrored output to blackrock)
 
@@ -1297,7 +1291,6 @@ void setHouseLamp(bool turnOn)
 	{
 		digitalWrite(PIN_HOUSE_LAMP, HIGH);
 		digitalWrite(PIN_HOUSE_LAMP_2, HIGH);
-		digitalWrite(PIN_MIRROR_HOUSE_LAMP, HIGH);
 		if (!houseLampOn)
 		{
 			houseLampOn = true;
@@ -1308,7 +1301,6 @@ void setHouseLamp(bool turnOn)
 	{
 		digitalWrite(PIN_HOUSE_LAMP, LOW);
 		digitalWrite(PIN_HOUSE_LAMP_2, LOW);
-		digitalWrite(PIN_MIRROR_HOUSE_LAMP, LOW);
 		if (houseLampOn)
 		{
 			houseLampOn = false;
@@ -1324,7 +1316,6 @@ void setCueLED(bool turnOn)
 	if (turnOn) 
 	{
 		digitalWrite(PIN_LED_CUE, HIGH);
-		digitalWrite(PIN_MIRROR_CUE, HIGH);
 		if (!cueLEDOn)
 		{
 			cueLEDOn = true;
@@ -1334,7 +1325,6 @@ void setCueLED(bool turnOn)
 	else 
 	{
 		digitalWrite(PIN_LED_CUE, LOW);
-		digitalWrite(PIN_MIRROR_CUE, LOW);
 		if (cueLEDOn)
 		{
 			cueLEDOn = false;
@@ -1732,7 +1722,6 @@ void setReward(bool turnOn)
 	if (turnOn)
 	{
 		digitalWrite(PIN_REWARD, HIGH);
-		digitalWrite(PIN_MIRROR_REWARD, HIGH);
 		if (!rewardOn)
 		{
 			rewardOn = true;
@@ -1742,7 +1731,6 @@ void setReward(bool turnOn)
 	else
 	{
 		digitalWrite(PIN_REWARD, LOW);
-		digitalWrite(PIN_MIRROR_REWARD, LOW);
 		if (rewardOn)
 		{
 			rewardOn = false;
