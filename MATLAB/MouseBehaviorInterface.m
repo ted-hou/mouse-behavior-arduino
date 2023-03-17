@@ -55,7 +55,7 @@ classdef MouseBehaviorInterface < handle
 			end
 
 			% Establish camera connection
-			if ~strcmp(arduinoPortName, '/offline')
+			if ~strcmp(arduinoPortName, '/offline') && ~obj.Arduino.IsMotorController()
 				numCameras = CameraConnection.GetAvailableCameras;
 				if numCameras > 0
 					if isfield(obj.Rsc, 'TaskScheduler') && isvalid(obj.Rsc.TaskScheduler)
