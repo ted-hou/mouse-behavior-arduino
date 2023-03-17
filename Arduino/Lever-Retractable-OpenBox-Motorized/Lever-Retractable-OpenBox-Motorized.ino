@@ -17,7 +17,7 @@ Servo _servoTube;
 #define PIN_HOUSE_LAMP			15
 #define PIN_HOUSE_LAMP_2		20
 #define PIN_LED_CUE				8
-#define PIN_REWARD				22
+#define PIN_REWARD				12
 #define PIN_OPTOGEN_STIM		23
 #define PIN_OPTOGEN_GALVO		11
 #define PIN_MOTOR_CONTROLLER_1	5
@@ -27,6 +27,7 @@ Servo _servoTube;
 // Mirrors to blackrock
 #define PIN_MIRROR_LICK 		9
 #define PIN_MIRROR_LEVER 		10
+#define PIN_MIRROR_REWARD		22
 
 // PWM OUT
 #define PIN_SPEAKER				21
@@ -39,7 +40,7 @@ Servo _servoTube;
 
 #define SERVO_READ_ACCURACY 1
 
-static const int _digOutPins[] = {15, 20, 8, 22, 23, 11, 5, 6, 7, 9, 10, 21};
+static const int _digOutPins[] = {15, 20, 8, 22, 23, 11, 5, 6, 7, 9, 10, 22, 21};
 
 /*****************************************************
 	Enums - DEFINE States
@@ -408,6 +409,7 @@ void setup()
 
 	pinMode(PIN_MIRROR_LICK, OUTPUT);			// Lick detector (mirrored output to blackrock)
 	pinMode(PIN_MIRROR_LEVER, OUTPUT);			// Lever press detector (mirrored output to blackrock)
+	pinMode(PIN_MIRROR_REWARD, OUTPUT);			
 
 	// Initiate servo
 	_servoLever.attach(PIN_SERVO_LEVER);
@@ -1722,6 +1724,7 @@ void setReward(bool turnOn)
 	if (turnOn)
 	{
 		digitalWrite(PIN_REWARD, HIGH);
+		digitalWrite(PIN_MIRROR_REWARD, HIGH);
 		if (!rewardOn)
 		{
 			rewardOn = true;
@@ -1731,6 +1734,7 @@ void setReward(bool turnOn)
 	else
 	{
 		digitalWrite(PIN_REWARD, LOW);
+		digitalWrite(PIN_MIRROR_REWARD, LOW);
 		if (rewardOn)
 		{
 			rewardOn = false;
