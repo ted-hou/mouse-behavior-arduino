@@ -504,48 +504,66 @@ classdef ArduinoConnection < handle
 			else
 				canStim = false;
 			end
-        end
+		end
 
-        % Motor
-        function b = IsMotorController(obj)
-            if obj.Connected
-                if any(strcmpi(obj.ParamNames, 'UNITS_PER_REV'))
-                    b = true;
-                else
-                    b = false;
-                end
-            else
-                b = false;
-            end
-        end
+		% Motor
+		function b = IsMotorController(obj)
+			if obj.Connected
+				if any(strcmpi(obj.ParamNames, 'UNITS_PER_REV'))
+					b = true;
+				else
+					b = false;
+				end
+			else
+				b = false;
+			end
+		end
 
-        function ZeroMotor(obj)
-            if obj.CanZeroMotor()
-                obj.SendMessage('Z');
-            end
-        end
+		function ZeroMotor(obj)
+			if obj.CanZeroMotor()
+				obj.SendMessage('Z');
+			end
+		end
 
-        function b = CanZeroMotor(obj)
-            if obj.IsMotorController() && strcmpi(obj.StateNames{obj.State}, 'IDLE')
-                b = true;
-            else
-                b = false;
-            end
-        end
+		function b = CanZeroMotor(obj)
+			if obj.IsMotorController() && strcmpi(obj.StateNames{obj.State}, 'IDLE')
+				b = true;
+			else
+				b = false;
+			end
+		end
 
-        function MoveMotor(obj, distance)
-            if obj.CanMoveMotor()
-                obj.SendMessage(sprintf('M %.4f', distance));
-            end
-        end
+		function MoveMotor(obj, distance)
+			if obj.CanMoveMotor()
+				obj.SendMessage(sprintf('M %.4f', distance));
+			end
+		end
 
-        function b = CanMoveMotor(obj)
-            if obj.IsMotorController() && strcmpi(obj.StateNames{obj.State}, 'IDLE')
-                b = true;
-            else
-                b = false;
-            end
-        end
+		function b = CanMoveMotor(obj)
+			if obj.IsMotorController() && strcmpi(obj.StateNames{obj.State}, 'IDLE')
+				b = true;
+			else
+				b = false;
+			end
+		end
+
+		function LockMotor(obj, lock)
+			if obj.CanLockMotor()
+				if lock
+					obj.SendMessage('L');
+				else
+					obj.SendMessage('U');
+				end
+			end
+		end
+
+		function b = CanLockMotor(obj)
+			if obj.IsMotorController() && strcmpi(obj.StateNames{obj.State}, 'IDLE')
+				b = true;
+			else
+				b = false;
+			end
+		end
 	end
 
 	methods (Static)

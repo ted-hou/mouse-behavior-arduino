@@ -14,15 +14,17 @@ Servo _servoTube;
 	Arduino Pin Outs
 *****************************************************/
 // Digital OUT
-#define PIN_HOUSE_LAMP			15
+#define PIN_HOUSE_LAMP			16
 #define PIN_HOUSE_LAMP_2		20
 #define PIN_LED_CUE				8
-#define PIN_REWARD				12
+#define PIN_REWARD				24
 #define PIN_OPTOGEN_STIM		23
 #define PIN_OPTOGEN_GALVO		11
 #define PIN_MOTOR_CONTROLLER_1	5
 #define PIN_MOTOR_CONTROLLER_2	6
 #define PIN_MOTOR_BUSY			7
+#define PIN_SERVO_LEVER			14
+#define PIN_SERVO_TUBE			15
 
 // Mirrors to blackrock
 #define PIN_MIRROR_LICK 		9
@@ -31,8 +33,6 @@ Servo _servoTube;
 
 // PWM OUT
 #define PIN_SPEAKER				21
-#define PIN_SERVO_LEVER			14
-#define PIN_SERVO_TUBE			4
 
 // Digital IN
 #define PIN_LICK				25
@@ -40,7 +40,23 @@ Servo _servoTube;
 
 #define SERVO_READ_ACCURACY 1
 
-static const int _digOutPins[] = {15, 20, 8, 22, 23, 11, 5, 6, 7, 9, 10, 22, 21};
+static const int _digOutPins[] = 
+{
+	PIN_HOUSE_LAMP,
+	PIN_HOUSE_LAMP_2,
+	PIN_LED_CUE,
+	PIN_REWARD,
+	PIN_OPTOGEN_STIM,
+	PIN_OPTOGEN_GALVO,
+	PIN_MOTOR_CONTROLLER_1,
+	PIN_MOTOR_CONTROLLER_2,
+	PIN_MOTOR_BUSY,
+	PIN_SERVO_LEVER,
+	PIN_SERVO_TUBE,
+	PIN_MIRROR_LICK,
+	PIN_MIRROR_LEVER,
+	PIN_MIRROR_REWARD
+};
 
 /*****************************************************
 	Enums - DEFINE States
@@ -313,10 +329,10 @@ long _params[_NUM_PARAMS] =
 	3000,	// RANDOM_DELAY_MAX
 	99,		// CUE_DURATION
 	100, 	// REWARD_DURATION
-	110,	// LEVER_POS_RETRACTED
-	80,		// LEVER_POS_DEPLOYED
-	42,		// LEVER_SPEED_DEPLOY
-	42,		// LEVER_SPEED_RETRACT
+	94,		// LEVER_POS_RETRACTED
+	64,		// LEVER_POS_DEPLOYED
+	36,		// LEVER_SPEED_DEPLOY
+	36,		// LEVER_SPEED_RETRACT
 	60,		// TUBE_POS_RETRACTED (~ 50 == 0 mm)
 	90,		// TUBE_POS_DEPLOYED (~ 125 == 30 mm)
 	36,		// TUBE_SPEED_DEPLOY

@@ -47,7 +47,7 @@ classdef MouseBehaviorInterface < handle
 			obj.CreateDialog_Monitor()
 
 			% Create Task Scheduler
-			obj.CreateDialog_TaskScheduler()
+			% obj.CreateDialog_TaskScheduler()
 
 			% Kill splash
 			if ~strcmp(arduinoPortName, '/offline')
@@ -208,52 +208,76 @@ classdef MouseBehaviorInterface < handle
 			end
 
 			% Move motor button
-            if obj.Arduino.IsMotorController()
-			    ctrlPosBase = button_stim.Position;
-			    ctrlPos = [...
-				    ctrlPosBase(1),...
-				    ctrlPosBase(2) - buttonHeight - ctrlSpacing,...
-				    buttonWidth,...	
-				    buttonHeight...
-			    ];
-			    button_move = uicontrol(...
-				    'Parent', dlg,...
-				    'Style', 'pushbutton',...
-				    'Position', ctrlPos,...
-				    'String', 'Move',...
-				    'TooltipString', 'Move motor by distance.',...
-				    'Callback', @obj.ArduinoMoveMotor...
-			    );
-			    dlg.UserData.Ctrl.ButtonMove = button_move;
-			    if obj.Arduino.CanMoveMotor()
-				    button_move.Enable = 'on';
-			    else
-				    button_move.Enable = 'off';
-			    end
-                
-			    % Zero motor button
-			    ctrlPosBase = button_move.Position;
-			    ctrlPos = [...
-				    ctrlPosBase(1),...
-				    ctrlPosBase(2) - buttonHeight - ctrlSpacing,...
-				    buttonWidth,...	
-				    buttonHeight...
-			    ];
-			    button_zero = uicontrol(...
-				    'Parent', dlg,...
-				    'Style', 'pushbutton',...
-				    'Position', ctrlPos,...
-				    'String', 'Zero',...
-				    'TooltipString', 'Set current motor position as zero.',...
-				    'Callback', @obj.ArduinoZeroMotor...
-			    );
-			    dlg.UserData.Ctrl.ButtonZero = button_zero;
-			    if obj.Arduino.CanZeroMotor()
-				    button_zero.Enable = 'on';
-			    else
-				    button_zero.Enable = 'off';
-                end
-            end
+			if obj.Arduino.IsMotorController()
+				ctrlPosBase = button_stim.Position;
+				ctrlPos = [...
+					ctrlPosBase(1),...
+					ctrlPosBase(2) - buttonHeight - ctrlSpacing,...
+					buttonWidth,...	
+					buttonHeight...
+				];
+				button_move = uicontrol(...
+					'Parent', dlg,...
+					'Style', 'pushbutton',...
+					'Position', ctrlPos,...
+					'String', 'Move',...
+					'TooltipString', 'Move motor by distance.',...
+					'Callback', @obj.ArduinoMoveMotor...
+				);
+				dlg.UserData.Ctrl.ButtonMove = button_move;
+				if obj.Arduino.CanMoveMotor()
+					button_move.Enable = 'on';
+				else
+					button_move.Enable = 'off';
+				end
+				
+				% Zero motor button
+				ctrlPosBase = button_move.Position;
+				ctrlPos = [...
+					ctrlPosBase(1),...
+					ctrlPosBase(2) - buttonHeight - ctrlSpacing,...
+					buttonWidth,...	
+					buttonHeight...
+				];
+				button_zero = uicontrol(...
+					'Parent', dlg,...
+					'Style', 'pushbutton',...
+					'Position', ctrlPos,...
+					'String', 'Zero',...
+					'TooltipString', 'Set current motor position as zero.',...
+					'Callback', @obj.ArduinoZeroMotor...
+				);
+				dlg.UserData.Ctrl.ButtonZero = button_zero;
+				if obj.Arduino.CanZeroMotor()
+					button_zero.Enable = 'on';
+				else
+					button_zero.Enable = 'off';
+				end
+
+				% Lock motor button
+				ctrlPosBase = button_zero.Position;
+				ctrlPos = [...
+					ctrlPosBase(1),...
+					ctrlPosBase(2) - buttonHeight - ctrlSpacing,...
+					buttonWidth,...	
+					buttonHeight...
+				];
+				button_lock = uicontrol(...
+					'Parent', dlg,...
+					'Style', 'togglebutton',...
+					'Position', ctrlPos,...
+					'String', 'Lock',...
+					'TooltipString', 'Lock motor to prevent manual rotation.',...
+					'Callback', @obj.ArduinoToggleMotorLock...
+				);
+				dlg.UserData.Ctrl.ButtonLock = button_lock;
+				if obj.Arduino.CanLockMotor()
+					button_lock.Enable = 'on';
+				else
+					button_lock.Enable = 'off';
+				end
+				button_lock.Value = true;
+			end
 
 			% Resize dialog so it fits all controls
 			dlg.Position(1:2) = [10, 50];
@@ -1068,18 +1092,25 @@ classdef MouseBehaviorInterface < handle
 			end
 
 			if isvalid(obj.Rsc.ExperimentControl)
-                if obj.Arduino.OptogenStimAvailable()
-                    obj.Rsc.ExperimentControl.UserData.Ctrl.ButtonStim.Enable = 'on';
-                else
-                    obj.Rsc.ExperimentControl.UserData.Ctrl.ButtonStim.Enable = 'off';
-                end
-                if obj.Arduino.IsMotorController()
-                    if obj.Arduino.CanZeroMotor()
-					    obj.Rsc.ExperimentControl.UserData.Ctrl.ButtonZero.Enable = 'on';
-				    else
-					    obj.Rsc.ExperimentControl.UserData.Ctrl.ButtonZero.Enable = 'off';
-                    end
-                end
+				if obj.Arduino.OptogenStimAvailable()
+					obj.Rsc.ExperimentControl.UserData.Ctrl.ButtonStim.Enable = 'on';
+				else
+					obj.Rsc.ExperimentControl.UserData.Ctrl.ButtonStim.Enable = 'off';
+				end
+				if obj.Arduino.IsMotorController()
+					if obj.Arduino.CanZeroMotor()
+						obj.Rsc.ExperimentControl.UserData.Ctrl.ButtonZero.Enable = 'on';
+					else
+						obj.Rsc.ExperimentControl.UserData.Ctrl.ButtonZero.Enable = 'off';
+					end
+					if obj.Arduino.CanLockMotor()
+						obj.Rsc.ExperimentControl.UserData.Ctrl.ButtonLock.Enable = 'on';
+						obj.Rsc.ExperimentControl.UserData.Ctrl.ButtonLock.Value = true;
+					else
+						obj.Rsc.ExperimentControl.UserData.Ctrl.ButtonLock.Enable = 'off';
+						obj.Rsc.ExperimentControl.UserData.Ctrl.ButtonLock.Value = false;
+					end
+				end
 			end
 		end
 
@@ -1692,20 +1723,24 @@ classdef MouseBehaviorInterface < handle
 
 		function ArduinoOptogenStim(obj, ~, ~)
 			obj.Arduino.OptogenStim()
-        end
+		end
 
 		function ArduinoZeroMotor(obj, ~, ~)
 			obj.Arduino.ZeroMotor()
-        end
+		end
 
-        function ArduinoMoveMotor(obj, ~, ~)
-            answer = inputdlg('Distance', 'Move');
-            if ~isempty(answer)
-                if ~isnan(str2double(answer))
-                    obj.Arduino.MoveMotor(str2double(answer));
-                end
-            end
-        end
+		function ArduinoMoveMotor(obj, ~, ~)
+			answer = inputdlg('Distance', 'Move');
+			if ~isempty(answer)
+				if ~isnan(str2double(answer))
+					obj.Arduino.MoveMotor(str2double(answer));
+				end
+			end
+		end
+
+		function ArduinoToggleMotorLock(obj, src, ~)
+            obj.Arduino.LockMotor(~src.Value);
+		end
 	end
 
 	%----------------------------------------------------

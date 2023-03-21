@@ -75,7 +75,6 @@ enum ParamID
 	TARGET_2,
 	TARGET_3,
 	TARGET_4,
-	MOVE_DISTANCE,
 	TARGET_TOLERANCE,
 	_NUM_PARAMS
 };
@@ -91,7 +90,6 @@ static const char *_paramNames[] =
 	"TARGET_2",
 	"TARGET_3",
 	"TARGET_4",
-	"MOVE_DISTANCE",
 	"TARGET_TOLERANCE"
 };
 
@@ -99,14 +97,13 @@ float _params[_NUM_PARAMS] =
 {
 	0,		// _DEBUG
 	360,	// UNITS_PER_REV
-	180,	// MOTOR_MIN_SPEED
-	720,	// MOTOR_MAX_SPEED
+	360,	// MOTOR_MIN_SPEED
+	900,	// MOTOR_MAX_SPEED
 	720,	// MOTOR_ACCEL
-	0,		// TARGET_1
-	360+90,	// TARGET_2
-	720+180,	// TARGET_3
-	1080+270,	// TARGET_4
-	0,	// MOVE_DISTANCE
+	1000,		// TARGET_1
+	4000,	// TARGET_2
+	9000,	// TARGET_3
+	12000,	// TARGET_4
 	5	// TARGET_TOLERANCE
 };
 
@@ -121,7 +118,6 @@ bool _isMotorParam[_NUM_PARAMS] =
 	false,	// TARGET_2
 	false,	// TARGET_3
 	false,	// TARGET_4
-	false,	// MOVE_DISTANCE
 	false	// TARGET_TOLERANCE
 };
 
@@ -267,14 +263,28 @@ void state_idle()
 		}
 	}
 
+	// Set current pos as zero
 	if (_command == 'Z')
 	{
 		zero();
 	}
 
+	// Unlock motor to allow moving by hand (softstop)
+	if (_command == 'U')
+	{
+		softStop();
+	}
+
+	// Lock motor to (softHiZ)
+	if (_command == 'L')
+	{
+		softHiZ();
+	}
+
 	/*****************************************************
 		TRANSITION LIST
 	*****************************************************/
+	// Move by distance command "M distFloat"
 	if (_command == 'M')
 	{
 		useMoveCommand = true;
