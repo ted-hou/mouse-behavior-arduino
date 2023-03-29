@@ -1105,7 +1105,7 @@ classdef MouseBehaviorInterface < handle
 					end
 					if obj.Arduino.CanLockMotor()
 						obj.Rsc.ExperimentControl.UserData.Ctrl.ButtonLock.Enable = 'on';
-						obj.Rsc.ExperimentControl.UserData.Ctrl.ButtonLock.Value = true;
+						obj.Rsc.ExperimentControl.UserData.Ctrl.ButtonLock.Value = false;
 					else
 						obj.Rsc.ExperimentControl.UserData.Ctrl.ButtonLock.Enable = 'off';
 						obj.Rsc.ExperimentControl.UserData.Ctrl.ButtonLock.Value = false;

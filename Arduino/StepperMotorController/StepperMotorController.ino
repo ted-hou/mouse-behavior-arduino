@@ -170,7 +170,7 @@ void mySetup()
 	_arguments[0]			= 0;			// Two integers received from host , resets on each loop
 	_arguments[1]			= 0;			// Two integers received from host , resets on each loop
 
-	softHiZ();
+	unlockMotor();
 	hostInit();
 }
 
@@ -214,7 +214,7 @@ void loop()
 		// Stop motor if error
 		if (digitalRead(PIN_FLAG)==LOW) {
 			Serial.println(motor.getAlarmStatusString());
-			motor.softStop();
+			unlockMotor();
 		}
 
 		// Update state machine
@@ -244,7 +244,7 @@ void state_idle()
 		// Register new state
 		_prevState = _state;
 		sendState(_state);
-		softStop();
+		unlockMotor();
 		useMoveCommand = false;
 		digitalWrite(PIN_MOTOR_BUSY, LOW);
 	}
@@ -272,13 +272,13 @@ void state_idle()
 	// Unlock motor to allow moving by hand (softstop)
 	if (_command == 'U')
 	{
-		softStop();
+		unlockMotor();
 	}
 
 	// Lock motor to (softHiZ)
 	if (_command == 'L')
 	{
-		softHiZ();
+		lockMotor();
 	}
 
 	/*****************************************************
@@ -359,7 +359,7 @@ void state_at_target()
 		_prevState = _state;
 		sendState(_state);
 		sendResultCode(CODE_SUCCESS);
-		softStop();
+		unlockMotor();
 		digitalWrite(PIN_MOTOR_BUSY, LOW);
 	}
 
@@ -670,12 +670,12 @@ void setAccel(float acc)
 	motor.setDec(acc);
 }
 
-void softStop()
+void unlockMotor()
 {
 	motor.softStop();
 }
 
-void softHiZ()
+void lockMotor()
 {
 	motor.softHiZ();
 }
