@@ -672,12 +672,12 @@ void setAccel(float acc)
 
 void unlockMotor()
 {
-	motor.softStop();
+	motor.softHiZ();
 }
 
 void lockMotor()
 {
-	motor.softHiZ();
+	motor.softStop();
 }
 
 void move(float distance)

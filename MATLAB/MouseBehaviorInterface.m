@@ -276,7 +276,7 @@ classdef MouseBehaviorInterface < handle
 				else
 					button_lock.Enable = 'off';
 				end
-				button_lock.Value = true;
+				button_lock.Value = false;
 			end
 
 			% Resize dialog so it fits all controls
