@@ -93,7 +93,11 @@ classdef ArduinoConnection < handle
 			parameterValues = obj.ParamValues; 		% store parameter values
 
 			% Prompt user to select save path
-			[filename, filepath] = uiputfile(['parameters_', datestr(now, 'yyyymmdd'), '.mat'], 'Save current parameters to file');
+			if ~obj.IsMotorController()
+				[filename, filepath] = uiputfile(['parameters_', datestr(now, 'yyyymmdd'), '.mat'], 'Save current parameters to file');
+			else
+				[filename, filepath] = uiputfile(['parameters_', datestr(now, 'yyyymmdd'), '_motor.mat'], 'Save current parameters to file');
+			end
 			% Exit if no file selected
 			if ~(ischar(filename) && ischar(filepath))
 				varargout = {''};
@@ -165,7 +169,11 @@ classdef ArduinoConnection < handle
 		end
 
 		function SaveAsExperiment(obj)
-			[filename, filepath] = uiputfile(['exp_name_',datestr(now, 'yyyymmdd'),'.mat'],'Save Experiment As New File');
+			if ~obj.IsMotorController()
+				[filename, filepath] = uiputfile(['exp_name_',datestr(now, 'yyyymmdd'),'.mat'],'Save Experiment As New File');
+			else
+				[filename, filepath] = uiputfile(['exp_name_',datestr(now, 'yyyymmdd'),'_motor.mat'],'Save Experiment As New File');
+			end
 			% Exit if no file selected
 			if ~(ischar(filename) && ischar(filepath))
 				return

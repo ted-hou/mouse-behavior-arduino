@@ -44,7 +44,9 @@ classdef MouseBehaviorInterface < handle
 			obj.CreateDialog_ExperimentControl()
 
 			% Create Monitor window with all thr trial results and plots and stuff so the Grad Student is ON TOP OF THE SITUATION AT ALL TIMES.
-			obj.CreateDialog_Monitor()
+			if ~obj.Arduino.IsMotorController()
+				obj.CreateDialog_Monitor()
+			end
 
 			% Create Task Scheduler
 			% obj.CreateDialog_TaskScheduler()
@@ -1635,7 +1637,9 @@ classdef MouseBehaviorInterface < handle
 
 		function ArduinoReset(obj, ~, ~)
 			obj.Arduino.Reset()
-			delete(obj.Rsc.Monitor)
+            if isfield(obj.Rsc, 'Monitor')
+                delete(obj.Rsc.Monitor)
+            end
 			delete(obj.Rsc.ExperimentControl)
 			obj.CreateDialog_ExperimentControl();
 			obj.CreateDialog_Monitor();
@@ -1650,8 +1654,12 @@ classdef MouseBehaviorInterface < handle
 			switch selection
 				case 'Yes'
 					obj.Arduino.Close()
-					delete(obj.Rsc.Monitor)
-					delete(obj.Rsc.ExperimentControl)
+					if isfield(obj.Rsc, 'Monitor')
+						delete(obj.Rsc.Monitor)
+					end
+					if isfield(obj.Rsc, 'ExperimentControl')
+						delete(obj.Rsc.ExperimentControl)
+					end
 					if isfield(obj.Rsc, 'TaskScheduler')
 						delete(obj.Rsc.TaskScheduler)
 					end
@@ -1938,7 +1946,7 @@ classdef MouseBehaviorInterface < handle
 		function bars = StackedBar(ax, data, names, colors)
 			% Default params
 			if nargin < 4
-				colors = {[.2, .8, .2], [1 .2 .2], [.9 .2 .2], [.8 .2 .2], [.7 .2 .2]};
+				colors = {[.2, .8, .2], [.2, .8, .2], [.2, .8, .2], [.2, .8, .2], [1 .2 .2], [.9 .2 .2], [.9 .2 .2], [.9 .2 .2], [.9 .2 .2], [.2 .2 .2], [.2 .2 .2]};
 			end
 
 			% Create a stacked horizontal bar plot

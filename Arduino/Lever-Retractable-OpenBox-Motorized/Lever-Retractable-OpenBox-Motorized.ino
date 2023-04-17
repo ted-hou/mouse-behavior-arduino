@@ -187,9 +187,15 @@ static const char *_eventMarkerNames[] =
 *****************************************************/
 enum ResultCode
 {
-	CODE_CORRECT,			// Correct (1st lick w/in window)
+	CODE_CORRECT_1,			// Correct (motor pos 1)
+	CODE_CORRECT_2,			// Correct (motor pos 2)
+	CODE_CORRECT_3,			// Correct (motor pos 3)
+	CODE_CORRECT_4,			// Correct (motor pos 4)
 	CODE_PAVLOVIAN,			// Pavlovian reward
-	CODE_EARLY_MOVE,		// Early Press (-> Abort)
+	CODE_EARLY_MOVE_1,		// Early Press (motor pos 1)
+	CODE_EARLY_MOVE_2,		// Early Press (motor pos 2)
+	CODE_EARLY_MOVE_3,		// Early Press (motor pos 3)
+	CODE_EARLY_MOVE_4,		// Early Press (motor pos 4)
 	CODE_NO_MOVE,			// No Press (Timeout -> ITI)
 	_NUM_RESULT_CODES		// (Private) Used to count how many codes there are.
 };
@@ -197,9 +203,15 @@ enum ResultCode
 // We'll send result code translations to MATLAB at startup
 static const char *_resultCodeNames[] =
 {
-	"CORRECT",
+	"CORRECT_1",
+	"CORRECT_2",
+	"CORRECT_3",
+	"CORRECT_4",
 	"PAVLOVIAN",
-	"EARLY_MOVE",
+	"EARLY_MOVE_1",
+	"EARLY_MOVE_2",
+	"EARLY_MOVE_3",
+	"EARLY_MOVE_4",
 	"NO_MOVE"
 };
 
@@ -689,7 +701,7 @@ void state_intertrial()
 
 		// Retract lick tube immediately if incorrect
 		isTubeRetracted = false;
-		if (_resultCode != CODE_CORRECT)
+		if (_resultCode > CODE_CORRECT_4)
 		{
 			isTubeRetracted = true;
 			deployTube(false);
@@ -986,7 +998,21 @@ void state_response_window()
 	// Correct lick/press --> REWARD
 	if ((_isLickOnset && _params[USE_LEVER] == 0) || (_isLeverPressOnset && _params[USE_LEVER] == 1))
 	{
-		_resultCode = CODE_CORRECT;
+		switch (_motorPosition)
+		{
+			case 0:
+				_resultCode = CODE_CORRECT_1;
+				break;
+			case 1:
+				_resultCode = CODE_CORRECT_2;
+				break;
+			case 2:
+				_resultCode = CODE_CORRECT_3;
+				break;
+			case 3:
+				_resultCode = CODE_CORRECT_4;
+				break;
+		}
 		_state = STATE_REWARD;
 		return;
 	}
@@ -1152,7 +1178,21 @@ void state_abort()
 		sendState(_state);
 
 		// Register result
-		_resultCode = CODE_EARLY_MOVE;
+		switch (_motorPosition)
+		{
+			case 0:
+				_resultCode = CODE_EARLY_MOVE_1;
+				break;
+			case 1:
+				_resultCode = CODE_EARLY_MOVE_2;
+				break;
+			case 2:
+				_resultCode = CODE_EARLY_MOVE_3;
+				break;
+			case 3:
+				_resultCode = CODE_EARLY_MOVE_4;
+				break;
+		}
 
 		// Register events
 		sendEventMarker(EVENT_ABORT, -1);
@@ -1470,6 +1510,7 @@ void handleLever()
 
 int translateLever(int position)
 {
+	// Select random position if input is -1 or 4+
 	if (position < 0 || position >= 4)
 	{
 		int allowedPositions[4] = {};
@@ -1502,6 +1543,8 @@ int translateLever(int position)
 
 		position = allowedPositions[random(nAllowedPositions)];
 	}
+
+	// Write motor position (2bit dig out)
 	switch (position)
 	{
 		case 0:
@@ -1525,7 +1568,9 @@ int translateLever(int position)
 			sendEventMarker(EVENT_MOTOR_POS_4_STARTED, -1);
 			break;
 	}
+
 	sendDebugMessage("Moving to target " + String(position + 1));
+
 	return position;
 }
 
