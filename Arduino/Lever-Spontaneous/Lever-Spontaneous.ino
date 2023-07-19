@@ -88,8 +88,6 @@ enum EventMarker
 	EVENT_LICK_OFF,					// Lick offset
 	EVENT_LEVER_PRESSED,			// Lever touch onset
 	EVENT_LEVER_RELEASED,			// Lever touch offset
-	EVENT_REWARD_TONE_ON,			// Begin tone presentation
-	EVENT_REWARD_TONE_OFF,			// End tone presentation
 	EVENT_REWARD_ON,				// Reward, juice valve on
 	EVENT_REWARD_OFF,				// Reward, juice valve off
 	EVENT_ITI,						// At start of ITI
@@ -111,8 +109,6 @@ static const char *_eventMarkerNames[] =
 	"LICK_OFF",					// Lick offset
 	"LEVER_PRESSED",			// Lever touch onset
 	"LEVER_RELEASED",			// Lever touch offset
-	"REWARD_TONE_ON",			// Begin tone presentation
-	"REWARD_TONE_OFF",			// End tone presentation
 	"REWARD_ON",				// Reward, juice valve on
 	"REWARD_OFF",				// Reward, juice valve off
 	"ITI",						// At start of ITI
@@ -458,7 +454,7 @@ void state_intertrial()
 			isTubeRetracted = true;
 			deployTube(false);
 		}
-		
+
 		// Generate random interval length from exponential distribution
 		// CDF  p=F(x|μ)=1-exp(-x/μ);
 		// Inverse CDF is x=F^(−1)(p∣μ)=−μln(1−p).
@@ -496,7 +492,7 @@ void state_intertrial()
 	// If ITI elapsed && lick spout retracted && no licks for a bit && lever released for a few seconds
 	if (!_isUpdatingParams && _servoStateTube == SERVOSTATE_RETRACTED)
 	{
-		if (getTimeSinceTrialEnd() >= itiDuration && getTimeSinceLastLick() >= _params[ITI_LICK_TIMEOUT] && getTimeSinceLastLeverRelease() >= _params[ITI_PRESS_TIMEOUT])		
+		if (getTimeSinceTrialEnd() >= itiDuration && !_isLeverPressed && getTimeSinceLastLick() >= _params[ITI_LICK_TIMEOUT] && getTimeSinceLastLeverRelease() >= _params[ITI_PRESS_TIMEOUT])		
 		{
 			_state = STATE_WAITFORTOUCH;
 			return;
@@ -575,6 +571,9 @@ void state_reward()
 		timeRewardOn = 0;
 		isRewardOn = false;
 		isRewardComplete = false;
+
+		noTone(PIN_SPEAKER);
+		tone(PIN_SPEAKER, TONE_REWARD, _params[REWARD_DURATION]);
 	}
 
 	/*****************************************************
@@ -858,20 +857,6 @@ void handleServoTube()
 			}
 		}
 	}
-}
-
-// Play a tone defined in SoundEventFrequencyEnum
-void playSound(SoundEventFrequencyEnum soundEventFrequency) 
-{
-	long duration = 200;
-
-	if (soundEventFrequency == TONE_CUE)
-	{
-		duration = _params[CUE_DURATION];
-	}
-
-	noTone(PIN_SPEAKER);
-	tone(PIN_SPEAKER, soundEventFrequency, duration);
 }
 
 // Toggle juice valve, register event when state is changed
