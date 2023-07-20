@@ -306,6 +306,8 @@ void mySetup()
 
 	// Sends all parameters, states and error codes to Matlab, then tell PC that we're running by sending '~' message:
 	hostInit();
+
+	randomSeed(analogRead(0));
 }
 
 /*****************************************************
@@ -459,8 +461,7 @@ void state_intertrial()
 		// CDF  p=F(x|μ)=1-exp(-x/μ);
 		// Inverse CDF is x=F^(−1)(p∣μ)=−μln(1−p).
 		// For each draw, we let p = uniform_rand(0, 1), get corresponding value x from inverse CDF.
-		randomSeed(getTime())
-		itiDuration = -_paramNames[ITI_MEAN]*log(1.0 - ((float)random(1UL << 31)) / (1UL << 31));
+		itiDuration = -1*_params[ITI_MEAN]*log(1.0 - ((float)random(1UL << 31)) / (1UL << 31));
 		// Apply min/max cutoffs
 		itiDuration = max(itiDuration, _params[ITI_MIN]);
 		itiDuration = min(itiDuration, _params[ITI_MAX]);
@@ -489,9 +490,15 @@ void state_intertrial()
 		return;
 	}
 
+
 	// If ITI elapsed && lick spout retracted && no licks for a bit && lever released for a few seconds
 	if (!_isUpdatingParams && _servoStateTube == SERVOSTATE_RETRACTED)
 	{
+		// sendMessage(String(getTimeSinceTrialEnd()) + " >= " + String(itiDuration));
+		// sendMessage("_isLeverPressed = " + String(_isLeverPressed));
+		// sendMessage("timeSinceLastLick = " + String(getTimeSinceLastLick()) + " vs " + String(_params[ITI_LICK_TIMEOUT]));
+		// sendMessage("timeSinceLastLeverRelease = " + String(getTimeSinceLastLeverRelease()) + " vs " + String(_params[ITI_PRESS_TIMEOUT]));
+		// sendMessage("STOP");
 		if (getTimeSinceTrialEnd() >= itiDuration && !_isLeverPressed && getTimeSinceLastLick() >= _params[ITI_LICK_TIMEOUT] && getTimeSinceLastLeverRelease() >= _params[ITI_PRESS_TIMEOUT])		
 		{
 			_state = STATE_WAITFORTOUCH;
@@ -883,11 +890,6 @@ void setReward(bool turnOn)
 			sendEventMarker(EVENT_REWARD_OFF, -1);
 		}				
 	}
-}
-
-bool isMotorBusy()
-{
-	return (digitalRead(PIN_MOTOR_BUSY) == HIGH);
 }
 
 /*****************************************************
