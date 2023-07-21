@@ -160,6 +160,7 @@ enum ParamID
 	ITI_LICK_TIMEOUT,				// ITI cannot end unless last lick was this many ms before (ms)
 	ITI_PRESS_TIMEOUT,				// ITI cannot end unless last lever has been released for this many ms (ms)
 	REWARD_DURATION,				// Reward duration (ms), also determines tone duration
+	MIN_REWARD_COLLECTION_TIME,		// Min time juice tube is deployed (remember to make it longer than tube deploy time)
 	LEVER_POS_RETRACTED,			// Servo (lever) position when lever is retracted
 	LEVER_POS_DEPLOYED,				// Servo (lever) position when lever is deployed
 	LEVER_SPEED_DEPLOY,				// Servo (lever) rotation speed when deploying, 0 for max speed
@@ -182,6 +183,7 @@ static const char *_paramNames[] =
 	"ITI_LICK_TIMEOUT",
 	"ITI_PRESS_TIMEOUT",
 	"REWARD_DURATION",
+	"MIN_REWARD_COLLECTION_TIME",
 	"LEVER_POS_RETRACTED",
 	"LEVER_POS_DEPLOYED",
 	"LEVER_SPEED_DEPLOY",
@@ -202,6 +204,7 @@ long _params[_NUM_PARAMS] =
 	4000, // ITI_LICK_TIMEOUT
 	4000, // ITI_PRESS_TIMEOUT
 	100, // REWARD_DURATION
+	6000, // MIN_REWARD_COLLECTION_TIME
 	64, // LEVER_POS_RETRACTED
 	64, // LEVER_POS_DEPLOYED
 	36, // LEVER_SPEED_DEPLOY
@@ -473,7 +476,7 @@ void state_intertrial()
 	// If rewarded, retract lick tube before random delay starts
 	if (!isTubeRetracted)
 	{
-		if (getTimeSinceLastLick() >= _params[ITI_LICK_TIMEOUT])
+		if (getTimeSinceTrialEnd() >= _params[MIN_REWARD_COLLECTION_TIME] && getTimeSinceLastLick() >= _params[ITI_LICK_TIMEOUT])
 		{
 			isTubeRetracted = true;
 			deployTube(false);
