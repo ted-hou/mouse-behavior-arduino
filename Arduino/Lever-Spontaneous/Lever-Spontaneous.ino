@@ -159,6 +159,8 @@ enum ParamID
 	ITI_MAX,						// ITI length max cutoff (ms)
 	ITI_LICK_TIMEOUT,				// ITI cannot end unless last lick was this many ms before (ms)
 	ITI_PRESS_TIMEOUT,				// ITI cannot end unless last lever has been released for this many ms (ms)
+	MAX_LEVER_TIME,					// Lever will be retracted after this much time in the ITI, if paw is still on.
+	LEVER_RETRACT_TIME,				// Lever will be retracted for this duration before redeploying
 	REWARD_DURATION,				// Reward duration (ms), also determines tone duration
 	MIN_REWARD_COLLECTION_TIME,		// Min time juice tube is deployed (remember to make it longer than tube deploy time)
 	LEVER_POS_RETRACTED,			// Servo (lever) position when lever is retracted
@@ -182,6 +184,8 @@ static const char *_paramNames[] =
 	"ITI_MAX",
 	"ITI_LICK_TIMEOUT",
 	"ITI_PRESS_TIMEOUT",
+	"MAX_LEVER_TIME",
+	"LEVER_RETRACT_TIME",
 	"REWARD_DURATION",
 	"MIN_REWARD_COLLECTION_TIME",
 	"LEVER_POS_RETRACTED",
@@ -198,21 +202,23 @@ static const char *_paramNames[] =
 long _params[_NUM_PARAMS] = 
 {
 	0, // _DEBUG
-	1000, // ITI_MIN
-	5000, // ITI_MEAN
-	10000, // ITI_MAX
+	0, // ITI_MIN
+	20000, // ITI_MEAN
+	20000, // ITI_MAX
 	4000, // ITI_LICK_TIMEOUT
 	4000, // ITI_PRESS_TIMEOUT
-	100, // REWARD_DURATION
+	1000, // MAX_LEVER_TIME
+	2000, // LEVER_RETRACT_TIME
+	50, // REWARD_DURATION
 	6000, // MIN_REWARD_COLLECTION_TIME
-	64, // LEVER_POS_RETRACTED
-	64, // LEVER_POS_DEPLOYED
-	36, // LEVER_SPEED_DEPLOY
-	36, // LEVER_SPEED_RETRACT
+	92, // LEVER_POS_RETRACTED
+	92, // LEVER_POS_DEPLOYED
+	72, // LEVER_SPEED_DEPLOY
+	72, // LEVER_SPEED_RETRACT
 	60, // TUBE_POS_RETRACTED
 	90, // TUBE_POS_DEPLOYED
 	36, // TUBE_SPEED_DEPLOY
-	36 // TUBE_SPEED_RETRACT
+	64 // TUBE_SPEED_RETRACT
 };
 
 /*****************************************************
@@ -440,6 +446,8 @@ void state_intertrial()
 {
 	static long itiDuration;
 	static bool isTubeRetracted;
+	static bool isLeverRetracted;
+	static long timeLeverRetract;
 	/*****************************************************
 		ACTION LIST
 	*****************************************************/
@@ -459,6 +467,9 @@ void state_intertrial()
 			isTubeRetracted = true;
 			deployTube(false);
 		}
+
+		isLeverRetracted = false;
+		timeLeverRetract = 0;
 
 		// Generate random interval length from exponential distribution
 		// CDF  p=F(x|μ)=1-exp(-x/μ);
@@ -483,6 +494,25 @@ void state_intertrial()
 		}
 	}
 
+	if (!isLeverRetracted && _isLeverPressed)
+	{
+		if (getTimeSinceLastLeverPress() >= _params[MAX_LEVER_TIME])
+		{
+			isLeverRetracted = true;
+			timeLeverRetract = getTime();
+			deployLever(false);
+		}
+	}
+	
+	if (isLeverRetracted && !_isLeverPressed)
+	{
+		if (getTime() - timeLeverRetract >= _params[LEVER_RETRACT_TIME])
+		{
+			isLeverRetracted = false;
+			deployLever(true);
+		}
+	}
+
 	/*****************************************************
 		TRANSITION LIST
 	*****************************************************/
@@ -495,13 +525,8 @@ void state_intertrial()
 
 
 	// If ITI elapsed && lick spout retracted && no licks for a bit && lever released for a few seconds
-	if (!_isUpdatingParams && _servoStateTube == SERVOSTATE_RETRACTED)
+	if (!_isUpdatingParams && _servoStateTube == SERVOSTATE_RETRACTED && _servoStateLever == SERVOSTATE_DEPLOYED)
 	{
-		// sendMessage(String(getTimeSinceTrialEnd()) + " >= " + String(itiDuration));
-		// sendMessage("_isLeverPressed = " + String(_isLeverPressed));
-		// sendMessage("timeSinceLastLick = " + String(getTimeSinceLastLick()) + " vs " + String(_params[ITI_LICK_TIMEOUT]));
-		// sendMessage("timeSinceLastLeverRelease = " + String(getTimeSinceLastLeverRelease()) + " vs " + String(_params[ITI_PRESS_TIMEOUT]));
-		// sendMessage("STOP");
 		if (getTimeSinceTrialEnd() >= itiDuration && !_isLeverPressed && getTimeSinceLastLick() >= _params[ITI_LICK_TIMEOUT] && getTimeSinceLastLeverRelease() >= _params[ITI_PRESS_TIMEOUT])		
 		{
 			_state = STATE_WAITFORTOUCH;
