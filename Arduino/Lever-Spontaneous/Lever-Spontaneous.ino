@@ -88,6 +88,7 @@ enum EventMarker
 	EVENT_LICK_OFF,					// Lick offset
 	EVENT_LEVER_PRESSED,			// Lever touch onset
 	EVENT_LEVER_RELEASED,			// Lever touch offset
+	EVENT_LEVER_HELD,
 	EVENT_REWARD_ON,				// Reward, juice valve on
 	EVENT_REWARD_OFF,				// Reward, juice valve off
 	EVENT_ITI,						// At start of ITI
@@ -109,6 +110,7 @@ static const char *_eventMarkerNames[] =
 	"LICK_OFF",					// Lick offset
 	"LEVER_PRESSED",			// Lever touch onset
 	"LEVER_RELEASED",			// Lever touch offset
+	"EVENT_LEVER_HELD",
 	"REWARD_ON",				// Reward, juice valve on
 	"REWARD_OFF",				// Reward, juice valve off
 	"ITI",						// At start of ITI
@@ -602,7 +604,7 @@ void state_reward()
 	}
 
 	// Retract lick tube when the time comes
-	if (!isTubeRetracted && getTime() - timeRewardOn >= _params[MIN_REWARD_COLLECTION_TIME] && getTimeSinceLastLick() >= _params[ITI_LICK_TIMEOUT])
+	if (!isTubeRetracted && getTime() - timeRewardOn >= _params[MIN_REWARD_COLLECTION_TIME] && getTimeSinceLastLick() >= _params[EXTRA_LICK_TIME])
 	{
 		isTubeRetracted = true;
 		deployTube(false);
@@ -696,14 +698,12 @@ void handleLever()
 			_timeLastLeverPress = getTime();
 		}
 		// Press-and-hold timeout reached
-		else if (getTimeSinceLastLeverPress() >= _params[LEVER_HOLD_TIME] && (_servoStateLever == SERVOSTATE_DEPLOYED || _servoStateLever == SERVOSTATE_DEPLOYING))
+		if (!_isLeverHeld && getTimeSinceLastLeverPress() >= _params[LEVER_HOLD_TIME])
 		{
 			_isLeverHeld = true;
-			if (_params[LEVER_POS_DEPLOYED] != _params[LEVER_POS_DEPLOYED])
-			{
-				deployLever(false);
-				_timeLastLeverRetract = getTime();
-			}
+			sendEventMarker(EVENT_LEVER_HELD, -1);
+			deployLever(false);
+			_timeLastLeverRetract = getTime();
 		}
 	}
 	// not in contact
@@ -718,6 +718,11 @@ void handleLever()
 			_timeLastLeverRelease = getTime();
 		}
 	}
+
+	if (_servoStateLever == SERVOSTATE_RETRACTED && getTimeSinceLastLeverRetract() >= _params[LEVER_RETRACT_TIME])
+	{
+		deployLever(true);
+	} 
 }
 
 // Use servo to retract/present lever to the little dude
