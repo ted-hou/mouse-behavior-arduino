@@ -157,7 +157,7 @@ enum ParamID
 	ITI_MIN,						// ITI length min cutoff (ms)
 	ITI_MEAN,						// ITI length (mean of exponential distribution) (ms)
 	ITI_MAX,						// ITI length max cutoff (ms)
-	MAX_LEVER_TIME,					// Lever will be retracted after this much time in the ITI, if paw is still on.
+	LEVER_HOLD_TIME,				// Lever contact must be maintained for this duration (ms) before reward dispensed..
 	LEVER_RETRACT_TIME,				// Lever will be retracted for this duration before redeploying
 	REWARD_DURATION,				// Reward duration (ms), also determines tone duration
 	MIN_REWARD_COLLECTION_TIME,		// Min time juice tube is deployed (remember to make it longer than tube deploy time)
@@ -181,7 +181,7 @@ static const char *_paramNames[] =
 	"ITI_MIN",
 	"ITI_MEAN",
 	"ITI_MAX",
-	"MAX_LEVER_TIME",
+	"LEVER_HOLD_TIME",
 	"LEVER_RETRACT_TIME",
 	"REWARD_DURATION",
 	"MIN_REWARD_COLLECTION_TIME",
@@ -203,7 +203,7 @@ long _params[_NUM_PARAMS] =
 	0, // ITI_MIN
 	20000, // ITI_MEAN
 	20000, // ITI_MAX
-	100, // MAX_LEVER_TIME
+	50, // LEVER_HOLD_TIME
 	1000, // LEVER_RETRACT_TIME
 	50, // REWARD_DURATION
 	3000, // MIN_REWARD_COLLECTION_TIME
@@ -238,9 +238,10 @@ static bool _isLickOnset 			= false;		// True during lick onset
 static long _timeLastLick			= 0;			// Time (ms) when last lick occured
 
 static bool _isLeverPressed			= false;		// True as long as lever is pressed down
-static bool _isLeverPressOnset 		= false;		// True when lever first pressed
+static bool _isLeverHeld 			= false;
 static long _timeLastLeverPress		= 0;			// Time (ms) when last lever press occured
 static long _timeLastLeverRelease	= 0;			// Time (ms) when last lever press occured
+static long _timeLastLeverRetract 	= 0;			// Time (ms) when last lever retraction occured (due to touch)
 
 static ServoState _servoStateTube	= _SERVOSTATE_INIT;				// Servo state
 static long _servoStartTimeLever	= 0;							// When servo started moving retrieved using getTime()
@@ -280,7 +281,7 @@ void setup()
 void mySetup()
 {
 	// Reset variables
-	_timeReset				= 0;			// Reset to signedMillis() at every soft reset
+	_timeReset				= signedMillis();			// Reset to signedMillis() at every soft reset
 	_timeTrialStart			= 0;			// Reset to 0 at start of trial
 	_timeTrialEnd			= 0;			// Reset to 0 at ITI entry
 	_resultCode				= -1;			// Result code. -1 if there is no result.
@@ -294,9 +295,10 @@ void mySetup()
 	_isLickOnset 			= false;		// True during lick onset
 	_timeLastLick			= 0;			// Time (ms) when last lick occured
 	_isLeverPressed			= false;		// True as long as lever is pressed down
-	_isLeverPressOnset 		= false;		// True when lever first pressed
+	_isLeverHeld 			= false;
 	_timeLastLeverPress		= 0;			// Time (ms) when last lever press occured
 	_timeLastLeverRelease	= 0;			// Time (ms) when last lever press occured
+	_timeLastLeverRetract 	= 0;
 
 	_servoStateTube			= _SERVOSTATE_INIT;				// Servo state
 	_servoStartTimeLever	= 0;							// When servo started moving retrieved using getTime()
@@ -442,28 +444,22 @@ void state_idle()
 void state_intertrial()
 {
 	static long itiDuration;
-	static bool isLeverRetracted;
-	static long timeLeverRetract;
 	/*****************************************************
 		ACTION LIST
 	*****************************************************/
 	if (_state != _prevState) 
 	{
 		// Register new state
-		_prevState = _state;
 		sendState(_state);
 
 		// Register events
 		sendEventMarker(EVENT_ITI, -1);
 
 		// Retract lick tube immediately if first trial
-		if (_resultCode == -1)
+		if (_prevState != STATE_IDLE)
 		{
 			deployTube(false);
 		}
-
-		isLeverRetracted = false;
-		timeLeverRetract = 0;
 
 		// Generate random interval length from exponential distribution
 		// CDF  p=F(x|μ)=1-exp(-x/μ);
@@ -473,29 +469,14 @@ void state_intertrial()
 		// Apply min/max cutoffs
 		itiDuration = max(itiDuration, _params[ITI_MIN]);
 		itiDuration = min(itiDuration, _params[ITI_MAX]);
+
+		// Update state
+		_prevState = _state;
 	}
 
 	/*****************************************************
 		OnEachLoop checks
 	*****************************************************/
-	if (!isLeverRetracted && _isLeverPressed)
-	{
-		if (getTimeSinceLastLeverPress() >= _params[MAX_LEVER_TIME])
-		{
-			isLeverRetracted = true;
-			timeLeverRetract = getTime();
-			deployLever(false);
-		}
-	}
-	
-	if (isLeverRetracted && !_isLeverPressed)
-	{
-		if (getTime() - timeLeverRetract >= _params[LEVER_RETRACT_TIME])
-		{
-			isLeverRetracted = false;
-			deployLever(true);
-		}
-	}
 
 	/*****************************************************
 		TRANSITION LIST
@@ -509,13 +490,10 @@ void state_intertrial()
 
 
 	// If ITI elapsed && lick spout retracted && no licks for a bit && lever released for a few seconds
-	if (!_isUpdatingParams)
-	{
-		if (getTimeSinceTrialEnd() >= itiDuration)		
-		{
-			_state = STATE_WAITFORTOUCH;
-			return;
-		}
+	if (!_isUpdatingParams && getTimeSinceTrialEnd() >= itiDuration)
+	{			
+		_state = STATE_WAITFORTOUCH;
+		return;
 	}
 
 	_state = STATE_INTERTRIAL;
@@ -556,7 +534,7 @@ void state_waitfortouch()
 	}
 
 	// Touch --> REWARD
-	if (_isLeverPressOnset && !_isUpdatingParams)
+	if (_isLeverHeld && !_isUpdatingParams)
 	{
 		_timeTrialEnd = getTime();
 		_state = STATE_REWARD;
@@ -641,7 +619,7 @@ void state_reward()
 		return;
 	}
 
-	// Trial duration elapsed and reward dispense complete --> INTERTRIAL
+	// Reward dispensed and tube retracted fully --> INTERTRIAL
 	if (isRewardComplete && _servoStateTube == SERVOSTATE_RETRACTED && !_isUpdatingParams)
 	{
 		_state = STATE_INTERTRIAL;
@@ -707,22 +685,38 @@ bool getLeverState()
 
 void handleLever() 
 {
-	if (getLeverState() && !_isLeverPressed)
+	// Lever contact
+	if (getLeverState())
 	{
-		_isLeverPressed = true;
-		_isLeverPressOnset = true;
-		sendEventMarker(EVENT_LEVER_PRESSED, -1);
-		_timeLastLeverPress = getTime();
+		// Onset
+		if (!_isLeverPressed)
+		{
+			_isLeverPressed = true;
+			sendEventMarker(EVENT_LEVER_PRESSED, -1);
+			_timeLastLeverPress = getTime();
+		}
+		// Press-and-hold timeout reached
+		else if (getTimeSinceLastLeverPress() >= _params[LEVER_HOLD_TIME] && (_servoStateLever == SERVOSTATE_DEPLOYED || _servoStateLever == SERVOSTATE_DEPLOYING))
+		{
+			_isLeverHeld = true;
+			if (_params[LEVER_POS_DEPLOYED] != _params[LEVER_POS_DEPLOYED])
+			{
+				deployLever(false);
+				_timeLastLeverRetract = getTime();
+			}
+		}
 	}
+	// not in contact
 	else
 	{
-		if (!getLeverState() && _isLeverPressed)
+		// Offset
+		if (_isLeverPressed)
 		{
 			_isLeverPressed = false;
+			_isLeverHeld = false;
 			sendEventMarker(EVENT_LEVER_RELEASED, -1);
 			_timeLastLeverRelease = getTime();
 		}
-		_isLeverPressOnset = false;
 	}
 }
 
@@ -1073,34 +1067,40 @@ long getTime()
 // Returns time since trial start in milliseconds
 long getTimeSinceTrialStart()
 {
-	long time = signedMillis() - _timeTrialStart;
+	long time = getTime() - _timeTrialStart;
 	return time;
 }
 
 // Returns time since trial start in milliseconds
 long getTimeSinceTrialEnd()
 {
-	long time = signedMillis() - _timeTrialEnd;
+	long time = getTime() - _timeTrialEnd;
 	return time;
 }
 
 // Returns time since last lick in milliseconds
 long getTimeSinceLastLick()
 {
-	long time = signedMillis() - _timeLastLick;
+	long time = getTime() - _timeLastLick;
 	return time;
 }
 
 // Returns time since last lever press in milliseconds
 long getTimeSinceLastLeverPress()
 {
-	long time = signedMillis() - _timeLastLeverPress;
+	long time = getTime() - _timeLastLeverPress;
 	return time;
 }
 
 // Returns time since last lever release in milliseconds
 long getTimeSinceLastLeverRelease()
 {
-	long time = signedMillis() - _timeLastLeverRelease;
+	long time = getTime() - _timeLastLeverRelease;
+	return time;
+}
+
+long getTimeSinceLastLeverRetract()
+{
+	long time = getTime() - _timeLastLeverRetract;
 	return time;
 }
