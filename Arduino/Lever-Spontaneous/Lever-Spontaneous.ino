@@ -157,12 +157,11 @@ enum ParamID
 	ITI_MIN,						// ITI length min cutoff (ms)
 	ITI_MEAN,						// ITI length (mean of exponential distribution) (ms)
 	ITI_MAX,						// ITI length max cutoff (ms)
-	ITI_LICK_TIMEOUT,				// ITI cannot end unless last lick was this many ms before (ms)
-	ITI_PRESS_TIMEOUT,				// ITI cannot end unless last lever has been released for this many ms (ms)
 	MAX_LEVER_TIME,					// Lever will be retracted after this much time in the ITI, if paw is still on.
 	LEVER_RETRACT_TIME,				// Lever will be retracted for this duration before redeploying
 	REWARD_DURATION,				// Reward duration (ms), also determines tone duration
 	MIN_REWARD_COLLECTION_TIME,		// Min time juice tube is deployed (remember to make it longer than tube deploy time)
+	EXTRA_LICK_TIME,				// Lick tube does not retract until last lick was this many ms before (ms)
 	LEVER_POS_RETRACTED,			// Servo (lever) position when lever is retracted
 	LEVER_POS_DEPLOYED,				// Servo (lever) position when lever is deployed
 	LEVER_SPEED_DEPLOY,				// Servo (lever) rotation speed when deploying, 0 for max speed
@@ -182,12 +181,11 @@ static const char *_paramNames[] =
 	"ITI_MIN",
 	"ITI_MEAN",
 	"ITI_MAX",
-	"ITI_LICK_TIMEOUT",
-	"ITI_PRESS_TIMEOUT",
 	"MAX_LEVER_TIME",
 	"LEVER_RETRACT_TIME",
 	"REWARD_DURATION",
 	"MIN_REWARD_COLLECTION_TIME",
+	"EXTRA_LICK_TIME",
 	"LEVER_POS_RETRACTED",
 	"LEVER_POS_DEPLOYED",
 	"LEVER_SPEED_DEPLOY",
@@ -205,20 +203,19 @@ long _params[_NUM_PARAMS] =
 	0, // ITI_MIN
 	20000, // ITI_MEAN
 	20000, // ITI_MAX
-	4000, // ITI_LICK_TIMEOUT
-	4000, // ITI_PRESS_TIMEOUT
-	1000, // MAX_LEVER_TIME
-	2000, // LEVER_RETRACT_TIME
+	100, // MAX_LEVER_TIME
+	1000, // LEVER_RETRACT_TIME
 	50, // REWARD_DURATION
-	6000, // MIN_REWARD_COLLECTION_TIME
-	92, // LEVER_POS_RETRACTED
-	92, // LEVER_POS_DEPLOYED
+	3000, // MIN_REWARD_COLLECTION_TIME
+	1000, // EXTRA_LICK_TIME
+	93, // LEVER_POS_RETRACTED
+	63, // LEVER_POS_DEPLOYED
 	72, // LEVER_SPEED_DEPLOY
 	72, // LEVER_SPEED_RETRACT
 	60, // TUBE_POS_RETRACTED
 	90, // TUBE_POS_DEPLOYED
 	36, // TUBE_SPEED_DEPLOY
-	64 // TUBE_SPEED_RETRACT
+	72, // TUBE_SPEED_RETRACT
 };
 
 /*****************************************************
@@ -445,7 +442,6 @@ void state_idle()
 void state_intertrial()
 {
 	static long itiDuration;
-	static bool isTubeRetracted;
 	static bool isLeverRetracted;
 	static long timeLeverRetract;
 	/*****************************************************
@@ -461,10 +457,8 @@ void state_intertrial()
 		sendEventMarker(EVENT_ITI, -1);
 
 		// Retract lick tube immediately if first trial
-		isTubeRetracted = false;
 		if (_resultCode == -1)
 		{
-			isTubeRetracted = true;
 			deployTube(false);
 		}
 
@@ -484,16 +478,6 @@ void state_intertrial()
 	/*****************************************************
 		OnEachLoop checks
 	*****************************************************/
-	// If rewarded, retract lick tube before random delay starts
-	if (!isTubeRetracted)
-	{
-		if (getTimeSinceTrialEnd() >= _params[MIN_REWARD_COLLECTION_TIME] && getTimeSinceLastLick() >= _params[ITI_LICK_TIMEOUT])
-		{
-			isTubeRetracted = true;
-			deployTube(false);
-		}
-	}
-
 	if (!isLeverRetracted && _isLeverPressed)
 	{
 		if (getTimeSinceLastLeverPress() >= _params[MAX_LEVER_TIME])
@@ -525,9 +509,9 @@ void state_intertrial()
 
 
 	// If ITI elapsed && lick spout retracted && no licks for a bit && lever released for a few seconds
-	if (!_isUpdatingParams && _servoStateTube == SERVOSTATE_RETRACTED && _servoStateLever == SERVOSTATE_DEPLOYED)
+	if (!_isUpdatingParams)
 	{
-		if (getTimeSinceTrialEnd() >= itiDuration && !_isLeverPressed && getTimeSinceLastLick() >= _params[ITI_LICK_TIMEOUT] && getTimeSinceLastLeverRelease() >= _params[ITI_PRESS_TIMEOUT])		
+		if (getTimeSinceTrialEnd() >= itiDuration)		
 		{
 			_state = STATE_WAITFORTOUCH;
 			return;
@@ -583,13 +567,14 @@ void state_waitfortouch()
 }
 
 /*****************************************************
-	REWARD - Turn on juice valve for some time
+	REWARD - Present juice for some time
 *****************************************************/
 void state_reward()
 {
 	static long timeRewardOn;
 	static bool isRewardOn;
 	static bool isRewardComplete;
+	static bool isTubeRetracted;
 	/*****************************************************
 		ACTION LIST
 	*****************************************************/
@@ -606,6 +591,7 @@ void state_reward()
 		timeRewardOn = 0;
 		isRewardOn = false;
 		isRewardComplete = false;
+		isTubeRetracted = false;
 
 		noTone(PIN_SPEAKER);
 		tone(PIN_SPEAKER, TONE_REWARD, _params[REWARD_DURATION]);
@@ -637,6 +623,14 @@ void state_reward()
 		}
 	}
 
+	// Retract lick tube when the time comes
+	if (!isTubeRetracted && getTime() - timeRewardOn >= _params[MIN_REWARD_COLLECTION_TIME] && getTimeSinceLastLick() >= _params[ITI_LICK_TIMEOUT])
+	{
+		isTubeRetracted = true;
+		deployTube(false);
+	}
+
+
 	/*****************************************************
 		TRANSITION LIST
 	*****************************************************/
@@ -648,10 +642,10 @@ void state_reward()
 	}
 
 	// Trial duration elapsed and reward dispense complete --> INTERTRIAL
-	if (isRewardComplete && !_isUpdatingParams)
+	if (isRewardComplete && _servoStateTube == SERVOSTATE_RETRACTED && !_isUpdatingParams)
 	{
 		_state = STATE_INTERTRIAL;
-		return;
+		return;			
 	}
 
 	_state = STATE_REWARD;
