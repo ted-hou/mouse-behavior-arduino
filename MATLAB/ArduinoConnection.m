@@ -12,6 +12,8 @@ classdef ArduinoConnection < handle
 		ExperimentFileName = ''			% Contains 'C://path/filename.mat'
 		Cameras = struct([])
 		Camera = []
+        AnalogOutputEvents = []
+        AnalogOutputResolution = NaN
 	end
 
 	properties (SetObservable, AbortSet)
@@ -20,7 +22,7 @@ classdef ArduinoConnection < handle
 	end
 
 	properties (Transient)	% These properties will be discarded when saving to file
-		DebugMode = false
+		DebugMode = true
 		Connected = false
 		AutosaveEnabled = false
 		SerialConnection = []
@@ -28,7 +30,11 @@ classdef ArduinoConnection < handle
 		ParamUpdateQueue = []
 		EventMarkersBuffer = []
 		Listeners
-	end
+    end
+
+    properties (Transient, Hidden)
+        AnalogOutputEventIndex = 0
+    end
 
 	events
 		StateChanged
@@ -380,6 +386,36 @@ classdef ArduinoConnection < handle
 					obj.ResultCodeNames{codeId} = subStrings{2};
 				case '~'
 					fprintf('\nUp and running.\n')
+                case ':'
+					% Arduino sent analogWriteResolution - ": 12"
+					subStrings = strsplit(strtrim(value), ' ');
+					obj.AnalogOutputResolution = str2num(subStrings{1});
+                    if ~isempty(obj.AnalogOutputEvents)
+                        warning('AnalogOutputEvents is not empty, but is being overriden. If you are reading this, arduino probably sent the ":" symbol more than once')
+                    end
+                    obj.AnalogOutputEventIndex = 0;
+                    obj.AnalogOutputEvents = NaN(100, 4);
+                case '%'
+					% Arduino sent analogOutputEvent - "% channel value timestamp"
+					% Arduino sent an event code and its timestamp - "& 0 100"
+					subStrings = strsplit(strtrim(value), ' ');
+					channel = str2num(subStrings{1}); % Both arduino and matlab use 1 based index, i.e., channel 1 or 2
+					value = str2num(subStrings{2});
+                    timestamp = str2num(subStrings{3});
+					absTime = now;
+                    obj.AnalogOutputEventIndex = obj.AnalogOutputEventIndex + 1;
+                    
+                    % Allocate a bigger array if necessary
+                    if obj.AnalogOutputEventIndex > size(obj.AnalogOutputEvents, 1)
+                        obj.AnalogOutputEvents = vertcat(obj.AnalogOutputEvents, NaN(size(obj.AnalogOutputEvents))); % Woah you just walk around with that thing?
+                    end
+
+					obj.AnalogOutputEvents(obj.AnalogOutputEventIndex, :) = [channel, value, timestamp, absTime];
+
+					% Debug message
+					if obj.DebugMode
+						fprintf('		ANALOG_OUT: Channel %i set to %i.\n', channel, value)
+					end
 				otherwise
 					% Arduino sent a message
 					fprintf('%s\n', messageString)
@@ -498,8 +534,11 @@ classdef ArduinoConnection < handle
 		% Send optogenetic pulse train
 		function OptogenStim(obj)
 			if obj.OptogenStimAvailable()
+                disp('Sent stim command')
 				obj.SendMessage('L')
-			end
+            else
+                warning('Cannot stim')
+            end
 		end
 
 		function canStim = OptogenStimAvailable(obj)

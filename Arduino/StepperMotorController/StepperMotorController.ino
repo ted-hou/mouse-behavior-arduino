@@ -96,14 +96,14 @@ static const char *_paramNames[] =
 float _params[_NUM_PARAMS] =
 {
 	0,		// _DEBUG
-	10,		// UNITS_PER_REV (should be ~9.4mm per 360 deg, we'll round to 10)
-	10,		// MOTOR_MIN_SPEED
-	20,		// MOTOR_MAX_SPEED
-	20,		// MOTOR_ACCEL
-	-125,	// TARGET_1
-	-50,	// TARGET_2
-	50,		// TARGET_3
-	125,	// TARGET_4
+	77,		// UNITS_PER_REV (should be ~9.4mm per 360 deg, we'll round to 10)
+	100,	// MOTOR_MIN_SPEED
+	200,	// MOTOR_MAX_SPEED
+	200,	// MOTOR_ACCEL
+	0,		// TARGET_1
+	333,	// TARGET_2
+	666,	// TARGET_3
+	1000,	// TARGET_4
 	1		// TARGET_TOLERANCE
 };
 
