@@ -388,6 +388,8 @@ void mySetup()
 	// Sends all parameters, states and error codes to Matlab, then tell PC that we're running by sending '~' message:
 	hostInit();
 
+	setAnalogOutput(1, 0);
+	setAnalogOutput(2, 0);	
 	randomSeed(analogRead(0));
 }
 
@@ -440,6 +442,7 @@ void loop()
 		handleServoLever();		// Lever servo control
 		handleParamUpdate();	// Writes to _isUpdatingParams
 		handleAnalogOutput();	// Write to DAC channels to modulate laser pwoer
+		handleManualOptoStim(); // Handles manual opto commands from serial "L [shutterNum(1/2, or 3 for both)] [state(0/1)]"
 
 		// 3) Update state machine
 		// Depending on what state we're in, call the appropriate state function, which will evaluate the transition conditions, and update the `_state` var to what the next state should be
@@ -491,8 +494,8 @@ void state_idle()
 		sendState(_state);
 
 		// Reset output
-		setAnalogOutput(1, 0);
-		setAnalogOutput(2, 0);
+		// setAnalogOutput(1, 0);
+		// setAnalogOutput(2, 0);
 		setOptogenStim(1, false);
 		setOptogenStim(2, false);
 		noTone(PIN_SPEAKER);
@@ -735,6 +738,8 @@ void state_optogen_stim()
 	*****************************************************/
 	if (_state != _prevState) 
 	{
+		setOptogenStim(_params[OPTO_SELECTION], false);
+
 		// Write down previous state, return to it when done
 		entryState = _prevState;
 
@@ -1322,6 +1327,17 @@ void handleParamUpdate()
 		{
 			_isUpdatingParams = false;
 		}	
+	}
+}
+
+void handleManualOptoStim()
+{
+	// Handles manual shutter command: T [shutterNum] [state]
+	// shutterNum: 1, 2, or 3 for both
+	// state: 0 or 1
+	if (_command == 'T') // T for shutter
+	{
+		setOptogenStim(_arguments[0], _arguments[1] > 0);
 	}
 }
 

@@ -532,12 +532,16 @@ classdef ArduinoConnection < handle
 		end
 
 		% Send optogenetic pulse train
-		function OptogenStim(obj)
+		function success = OptogenStim(obj)
 			if obj.OptogenStimAvailable()
-                disp('Sent stim command')
+				if obj.DebugMode
+                	disp('Sent stim command')
+                end
 				obj.SendMessage('L')
+                success = true;
             else
                 warning('Cannot stim')
+                success = false;
             end
 		end
 

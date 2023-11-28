@@ -1645,34 +1645,42 @@ classdef MouseBehaviorInterface < handle
 			obj.CreateDialog_Monitor();
 		end
 
-		function ArduinoClose(obj, ~, ~)
-			selection = questdlg(...
-				'Close all windows and terminate connection with Arduino?',...
-				'Close Window',...
-				'Yes','No','Yes'...
-			);
-			switch selection
-				case 'Yes'
-					obj.Arduino.Close()
-					if isfield(obj.Rsc, 'Monitor')
-						delete(obj.Rsc.Monitor)
-					end
-					if isfield(obj.Rsc, 'ExperimentControl')
-						delete(obj.Rsc.ExperimentControl)
-					end
-					if isfield(obj.Rsc, 'TaskScheduler')
-						delete(obj.Rsc.TaskScheduler)
-					end
-					for iCam = 1:length(obj.Arduino.Cameras)
-						if ~isempty(obj.Arduino.Cameras(iCam).Camera) && ~isempty(obj.Arduino.Cameras(iCam).Camera.VideoInput)
-							obj.Arduino.Cameras(iCam).Camera.Delete();
-						end
-					end
-					fprintf('Arduino connection closed.\n')
-				case 'No'
-					return
-			end
-		end
+        function ArduinoClose(obj, ~, ~, force)
+            if nargin < 4
+                force = false;
+            end
+
+            if ~force
+                selection = questdlg(...
+                    'Close all windows and terminate connection with Arduino?',...
+                    'Close Window',...
+                    'Yes','No','Yes'...
+    			    );
+            else
+                selection = 'Yes';
+            end
+            switch selection
+                case 'Yes'
+                    obj.Arduino.Close()
+                    if isfield(obj.Rsc, 'Monitor')
+                        delete(obj.Rsc.Monitor)
+                    end
+                    if isfield(obj.Rsc, 'ExperimentControl')
+                        delete(obj.Rsc.ExperimentControl)
+                    end
+                    if isfield(obj.Rsc, 'TaskScheduler')
+                        delete(obj.Rsc.TaskScheduler)
+                    end
+                    for iCam = 1:length(obj.Arduino.Cameras)
+                        if ~isempty(obj.Arduino.Cameras(iCam).Camera) && ~isempty(obj.Arduino.Cameras(iCam).Camera.VideoInput)
+                            obj.Arduino.Cameras(iCam).Camera.Delete();
+                        end
+                    end
+                    fprintf('Arduino connection closed.\n')
+                case 'No'
+                    return
+            end
+        end
 
 		function ArduinoReconnect(obj, ~, ~)
 			obj.Arduino.Reconnect()
@@ -1730,7 +1738,7 @@ classdef MouseBehaviorInterface < handle
 		end
 
 		function ArduinoOptogenStim(obj, ~, ~)
-			obj.Arduino.OptogenStim()
+			obj.Arduino.OptogenStim();
 		end
 
 		function ArduinoZeroMotor(obj, ~, ~)
