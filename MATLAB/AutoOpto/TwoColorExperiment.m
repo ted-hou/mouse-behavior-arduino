@@ -322,7 +322,7 @@ classdef TwoColorExperiment < handle
             if DEBUG
                 fprintf('\t%s: mirror at target.\n', datetime())
             end
-        
+
             % Step 2: Turn on laser and wait
             log.laserOnTime = datetime();
             obj.analogWrite(iLaser, results.aoutValues(iPower, iMirrorPos, iLaser));
@@ -330,7 +330,7 @@ classdef TwoColorExperiment < handle
                 fprintf('\t%s: laser on.\n', datetime())
             end
             pause(r.preTrainDelay);
-        
+
             % Step 3: Do pulses
             obj.setParam('laser', 'OPTO_ENABLED', 1);
             obj.setParam('laser', 'OPTO_PULSE_DURATION', round(r.pulseWidth*1e3));
@@ -352,7 +352,7 @@ classdef TwoColorExperiment < handle
             if DEBUG
                 fprintf('\t%s: stim train complete.\n', datetime())
             end
-        
+
             % Step 4: Wait and turn off laser
             pause(r.postTrainDelay);
             obj.analogWrite(iLaser, 0);
