@@ -32,8 +32,7 @@ enum ServoState
 #define PIN_REWARD				24
 #define PIN_SERVO_LEVER			14
 #define PIN_SERVO_TUBE			15
-#define PIN_OPTOGEN_STIM_1		23 	// Blue
-#define PIN_OPTOGEN_STIM_2		4   // Blue
+#define PIN_OPTOGEN_STIM		23
 
 
 // Mirrors to blackrock
@@ -61,8 +60,7 @@ static const int _digOutPins[] =
 	PIN_SERVO_LEVER,
 	PIN_SERVO_TUBE,
 	PIN_SPEAKER,
-	PIN_OPTOGEN_STIM_1,
-	PIN_OPTOGEN_STIM_2
+	PIN_OPTOGEN_STIM
 };
 
 /*****************************************************
@@ -117,14 +115,8 @@ enum EventMarker
 	EVENT_TUBE_RETRACT_END,			// Tube retract end
 	EVENT_TUBE_DEPLOY_START,		// Tube deploy start
 	EVENT_TUBE_DEPLOY_END,			// Tube deploy end
-	EVENT_OPTOGEN_STIM_1_ON,			// Begin optogenetic stim (single pulse start)
-	EVENT_OPTOGEN_STIM_1_OFF,			// End optogenetic stim (single pulse end)
-	EVENT_OPTOGEN_STIM_1_START,		// Begin optogenetic stim (pulse train start)
-	EVENT_OPTOGEN_STIM_1_END,			// End optogenetic stim (pulse train end)
-	EVENT_OPTOGEN_STIM_2_ON,			// Begin optogenetic stim (single pulse start)
-	EVENT_OPTOGEN_STIM_2_OFF,			// End optogenetic stim (single pulse end)
-	EVENT_OPTOGEN_STIM_2_START,		// Begin optogenetic stim (pulse train start)
-	EVENT_OPTOGEN_STIM_2_END,			// End optogenetic stim (pulse train end)
+	EVENT_OPTOGEN_STIM_ON,			// Begin optogenetic stim (single pulse start)
+	EVENT_OPTOGEN_STIM_OFF,			// End optogenetic stim (single pulse end)
 	_NUM_EVENT_MARKERS
 };
 
@@ -147,14 +139,8 @@ static const char *_eventMarkerNames[] =
 	"TUBE_RETRACT_END",				// Tube retract end
 	"TUBE_DEPLOY_START",			// Tube deploy start
 	"TUBE_DEPLOY_END",				// Tube deploy end
-	"OPTOGEN_STIM_1_ON",			// Begin optogenetic stim (single pulse start)
-	"OPTOGEN_STIM_1_OFF",			// End optogenetic stim (single pulse end)
-	"OPTOGEN_STIM_1_START",		// Begin optogenetic stim (pulse train start)
-	"OPTOGEN_STIM_1_END",			// End optogenetic stim (pulse train end)
-	"OPTOGEN_STIM_2_ON",			// Begin optogenetic stim (single pulse start)
-	"OPTOGEN_STIM_2_OFF",			// End optogenetic stim (single pulse end)
-	"OPTOGEN_STIM_2_START",		// Begin optogenetic stim (pulse train start)
-	"OPTOGEN_STIM_2_END"			// End optogenetic stim (pulse train end)
+	"OPTOGEN_STIM_ON",			// Begin optogenetic stim (single pulse start)
+	"OPTOGEN_STIM_OFF",			// End optogenetic stim (single pulse end)
 };
 
 /*****************************************************
@@ -209,7 +195,6 @@ enum ParamID
 	OPTO_PULSE_DURATION,			// Optogenetic stim, duration of single pulse (ms)
 	OPTO_PULSE_INTERVAL,			// Optogenetic stim, interval between pulses (ms)
 	OPTO_NUM_PULSES,				// Optogenetic stim, number of pulses to deliver	
-	OPTO_SELECTION,					// 1 for blue, 2 for orange 
 	RANDOM_DELAY_MIN,				// Minimum random pre-stim delay (ms)
 	RANDOM_DELAY_MAX,				// Maximum random pre-stim delay (ms)
 	_NUM_PARAMS						// (Private) Used to count how many parameters there are so we can initialize the param array with the correct size. Insert additional parameters before this.
@@ -240,7 +225,6 @@ static const char *_paramNames[] =
 	"OPTO_PULSE_DURATION",	
 	"OPTO_PULSE_INTERVAL",	
 	"OPTO_NUM_PULSES",		
-	"OPTO_SELECTION",
 	"RANDOM_DELAY_MIN",
 	"RANDOM_DELAY_MAX"
 };
@@ -269,7 +253,6 @@ long _params[_NUM_PARAMS] =
 	10, // OPTO_PULSE_DURATION
 	250, // OPTO_PULSE_INTERVAL
 	10, // OPTO_NUM_PULSES
-	1, // OPTO_SELECTION
 	3000, // RANDOM_DELAY_MIN
 	6000, // RANDOM_DELAY_MAX
 };
@@ -312,9 +295,7 @@ static long _servoStartPosTube		= _params[TUBE_POS_DEPLOYED];	// Starting positi
 static long _servoTargetPosTube		= _params[TUBE_POS_DEPLOYED];	// Target position of servo
 
 // Optogenetics stimulation
-static bool _isOptogenStimOn 		= false;		// Whether optogenetic stimulation is currently on
-static bool _isOptogenStim1On 		= false;
-static bool _isOptogenStim2On 		= false;
+static bool _isOptogenStimOn 		= false;
 /*****************************************************
 	Setup
 *****************************************************/
@@ -346,8 +327,7 @@ void setup()
 void mySetup()
 {
 	// Set laser analog modulation to 0
-	setOptogenStim(1, false);					// Optogenetic stim OFF
-	setOptogenStim(2, false);					// Optogenetic stim OFF
+	setOptogenStim(false);					// Optogenetic stim OFF
 
 	// Reset variables
 	_timeReset				= signedMillis();			// Reset to signedMillis() at every soft reset
@@ -382,8 +362,6 @@ void mySetup()
 	_servoTargetPosTube		= _params[TUBE_POS_DEPLOYED];	// Target position of servo
 
 	_isOptogenStimOn 		= false;
-	_isOptogenStim1On 		= false;
-	_isOptogenStim2On 		= false;
 
 	// Sends all parameters, states and error codes to Matlab, then tell PC that we're running by sending '~' message:
 	hostInit();
@@ -496,8 +474,7 @@ void state_idle()
 		// Reset output
 		// setAnalogOutput(1, 0);
 		// setAnalogOutput(2, 0);
-		setOptogenStim(1, false);
-		setOptogenStim(2, false);
+		setOptogenStim(false);
 		noTone(PIN_SPEAKER);
 		setReward(false);
 		deployLever(true);
@@ -738,7 +715,7 @@ void state_optogen_stim()
 	*****************************************************/
 	if (_state != _prevState) 
 	{
-		setOptogenStim(_params[OPTO_SELECTION], false);
+		setOptogenStim(false);
 
 		// Write down previous state, return to it when done
 		entryState = _prevState;
@@ -768,7 +745,7 @@ void state_optogen_stim()
 		{
 			if (getTime() - timePulseStart >= _params[OPTO_PULSE_DURATION])
 			{
-				setOptogenStim(_params[OPTO_SELECTION], false);
+				setOptogenStim(false);
 				timePulseEnd = getTime();
 				numPulsesComplete = numPulsesComplete + 1;
 			}
@@ -778,7 +755,7 @@ void state_optogen_stim()
 		{
 			if (getTime() - timePulseEnd >= _params[OPTO_PULSE_INTERVAL])
 			{
-				setOptogenStim(_params[OPTO_SELECTION], true);
+				setOptogenStim(true);
 				timePulseStart = getTime();
 			}
 		}
@@ -1099,81 +1076,19 @@ void setReward(bool turnOn)
 }
 
 // Toggle optogenetic stimulation
-void setOptogenStim(int selection, bool turnOn) 
+void setOptogenStim(bool turnOn) 
 {
 	if (turnOn) 
 	{
-		switch (selection) 
-		{
-		    case 1:
-				if (!_isOptogenStim1On)
-				{
-					_isOptogenStim1On = true;
-					digitalWrite(PIN_OPTOGEN_STIM_1, HIGH);
-					sendEventMarker(EVENT_OPTOGEN_STIM_1_ON, -1);
-				}
-		    	break;
-		    case 2:
-				if (!_isOptogenStim2On)
-				{
-					_isOptogenStim2On = true;
-					digitalWrite(PIN_OPTOGEN_STIM_2, HIGH);
-					sendEventMarker(EVENT_OPTOGEN_STIM_2_ON, -1);
-				}
-		    	break;
-		    case 3:
-				if (!_isOptogenStim1On)
-				{
-					_isOptogenStim1On = true;
-					digitalWrite(PIN_OPTOGEN_STIM_1, HIGH);
-					sendEventMarker(EVENT_OPTOGEN_STIM_1_ON, -1);
-				}
-				if (!_isOptogenStim2On)
-				{
-					_isOptogenStim2On = true;
-					digitalWrite(PIN_OPTOGEN_STIM_2, HIGH);
-					sendEventMarker(EVENT_OPTOGEN_STIM_2_ON, -1);
-				}
-		    	break;
-		}
 		_isOptogenStimOn = true;
+		digitalWrite(PIN_OPTOGEN_STIM, HIGH);
+		sendEventMarker(EVENT_OPTOGEN_STIM_ON, -1);
 	}
 	else 
 	{
-		switch (selection) 
-		{
-		    case 1:
-				if (_isOptogenStim1On)
-				{
-					_isOptogenStim1On = false;
-					digitalWrite(PIN_OPTOGEN_STIM_1, LOW);
-					sendEventMarker(EVENT_OPTOGEN_STIM_1_OFF, -1);
-				}
-		    	break;
-		    case 2:
-				if (_isOptogenStim2On)
-				{
-					_isOptogenStim2On = false;
-					digitalWrite(PIN_OPTOGEN_STIM_2, LOW);
-					sendEventMarker(EVENT_OPTOGEN_STIM_2_OFF, -1);
-				}
-		    	break;
-		    case 3:
-				if (_isOptogenStim1On)
-				{
-					_isOptogenStim1On = false;
-					digitalWrite(PIN_OPTOGEN_STIM_1, LOW);
-					sendEventMarker(EVENT_OPTOGEN_STIM_1_OFF, -1);
-				}
-				if (_isOptogenStim2On)
-				{
-					_isOptogenStim2On = false;
-					digitalWrite(PIN_OPTOGEN_STIM_2, LOW);
-					sendEventMarker(EVENT_OPTOGEN_STIM_2_OFF, -1);
-				}
-		    	break;
-		}
 		_isOptogenStimOn = false;
+		digitalWrite(PIN_OPTOGEN_STIM, LOW);
+		sendEventMarker(EVENT_OPTOGEN_STIM_OFF, -1);
 	}
 } 
 
@@ -1332,12 +1247,11 @@ void handleParamUpdate()
 
 void handleManualOptoStim()
 {
-	// Handles manual shutter command: T [shutterNum] [state]
-	// shutterNum: 1, 2, or 3 for both
+	// Handles manual shutter command: T [state]
 	// state: 0 or 1
 	if (_command == 'T') // T for shutter
 	{
-		setOptogenStim(_arguments[0], _arguments[1] > 0);
+		setOptogenStim(_arguments[0] > 0);
 	}
 }
 
