@@ -444,9 +444,9 @@ classdef TwoColorExperiment < handle
                 state = true;
             end
             if state
-                obj.LaserArduino.SendMessage('T 1 1');
+                obj.LaserArduino.SendMessage('T 1');
             else
-                obj.LaserArduino.SendMessage('T 1 0');
+                obj.LaserArduino.SendMessage('T 0');
             end
         end
 
