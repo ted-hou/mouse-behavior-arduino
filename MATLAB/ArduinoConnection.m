@@ -584,9 +584,9 @@ classdef ArduinoConnection < handle
 			end
 		end
 
-		function MoveMotor(obj, distance)
+		function MoveMotor(obj, motorIndex, distance)
 			if obj.CanMoveMotor()
-				obj.SendMessage(sprintf('M %.4f', distance));
+				obj.SendMessage(sprintf('M %i %.4f', motorIndex, distance));
 			end
 		end
 

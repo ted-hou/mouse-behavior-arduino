@@ -1,3 +1,8 @@
+// This will run TWO state machines in the same loop. One for each motor.
+// Motor1: for lever, has 2bit control via DIGIN 5&6.
+// Motor2: for laser mirror, moved via serial commands (i.e. changing params).
+// MouseBehaviorInterface GUI will only display state/trial info for Motor1 (useless info anyway)
+
 #include "src/XNucleoDualStepperDriver/XNucleoDualStepperDriver.h"
 #include "src/XNucleoDualStepperDriver/dSPINConstants.h"
 #include <SPI.h>
@@ -31,7 +36,8 @@
 // How many phyical units of translation in one complete motor revolution?
 //    (Units could be pixels, mm, degrees, etc...)
 // We can compute our conversion factor:
-#define UNITS_PER_MICROSTEP (_params[UNITS_PER_REV] / (float)MICROSTEPS_PER_MOTOR_REV)
+#define MOTOR1_UNITS_PER_MICROSTEP (_params[MOTOR1_UNITS_PER_REV] / (float)MICROSTEPS_PER_MOTOR_REV)
+#define MOTOR2_UNITS_PER_MICROSTEP (_params[MOTOR2_UNITS_PER_REV] / (float)MICROSTEPS_PER_MOTOR_REV)
 
 // Extra boost for acceleration; Reduce power for holding still
 #define K_ACCL 1.2 // fraction of full voltage for acceleration
@@ -44,12 +50,13 @@
 #define PIN_CS A2
 #define PIN_BUSY A5
 #define PIN_FLAG A4
-XNucleoStepper motor(0, PIN_CS, PIN_RESET, PIN_BUSY);
-XNucleoStepper motor2(1, PIN_CS, PIN_RESET);
+XNucleoStepper _motor1(0, PIN_CS, PIN_RESET, PIN_BUSY);
+XNucleoStepper _motor2(1, PIN_CS, PIN_RESET);
 
-#define PIN_MOTOR_TARGET_1 5
-#define PIN_MOTOR_TARGET_2 6
-#define PIN_MOTOR_BUSY 7
+#define PIN_MOTOR1_TARGET_1 5
+#define PIN_MOTOR1_TARGET_2 6
+#define PIN_MOTOR1_BUSY 7
+#define PIN_MOTOR2_BUSY 8
 
 /*****************************************************
 	States, Events, Results
@@ -58,23 +65,41 @@ enum State {_STATE_INIT, STATE_IDLE, STATE_MOVING, STATE_AT_TARGET, _NUM_STATES}
 static const char *_stateNames[] = {"_INIT", "IDLE", "MOVING", "AT_TARGET"};
 static const int _stateCanUpdateParams[] = {0, 1, 0, 1};
 
-enum EventMarker {EVENT_MOVE_START, EVENT_MOVE_STOP, _NUM_EVENT_MARKERS};
-static const char *_eventMarkerNames[] = {"MOVE_START", "MOVE_STOP"};
+enum EventMarker 
+{
+	EVENT_MOTOR1_MOVE_START, 
+	EVENT_MOTOR1_MOVE_STOP, 
+	EVENT_MOTOR2_MOVE_START, 
+	EVENT_MOTOR2_MOVE_STOP, 
+	_NUM_EVENT_MARKERS
+};
+static const char *_eventMarkerNames[] = 
+{
+	"MOTOR1_MOVE_START", 
+	"MOTOR1_MOVE_STOP",
+	"MOTOR2_MOVE_START", 
+	"MOTOR2_MOVE_STOP"
+};
 
-enum ResultCode {CODE_SUCCESS, CODE_ABORT, _NUM_RESULT_CODES};
-static const char *_resultCodeNames[] = {"SUCCESS", "ABORT"};
+enum ResultCode {CODE_AT_TARGET, _NUM_RESULT_CODES};
+static const char *_resultCodeNames[] = {"AT_TARGET"};
 
 enum ParamID
 {
 	_DEBUG,
-	UNITS_PER_REV,
-	MOTOR_MIN_SPEED,
-	MOTOR_MAX_SPEED,
-	MOTOR_ACCEL,
-	TARGET_1,
-	TARGET_2,
-	TARGET_3,
-	TARGET_4,
+	MOTOR1_TARGET_1,
+	MOTOR1_TARGET_2,
+	MOTOR1_TARGET_3,
+	MOTOR1_TARGET_4,
+	MOTOR2_TARGET,
+	MOTOR1_UNITS_PER_REV,
+	MOTOR1_MIN_SPEED,
+	MOTOR1_MAX_SPEED,
+	MOTOR1_ACCEL,
+	MOTOR2_UNITS_PER_REV,
+	MOTOR2_MIN_SPEED,
+	MOTOR2_MAX_SPEED,
+	MOTOR2_ACCEL,
 	TARGET_TOLERANCE,
 	_NUM_PARAMS
 };
@@ -82,42 +107,76 @@ enum ParamID
 static const char *_paramNames[] = 
 {
 	"_DEBUG",
-	"UNITS_PER_REV",
-	"MOTOR_MIN_SPEED",
-	"MOTOR_MAX_SPEED",
-	"MOTOR_ACCEL",
-	"TARGET_1",
-	"TARGET_2",
-	"TARGET_3",
-	"TARGET_4",
+	"MOTOR1_TARGET_1",
+	"MOTOR1_TARGET_2",
+	"MOTOR1_TARGET_3",
+	"MOTOR1_TARGET_4",
+	"MOTOR2_TARGET",
+	"MOTOR1_UNITS_PER_REV",
+	"MOTOR1_MIN_SPEED",
+	"MOTOR1_MAX_SPEED",
+	"MOTOR1_ACCEL",
+	"MOTOR2_UNITS_PER_REV",
+	"MOTOR2_MIN_SPEED",
+	"MOTOR2_MAX_SPEED",
+	"MOTOR2_ACCEL",
 	"TARGET_TOLERANCE"
 };
 
 float _params[_NUM_PARAMS] =
 {
 	0,		// _DEBUG
-	77,		// UNITS_PER_REV (should be ~9.4mm per 360 deg, we'll round to 10)
-	100,	// MOTOR_MIN_SPEED
-	200,	// MOTOR_MAX_SPEED
-	200,	// MOTOR_ACCEL
-	0,		// TARGET_1
-	333,	// TARGET_2
-	666,	// TARGET_3
-	1000,	// TARGET_4
+	-75,	// MOTOR1_TARGET_1
+	25,		// MOTOR1_TARGET_2
+	75,		// MOTOR1_TARGET_3
+	160,	// MOTOR1_TARGET_4
+	0,		// MOTOR2_TARGET
+	10,		// MOTOR1_UNITS_PER_REV (should be ~9.4mm (approx 10mm) per 360 deg
+	10,		// MOTOR1_MIN_SPEED
+	20,		// MOTOR1_MAX_SPEED
+	20,		// MOTOR1_ACCEL
+	77,		// MOTOR2_UNITS_PER_REV
+	100,	// MOTOR2_MIN_SPEED
+	200,	// MOTOR2_MAX_SPEED
+	200,	// MOTOR2_ACCEL
 	1		// TARGET_TOLERANCE
 };
 
-bool _isMotorParam[_NUM_PARAMS] =
+bool _isMotor1Param[_NUM_PARAMS] =
 {
 	false,	// _DEBUG
-	true,	// UNITS_PER_REV
-	true,	// MOTOR_MIN_SPEED
-	true,	// MOTOR_MAX_SPEED
-	true,	// MOTOR_ACCEL
-	false,	// TARGET_1
-	false,	// TARGET_2
-	false,	// TARGET_3
-	false,	// TARGET_4
+	false,	// MOTOR1_TARGET_1
+	false,	// MOTOR1_TARGET_2
+	false,	// MOTOR1_TARGET_3
+	false,	// MOTOR1_TARGET_4
+	false,	// MOTOR2_TARGET
+	true,	// MOTOR1_UNITS_PER_REV (should be ~9.4mm (approx 10mm) per 360 deg
+	true,	// MOTOR1_MIN_SPEED
+	true,	// MOTOR1_MAX_SPEED
+	true,	// MOTOR1_ACCEL
+	false,	// MOTOR2_UNITS_PER_REV
+	false,	// MOTOR2_MIN_SPEED
+	false,	// MOTOR2_MAX_SPEED
+	false,	// MOTOR2_ACCEL
+	false	// TARGET_TOLERANCE
+};
+
+bool _isMotor2Param[_NUM_PARAMS] =
+{
+	false,	// _DEBUG
+	false,	// MOTOR1_TARGET_1
+	false,	// MOTOR1_TARGET_2
+	false,	// MOTOR1_TARGET_3
+	false,	// MOTOR1_TARGET_4
+	false,	// MOTOR2_TARGET
+	false,	// MOTOR1_UNITS_PER_REV (should be ~9.4mm (approx 10mm) per 360 deg
+	false,	// MOTOR1_MIN_SPEED
+	false,	// MOTOR1_MAX_SPEED
+	false,	// MOTOR1_ACCEL
+	true,	// MOTOR2_UNITS_PER_REV
+	true,	// MOTOR2_MIN_SPEED
+	true,	// MOTOR2_MAX_SPEED
+	true,	// MOTOR2_ACCEL
 	false	// TARGET_TOLERANCE
 };
 
@@ -126,51 +185,59 @@ static long _timeReset = 0;
 static int _resultCode = -1;
 static State _state = _STATE_INIT;
 static State _prevState = _STATE_INIT;
+static State _state2 = _STATE_INIT;
+static State _prevState2 = _STATE_INIT;
 static char _command = ' ';
-static float _arguments[2] = {0};
-static float motorTarget = 0;
-static bool useMoveCommand = false;
-static float moveCommandDistance = 0;
+static float _arguments[2] = {0.0, 0.0};
+static float _motorTarget[2] = {0.0, 0.0};
+static bool _useMoveCommand[2] = {false, false};
 
 void setup()
 {
-	pinMode(PIN_MOTOR_TARGET_1, INPUT);
-	pinMode(PIN_MOTOR_TARGET_2, INPUT);
-	pinMode(PIN_MOTOR_BUSY, OUTPUT);
-	digitalWrite(PIN_MOTOR_BUSY, LOW);
+	pinMode(PIN_MOTOR1_TARGET_1, INPUT);
+	pinMode(PIN_MOTOR1_TARGET_2, INPUT);
+	pinMode(PIN_MOTOR1_BUSY, OUTPUT);
+	pinMode(PIN_MOTOR2_BUSY, OUTPUT);
+	digitalWrite(PIN_MOTOR2_BUSY, LOW);
+	digitalWrite(PIN_MOTOR1_BUSY, LOW);
 
 	Serial.begin(115200);
 
 	// Start by setting up the pins and the SPI peripheral.
 	//  The library doesn't do this for you!
 	configSPI();
-	configMotor(&motor);
+	configMotor(&_motor1);
+	configMotor(&_motor2);
 
 	// // Try to use stall detection
 	// // 2021-05-13 OM: Can't get it working well. Skipping for now.
-	// motor.setParam(STALL_TH, 26); // values from 0-127; represent 31.25 mA – 4 A
+	// _motor1.setParam(STALL_TH, 26); // values from 0-127; represent 31.25 mA – 4 A
 
 	// reset alarms on both motors (to turn off (red) alarm LED
 	// on XNucleo board)
-	motor.getAlarmStatusString();
-	motor2.getAlarmStatusString();
+	_motor1.getAlarmStatusString();
+	_motor2.getAlarmStatusString();
 }
 
 void mySetup()
 {
 	// Reset variables
-	motorTarget = 0;
-	useMoveCommand = false;
-	moveCommandDistance = 0;
+	_motorTarget[0] 		= 0.0;
+	_motorTarget[1] 		= 0.0;
+	_useMoveCommand[0] 		= false;
+	_useMoveCommand[1] 		= false;
 	_timeReset				= 0;			// Reset to signedMillis() at every soft reset
 	_resultCode				= -1;			// Result code. -1 if there is no result.
 	_state					= _STATE_INIT;	// This variable (current _state) get passed into a _state function, which determines what the next _state should be, and updates it to the next _state.
 	_prevState				= _STATE_INIT;	// Remembers the previous _state from the last loop (actions should only be executed when you enter a _state for the first time, comparing currentState vs _prevState helps us keep track of that).
+	_state2					= _STATE_INIT;	// This variable (current _state) get passed into a _state function, which determines what the next _state should be, and updates it to the next _state.
+	_prevState2				= _STATE_INIT;	// Remembers the previous _state from the last loop (actions should only be executed when you enter a _state for the first time, comparing currentState vs _prevState helps us keep track of that).
 	_command				= ' ';			// Command char received from host, resets on each loop
-	_arguments[0]			= 0;			// Two integers received from host , resets on each loop
-	_arguments[1]			= 0;			// Two integers received from host , resets on each loop
+	_arguments[0]			= 0.0;			// Two integers received from host , resets on each loop
+	_arguments[1]			= 0.0;			// Two integers received from host , resets on each loop
 
-	unlockMotor();
+	unlockMotor(&_motor1);
+	unlockMotor(&_motor2);
 	hostInit();
 }
 
@@ -213,8 +280,10 @@ void loop()
 
 		// Stop motor if error
 		if (digitalRead(PIN_FLAG)==LOW) {
-			Serial.println(motor.getAlarmStatusString());
-			unlockMotor();
+			Serial.println(_motor1.getAlarmStatusString());
+			Serial.println(_motor2.getAlarmStatusString());
+			unlockMotor(&_motor1);
+			unlockMotor(&_motor2);
 		}
 
 		// Update state machine
@@ -222,31 +291,48 @@ void loop()
 		{
 			case _STATE_INIT:
 			case STATE_IDLE:
-				state_idle();
+				state_idle(1, &_motor1, &_state, &_prevState);
 				break;
 			case STATE_MOVING:
-				state_moving();
+				state_moving(1, &_motor1, &_state, &_prevState);
 				break;
 			case STATE_AT_TARGET:
-				state_at_target();
+				state_at_target(1, &_motor1, &_state, &_prevState);
+				break;
+		}
+
+		switch (_state2)
+		{
+			case _STATE_INIT:
+			case STATE_IDLE:
+				state_idle(2, &_motor2, &_state2, &_prevState2);
+				break;
+			case STATE_MOVING:
+				state_moving(2, &_motor2, &_state2, &_prevState2);
+				break;
+			case STATE_AT_TARGET:
+				state_at_target(2, &_motor2, &_state2, &_prevState2);
 				break;
 		}
 	}
 }
 
-void state_idle() 
+void state_idle(int motorIndex, XNucleoStepper *motor, State *state, State *prevState) 
 {
 	/*****************************************************
 		ACTION LIST
 	*****************************************************/
-	if (_state != _prevState) 
+	if (*state != *prevState) 
 	{
 		// Register new state
-		_prevState = _state;
-		sendState(_state);
-		unlockMotor();
-		useMoveCommand = false;
-		digitalWrite(PIN_MOTOR_BUSY, LOW);
+		*prevState = *state;
+		if (motorIndex == 1)
+		{
+			sendState(*state);
+		}
+		unlockMotor(motor);
+		_useMoveCommand[motorIndex - 1] = false;
+		setMotorBusy(motorIndex, false);
 	}
 
 	/*****************************************************
@@ -257,68 +343,74 @@ void state_idle()
 	{
 		int iParam = (int)_arguments[0];
 		_params[iParam] = _arguments[1];
-		if (_isMotorParam[iParam])
+		if (_isMotor1Param[iParam] && motorIndex == 1)
 		{
-			updateMotor(&motor);
+			updateMotor(&_motor1);
+		}
+		if (_isMotor2Param[iParam] && motorIndex == 2)
+		{
+			updateMotor(&_motor2);
 		}
 	}
 
 	// Set current pos as zero
 	if (_command == 'Z')
 	{
-		zero();
+		zero(motor);
 	}
 
 	// Unlock motor to allow moving by hand (softstop)
 	if (_command == 'U')
 	{
-		unlockMotor();
+		unlockMotor(motor);
 	}
 
 	// Lock motor to (softHiZ)
 	if (_command == 'L')
 	{
-		lockMotor();
+		lockMotor(motor);
 	}
 
 	/*****************************************************
 		TRANSITION LIST
 	*****************************************************/
-	// Move by distance command "M distFloat"
-	if (_command == 'M')
+	// Move by distance command "M motorIndex distFloat"
+	if (_command == 'M' && (int)_arguments[0] == motorIndex)
 	{
-		useMoveCommand = true;
-		moveCommandDistance = _arguments[0];
-		motorTarget = getPos() + moveCommandDistance;
-		_state = STATE_MOVING;
+		_useMoveCommand[motorIndex - 1] = true;
+		_motorTarget[motorIndex - 1] = getPos(motor) + _arguments[1];
+		*state = STATE_MOVING;
 		return;
 	}
 
-	if (_command == 'G')
+	// Go command
+	if (_command == 'G' && (int)_arguments[0] == motorIndex)
 	{
-		useMoveCommand = false;
-		motorTarget = parseMotorTarget();
-		_state = STATE_MOVING;
+		_useMoveCommand[motorIndex - 1] = false;
+		_motorTarget[motorIndex - 1] = parseMotorTarget(motorIndex);
+		*state = STATE_MOVING;
 		return;
 	}
 
-	_state = STATE_IDLE;
+	*state = STATE_IDLE;
 }
 
-void state_moving() 
+void state_moving(int motorIndex, XNucleoStepper *motor, State *state, State *prevState) 
 {
 	/*****************************************************
 		ACTION LIST
 	*****************************************************/
-	if (_state != _prevState) 
+	if (*state != *prevState) 
 	{
 		// Register new state
-		_prevState = _state;
-		sendState(_state);
+		*prevState = *state;
+		if (motorIndex == 1)
+		{
+			sendState(*state);
+		}
 
-		moveTo(motorTarget);
-
-		digitalWrite(PIN_MOTOR_BUSY, HIGH);
+		moveTo(motor, _motorTarget[motorIndex - 1]);
+		setMotorBusy(motorIndex, true);
 	}
 
 	/*****************************************************
@@ -326,41 +418,44 @@ void state_moving()
 	*****************************************************/
 	if (_command == 'Q') 
 	{
-		_state = STATE_IDLE;
+		*state = STATE_IDLE;
 		return;
 	}
 
-	if (!motor.busyCheck()) 
+	if (!(motor->busyCheck())) 
 	{
-		sendDebugMessage("Target reached, current position: " + String(getPos()));
-		if (useMoveCommand)
+		sendDebugMessage("Target reached, current position: " + String(getPos(motor)));
+		if (_useMoveCommand[motorIndex - 1])
 		{
-			_state = STATE_IDLE;
+			*state = STATE_IDLE;
 			return;
 		}
 		else
 		{
-			_state = STATE_AT_TARGET;
+			*state = STATE_AT_TARGET;
 			return;
 		}
 	}
 
-	_state = STATE_MOVING;
+	*state = STATE_MOVING;
 }
 
-void state_at_target() 
+void state_at_target(int motorIndex, XNucleoStepper *motor, State *state, State *prevState) 
 {
 	/*****************************************************
 		ACTION LIST
 	*****************************************************/
-	if (_state != _prevState) 
+	if (*state != *prevState) 
 	{
 		// Register new state
-		_prevState = _state;
-		sendState(_state);
-		sendResultCode(CODE_SUCCESS);
-		unlockMotor();
-		digitalWrite(PIN_MOTOR_BUSY, LOW);
+		*prevState = *state;
+		if (motorIndex == 1)
+		{
+			sendState(*state);
+			sendResultCode(CODE_AT_TARGET);
+		}
+		unlockMotor(motor);
+		setMotorBusy(motorIndex, false);
 	}
 
 	/*****************************************************
@@ -371,30 +466,34 @@ void state_at_target()
 	{
 		int iParam = (int)_arguments[0];
 		_params[iParam] = _arguments[1];
-		if (_isMotorParam[iParam])
+		if (_isMotor1Param[iParam] && motorIndex == 1)
 		{
-			updateMotor(&motor);
+			updateMotor(&_motor1);
+		}
+		if (_isMotor2Param[iParam] && motorIndex == 2)
+		{
+			updateMotor(&_motor2);
 		}
 	}
-
 
 	/*****************************************************
 		TRANSITION LIST
 	*****************************************************/
 	if (_command == 'Q') 
 	{
-		_state = STATE_IDLE;
+		*state = STATE_IDLE;
 		return;
 	}
 
-	if (abs(parseMotorTarget() - motorTarget) > _params[TARGET_TOLERANCE])
+	// Move again if target pos has changed
+	if (abs(parseMotorTarget(motorIndex) - _motorTarget[motorIndex - 1]) > _params[TARGET_TOLERANCE])
 	{
-		useMoveCommand = false;
-		motorTarget = parseMotorTarget();
-		_state = STATE_MOVING;
+		_useMoveCommand[motorIndex - 1] = false;
+		_motorTarget[motorIndex - 1] = parseMotorTarget(motorIndex);
+		*state = STATE_MOVING;
 		return;
 	}
-	_state = STATE_AT_TARGET;
+	*state = STATE_AT_TARGET;
 }
 
 /*****************************************************
@@ -467,24 +566,24 @@ void getArguments(String message, float *_arguments)
 	parameters.trim();
 
 	// Parse first (optional) float argument if it exists
-	String flaotString = "";
+	String floatString = "";
 	while ((parameters.length() > 0) && (isDigit(parameters[0]) || parameters[0]=='-' || parameters[0]=='.')) 
 	{
-		flaotString += parameters[0];
+		floatString += parameters[0];
 		parameters.remove(0,1);
 	}
-	_arguments[0] = flaotString.toFloat();
+	_arguments[0] = floatString.toFloat();
 
 
 	// Parse second (optional) integer argument if it exists
 	parameters.trim();
-	flaotString = "";
+	floatString = "";
 	while ((parameters.length() > 0) && (isDigit(parameters[0]) || parameters[0]=='-' || parameters[0]=='.')) 
 	{
-		flaotString += parameters[0];
+		floatString += parameters[0];
 		parameters.remove(0,1);
 	}
-	_arguments[1] = flaotString.toFloat();
+	_arguments[1] = floatString.toFloat();
 }
 
 // Send States, Names/Value of Parameters to host
@@ -552,7 +651,7 @@ void configSPI()
 	SPI.setDataMode(SPI_MODE3);
 }
 
-void configMotor(XNucleoStepper* motor)
+void configMotor(XNucleoStepper *motor)
 {
 	Serial.println("Configuring motor...");
 
@@ -601,20 +700,19 @@ void configMotor(XNucleoStepper* motor)
 
 	// When a move command is issued, max speed is the speed the
 	//  motor tops out at while completing the move, in steps/s
-	motor->setMinSpeed(getMinSpeed());
+	motor->setMinSpeed(getMinSpeed(motor));
 	// DEBUG(String("MinSpeed: ") + motor->getMinSpeed());
-	motor->setMaxSpeed(getMaxSpeed());
+	motor->setMaxSpeed(getMaxSpeed(motor));
 	// DEBUG(String("MaxSpeed: ") + motor->getMaxSpeed());
-	motor->setFullSpeed(getMaxSpeed()*2);       // microstep below this speed
+	motor->setFullSpeed(getMaxSpeed(motor)*2);       // microstep below this speed
 	// DEBUG(String("FullSpeed: ") + motor->getFullSpeed());
-
 
 	// Acceleration and deceleration in steps/s/s. Increasing this
 	//  value makes the motor reach its full speed more quickly,
 	//  at the cost of possibly causing it to slip and miss steps.
-	motor->setAcc(getAccel());
+	motor->setAcc(getAccel(motor));
 	// DEBUG(String("Acc: ") + motor->getAcc());
-	motor->setDec(getAccel());
+	motor->setDec(getAccel(motor));
 	// DEBUG(String("Dec: ") + motor->getDec());
 
 	motor->configStepMode(STEP_FS_8);    // microsteps per step
@@ -644,13 +742,13 @@ void configMotor(XNucleoStepper* motor)
 	sendDebugMessage(String("StepMode: ") + motor->getStepMode());
 }
 
-void updateMotor(XNucleoStepper* motor)
+void updateMotor(XNucleoStepper *motor)
 {
-	motor->setMinSpeed(getMinSpeed());
-	motor->setMaxSpeed(getMaxSpeed());
-	motor->setFullSpeed(getMaxSpeed()*2);
-	motor->setAcc(getAccel());
-	motor->setDec(getAccel());
+	motor->setMinSpeed(getMinSpeed(motor));
+	motor->setMaxSpeed(getMaxSpeed(motor));
+	motor->setFullSpeed(getMaxSpeed(motor)*2);
+	motor->setAcc(getAccel(motor));
+	motor->setDec(getAccel(motor));
 
 	sendDebugMessage(String("MinSpeed: ") + motor->getMinSpeed());
 	sendDebugMessage(String("MaxSpeed: ") + motor->getMaxSpeed());
@@ -659,79 +757,104 @@ void updateMotor(XNucleoStepper* motor)
 	sendDebugMessage(String("Dec: ") + motor->getDec());
 }
 
-void setMaxSpeed(float speed)
+void unlockMotor(XNucleoStepper *motor)
 {
-	motor.setMaxSpeed(speed);
+	motor->softHiZ(); //(*motor).softHiZ();
 }
 
-void setAccel(float acc)
+void lockMotor(XNucleoStepper *motor)
 {
-	motor.setAcc(acc);
-	motor.setDec(acc);
+	motor->softStop();
 }
 
-void unlockMotor()
+void move(XNucleoStepper *motor, float distance)
 {
-	motor.softHiZ();
-}
+	float unitsPerMicrostep;
+	switch (getMotorIndex(motor))
+	{
+		case 1:
+			unitsPerMicrostep = MOTOR1_UNITS_PER_MICROSTEP;
+			break;
+		case 2:
+			unitsPerMicrostep = MOTOR2_UNITS_PER_MICROSTEP;
+			break;
+	}
 
-void lockMotor()
-{
-	motor.softStop();
-}
-
-void move(float distance)
-{
 	if (abs(distance) < 1)
 	{
-		sendDebugMessage("Move command not executed, distance = " + String(distance/UNITS_PER_MICROSTEP));
+		sendDebugMessage("Move command not executed, distance = " + String(distance/unitsPerMicrostep));
 		return;
 	}
-	sendDebugMessage("Move command, distance = " + String(distance/UNITS_PER_MICROSTEP));
+	sendDebugMessage("Move command, distance = " + String(distance/unitsPerMicrostep));
 	if (distance >= 0)
 	{
-		motor.move(FWD, distance/UNITS_PER_MICROSTEP);
+		motor->move(FWD, distance/unitsPerMicrostep);
 	}
 	else
 	{
-		motor.move(REV, -distance/UNITS_PER_MICROSTEP);
+		motor->move(REV, -distance/unitsPerMicrostep);
 	}
 }
 
-void moveTo(float pos)
+void moveTo(XNucleoStepper *motor, float pos)
 {
-	sendDebugMessage("MoveTo command, from " + String(getPos()) + " to " + String(pos));
-	move(pos - getPos());
+	sendDebugMessage("MoveTo command, from " + String(getPos(motor)) + " to " + String(pos));
+	move(motor, pos - getPos(motor));
 }
 
-void zero()
+void zero(XNucleoStepper *motor)
 {
-	motorTarget = 0;
-	motor.resetPos();
+	_motorTarget[getMotorIndex(motor) - 1] = 0;
+	motor->resetPos();
 }
 
-int getMinSpeed()
+int getMinSpeed(XNucleoStepper *motor)
 {
-	return round(_params[MOTOR_MIN_SPEED] / _params[UNITS_PER_REV] * FULL_STEPS_PER_MOTOR_REV);
-}
-
-int getMaxSpeed()
-{
-	return round(_params[MOTOR_MAX_SPEED] / _params[UNITS_PER_REV] * FULL_STEPS_PER_MOTOR_REV);
-}
-
-int getAccel()
-{
-	return round(_params[MOTOR_ACCEL] / _params[UNITS_PER_REV] * FULL_STEPS_PER_MOTOR_REV);
-}
-
-float parseMotorTarget()
-{
-	// sendDebugMessage("PIN1 = " + String(digitalRead(PIN_MOTOR_TARGET_1)) + "," + "PIN2 = " + String(digitalRead(PIN_MOTOR_TARGET_2)));
-	int targetIndex = 0;
-	if (digitalRead(PIN_MOTOR_TARGET_1) == LOW)
+	switch (getMotorIndex(motor))
 	{
-		if (digitalRead(PIN_MOTOR_TARGET_2) == LOW)
+		case 1:
+			return round(_params[MOTOR1_MIN_SPEED] / _params[MOTOR1_UNITS_PER_REV] * FULL_STEPS_PER_MOTOR_REV);
+		case 2:
+			return round(_params[MOTOR2_MIN_SPEED] / _params[MOTOR2_UNITS_PER_REV] * FULL_STEPS_PER_MOTOR_REV);
+	}
+}
+
+int getMaxSpeed(XNucleoStepper *motor)
+{
+	switch (getMotorIndex(motor))
+	{
+		case 1:
+			return round(_params[MOTOR1_MAX_SPEED] / _params[MOTOR1_UNITS_PER_REV] * FULL_STEPS_PER_MOTOR_REV);
+		case 2:
+			return round(_params[MOTOR2_MAX_SPEED] / _params[MOTOR2_UNITS_PER_REV] * FULL_STEPS_PER_MOTOR_REV);
+	}
+}
+
+int getAccel(XNucleoStepper *motor)
+{
+	switch (getMotorIndex(motor))
+	{
+		case 1:
+			return round(_params[MOTOR1_ACCEL] / _params[MOTOR1_UNITS_PER_REV] * FULL_STEPS_PER_MOTOR_REV);
+		case 2:
+			return round(_params[MOTOR2_ACCEL] / _params[MOTOR2_UNITS_PER_REV] * FULL_STEPS_PER_MOTOR_REV);
+	}
+	
+}
+
+// No args since 2 bit target commands are only implemented for motor1.
+float parseMotorTarget(int motorIndex)
+{
+	if (motorIndex == 2)
+	{
+		return _params[MOTOR2_TARGET];
+	}
+
+	int targetIndex = 0;
+	// Convert 2 bit to int (there's a cool way to do this but the grad student doesn't know how)
+	if (digitalRead(PIN_MOTOR1_TARGET_1) == LOW)
+	{
+		if (digitalRead(PIN_MOTOR1_TARGET_2) == LOW)
 		{
 			targetIndex = 0;
 		}
@@ -742,7 +865,7 @@ float parseMotorTarget()
 	}
 	else
 	{
-		if (digitalRead(PIN_MOTOR_TARGET_2) == LOW)
+		if (digitalRead(PIN_MOTOR1_TARGET_2) == LOW)
 		{
 			targetIndex = 2;
 		}
@@ -753,40 +876,54 @@ float parseMotorTarget()
 	}
 
 	float targetPos;
-
 	switch (targetIndex)
 	{
 		case 0:
-			targetPos = _params[TARGET_1];
+			targetPos = _params[MOTOR1_TARGET_1];
 			break;
 		case 1:
-			targetPos = _params[TARGET_2];
+			targetPos = _params[MOTOR1_TARGET_2];
 			break;
 		case 2:
-			targetPos = _params[TARGET_3];
-			break;
+			targetPos = _params[MOTOR1_TARGET_3];
+			break; 
 		case 3:
-			targetPos = _params[TARGET_4];
+			targetPos = _params[MOTOR1_TARGET_4];
 			break;
 	}
 	return targetPos;
 }
 
-bool atPos(float target, float tolerance)
+float getPos(XNucleoStepper *motor) 
 {
-	if (abs(target - getPos()) <= tolerance)
+	float unitsPerMicrostep;
+	switch (getMotorIndex(motor))
 	{
-		return true;
+		case 1:
+			unitsPerMicrostep = MOTOR1_UNITS_PER_MICROSTEP;
+			break;
+		case 2:
+			unitsPerMicrostep = MOTOR2_UNITS_PER_MICROSTEP;
+			break;
 	}
-	else
-	{
-		return false;
-	}
+
+	return motor->getPos() * unitsPerMicrostep;
 }
 
-
-float getPos() 
+int getMotorIndex(XNucleoStepper *motor)
 {
-	// sendDebugMessage("getPos request returned: " + String(motor.getPos()) + " * " + String(UNITS_PER_MICROSTEP));
-	return motor.getPos() * UNITS_PER_MICROSTEP;
+	return (motor == &_motor2) ? 2 : 1;
+}
+
+void setMotorBusy(int motorIndex, bool busy)
+{
+	switch (motorIndex)
+	{
+		case 1:
+			digitalWrite(PIN_MOTOR1_BUSY, busy ? HIGH : LOW);
+			break;
+		case 2:
+			digitalWrite(PIN_MOTOR2_BUSY, busy ? HIGH : LOW);
+			break;
+	}
 }

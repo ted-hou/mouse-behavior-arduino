@@ -1746,10 +1746,12 @@ classdef MouseBehaviorInterface < handle
 		end
 
 		function ArduinoMoveMotor(obj, ~, ~)
-			answer = inputdlg('Distance', 'Move');
+			answer = inputdlg({'Motor', 'Distance'}, 'Move', [1, 45; 1, 45], {'1', '0'});
 			if ~isempty(answer)
-				if ~isnan(str2double(answer))
-					obj.Arduino.MoveMotor(str2double(answer));
+				motorIndex = str2double(answer{1});
+				distance = str2double(answer{2});
+				if ismember(motorIndex, [1, 2]) && ~isnan(distance)
+					obj.Arduino.MoveMotor(motorIndex, distance);
 				end
 			end
 		end
