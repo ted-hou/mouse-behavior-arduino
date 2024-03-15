@@ -560,7 +560,7 @@ classdef ArduinoConnection < handle
 		% Motor
 		function b = IsMotorController(obj)
 			if obj.Connected
-				if any(strcmpi(obj.ParamNames, 'UNITS_PER_REV'))
+				if any(strcmpi(obj.ParamNames, 'UNITS_PER_REV')) || any(strcmpi(obj.ParamNames, 'MOTOR1_UNITS_PER_REV'))
 					b = true;
 				else
 					b = false;

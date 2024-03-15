@@ -63,22 +63,26 @@ XNucleoStepper _motor2(1, PIN_CS, PIN_RESET);
 *****************************************************/
 enum State {_STATE_INIT, STATE_IDLE, STATE_MOVING, STATE_AT_TARGET, _NUM_STATES};
 static const char *_stateNames[] = {"_INIT", "IDLE", "MOVING", "AT_TARGET"};
-static const int _stateCanUpdateParams[] = {0, 1, 0, 1};
+static const int _stateCanUpdateParams[] = {0, 1, 1, 1};
 
 enum EventMarker 
 {
-	EVENT_MOTOR1_MOVE_START, 
-	EVENT_MOTOR1_MOVE_STOP, 
-	EVENT_MOTOR2_MOVE_START, 
-	EVENT_MOTOR2_MOVE_STOP, 
+	EVENT_MOTOR1_MOVE,
+	EVENT_MOTOR1_STOP,
+	EVENT_MOTOR2_MOVE,
+	EVENT_MOTOR2_STOP,
+	EVENT_MOTOR1_ZEROED,
+	EVENT_MOTOR2_ZEROED,
 	_NUM_EVENT_MARKERS
 };
 static const char *_eventMarkerNames[] = 
 {
-	"MOTOR1_MOVE_START", 
-	"MOTOR1_MOVE_STOP",
-	"MOTOR2_MOVE_START", 
-	"MOTOR2_MOVE_STOP"
+	"MOTOR1_MOVE", 
+	"MOTOR1_STOP",
+	"MOTOR2_MOVE", 
+	"MOTOR2_STOP",
+	"MOTOR1_ZEROED",
+	"MOTOR2_ZEROED"
 };
 
 enum ResultCode {CODE_AT_TARGET, _NUM_RESULT_CODES};
@@ -331,8 +335,9 @@ void state_idle(int motorIndex, XNucleoStepper *motor, State *state, State *prev
 			sendState(*state);
 		}
 		unlockMotor(motor);
-		_useMoveCommand[motorIndex - 1] = false;
 		setMotorBusy(motorIndex, false);
+		sendEventMarker(motorIndex == 1 ? EVENT_MOTOR1_STOP : EVENT_MOTOR2_STOP, -1);
+		_useMoveCommand[motorIndex - 1] = false;
 	}
 
 	/*****************************************************
@@ -357,6 +362,7 @@ void state_idle(int motorIndex, XNucleoStepper *motor, State *state, State *prev
 	if (_command == 'Z')
 	{
 		zero(motor);
+		sendEventMarker(motorIndex == 1 ? EVENT_MOTOR1_ZEROED : EVENT_MOTOR2_ZEROED, -1);
 	}
 
 	// Unlock motor to allow moving by hand (softstop)
@@ -384,7 +390,7 @@ void state_idle(int motorIndex, XNucleoStepper *motor, State *state, State *prev
 	}
 
 	// Go command
-	if (_command == 'G' && (int)_arguments[0] == motorIndex)
+	if (_command == 'G')
 	{
 		_useMoveCommand[motorIndex - 1] = false;
 		_motorTarget[motorIndex - 1] = parseMotorTarget(motorIndex);
@@ -411,6 +417,7 @@ void state_moving(int motorIndex, XNucleoStepper *motor, State *state, State *pr
 
 		moveTo(motor, _motorTarget[motorIndex - 1]);
 		setMotorBusy(motorIndex, true);
+		sendEventMarker(motorIndex == 1 ? EVENT_MOTOR1_MOVE : EVENT_MOTOR2_MOVE, -1);
 	}
 
 	/*****************************************************
@@ -456,6 +463,7 @@ void state_at_target(int motorIndex, XNucleoStepper *motor, State *state, State 
 		}
 		unlockMotor(motor);
 		setMotorBusy(motorIndex, false);
+		sendEventMarker(motorIndex == 1 ? EVENT_MOTOR1_STOP : EVENT_MOTOR2_STOP, -1);
 	}
 
 	/*****************************************************
@@ -488,6 +496,7 @@ void state_at_target(int motorIndex, XNucleoStepper *motor, State *state, State 
 	// Move again if target pos has changed
 	if (abs(parseMotorTarget(motorIndex) - _motorTarget[motorIndex - 1]) > _params[TARGET_TOLERANCE])
 	{
+		sendDebugMessage("MOVING");
 		_useMoveCommand[motorIndex - 1] = false;
 		_motorTarget[motorIndex - 1] = parseMotorTarget(motorIndex);
 		*state = STATE_MOVING;
