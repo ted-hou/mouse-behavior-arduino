@@ -10,13 +10,13 @@
 Servo _servoLever;
 Servo _servoTube;
 #define SERVO_READ_ACCURACY 1
-enum class ServoState
+enum ServoState
 {
-	Init,
-	Retracted,
-	Deploying,
-	Retracting,
-	Deployed
+	_SERVOSTATE_INIT,
+	SERVOSTATE_RETRACTED,
+	SERVOSTATE_DEPLOYING,
+	SERVOSTATE_RETRACTING,
+	SERVOSTATE_DEPLOYED
 };
 
 
@@ -33,8 +33,6 @@ enum class ServoState
 #define PIN_SERVO_LEVER			14
 #define PIN_SERVO_TUBE			15
 #define PIN_OPTOGEN_STIM		23
-#define PIN_MOTOR_CONTROLLER_1	5
-#define PIN_MOTOR_CONTROLLER_2	6
 
 
 // Mirrors to blackrock
@@ -52,160 +50,112 @@ enum class ServoState
 // Digital IN
 #define PIN_LICK				25
 #define PIN_LEVER				26
-#define PIN_MOTOR_BUSY			7
 
 static const int _digOutPins[] = 
 {
 	PIN_REWARD,
-	PIN_SERVO_LEVER,
-	PIN_SERVO_TUBE,
-	PIN_OPTOGEN_STIM,
-	PIN_MOTOR_CONTROLLER_1,
-	PIN_MOTOR_CONTROLLER_2,
 	PIN_MIRROR_LICK,
 	PIN_MIRROR_LEVER,
 	PIN_MIRROR_REWARD,
-	PIN_SPEAKER
+	PIN_SERVO_LEVER,
+	PIN_SERVO_TUBE,
+	PIN_SPEAKER,
+	PIN_OPTOGEN_STIM
 };
 
 /*****************************************************
 	Enums - DEFINE States
 *****************************************************/
 // All the states
-enum class State
+enum State
 {
-	Init,
-	Idle,
-	WaitForTouch,
-	Reward,
-	Timeout,
-	Opto,
-	RequestOpto,
-	Count
+	_STATE_INIT,
+	STATE_IDLE,
+	STATE_WAITFORTOUCH,
+	STATE_REWARD,
+	STATE_INTERTRIAL,
+	STATE_OPTOGEN_STIM,
+	_NUM_STATES
 };
 
 // State names stored as strings, will be sent to host
 // Names cannot contain spaces!!!
 static const char *_stateNames[] = 
 {
-	"Init",
-	"Idle",
-	"WaitForTouch",
-	"Reward",
-	"Timeout",
-	"Opto",
-	"RequestOpto",
+	"_INIT",
+	"IDLE",
+	"WAITFORTOUCH",
+	"REWARD",
+	"INTERTRIAL",
+	"OPTOGEN_STIM"
 };
 
 // Define which states accept parameter update from MATLAB
-static const int _stateCanUpdateParams[] = 
-{
-	0,	// Init
-	1,	// Idle
-	1,	// WaitForTouch
-	1,	// Reward
-	1,	// Timeout
-	0,	// Opto
-	1	// RequestOpto
-}; 
+static const int _stateCanUpdateParams[] = {0,1,1,1,1,0}; 
 
 /*****************************************************
 	Event Markers
 *****************************************************/
-enum class EventMarker
+enum EventMarker
 {
-	TrialStart,				// New trial initiated
-	Lick,						// Lick onset
-	LickOff,					// Lick offset
-	LeverPressed,			// Lever touch onset
-	LeverReleased,			// Lever touch offset
-	LeverHeld,
-	RewardOn,				// Reward, juice valve on
-	RewardOff,				// Reward, juice valve off
-	ITI,						// At start of ITI
-	LeverRetractStart,		// Lever retract start
-	LeverRetractEnd,		// Lever retracted
-	LeverDeployStart,		// Lever deploy start
-	LeverDeployEnd,			// Lever deploy end
-	TubeRetractStart,		// Tube retract start
-	TubeRetractEnd,			// Tube retract end
-	TubeDeployStart,		// Tube deploy start
-	TubeDeployEnd,			// Tube deploy end
-	OptoStimOn,			// Begin optogenetic stim (single pulse start)
-	OptoStimOff,			// End optogenetic stim (single pulse end)
-	MotorLeverPos1_Start,
-	MotorLeverPos2_Start,
-	MotorLeverPos3_Start,
-	MotorLeverPos4_Start,
-	MotorLeverPos1_Reached,
-	MotorLeverPos2_Reached,
-	MotorLeverPos3_Reached,
-	MotorLeverPos4_Reached,	
-	MotorLaser_Start,
-	MotorLaser_Reached,
-	Count
+	EVENT_TRIAL_START,				// New trial initiated
+	EVENT_LICK,						// Lick onset
+	EVENT_LICK_OFF,					// Lick offset
+	EVENT_LEVER_PRESSED,			// Lever touch onset
+	EVENT_LEVER_RELEASED,			// Lever touch offset
+	EVENT_LEVER_HELD,
+	EVENT_REWARD_ON,				// Reward, juice valve on
+	EVENT_REWARD_OFF,				// Reward, juice valve off
+	EVENT_ITI,						// At start of ITI
+	EVENT_LEVER_RETRACT_START,		// Lever retract start
+	EVENT_LEVER_RETRACT_END,		// Lever retracted
+	EVENT_LEVER_DEPLOY_START,		// Lever deploy start
+	EVENT_LEVER_DEPLOY_END,			// Lever deploy end
+	EVENT_TUBE_RETRACT_START,		// Tube retract start
+	EVENT_TUBE_RETRACT_END,			// Tube retract end
+	EVENT_TUBE_DEPLOY_START,		// Tube deploy start
+	EVENT_TUBE_DEPLOY_END,			// Tube deploy end
+	EVENT_OPTOGEN_STIM_ON,			// Begin optogenetic stim (single pulse start)
+	EVENT_OPTOGEN_STIM_OFF,			// End optogenetic stim (single pulse end)
+	_NUM_EVENT_MARKERS
 };
 
 static const char *_eventMarkerNames[] =
 {
-	"TrialStart",
-	"Lick",
-	"LickOff",
-	"LeverPressed",
-	"LeverReleased",
-	"LeverHeld",
-	"RewardOn",
-	"RewardOff",
-	"ITI",
-	"LeverRetractStart",
-	"LeverRetractEnd",
-	"LeverDeployStart",
-	"LeverDeployEnd",
-	"TubeRetractStart",
-	"TubeRetractEnd",
-	"TubeDeployStart",
-	"TubeDeployEnd",
-	"OptoStimOn",
-	"OptoStimOff",
-	"MotorLeverPos1_Start",
-	"MotorLeverPos2_Start",
-	"MotorLeverPos3_Start",
-	"MotorLeverPos4_Start",
-	"MotorLeverPos1_Reached",
-	"MotorLeverPos2_Reached",
-	"MotorLeverPos3_Reached",
-	"MotorLeverPos4_Reached",
-	"MotorLaser_Start",
-	"MotorLaser_Reached"
+	"TRIAL_START",				// New trial initiated
+	"LICK",						// Lick onset
+	"LICK_OFF",					// Lick offset
+	"LEVER_PRESSED",			// Lever touch onset
+	"LEVER_RELEASED",			// Lever touch offset
+	"EVENT_LEVER_HELD",
+	"REWARD_ON",				// Reward, juice valve on
+	"REWARD_OFF",				// Reward, juice valve off
+	"ITI",						// At start of ITI
+	"LEVER_RETRACT_START",			// Lever retract start
+	"LEVER_RETRACT_END",			// Lever retracted
+	"LEVER_DEPLOY_START",			// Lever deploy start
+	"LEVER_DEPLOY_END",				// Lever deploy end
+	"TUBE_RETRACT_START",			// Tube retract start
+	"TUBE_RETRACT_END",				// Tube retract end
+	"TUBE_DEPLOY_START",			// Tube deploy start
+	"TUBE_DEPLOY_END",				// Tube deploy end
+	"OPTOGEN_STIM_ON",			// Begin optogenetic stim (single pulse start)
+	"OPTOGEN_STIM_OFF",			// End optogenetic stim (single pulse end)
 };
 
 /*****************************************************
 	Result codes
 *****************************************************/
-enum class ResultCode
+enum ResultCode
 {
-	Correct_1,			// Correct (motor pos 1)
-	Correct_2,			// Correct (motor pos 2)
-	Correct_3,			// Correct (motor pos 3)
-	Correct_4,			// Correct (motor pos 4)
-	Early_1,		// Early Press (motor pos 1)
-	Early_2,		// Early Press (motor pos 2)
-	Early_3,		// Early Press (motor pos 3)
-	Early_4,		// Early Press (motor pos 4)
-	Count
+	CODE_CORRECT,			// Correct (there are no wrong answers here litte buddy, way to go!)
+	_NUM_RESULT_CODES
 };
 
 // We'll send result code translations to MATLAB at startup
 static const char *_resultCodeNames[] =
 {
-	"Correct_1",
-	"Correct_2",
-	"Correct_3",
-	"Correct_4",
-	"Early_1",
-	"Early_2",
-	"Early_3",
-	"Early_4",
+	"CORRECT"
 };
 
 
@@ -213,101 +163,98 @@ static const char *_resultCodeNames[] =
 	Audio cue frequencies in Hz
 *****************************************************/
 // Use integers. 1kHz - 100kHz for mice
-enum class ToneFrequency
+enum SoundEventFrequencyEnum
 {
-	Reward = 6272
+	TONE_REWARD     = 6272
 };
 
 /*****************************************************
 	Parameters that can be updated by HOST
 *****************************************************/
 // Storing everything in array _params[]. Using enum ParamID as array indices so it's easier to add/remove parameters. 
-enum class ParamID
+enum ParamID
 {
-	Debug,						// (Private) 1 to enable debug mode. Default 0.
-	MinITI,						// ITI length min cutoff (ms)
-	MeanITI,					// ITI length (mean of exponential distribution) (ms)
-	MaxITI,						// ITI length max cutoff (ms)
-	LeverHoldTime,				// Lever contact must be maintained for this duration (ms) before reward dispensed..
-	LeverRetractTime,			// Lever will be retracted for this duration before redeploying
-	RewardDuration,				// Reward duration (ms), also determines tone duration
-	MinRewardCollectionTime,	// Min time juice tube is deployed (remember to make it longer than tube deploy time)
-	ExtraRewardCollectionTime,	// Lick tube does not retract until last lick was this many ms before (ms)
-	LeverRetractedPos,			// Servo (lever) position when lever is retracted
-	LeverDeployedPos,			// Servo (lever) position when lever is deployed
-	LeverRetractSpeed,			// Servo (lever) rotaiton speed when retracting, 0 for max speed
-	LeverDeploySpeed,			// Servo (lever) rotation speed when deploying, 0 for max speed
-	TubeRetractedPos,			// Servo (juice tube) position when juice tube is retracted (full is ~ 50)
-	TubeDeployedPos,			// Servo (juice tube) position when juice tube is deployed (full is ~ 125)
-	TubeRetractSpeed,			// Servo (juice tube) retract speed when retracting, 0 for max speed	
-	TubeDeploySpeed,			// Servo (juice tube) advance speed when deploying, 0 for max speed
-	OptoEnabled,				// 1 to enable optogen stim during ITI and idle
-	OptoPulseDuration,			// Optogenetic stim, duration of single pulse (ms)
-	OptoPulseInterval,			// Optogenetic stim, interval between pulses (ms)
-	OptoNumPulses,				// Optogenetic stim, number of pulses to deliver	
-	RandomDelayMin,				// Minimum random pre-stim delay (ms)
-	RandomDelayMax,				// Maximum random pre-stim delay (ms)
-	LeverMotorPos,				// 1-4, position for the lever motor
-	Count						// (Private) Used to count how many parameters there are so we can initialize the param array with the correct size. Insert additional parameters before this.
+	_DEBUG,							// (Private) 1 to enable debug mode. Default 0.
+	ITI_MIN,						// ITI length min cutoff (ms)
+	ITI_MEAN,						// ITI length (mean of exponential distribution) (ms)
+	ITI_MAX,						// ITI length max cutoff (ms)
+	LEVER_HOLD_TIME,				// Lever contact must be maintained for this duration (ms) before reward dispensed..
+	LEVER_RETRACT_TIME,				// Lever will be retracted for this duration before redeploying
+	REWARD_DURATION,				// Reward duration (ms), also determines tone duration
+	MIN_REWARD_COLLECTION_TIME,		// Min time juice tube is deployed (remember to make it longer than tube deploy time)
+	EXTRA_LICK_TIME,				// Lick tube does not retract until last lick was this many ms before (ms)
+	LEVER_POS_RETRACTED,			// Servo (lever) position when lever is retracted
+	LEVER_POS_DEPLOYED,				// Servo (lever) position when lever is deployed
+	LEVER_SPEED_DEPLOY,				// Servo (lever) rotation speed when deploying, 0 for max speed
+	LEVER_SPEED_RETRACT,			// Servo (lever) rotaiton speed when retracting, 0 for max speed
+	TUBE_POS_RETRACTED,				// Servo (juice tube) position when juice tube is retracted (full is ~ 50)
+	TUBE_POS_DEPLOYED,				// Servo (juice tube) position when juice tube is deployed (full is ~ 125)
+	TUBE_SPEED_DEPLOY,				// Servo (juice tube) advance speed when deploying, 0 for max speed
+	TUBE_SPEED_RETRACT,				// Servo (juice tube) retract speed when retracting, 0 for max speed	
+	OPTO_ENABLED,					// 1 to enable optogen stim during ITI and idle
+	OPTO_PULSE_DURATION,			// Optogenetic stim, duration of single pulse (ms)
+	OPTO_PULSE_INTERVAL,			// Optogenetic stim, interval between pulses (ms)
+	OPTO_NUM_PULSES,				// Optogenetic stim, number of pulses to deliver	
+	RANDOM_DELAY_MIN,				// Minimum random pre-stim delay (ms)
+	RANDOM_DELAY_MAX,				// Maximum random pre-stim delay (ms)
+	_NUM_PARAMS						// (Private) Used to count how many parameters there are so we can initialize the param array with the correct size. Insert additional parameters before this.
 };
 
 // Store parameter names as strings, will be sent to host
 // Names cannot contain spaces!!!
 static const char *_paramNames[] = 
 {
-	"Debug",
-	"MinITI",
-	"MeanITI",
-	"MaxITI",
-	"LeverHoldTime",
-	"LeverRetractTime",
-	"RewardDuration",
-	"MinRewardCollectionTime",
-	"ExtraRewardCollectionTime",
-	"LeverRetractedPos",
-	"LeverDeployedPos",
-	"LeverDeploySpeed",
-	"LeverRetractSpeed",
-	"TubeRetractedPos",
-	"TubeDeployedPos",
-	"TubeDeploySpeed",
-	"TubeRetractSpeed",
-	"OptoEnabled",			
-	"OptoPulseDuration",	
-	"OptoPulseInterval",	
-	"OptoNumPulses",		
-	"RandomDelayMin",
-	"RandomDelayMax",
-	"LeverMotorPos"
+	"_DEBUG",
+	"ITI_MIN",
+	"ITI_MEAN",
+	"ITI_MAX",
+	"LEVER_HOLD_TIME",
+	"LEVER_RETRACT_TIME",
+	"REWARD_DURATION",
+	"MIN_REWARD_COLLECTION_TIME",
+	"EXTRA_LICK_TIME",
+	"LEVER_POS_RETRACTED",
+	"LEVER_POS_DEPLOYED",
+	"LEVER_SPEED_DEPLOY",
+	"LEVER_SPEED_RETRACT",
+	"TUBE_POS_RETRACTED",
+	"TUBE_POS_DEPLOYED",
+	"TUBE_SPEED_DEPLOY",
+	"TUBE_SPEED_RETRACT",
+	"OPTO_ENABLED",			
+	"OPTO_PULSE_DURATION",	
+	"OPTO_PULSE_INTERVAL",	
+	"OPTO_NUM_PULSES",		
+	"RANDOM_DELAY_MIN",
+	"RANDOM_DELAY_MAX"
 };
 
 // Initialize parameters
-long _params[ParamID::Count] = 
+long _params[_NUM_PARAMS] = 
 {
-	0, 		// Debug
-	0, 		// MinITI
-	20000, 	// MeanITI
-	20000, 	// MaxITI
-	50, 	// LeverHoldTime
-	1000, 	// LeverRetractTime
-	50, 	// RewardDuration
-	3000, 	// MinRewardCollectionTime
-	1000, 	// ExtraRewardCollectionTime
-	93, 	// LeverRetractedPos
-	63, 	// LeverDeployedPos
-	72, 	// LeverDeploySpeed
-	72, 	// LeverRetractSpeed
-	60, 	// TubeRetractedPos
-	90, 	// TubeDeployedPos
-	36, 	// TubeDeploySpeed
-	72, 	// TubeRetractSpeed
-	0, 		// OptoEnabled
-	10, 	// OptoPulseDuration
-	250, 	// OptoPulseInterval
-	10, 	// OptoNumPulses
-	3000, 	// RandomDelayMin
-	6000, 	// RandomDelayMax
-	1		// LeverMotorPos
+	0, // _DEBUG
+	0, // ITI_MIN
+	20000, // ITI_MEAN
+	20000, // ITI_MAX
+	50, // LEVER_HOLD_TIME
+	1000, // LEVER_RETRACT_TIME
+	50, // REWARD_DURATION
+	3000, // MIN_REWARD_COLLECTION_TIME
+	1000, // EXTRA_LICK_TIME
+	93, // LEVER_POS_RETRACTED
+	63, // LEVER_POS_DEPLOYED
+	72, // LEVER_SPEED_DEPLOY
+	72, // LEVER_SPEED_RETRACT
+	60, // TUBE_POS_RETRACTED
+	90, // TUBE_POS_DEPLOYED
+	36, // TUBE_SPEED_DEPLOY
+	72, // TUBE_SPEED_RETRACT
+	0, // OPTO_ENABLED
+	10, // OPTO_PULSE_DURATION
+	250, // OPTO_PULSE_INTERVAL
+	10, // OPTO_NUM_PULSES
+	3000, // RANDOM_DELAY_MIN
+	6000, // RANDOM_DELAY_MAX
 };
 
 /*****************************************************
@@ -319,8 +266,8 @@ static long _timeReset				= 0;			// Reset to signedMillis() at every soft reset
 static long _timeTrialStart			= 0;			// Reset to 0 at start of trial
 static long _timeTrialEnd			= 0;			// Reset to 0 at ITI entry
 static int _resultCode				= -1;			// Result code. -1 if there is no result.
-static State _state					= State::Init;	// This variable (current _state) get passed into a _state function, which determines what the next _state should be, and updates it to the next _state.
-static State _prevState				= State::Init;	// Remembers the previous _state from the last loop (actions should only be executed when you enter a _state for the first time, comparing currentState vs _prevState helps us keep track of that).
+static State _state					= _STATE_INIT;	// This variable (current _state) get passed into a _state function, which determines what the next _state should be, and updates it to the next _state.
+static State _prevState				= _STATE_INIT;	// Remembers the previous _state from the last loop (actions should only be executed when you enter a _state for the first time, comparing currentState vs _prevState helps us keep track of that).
 static char _command				= ' ';			// Command char received from host, resets on each loop
 static int _arguments[2]			= {0};			// Two integers received from host , resets on each loop
 static bool _isUpdatingParams 		= false;
@@ -335,30 +282,26 @@ static long _timeLastLeverPress		= 0;			// Time (ms) when last lever press occur
 static long _timeLastLeverRelease	= 0;			// Time (ms) when last lever press occured
 static long _timeLastLeverRetract 	= 0;			// Time (ms) when last lever retraction occured (due to touch)
 
-static ServoState _servoStateTube	= ServoState::Init;				// Servo state
+static ServoState _servoStateTube	= _SERVOSTATE_INIT;				// Servo state
 static long _servoStartTimeLever	= 0;							// When servo started moving retrieved using getTime()
-static long _servoSpeedLever		= _params[ParamID::LeverRetractSpeed]; // Speed of servo movement (deg/s)
-static long _servoStartPosLever		= _params[ParamID::LeverRetractedPos];	// Starting position of servo when rotation begins
-static long _servoTargetPosLever	= _params[ParamID::LeverRetractedPos];	// Target position of servo
+static long _servoSpeedLever		= _params[LEVER_SPEED_RETRACT]; // Speed of servo movement (deg/s)
+static long _servoStartPosLever		= _params[LEVER_POS_RETRACTED];	// Starting position of servo when rotation begins
+static long _servoTargetPosLever	= _params[LEVER_POS_RETRACTED];	// Target position of servo
 
-static ServoState _servoStateLever 	= ServoState::Init;				// Servo state
+static ServoState _servoStateLever 	= _SERVOSTATE_INIT;				// Servo state
 static long _servoStartTimeTube		= 0;							// When servo started moving retrieved using getTime()
-static long _servoSpeedTube			= _params[ParamID::TubeRetractSpeed]; 	// Speed of servo movement (deg/s)
-static long _servoStartPosTube		= _params[ParamID::TubeDeployedPos];	// Starting position of servo when rotation begins
-static long _servoTargetPosTube		= _params[ParamID::TubeDeployedPos];	// Target position of servo
+static long _servoSpeedTube			= _params[TUBE_SPEED_RETRACT]; 	// Speed of servo movement (deg/s)
+static long _servoStartPosTube		= _params[TUBE_POS_DEPLOYED];	// Starting position of servo when rotation begins
+static long _servoTargetPosTube		= _params[TUBE_POS_DEPLOYED];	// Target position of servo
 
 // Optogenetics stimulation
 static bool _isOptogenStimOn 		= false;
-
-// Motor
-static int _motorPosition = 0;
-
 /*****************************************************
 	Setup
 *****************************************************/
 void setup()
 {
-	// Init digital output pins
+	// Init output pins
 	for(unsigned int i = 0; i < sizeof(_digOutPins)/sizeof(_digOutPins[0]); i++)
 	{
 		pinMode(_digOutPins[i], OUTPUT);
@@ -368,7 +311,6 @@ void setup()
 	// Init input pins
 	pinMode(PIN_LICK, INPUT);					// Lick detector (input)
 	pinMode(PIN_LEVER, INPUT);					// Lever press detector (input)
-	pinMode(PIN_MOTOR_BUSY, INPUT);
 
 	analogWriteResolution(ANALOG_WRITE_RESOLUTION);
 	pinMode(PIN_LASER_PWR_1, OUTPUT);
@@ -392,8 +334,8 @@ void mySetup()
 	_timeTrialStart			= 0;			// Reset to 0 at start of trial
 	_timeTrialEnd			= 0;			// Reset to 0 at ITI entry
 	_resultCode				= -1;			// Result code. -1 if there is no result.
-	_state					= State::Init;	// This variable (current _state) get passed into a _state function, which determines what the next _state should be, and updates it to the next _state.
-	_prevState				= State::Init;	// Remembers the previous _state from the last loop (actions should only be executed when you enter a _state for the first time, comparing currentState vs _prevState helps us keep track of that).
+	_state					= _STATE_INIT;	// This variable (current _state) get passed into a _state function, which determines what the next _state should be, and updates it to the next _state.
+	_prevState				= _STATE_INIT;	// Remembers the previous _state from the last loop (actions should only be executed when you enter a _state for the first time, comparing currentState vs _prevState helps us keep track of that).
 	_command				= ' ';			// Command char received from host, resets on each loop
 	_arguments[2]			= {0};			// Two integers received from host , resets on each loop
 	_isUpdatingParams 		= false;
@@ -407,21 +349,19 @@ void mySetup()
 	_timeLastLeverRelease	= 0;			// Time (ms) when last lever press occured
 	_timeLastLeverRetract 	= 0;
 
-	_servoStateTube			= ServoState::Init;				// Servo state
+	_servoStateTube			= _SERVOSTATE_INIT;				// Servo state
 	_servoStartTimeLever	= 0;							// When servo started moving retrieved using getTime()
-	_servoSpeedLever		= _params[ParamID::LeverRetractSpeed]; // Speed of servo movement (deg/s)
-	_servoStartPosLever		= _params[ParamID::LeverRetractedPos];	// Starting position of servo when rotation begins
-	_servoTargetPosLever	= _params[ParamID::LeverRetractedPos];	// Target position of servo
+	_servoSpeedLever		= _params[LEVER_SPEED_RETRACT]; // Speed of servo movement (deg/s)
+	_servoStartPosLever		= _params[LEVER_POS_RETRACTED];	// Starting position of servo when rotation begins
+	_servoTargetPosLever	= _params[LEVER_POS_RETRACTED];	// Target position of servo
 
-	_servoStateLever 		= ServoState::Init;				// Servo state
+	_servoStateLever 		= _SERVOSTATE_INIT;				// Servo state
 	_servoStartTimeTube		= 0;							// When servo started moving retrieved using getTime()
-	_servoSpeedTube			= _params[ParamID::TubeRetractSpeed]; 	// Speed of servo movement (deg/s)
-	_servoStartPosTube		= _params[ParamID::TubeDeployedPos];	// Starting position of servo when rotation begins
-	_servoTargetPosTube		= _params[ParamID::TubeDeployedPos];	// Target position of servo
+	_servoSpeedTube			= _params[TUBE_SPEED_RETRACT]; 	// Speed of servo movement (deg/s)
+	_servoStartPosTube		= _params[TUBE_POS_DEPLOYED];	// Starting position of servo when rotation begins
+	_servoTargetPosTube		= _params[TUBE_POS_DEPLOYED];	// Target position of servo
 
 	_isOptogenStimOn 		= false;
-
-	_motorPosition = 0;
 
 	// Sends all parameters, states and error codes to Matlab, then tell PC that we're running by sending '~' message:
 	hostInit();
@@ -486,28 +426,28 @@ void loop()
 		// Depending on what state we're in, call the appropriate state function, which will evaluate the transition conditions, and update the `_state` var to what the next state should be
 		switch (_state) 
 		{
-			case State::Init:
+			case _STATE_INIT:
 				state_idle();
 				break;
 			
-			case State::Idle:
+			case STATE_IDLE:
 				state_idle();
 				break;
 			
-			case State::Timeout:
-				state_timeout();
+			case STATE_INTERTRIAL:
+				state_intertrial();
 				break;
 
-			case State::WaitForTouch:
+			case STATE_WAITFORTOUCH:
 				state_waitfortouch();
 				break;
 			
-			case State::Reward:
+			case STATE_REWARD:
 				state_reward();
 				break;
 
-			case State::Opto:
-				state_opto();
+			case STATE_OPTOGEN_STIM:
+				state_optogen_stim();
 				break;
 		}
 	}
@@ -522,8 +462,6 @@ void loop()
 *****************************************************/
 void state_idle() 
 {
-	static bool hasMotorReachedTarget;
-	static long timeIdle;
 	/*****************************************************
 		ACTION LIST
 	*****************************************************/
@@ -533,8 +471,6 @@ void state_idle()
 		_prevState = _state;
 		sendState(_state);
 
-		hasMotorReachedTarget = false;
-		timeIdle = getTime();
 		// Reset output
 		// setAnalogOutput(1, 0);
 		// setAnalogOutput(2, 0);
@@ -550,25 +486,6 @@ void state_idle()
 	/*****************************************************
 		OnEachLoop checks
 	*****************************************************/
-	if (!hasMotorReachedTarget && getTime() - timeIdle > 1 && !isMotorBusy())
-	{
-		hasMotorReachedTarget = true;
-		switch (_motorPosition)
-		{
-			case 0:
-				sendEventMarker(EventMarker::MotorLeverPos1_Reached, -1);
-				break;
-			case 1:
-				sendEventMarker(EventMarker::MotorLeverPos2_Reached, -1);
-				break;
-			case 2:
-				sendEventMarker(EventMarker::MotorLeverPos3_Reached, -1);
-				break;
-			case 3:
-				sendEventMarker(EventMarker::MotorLeverPos4_Reached, -1);
-				break;
-		}
-	}
 
 	/*****************************************************
 		TRANSITION LIST
@@ -576,24 +493,25 @@ void state_idle()
 	// GO signal from host --> INTERTRIAL
 	if (_command == 'G' && !_isUpdatingParams) 
 	{
-		_state = State::Timeout;
+		_state = STATE_INTERTRIAL;
 		return;
 	}
 
-	// LASER command from host --> State::Opto
+	// LASER command from host --> STATE_OPTOGEN_STIM
 	if (_command == 'L')
 	{
-		_state = State::Opto;
+		_state = STATE_OPTOGEN_STIM;
 		return;
 	}
 
-	_state = State::Idle;
+
+	_state = STATE_IDLE;
 }
 
 /*****************************************************
 	INTERTRIAL
 *****************************************************/
-void state_timeout()
+void state_intertrial()
 {
 	static long itiDuration;
 	/*****************************************************
@@ -605,10 +523,10 @@ void state_timeout()
 		sendState(_state);
 
 		// Register events
-		sendEventMarker(EventMarker::ITI, -1);
+		sendEventMarker(EVENT_ITI, -1);
 
 		// Retract lick tube immediately if first trial
-		if (_prevState != State::Idle)
+		if (_prevState != STATE_IDLE)
 		{
 			deployTube(false);
 		}
@@ -617,10 +535,10 @@ void state_timeout()
 		// CDF  p=F(x|μ)=1-exp(-x/μ);
 		// Inverse CDF is x=F^(−1)(p∣μ)=−μln(1−p).
 		// For each draw, we let p = uniform_rand(0, 1), get corresponding value x from inverse CDF.
-		itiDuration = -1*_params[ParamID::MeanITI]*log(1.0 - ((float)random(1UL << 31)) / (1UL << 31));
+		itiDuration = -1*_params[ITI_MEAN]*log(1.0 - ((float)random(1UL << 31)) / (1UL << 31));
 		// Apply min/max cutoffs
-		itiDuration = max(itiDuration, _params[ParamID::MinITI]);
-		itiDuration = min(itiDuration, _params[ParamID::MaxITI]);
+		itiDuration = max(itiDuration, _params[ITI_MIN]);
+		itiDuration = min(itiDuration, _params[ITI_MAX]);
 
 		// Update state
 		_prevState = _state;
@@ -636,7 +554,7 @@ void state_timeout()
 	// Quit signal from host --> IDLE
 	if (_command == 'Q') 
 	{
-		_state = State::Idle;
+		_state = STATE_IDLE;
 		return;
 	}
 
@@ -644,11 +562,11 @@ void state_timeout()
 	// If ITI elapsed && lick spout retracted && no licks for a bit && lever released for a few seconds
 	if (!_isUpdatingParams && getTimeSinceTrialEnd() >= itiDuration)
 	{			
-		_state = State::WaitForTouch;
+		_state = STATE_WAITFORTOUCH;
 		return;
 	}
 
-	_state = State::Timeout;
+	_state = STATE_INTERTRIAL;
 }
 
 /*****************************************************
@@ -668,7 +586,7 @@ void state_waitfortouch()
 		_timeTrialStart = getTime();
 
 		// Register events
-		sendEventMarker(EventMarker::TrialStart, -1);
+		sendEventMarker(EVENT_TRIAL_START, -1);
 	}
 
 	/*****************************************************
@@ -681,7 +599,7 @@ void state_waitfortouch()
 	// Quit signal from host --> IDLE
 	if (_command == 'Q') 
 	{
-		_state = State::Idle;
+		_state = STATE_IDLE;
 		return;
 	}
 
@@ -689,11 +607,11 @@ void state_waitfortouch()
 	if (_isLeverHeld && !_isUpdatingParams)
 	{
 		_timeTrialEnd = getTime();
-		_state = State::Reward;
+		_state = STATE_REWARD;
 		return;
 	}
 
-	_state = State::WaitForTouch;
+	_state = STATE_WAITFORTOUCH;
 }
 
 /*****************************************************
@@ -724,7 +642,7 @@ void state_reward()
 		isTubeRetracted = false;
 
 		noTone(PIN_SPEAKER);
-		tone(PIN_SPEAKER, ToneFrequency::Reward, _params[ParamID::RewardDuration]);
+		tone(PIN_SPEAKER, TONE_REWARD, _params[REWARD_DURATION]);
 	}
 
 	/*****************************************************
@@ -735,7 +653,7 @@ void state_reward()
 	{
 		timeRewardOn = getTime();
 		isRewardOn = true;
-		if (_params[ParamID::RewardDuration] > 0)
+		if (_params[REWARD_DURATION] > 0)
 		{
 			deployTube(true);
 			setReward(true);
@@ -743,18 +661,18 @@ void state_reward()
 	}
 
 	// Turn off reward when the time comes
-	if (isRewardOn && !isRewardComplete && getTime() - timeRewardOn >= _params[ParamID::RewardDuration])
+	if (isRewardOn && !isRewardComplete && getTime() - timeRewardOn >= _params[REWARD_DURATION])
 	{
 		isRewardOn = false;
 		isRewardComplete = true;
-		if (_params[ParamID::RewardDuration] > 0)
+		if (_params[REWARD_DURATION] > 0)
 		{
 			setReward(false);
 		}
 	}
 
 	// Retract lick tube when the time comes
-	if (!isTubeRetracted && getTime() - timeRewardOn >= _params[ParamID::MinRewardCollectionTime] && getTimeSinceLastLick() >= _params[ParamID::ExtraRewardCollectionTime])
+	if (!isTubeRetracted && getTime() - timeRewardOn >= _params[MIN_REWARD_COLLECTION_TIME] && getTimeSinceLastLick() >= _params[EXTRA_LICK_TIME])
 	{
 		isTubeRetracted = true;
 		deployTube(false);
@@ -767,24 +685,24 @@ void state_reward()
 	// Quit signal from host --> IDLE
 	if (_command == 'Q') 
 	{
-		_state = State::Idle;
+		_state = STATE_IDLE;
 		return;
 	}
 
 	// Reward dispensed and tube retracted fully --> INTERTRIAL
-	if (isRewardComplete && _servoStateTube == ServoState::Retracted && !_isUpdatingParams)
+	if (isRewardComplete && _servoStateTube == SERVOSTATE_RETRACTED && !_isUpdatingParams)
 	{
-		_state = State::Timeout;
+		_state = STATE_INTERTRIAL;
 		return;			
 	}
 
-	_state = State::Reward;
+	_state = STATE_REWARD;
 }
 
 /*****************************************************
 	STIM
 *****************************************************/
-void state_opto()
+void state_optogen_stim()
 {
 	static State entryState;
 	static long timeEnter;
@@ -807,9 +725,9 @@ void state_opto()
 		sendState(_state);
 
 		// Generate random interval length
-		if (entryState == State::Timeout)
+		if (entryState == STATE_INTERTRIAL)
 		{
-			randomDelay = random(_params[ParamID::RandomDelayMin], _params[ParamID::RandomDelayMax]);
+			randomDelay = random(_params[RANDOM_DELAY_MIN], _params[RANDOM_DELAY_MAX]);
 		}
 
 		// Register time of state entry
@@ -820,12 +738,12 @@ void state_opto()
 	/*****************************************************
 		OnEachLoop checks
 	*****************************************************/
-	if (numPulsesComplete < _params[ParamID::OptoNumPulses])
+	if (numPulsesComplete < _params[OPTO_NUM_PULSES])
 	{
 		// If stim is on, check if it needs to be turned off
 		if (_isOptogenStimOn)
 		{
-			if (getTime() - timePulseStart >= _params[ParamID::OptoPulseDuration])
+			if (getTime() - timePulseStart >= _params[OPTO_PULSE_DURATION])
 			{
 				setOptogenStim(false);
 				timePulseEnd = getTime();
@@ -835,7 +753,7 @@ void state_opto()
 		// If stim is off, check if it needs to be turned on
 		else
 		{
-			if (getTime() - timePulseEnd >= _params[ParamID::OptoPulseInterval])
+			if (getTime() - timePulseEnd >= _params[OPTO_PULSE_INTERVAL])
 			{
 				setOptogenStim(true);
 				timePulseStart = getTime();
@@ -849,29 +767,29 @@ void state_opto()
 	// Quit signal from host --> IDLE
 	if (_command == 'Q') 
 	{
-		_state = State::Idle;
+		_state = STATE_IDLE;
 		return;
 	}
 
 	// Stim train complete --> PRE_CUE (after random delay) or IDLE
-	if (numPulsesComplete >= _params[ParamID::OptoNumPulses])
+	if (numPulsesComplete >= _params[OPTO_NUM_PULSES])
 	{
-		if (entryState == State::Timeout)
+		if (entryState == STATE_INTERTRIAL)
 		{
 			if (getTime() - timePulseEnd >= randomDelay)
 			{
-				_state = State::WaitForTouch;
+				_state = STATE_WAITFORTOUCH;
 				return;
 			}
 		}
 		else
 		{
-			_state = State::Idle;
+			_state = STATE_IDLE;
 			return;
 		}
 	}
 
-	_state = State::Opto;
+	_state = STATE_OPTOGEN_STIM;
 }
 
 
@@ -901,14 +819,14 @@ void handleLick()
 		_isLicking = true;
 		_isLickOnset = true;
 		_timeLastLick = getTime();
-		sendEventMarker(EventMarker::Lick, -1);
+		sendEventMarker(EVENT_LICK, -1);
 	}
 	else
 	{
 		if (!getLickState() && _isLicking)
 		{
 			_isLicking = false;
-			sendEventMarker(EventMarker::LickOff, -1);
+			sendEventMarker(EVENT_LICK_OFF, -1);
 		}
 		_isLickOnset = false;
 	}
@@ -938,14 +856,14 @@ void handleLever()
 		if (!_isLeverPressed)
 		{
 			_isLeverPressed = true;
-			sendEventMarker(EventMarker::LeverPressed, -1);
+			sendEventMarker(EVENT_LEVER_PRESSED, -1);
 			_timeLastLeverPress = getTime();
 		}
 		// Press-and-hold timeout reached
-		if (!_isLeverHeld && getTimeSinceLastLeverPress() >= _params[ParamID::LeverHoldTime])
+		if (!_isLeverHeld && getTimeSinceLastLeverPress() >= _params[LEVER_HOLD_TIME])
 		{
 			_isLeverHeld = true;
-			sendEventMarker(EventMarker::LeverHeld, -1);
+			sendEventMarker(EVENT_LEVER_HELD, -1);
 			deployLever(false);
 			_timeLastLeverRetract = getTime();
 		}
@@ -958,12 +876,12 @@ void handleLever()
 		{
 			_isLeverPressed = false;
 			_isLeverHeld = false;
-			sendEventMarker(EventMarker::LeverReleased, -1);
+			sendEventMarker(EVENT_LEVER_RELEASED, -1);
 			_timeLastLeverRelease = getTime();
 		}
 	}
 
-	if (_servoStateLever == ServoState::Retracted && getTimeSinceLastLeverRetract() >= _params[ParamID::LeverRetractTime])
+	if (_servoStateLever == SERVOSTATE_RETRACTED && getTimeSinceLastLeverRetract() >= _params[LEVER_RETRACT_TIME])
 	{
 		deployLever(true);
 	} 
@@ -974,27 +892,27 @@ void deployLever(bool deploy)
 {
 	if (deploy) 
 	{
-		if (_servoStateLever != ServoState::Deployed)
+		if (_servoStateLever != SERVOSTATE_DEPLOYED)
 		{
-			_servoStateLever = ServoState::Deploying;
-			sendEventMarker(EventMarker::LeverDeployStart, -1);
+			_servoStateLever = SERVOSTATE_DEPLOYING;
+			sendEventMarker(EVENT_LEVER_DEPLOY_START, -1);
 		}
 		_servoStartTimeLever = getTime();
-		_servoSpeedLever = _params[ParamID::LeverDeploySpeed];
+		_servoSpeedLever = _params[LEVER_SPEED_DEPLOY];
 		_servoStartPosLever = _servoLever.read();
-		_servoTargetPosLever = _params[ParamID::LeverDeployedPos];
+		_servoTargetPosLever = _params[LEVER_POS_DEPLOYED];
 	}
 	else 
 	{
-		if (_servoStateLever != ServoState::Retracted)
+		if (_servoStateLever != SERVOSTATE_RETRACTED)
 		{
-			_servoStateLever = ServoState::Retracting;
-			sendEventMarker(EventMarker::LeverRetractStart, -1);
+			_servoStateLever = SERVOSTATE_RETRACTING;
+			sendEventMarker(EVENT_LEVER_RETRACT_START, -1);
 		}
 		_servoStartTimeLever = getTime();
-		_servoSpeedLever = _params[ParamID::LeverRetractSpeed];
+		_servoSpeedLever = _params[LEVER_SPEED_RETRACT];
 		_servoStartPosLever = _servoLever.read();
-		_servoTargetPosLever = _params[ParamID::LeverRetractedPos];
+		_servoTargetPosLever = _params[LEVER_POS_RETRACTED];
 	}
 }
 
@@ -1003,27 +921,27 @@ void deployTube(bool deploy)
 {
 	if (deploy)
 	{
-		if (_servoStateTube != ServoState::Deployed)
+		if (_servoStateTube != SERVOSTATE_DEPLOYED)
 		{
-			_servoStateTube = ServoState::Deploying;
-			sendEventMarker(EventMarker::TubeDeployStart, -1);
+			_servoStateTube = SERVOSTATE_DEPLOYING;
+			sendEventMarker(EVENT_TUBE_DEPLOY_START, -1);
 		}
 		_servoStartTimeTube = getTime();
-		_servoSpeedTube = _params[ParamID::TubeDeploySpeed];
+		_servoSpeedTube = _params[TUBE_SPEED_DEPLOY];
 		_servoStartPosTube = _servoTube.read();
-		_servoTargetPosTube = _params[ParamID::TubeDeployedPos];
+		_servoTargetPosTube = _params[TUBE_POS_DEPLOYED];
 	}
 	else
 	{
-		if (_servoStateTube != ServoState::Retracted)
+		if (_servoStateTube != SERVOSTATE_RETRACTED)
 		{
-			_servoStateTube = ServoState::Retracting;
-			sendEventMarker(EventMarker::TubeRetractStart, -1);
+			_servoStateTube = SERVOSTATE_RETRACTING;
+			sendEventMarker(EVENT_TUBE_RETRACT_START, -1);
 		}
 		_servoStartTimeTube = getTime();
-		_servoSpeedTube = _params[ParamID::TubeRetractSpeed];
+		_servoSpeedTube = _params[TUBE_SPEED_RETRACT];
 		_servoStartPosTube = _servoTube.read();
-		_servoTargetPosTube = _params[ParamID::TubeRetractedPos];
+		_servoTargetPosTube = _params[TUBE_POS_RETRACTED];
 	}
 }
 
@@ -1038,16 +956,16 @@ void handleServoLever()
 	}
 
 	// Handle movement completion events
-	if (_servoStateLever == ServoState::Deploying && abs(_servoLever.read() - _params[ParamID::LeverDeployedPos]) <= SERVO_READ_ACCURACY)
+	if (_servoStateLever == SERVOSTATE_DEPLOYING && abs(_servoLever.read() - _params[LEVER_POS_DEPLOYED]) <= SERVO_READ_ACCURACY)
 	{
-		_servoStateLever = ServoState::Deployed;
-		sendEventMarker(EventMarker::LeverDeployEnd, -1);
+		_servoStateLever = SERVOSTATE_DEPLOYED;
+		sendEventMarker(EVENT_LEVER_DEPLOY_END, -1);
 	}
 
-	if (_servoStateLever == ServoState::Retracting && abs(_servoLever.read() - _params[ParamID::LeverRetractedPos]) <= SERVO_READ_ACCURACY)
+	if (_servoStateLever == SERVOSTATE_RETRACTING && abs(_servoLever.read() - _params[LEVER_POS_RETRACTED]) <= SERVO_READ_ACCURACY)
 	{
-		_servoStateLever = ServoState::Retracted;
-		sendEventMarker(EventMarker::LeverRetractEnd, -1);
+		_servoStateLever = SERVOSTATE_RETRACTED;
+		sendEventMarker(EVENT_LEVER_RETRACT_END, -1);
 	}
 
 	// 0 - use max speed
@@ -1091,16 +1009,16 @@ void handleServoTube()
 	}
 
 	// Handle movement completion events
-	if (_servoStateTube == ServoState::Deploying && abs(_servoTube.read() - _params[ParamID::TubeDeployedPos]) <= SERVO_READ_ACCURACY)
+	if (_servoStateTube == SERVOSTATE_DEPLOYING && abs(_servoTube.read() - _params[TUBE_POS_DEPLOYED]) <= SERVO_READ_ACCURACY)
 	{
-		_servoStateTube = ServoState::Deployed;
-		sendEventMarker(EventMarker::TubeDeployEnd, -1);
+		_servoStateTube = SERVOSTATE_DEPLOYED;
+		sendEventMarker(EVENT_TUBE_DEPLOY_END, -1);
 	}
 
-	if (_servoStateTube == ServoState::Retracting && abs(_servoTube.read() - _params[ParamID::TubeRetractedPos]) <= SERVO_READ_ACCURACY)
+	if (_servoStateTube == SERVOSTATE_RETRACTING && abs(_servoTube.read() - _params[TUBE_POS_RETRACTED]) <= SERVO_READ_ACCURACY)
 	{
-		_servoStateTube = ServoState::Retracted;
-		sendEventMarker(EventMarker::TubeRetractEnd, -1);
+		_servoStateTube = SERVOSTATE_RETRACTED;
+		sendEventMarker(EVENT_TUBE_RETRACT_END, -1);
 	}
 
 	if (_servoSpeedTube == 0)
@@ -1142,7 +1060,7 @@ void setReward(bool turnOn)
 		if (!rewardOn)
 		{
 			rewardOn = true;
-			sendEventMarker(EventMarker::RewardOn, -1);
+			sendEventMarker(EVENT_REWARD_ON, -1);
 		}		
 	}
 	else
@@ -1152,7 +1070,7 @@ void setReward(bool turnOn)
 		if (rewardOn)
 		{
 			rewardOn = false;
-			sendEventMarker(EventMarker::RewardOff, -1);
+			sendEventMarker(EVENT_REWARD_OFF, -1);
 		}				
 	}
 }
@@ -1164,13 +1082,13 @@ void setOptogenStim(bool turnOn)
 	{
 		_isOptogenStimOn = true;
 		digitalWrite(PIN_OPTOGEN_STIM, HIGH);
-		sendEventMarker(EventMarker::OptoStimOn, -1);
+		sendEventMarker(EVENT_OPTOGEN_STIM_ON, -1);
 	}
 	else 
 	{
 		_isOptogenStimOn = false;
 		digitalWrite(PIN_OPTOGEN_STIM, LOW);
-		sendEventMarker(EventMarker::OptoStimOff, -1);
+		sendEventMarker(EVENT_OPTOGEN_STIM_OFF, -1);
 	}
 } 
 
@@ -1186,7 +1104,7 @@ void sendMessage(String message)	// Uses String object from arduino library
 
 void sendDebugMessage(String message)
 {
-	if (_params[ParamID::Debug] > 0)
+	if (_params[_DEBUG] > 0)
 	{
 		Serial.println(message);
 	}
@@ -1281,25 +1199,25 @@ void getArguments(String message, int *_arguments)
 void hostInit()
 {
 	// Send state names
-	for (int iState = 0; iState < State::Count; iState++)
+	for (int iState = 0; iState < _NUM_STATES; iState++)
 	{
 			sendMessage("@ " + String(iState) + " " + _stateNames[iState] + " " + String(_stateCanUpdateParams[iState]));
 	}
 
 	// Send event marker names
-	for (int iCode = 0; iCode < EventMarker::Count; iCode++)
+	for (int iCode = 0; iCode < _NUM_EVENT_MARKERS; iCode++)
 	{
 			sendMessage("+ " + String(iCode) + " " + _eventMarkerNames[iCode]);
 	}
 
 	// Send param names and default values
-	for (int iParam = 0; iParam < ParamID::Count; iParam++)
+	for (int iParam = 0; iParam < _NUM_PARAMS; iParam++)
 	{
 			sendMessage("# " + String(iParam) + " " + _paramNames[iParam] + " " + String(_params[iParam]));
 	}
 
 	// Send result code names
-	for (int iCode = 0; iCode < ResultCode::Count; iCode++)
+	for (int iCode = 0; iCode < _NUM_RESULT_CODES; iCode++)
 	{
 			sendMessage("* " + String(iCode) + " " + _resultCodeNames[iCode]);
 	}
