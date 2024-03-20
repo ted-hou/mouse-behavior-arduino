@@ -53,8 +53,8 @@
 XNucleoStepper _motor1(0, PIN_CS, PIN_RESET, PIN_BUSY);
 XNucleoStepper _motor2(1, PIN_CS, PIN_RESET);
 
-#define PIN_MOTOR1_TARGET_1 5
-#define PIN_MOTOR1_TARGET_2 6
+#define PIN_MOTOR1_TARGET_HI 5
+#define PIN_MOTOR1_TARGET_LO 6
 #define PIN_MOTOR1_BUSY 7
 #define PIN_MOTOR2_BUSY 8
 
@@ -198,8 +198,8 @@ static bool _useMoveCommand[2] = {false, false};
 
 void setup()
 {
-	pinMode(PIN_MOTOR1_TARGET_1, INPUT);
-	pinMode(PIN_MOTOR1_TARGET_2, INPUT);
+	pinMode(PIN_MOTOR1_TARGET_HI, INPUT);
+	pinMode(PIN_MOTOR1_TARGET_LO, INPUT);
 	pinMode(PIN_MOTOR1_BUSY, OUTPUT);
 	pinMode(PIN_MOTOR2_BUSY, OUTPUT);
 	digitalWrite(PIN_MOTOR2_BUSY, LOW);
@@ -330,10 +330,7 @@ void state_idle(int motorIndex, XNucleoStepper *motor, State *state, State *prev
 	{
 		// Register new state
 		*prevState = *state;
-		if (motorIndex == 1)
-		{
-			sendState(*state);
-		}
+		sendState(motorIndex, *state);
 		unlockMotor(motor);
 		setMotorBusy(motorIndex, false);
 		sendEventMarker(motorIndex == 1 ? EVENT_MOTOR1_STOP : EVENT_MOTOR2_STOP, -1);
@@ -410,10 +407,7 @@ void state_moving(int motorIndex, XNucleoStepper *motor, State *state, State *pr
 	{
 		// Register new state
 		*prevState = *state;
-		if (motorIndex == 1)
-		{
-			sendState(*state);
-		}
+		sendState(motorIndex, *state);
 
 		moveTo(motor, _motorTarget[motorIndex - 1]);
 		setMotorBusy(motorIndex, true);
@@ -456,11 +450,8 @@ void state_at_target(int motorIndex, XNucleoStepper *motor, State *state, State 
 	{
 		// Register new state
 		*prevState = *state;
-		if (motorIndex == 1)
-		{
-			sendState(*state);
-			sendResultCode(CODE_AT_TARGET);
-		}
+		sendState(motorIndex, *state);
+		sendResultCode(motorIndex, CODE_AT_TARGET);
 		unlockMotor(motor);
 		setMotorBusy(motorIndex, false);
 		sendEventMarker(motorIndex == 1 ? EVENT_MOTOR1_STOP : EVENT_MOTOR2_STOP, -1);
@@ -537,16 +528,16 @@ void sendEventMarker(EventMarker eventMarker, long timestamp)
 	}
 }
 
-void sendState(State state)
+void sendState(int motorIndex, State state)
 {
-	sendMessage("$" + String(state));
+	sendMessage("$" + String(motorIndex) + " " + String(state));
 }
 
-void sendResultCode(int resultCode)
+void sendResultCode(int motorIndex, int resultCode)
 {
 	if (resultCode >= 0)
 	{
-		sendMessage("`" + String(resultCode));
+		sendMessage("`" + String(motorIndex) + " " + String(resultCode));
 	}
 	else
 	{
@@ -861,9 +852,9 @@ float parseMotorTarget(int motorIndex)
 
 	int targetIndex = 0;
 	// Convert 2 bit to int (there's a cool way to do this but the grad student doesn't know how)
-	if (digitalRead(PIN_MOTOR1_TARGET_1) == LOW)
+	if (digitalRead(PIN_MOTOR1_TARGET_HI) == LOW)
 	{
-		if (digitalRead(PIN_MOTOR1_TARGET_2) == LOW)
+		if (digitalRead(PIN_MOTOR1_TARGET_LO) == LOW)
 		{
 			targetIndex = 0;
 		}
@@ -874,7 +865,7 @@ float parseMotorTarget(int motorIndex)
 	}
 	else
 	{
-		if (digitalRead(PIN_MOTOR1_TARGET_2) == LOW)
+		if (digitalRead(PIN_MOTOR1_TARGET_LO) == LOW)
 		{
 			targetIndex = 2;
 		}

@@ -1090,7 +1090,7 @@ classdef MouseBehaviorInterface < handle
 			if isvalid(obj.Rsc.Monitor)
 				% Show result of last trial
 				t = obj.Rsc.Monitor.UserData.Ctrl.CurrentStateText;
-				t.String = sprintf('Current state: \n%s', obj.Arduino.StateNames{obj.Arduino.State});
+				t.String = sprintf('Current state: \n%s', strjoin(obj.Arduino.StateNames(obj.Arduino.State), ', '));
 			end
 
 			if isvalid(obj.Rsc.ExperimentControl)

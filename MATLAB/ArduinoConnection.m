@@ -310,17 +310,27 @@ classdef ArduinoConnection < handle
 			end
 
 			switch command
-				case '$'
+                case '$'
 					% New state entered - "$1" we've entered the second state.
+					% New state entered - "$2 1" we've entered the second state on machine 2.
 					% Convert zero-based state indices (Arduino) to one-based indices (MATLAB)
-					obj.State = str2num(strtrim(value)) + 1;
+					subStrings = strsplit(strtrim(value), ' ');
+                    if length(subStrings) == 1
+                        index = 1;
+                        state = str2double(subStrings{1}) + 1;
+                        obj.SetState(state, index);
+                    else
+                        index = str2double(subStrings{1}) + 1;
+                        state = str2double(subStrings{2}) + 1;
+                        obj.SetState(state, index);
+                    end
 
 					% Trigger StateChanged Event
 					notify(obj, 'StateChanged')
 
 					% Debug message
 					if obj.DebugMode
-						fprintf('	STATE: %s\n', obj.StateNames{obj.State})
+                        fprintf('\tSTATE_%i: %s\n', index, obj.StateNames{obj.GetState(index)})
 					end
 				case '@'
 					% Arduino sent the name of a state - "@ 1 IDLE"
@@ -332,6 +342,7 @@ classdef ArduinoConnection < handle
 					obj.StateCanUpdateParams(stateId) = logical(str2num(subStrings{3}));
 				case '&'
 					% Arduino sent an event code and its timestamp - "& 0 100"
+                    disp()
 					subStrings = strsplit(strtrim(value), ' ');
 					eventCode = str2num(subStrings{1}) + 1; % Convert zero-based indices (Arduino) to one-based indices (MATLAB)
 					timeStamp = str2num(subStrings{2});
@@ -425,10 +436,29 @@ classdef ArduinoConnection < handle
 		% Called each time a state changes
 		function OnStateChanged(obj, ~, ~)
 			% If new state allows parameter update, execute the update queue
-			if obj.StateCanUpdateParams(obj.State)
+			if obj.StateCanUpdateParams(obj.GetState())
 				obj.UpdateParams_Execute()
 			end
-		end
+        end
+
+        function SetState(obj, state, index)
+            if nargin < 3
+                index = 1;
+            end
+            obj.State(index) = state;
+        end
+
+        function state = GetState(obj, index)
+            if nargin < 2
+                index = 1;
+            end
+
+            if isempty(obj.State)
+                state = -1;
+            else
+                state = obj.State(index);
+            end
+        end
 
 		% Read a parameter
 		function varargout = GetParam(obj, index)
@@ -479,7 +509,7 @@ classdef ArduinoConnection < handle
 		% Update parameters and clear queue, do nothing if queue is empty
 		function UpdateParams_Execute(obj)
 			% Only execute non-empty queues when current state allows param update
-			if obj.StateCanUpdateParams(obj.State) & ~isempty(obj.ParamUpdateQueue) 
+			if obj.StateCanUpdateParams(obj.GetState()) && ~isempty(obj.ParamUpdateQueue) 
 				for iQueue = 1:size(obj.ParamUpdateQueue, 1)
 					paramId = obj.ParamUpdateQueue(iQueue, 1);
 					value = obj.ParamUpdateQueue(iQueue, 2);
@@ -547,7 +577,7 @@ classdef ArduinoConnection < handle
 
 		function canStim = OptogenStimAvailable(obj)
 			if obj.Connected
-				if strcmpi(obj.StateNames{obj.State}, 'IDLE')
+				if strcmpi(obj.StateNames{obj.GetState()}, 'IDLE')
 					canStim = true;
 				else
 					canStim = false;
@@ -577,7 +607,7 @@ classdef ArduinoConnection < handle
 		end
 
 		function b = CanZeroMotor(obj)
-			if obj.IsMotorController() && strcmpi(obj.StateNames{obj.State}, 'IDLE')
+			if obj.IsMotorController() && all(strcmpi(obj.StateNames(obj.State), 'IDLE'))
 				b = true;
 			else
 				b = false;
@@ -591,7 +621,7 @@ classdef ArduinoConnection < handle
 		end
 
 		function b = CanMoveMotor(obj)
-			if obj.IsMotorController() && strcmpi(obj.StateNames{obj.State}, 'IDLE')
+			if obj.IsMotorController() && all(strcmpi(obj.StateNames(obj.State), 'IDLE'))
 				b = true;
 			else
 				b = false;
@@ -609,7 +639,7 @@ classdef ArduinoConnection < handle
 		end
 
 		function b = CanLockMotor(obj)
-			if obj.IsMotorController() && strcmpi(obj.StateNames{obj.State}, 'IDLE')
+			if obj.IsMotorController() && all(strcmpi(obj.StateNames(obj.State), 'IDLE'))
 				b = true;
 			else
 				b = false;

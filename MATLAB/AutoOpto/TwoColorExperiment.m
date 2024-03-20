@@ -1,7 +1,7 @@
 classdef TwoColorExperiment < handle
     properties
         Path = ''
-        LaserArduino
+        LaserArduino % Also behavior
         MotorArduino
         Params % Calibration Params
         Results % Calibration Results
@@ -18,6 +18,8 @@ classdef TwoColorExperiment < handle
         function obj = TwoColorExperiment(varargin)
             p = inputParser();
             p.addParameter('offline', false, @islogical)
+            p.addParameter('laserCOM', 'COM5', @ischar)
+            p.addParameter('motorCOM', 'COM7', @ischar)
             p.parse(varargin{:})
             r = p.Results;
 
@@ -26,7 +28,7 @@ classdef TwoColorExperiment < handle
             end
 
             % Connect to arduinos
-            obj.connect();
+            obj.connect(r.laserCOM, r.motorCOM, false);
 
             % Choose save path
             [file, path] = uiputfile(sprintf('expname_%s.mat', datestr(now, 'yyyymmdd')), 'Choose autosave path:');
@@ -36,13 +38,16 @@ classdef TwoColorExperiment < handle
             obj.Path = [path, file];
         end
 
-        function connect(obj)
-            obj.LaserInterface = MouseBehaviorInterface('COM5'); % This is the laser control arduino
-            obj.MotorInterface = MouseBehaviorInterface('COM7'); % This is the stepping motor arduino (for moving mirror)
+        function connect(obj, laserCOM, motorCOM, debug)
+            if nargin < 4
+                debug = false;
+            end
+            obj.LaserInterface = MouseBehaviorInterface(laserCOM); % This is the laser control arduino
+            obj.MotorInterface = MouseBehaviorInterface(motorCOM); % This is the stepping motor arduino (for moving mirror)
             obj.LaserArduino = obj.LaserInterface.Arduino;
             obj.MotorArduino = obj.MotorInterface.Arduino;
-            obj.LaserArduino.DebugMode = false;
-            obj.MotorArduino.DebugMode = false;
+            obj.LaserArduino.DebugMode = debug;
+            obj.MotorArduino.DebugMode = debug;
         end
 
         function results = calibrate(obj, varargin)
@@ -70,8 +75,8 @@ classdef TwoColorExperiment < handle
             results.powers = zeros(length(p.targetPowers), length(p.mirrorPositions), 2);
 
             % Init motor
-            obj.setParam('motor', 'TARGET_1', 0);
-            if strcmpi('IDLE', obj.getStateName('motor'))
+            obj.setParam('motor', 'MOTOR2_TARGET', 0);
+            if any(strcmpi('IDLE', obj.getStateName('motor')))
                 obj.MotorArduino.Start();
             end            
 
@@ -95,8 +100,8 @@ classdef TwoColorExperiment < handle
 
             
             for iMirrorPos = 1:length(p.mirrorPositions)
-                obj.setParam('motor', 'TARGET_1', p.mirrorPositions(iMirrorPos));
-                while ~strcmpi('AT_TARGET', obj.getStateName('motor'))
+                obj.setParam('motor', 'MOTOR2_TARGET', p.mirrorPositions(iMirrorPos));
+                while ~strcmpi('AT_TARGET', obj.getStateName('motor', 2))
                     pause(0.5);
                 end
                 for iLaser = 1:2
@@ -202,8 +207,8 @@ classdef TwoColorExperiment < handle
             obj.openShutter();
 
             % Init motor
-            obj.setParam('motor', 'TARGET_1', 0);
-            if strcmpi('IDLE', obj.getStateName('motor'))
+            obj.setParam('motor', 'MOTOR2_TARGET', 0);
+            if any(strcmpi('IDLE', obj.getStateName('motor')))
                 obj.MotorArduino.Start();
             end
 
@@ -225,8 +230,8 @@ classdef TwoColorExperiment < handle
                         
             results.powersValidation = zeros(size(results.powers));
             for iMirrorPos = 1:length(p.mirrorPositions)
-                obj.setParam('motor', 'TARGET_1', p.mirrorPositions(iMirrorPos));
-                while ~strcmpi('AT_TARGET', obj.getStateName('motor'))
+                obj.setParam('motor', 'MOTOR2_TARGET', p.mirrorPositions(iMirrorPos));
+                while ~strcmpi('AT_TARGET', obj.getStateName('motor', 2))
                     pause(0.5);
                 end
                 for iLaser = 1:2
@@ -306,8 +311,8 @@ classdef TwoColorExperiment < handle
             % When did laser turn off
         
             % Step 1: Set mirror
-            obj.setParam('motor', 'TARGET_1', p.mirrorPositions(iMirrorPos));
-            if strcmpi('IDLE', obj.getStateName('motor'))
+            obj.setParam('motor', 'MOTOR2_TARGET', p.mirrorPositions(iMirrorPos));
+            if any(strcmpi('IDLE', obj.getStateName('motor')))
                 obj.MotorArduino.Start();
             end
             log.mirrorStartTime = datetime();
@@ -315,7 +320,7 @@ classdef TwoColorExperiment < handle
                 fprintf('\t%s: move mirror.\n', datetime())
             end
             pause(0.1);
-            while ~strcmpi('AT_TARGET', obj.getStateName('motor'))
+            while ~strcmpi('AT_TARGET', obj.getStateName('motor', 2))
                 pause(0.01);
             end
             log.mirrorStopTime = datetime();
@@ -475,7 +480,7 @@ classdef TwoColorExperiment < handle
             arduino.SetParam(paramIndex, value);
         end
 
-        function state = getStateName(obj, arduinoName)
+        function state = getStateName(obj, arduinoName, motorIndex)
             switch lower(arduinoName)
                 case 'laser'
                     arduino = obj.LaserArduino;
@@ -484,7 +489,15 @@ classdef TwoColorExperiment < handle
                 otherwise
                     error('ArduinoName must be "laser" or "motor"')
             end
-            state = arduino.StateNames{arduino.State};
+            if nargin < 3
+                if length(arduino.State) == 1
+                    state = arduino.StateNames{arduino.State};
+                else
+                    state = arduino.StateNames(arduino.State); % Return cell array of state names
+                end
+            else
+                state = arduino.StateNames{arduino.GetState(motorIndex)};
+            end
         end
 
         function save(obj)
@@ -504,9 +517,13 @@ classdef TwoColorExperiment < handle
         function close(obj)
             obj.LaserInterface.ArduinoClose([], [], true);
 
-            obj.setParam('motor', 'TARGET_1', 0);
+            obj.setParam('motor', 'MOTOR1_TARGET_1', 0);
+            obj.setParam('motor', 'MOTOR1_TARGET_2', 0);
+            obj.setParam('motor', 'MOTOR1_TARGET_3', 0);
+            obj.setParam('motor', 'MOTOR1_TARGET_4', 0);
+            obj.setParam('motor', 'MOTOR2_TARGET', 0);
             pause(0.1);
-            while ~strcmpi('AT_TARGET', obj.getStateName('motor'))
+            while ~all(strcmpi('AT_TARGET', obj.getStateName('motor')))
                 pause(0.1);
             end
             obj.MotorArduino.Stop();
