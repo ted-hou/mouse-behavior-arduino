@@ -1,13 +1,16 @@
 exp = TwoColorExperiment();
 %%
-exp.calibrate(mirrorPositions=[-300, 0], ...
-    targetPowers=[0.5, 2, 4, 8, 12].*1e-3, ...
+exp.calibrate(mirrorPositions=[-400, 0], ...
+    targetPowers=[0.5, 2].*1e-3, ...
     wavelengths=[473, 593], ...
     stepDelays=[0.5, 8], ...
     maxIters=64, ...
     maxStationaryIters=8, ...
     powerMeterThreshold=50e-6);
 exp.validate(validationDelay=[1, 8])
+
+%%
+exp.connect('COM5', 'COM7', true)
 
 %% Set-up stim/lever plan
 % Make stim/lever position plan, this also registers listeners to arduino
@@ -17,7 +20,11 @@ exp.validate(validationDelay=[1, 8])
 exp.planStim(nPulses=10, pulseWidth=0.01, ipi=0.5, preTrainDelay=8, postTrainDelay=1);
 exp.planLever(nBlocksPerPosition=3, nPositions=4, randomize=true); % We do 10 trials per block per position, so don't make this too long
 
-% Finish residuals if we haven't gone through all the conditions (at least
+%% Start both arduinos
+exp.MotorArduino.Start();
+exp.LaserArduino.Start();
+
+%% Finish residuals if we haven't gone through all the conditions (at least
 % once)
 exp.runStimSessionPlanned(residual=true, ignoreCompletion=false, iti=10);
 

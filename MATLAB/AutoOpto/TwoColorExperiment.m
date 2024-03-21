@@ -30,7 +30,7 @@ classdef TwoColorExperiment < handle
             end
 
             % Connect to arduinos
-            obj.connect(r.laserCOM, r.motorCOM, false);
+            obj.connect(r.laserCOM, r.motorCOM, true);
 
             % Choose save path
             [file, path] = uiputfile(sprintf('expname_%s.mat', datestr(now, 'yyyymmdd')), 'Choose autosave path:');
@@ -83,14 +83,14 @@ classdef TwoColorExperiment < handle
             obj.Plan.stim.index             = 0;
             obj.Plan.stim.completed         = false;
             obj.Plan.stim.conditions        = conditions; % (iCond, [iMirrorPos, iPower, iLaser])
-            obj.Plan.stim.nPulses           = results.nPulses;
-            obj.Plan.stim.pulseWidth        = results.pulseWidth;
-            obj.Plan.stim.ipi               = results.ipi;
-            obj.Plan.stim.preTrainDelay     = results.preTrainDelay;
-            obj.Plan.stim.postTrainDelay    = results.postTrainDelay;
+            obj.Plan.stim.nPulses           = parser.Results.nPulses;
+            obj.Plan.stim.pulseWidth        = parser.Results.pulseWidth;
+            obj.Plan.stim.ipi               = parser.Results.ipi;
+            obj.Plan.stim.preTrainDelay     = parser.Results.preTrainDelay;
+            obj.Plan.stim.postTrainDelay    = parser.Results.postTrainDelay;
 
-            if isfield(obj.LaserArduino.Listeners, 'TCE_OptoRequested') || ~isvalid(obj.LaserArduino.Listeners.TCE_OptoRequested)
-                obj.LaserArduino.Listeners.TCE_OptoRequested = addlistener(obj.LaserArduino, 'OptoRequested', @obj.OnTrialRegistered);
+            if ~isfield(obj.LaserArduino.Listeners, 'TCE_OptoRequested') || ~isvalid(obj.LaserArduino.Listeners.TCE_OptoRequested)
+                obj.LaserArduino.Listeners.TCE_OptoRequested = addlistener(obj.LaserArduino, 'OptoRequested', @obj.OnOptoRequested);
             end
         end
 
@@ -98,7 +98,7 @@ classdef TwoColorExperiment < handle
             p = inputParser();
             p.addParameter('nBlocksPerPosition', 3, @isnumeric);
             p.addParameter('nPositions', 4, @isnumeric)
-            p.addParameter('randomize', true, @isnumeric)
+            p.addParameter('randomize', true, @islogical)
             p.parse(varargin{:})
             nBlocksPerPosition = p.Results.nBlocksPerPosition;
             nPositions = p.Results.nPositions;
@@ -116,7 +116,7 @@ classdef TwoColorExperiment < handle
             obj.Plan.lever.positions    = positions;
             obj.Plan.lever.isRandom     = randomize;
 
-            if isfield(obj.LaserArduino.Listeners, 'TCE_MoveLeverRequested') || ~isvalid(obj.LaserArduino.Listeners.TCE_MoveLeverRequested)
+            if ~isfield(obj.LaserArduino.Listeners, 'TCE_MoveLeverRequested') || ~isvalid(obj.LaserArduino.Listeners.TCE_MoveLeverRequested)
                 obj.LaserArduino.Listeners.TCE_MoveLeverRequested = addlistener(obj.LaserArduino, 'MoveLeverRequested', @obj.OnMoveLeverRequested);
             end
 
@@ -235,7 +235,7 @@ classdef TwoColorExperiment < handle
             obj.LaserArduino.SendMessage(sprintf('^ %i', pos));
             obj.Plan.lever.index = index;
 
-            if obj.Plan.LaserArduino.DebugMode
+            if obj.LaserArduino.DebugMode
                 fprintf('\t\tMOVE_LEVER: request processed, sending motor 1 to position %i (%i/%i).\n', pos, index, obj.Plan.lever.length)
             end
         end
@@ -503,16 +503,17 @@ classdef TwoColorExperiment < handle
         
             % Step 1: Set mirror
             obj.setParam('motor', 'MOTOR2_TARGET', p.mirrorPositions(iMirrorPos));
-            if any(strcmpi('IDLE', obj.getStateName('motor')))
-                obj.MotorArduino.Start();
-            end
             log.mirrorStartTime = datetime();
             if DEBUG
                 fprintf('\t%s: move mirror.\n', datetime())
             end
-            pause(0.1);
+            disp('here1')
+            rc = rateControl(10);
+            reset(rc);
+            waitfor(rc);
             while ~strcmpi('AT_TARGET', obj.getStateName('motor', 2))
-                pause(0.01);
+                waitfor(rc);
+                disp('here2')
             end
             log.mirrorStopTime = datetime();
             if DEBUG
@@ -522,39 +523,46 @@ classdef TwoColorExperiment < handle
             % Step 2: Turn on laser and wait
             log.laserOnTime = datetime();
             obj.analogWrite(iLaser, results.aoutValues(iPower, iMirrorPos, iLaser));
+            rc = rateControl(1/r.preTrainDelay);
             if DEBUG
                 fprintf('\t%s: laser on.\n', datetime())
             end
-            pause(r.preTrainDelay);
+            waitfor(rc);
 
             % Step 3: Do pulses
             obj.setParam('laser', 'OPTO_ENABLED', 1);
             obj.setParam('laser', 'OPTO_PULSE_DURATION', round(r.pulseWidth*1e3));
             obj.setParam('laser', 'OPTO_PULSE_INTERVAL', round(r.ipi*1e3));
             obj.setParam('laser', 'OPTO_NUM_PULSES', r.nPulses);
-            pause(0.1);
+            rc = rateControl(10);
             if DEBUG
                 fprintf('\t%s: starting stim train.\n', datetime())
             end
             log.trainOnTime = datetime();
             obj.LaserArduino.SendMessage('; 1'); % Tell arduino laser/mirror is ready, goto opto.
-            pause(0.1);
+            waitfor(rc);
+            obj.getStateName('laser')
+            while strcmpi('REQUEST_OPTO', obj.getStateName('laser'))
+                waitfor(rc);
+            end
             while strcmpi('OPTO', obj.getStateName('laser'))
-                pause(0.01);
+                waitfor(rc);
             end
             log.trainOffTime = datetime();
             if DEBUG
                 fprintf('\t%s: stim train complete.\n', datetime())
             end
-
+  
             % Step 4: Wait and turn off laser
-            pause(r.postTrainDelay);
+            rc = rateControl(1/r.postTrainDelay);
+            waitfor(rc);
             obj.analogWrite(iLaser, 0);
             log.laserOffTime = datetime();
             if DEBUG
-                fprintf('\t%s: laser off.\n', datetime())
+                fprintf('\t%s: laser off %i.\n', datetime(), rc.TotalElapsedTime)
             end
             obj.addLogEntry(log);
+            clear rc
         end
 
         % Manual stim train
@@ -578,7 +586,7 @@ classdef TwoColorExperiment < handle
             iMirrorPos = r.iMirrorPos;
             iPower = r.iPower;
             iLaser = r.iLaser;
-        
+
             DEBUG = true;
             log.params = parser.Results;
             log.wavelength = p.wavelengths(iLaser);
@@ -600,7 +608,7 @@ classdef TwoColorExperiment < handle
             % Laser power
             % Laser wavelength
             % When did laser turn off
-        
+
             % Step 1: Set mirror
             obj.setParam('motor', 'MOTOR2_TARGET', p.mirrorPositions(iMirrorPos));
             if any(strcmpi('IDLE', obj.getStateName('motor')))

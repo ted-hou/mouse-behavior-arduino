@@ -123,7 +123,7 @@ static const char *_stateNames[] =
 	"WAITFORTOUCH",
 	"REWARD",
 	"TIMEOUT",
-	"MOVE_LEVER"
+	"MOVE_LEVER",
 	"REQUEST_OPTO",
 	"OPTO",
 };
@@ -1048,6 +1048,8 @@ void state_opto()
 		// Register time of state entry
 		timeEnter = getTime();
 		numPulsesComplete = 0;
+		timePulseStart = 0;
+		timePulseEnd = 0;
 	}
 
 	/*****************************************************

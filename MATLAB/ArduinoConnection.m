@@ -321,7 +321,7 @@ classdef ArduinoConnection < handle
                         state = str2double(subStrings{1}) + 1;
                         obj.SetState(state, index);
                     else
-                        index = str2double(subStrings{1}) + 1;
+                        index = str2double(subStrings{1});
                         state = str2double(subStrings{2}) + 1;
                         obj.SetState(state, index);
                     end
@@ -343,7 +343,6 @@ classdef ArduinoConnection < handle
 					obj.StateCanUpdateParams(stateId) = logical(str2num(subStrings{3}));
 				case '&'
 					% Arduino sent an event code and its timestamp - "& 0 100"
-                    disp()
 					subStrings = strsplit(strtrim(value), ' ');
 					eventCode = str2num(subStrings{1}) + 1; % Convert zero-based indices (Arduino) to one-based indices (MATLAB)
 					timeStamp = str2num(subStrings{2});
@@ -373,16 +372,28 @@ classdef ArduinoConnection < handle
 				case '`'
 					% Result code returned, this is only expected once per trial
 
+					% Result code 1 returned - "`1"
+					% Result code 1 returned for machine 2 - "`2 1"
+					subStrings = strsplit(strtrim(value), ' ');
+                    if length(subStrings) == 1
+                        index = 1;
+                        resultCode = str2double(subStrings{1}) + 1;
+                    else
+                        index = str2double(subStrings{1});
+                        resultCode = str2double(subStrings{2}) + 1;
+                    end
+
+
 					% Move eventMarkers from this trial into permanent storage
 					obj.EventMarkers = [obj.EventMarkers; obj.EventMarkersBuffer];
 					obj.EventMarkersBuffer = []; % Clear buffer
 
 					% Store trial results in as a new trial
 					iTrial = obj.TrialsCompleted + 1;
-					resultCode = str2num(strtrim(value)) + 1; % Convert to one-based index
 					obj.Trials(iTrial).Code = resultCode;
 					obj.Trials(iTrial).CodeName = obj.ResultCodeNames{resultCode};
 					obj.Trials(iTrial).Parameters = obj.ParamValues;
+					obj.Trials(iTrial).MachineIndex = index;
 					obj.TrialsCompleted = iTrial;
 
 					% Debug message
@@ -471,7 +482,7 @@ classdef ArduinoConnection < handle
             end
 
             if isempty(obj.State)
-                state = -1;
+                state = 1;
             else
                 state = obj.State(index);
             end
@@ -594,6 +605,10 @@ classdef ArduinoConnection < handle
 
 		function canStim = OptogenStimAvailable(obj)
 			if obj.Connected
+                if obj.IsMotorController
+                    canStim = false;
+                    return
+                end
 				if strcmpi(obj.StateNames{obj.GetState()}, 'IDLE')
 					canStim = true;
 				else
