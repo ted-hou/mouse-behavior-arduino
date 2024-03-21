@@ -10,11 +10,14 @@ exp.calibrate(mirrorPositions=[-300, 0], ...
 exp.validate(validationDelay=[1, 8])
 
 %% Set-up stim/lever plan
+% Make stim/lever position plan, this also registers listeners to arduino
+% request_opto/move_lever requests, The planned list of stim conditions and
+% lever positions are finite in length, we'll just restart from the top if 
+% arduino keeps asking.
 exp.planStim(nPulses=10, pulseWidth=0.01, ipi=0.5, preTrainDelay=8, postTrainDelay=1);
 exp.planLever(nBlocksPerPosition=3, nPositions=4, randomize=true); % We do 10 trials per block per position, so don't make this too long
-% The planned list of stim conditions and lever positions are finite in
-% length, we'll just restart from the top if arduino keeps asking.
 
+% Finish residuals
 
 
 

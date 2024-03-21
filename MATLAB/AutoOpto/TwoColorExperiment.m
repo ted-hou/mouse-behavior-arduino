@@ -80,6 +80,8 @@ classdef TwoColorExperiment < handle
             conditions = conditions(randperm(size(conditions, 1)), :);
             obj.Plan.stim = struct('length', [], 'index', 0, 'completed', false, 'conditions', [], 'nPulses', [], 'pulseWidth', [], 'ipi', [], 'preTrainDelay', [], 'postTrainDelay', []);
             obj.Plan.stim.length            = size(conditions, 1);
+            obj.Plan.stim.index             = 0;
+            obj.Plan.stim.completed         = false;
             obj.Plan.stim.conditions        = conditions; % (iCond, [iMirrorPos, iPower, iLaser])
             obj.Plan.stim.nPulses           = results.nPulses;
             obj.Plan.stim.pulseWidth        = results.pulseWidth;
@@ -108,9 +110,11 @@ classdef TwoColorExperiment < handle
             end
 
             obj.Plan.lever = struct('length', [], 'index', 0, 'completed', false, 'positions', [], 'isRandom', []);
-            obj.Plan.lever.length = nBlocksPerPosition*nPositions;
-            obj.Plan.lever.positions = positions;
-            obj.Plan.lever.isRandom = randomize;
+            obj.Plan.lever.length       = nBlocksPerPosition*nPositions;
+            obj.Plan.lever.index        = 0;
+            obj.Plan.lever.completed    = false;
+            obj.Plan.lever.positions    = positions;
+            obj.Plan.lever.isRandom     = randomize;
 
             if isfield(obj.LaserArduino.Listeners, 'TCE_MoveLeverRequested') || ~isvalid(obj.LaserArduino.Listeners.TCE_MoveLeverRequested)
                 obj.LaserArduino.Listeners.TCE_MoveLeverRequested = addlistener(obj.LaserArduino, 'MoveLeverRequested', @obj.OnMoveLeverRequested);
@@ -127,6 +131,7 @@ classdef TwoColorExperiment < handle
             index = obj.Plan.stim.index + 1;
             if index > obj.Plan.stim.length
                 index = 1;
+                obj.Plan.stim.completed = true;
             end
 
             conditions = obj.Plan.stim.conditions;
@@ -146,6 +151,53 @@ classdef TwoColorExperiment < handle
 
         end
 
+        function runStimSessionPlanned(obj, varargin)
+            parser = inputParser();
+            parser.addParameter('residual', true, @islogical); % True to only run the residual part of the plan that hasn't been (by arduino request) played yet.
+            parser.addParameter('ignoreCompletion', false, @islogical); % True to run the plan even if (obj.Plan.stim.complete == true).
+            parser.addParameter('iti', 10, @isnumerical);
+            parser.parse(varargin{:})
+            residual = parser.Results.residual;
+            ignoreCompletion = parser.Results.ignoreCompletion;
+
+            p = obj.Params;
+            results = obj.Results;
+            
+            if ~ignoreCompletion && obj.Plan.stim.complete
+                warning('runStimSessionPlanned will not run becasue stim plan has been completed once. Try calling runStimSessionPlanned(ignoreCompletion=false) if you want to run stim anyway.')
+                return
+            end
+
+            if residual
+                startIndex = obj.Plan.stim.index + 1;
+            else
+                startIndex = 1;
+            end
+
+            for index = startIndex:obj.Plan.stim.length
+                conditions = obj.Plan.stim.conditions;
+                iMirrorPos = conditions(index, 1);
+                iPower = conditions(index, 2);
+                iLaser = conditions(index, 3);
+    
+                fprintf('Running condition %i of %i, mirror=%i, power=%.2fmW (%.2fmW), wavelength=%.1fnm:\n', index, length(conditions), p.mirrorPositions(iMirrorPos), p.targetPowers(iPower)*1e3, results.powersValidation(iPower, iMirrorPos, iLaser)*1e3, p.wavelengths(iLaser))
+            
+                % Run stim train
+                obj.runStimTrainPlanned(iMirrorPos, iPower, iLaser, ...
+                    nPulses=obj.Plan.stim.nPulses, pulseWidth=obj.Plan.stim.pulseWidth, ipi=obj.Plan.stim.ipi, ...
+                    preTrainDelay=obj.Plan.stim.preTrainDelay, postTrainDelay=obj.Plan.stim.postTrainDelay);
+                
+                % Inter-train interval delay
+                delay(iti);
+
+                % Register completion
+                obj.Plan.stim.index = index;
+                if index == obj.Plan.stim.length
+                    obj.Plan.stim.complete = true;
+                end
+            end
+        end
+
         function OnMoveLeverRequested(obj, ~, ~)
             if isempty(obj.Plan) || ~isfield(obj.Plan, 'lever') || isempty(obj.Plan.lever) || ~isfield(obj.Plan.lever, 'positions') || isempty(obj.Plan.lever.positions)
                 warning('Lever plan is empty/not initialized, sending back "^ 1" so lever goes to position 1.')
@@ -157,6 +209,7 @@ classdef TwoColorExperiment < handle
             index = obj.Plan.lever.index + 1;
             if index > obj.Plan.lever.length
                 index = 1;
+                obj.Plan.lever.completed = true;
             end
             pos = obj.Plan.lever.positions(index);
             obj.LaserArduino.SendMessage(sprintf('^ %i', pos));
@@ -384,6 +437,7 @@ classdef TwoColorExperiment < handle
             obj.Results = results;
         end
 
+        % Stim train on arduino request
         function log = runStimTrainPlanned(obj, iMirrorPos, iPower, iLaser, varargin)
             parser = inputParser();
             parser.addRequired('iMirrorPos', @isnumeric)
@@ -483,6 +537,7 @@ classdef TwoColorExperiment < handle
             obj.addLogEntry(log);
         end
 
+        % Manual stim train
         function log = runStimTrain(obj, iMirrorPos, iPower, iLaser, varargin)
             parser = inputParser();
             parser.addRequired('iMirrorPos', @isnumeric)
@@ -584,6 +639,7 @@ classdef TwoColorExperiment < handle
             obj.addLogEntry(log);
         end
 
+        % Manual stim session (iterate through all stim conditions)
         function runStimSession(obj, varargin)
             parser = inputParser();
             parser.addParameter('nPulses', 10, @(x) isnumeric(x) && mod(x, 1)==0)
@@ -594,18 +650,20 @@ classdef TwoColorExperiment < handle
             parser.addParameter('iti', 1, @isnumeric) % Inter-train-interval, in seconds
             parser.addParameter('waitForUserBetweenTrains', true, @islogical) % Ask before continuing to next train
             parser.addParameter('waitForUserTimeout', 10, @isnumeric) % If no response, auto continue
+            parser.addParameter('planned', true, @islogical)
+            parser.addParameter('onlyRemaining', true, @islogical)
             parser.parse(varargin{:})
-            nPulses = parser.Results.nPulses;
-            pulseWidth = parser.Results.pulseWidth;
-            ipi = parser.Results.ipi;
-            preTrainDelay = parser.Results.preTrainDelay;
-            postTrainDelay = parser.Results.postTrainDelay;
-            iti = parser.Results.iti;
-            waitForUserBetweenTrains = parser.Results.waitForUserBetweenTrains;
-            waitForUserTimeout = parser.Results.waitForUserTimeout;
+            nPulses                     = parser.Results.nPulses;
+            pulseWidth                  = parser.Results.pulseWidth;
+            ipi                         = parser.Results.ipi;
+            preTrainDelay               = parser.Results.preTrainDelay;
+            postTrainDelay              = parser.Results.postTrainDelay;
+            iti                         = parser.Results.iti;
+            waitForUserBetweenTrains    = parser.Results.waitForUserBetweenTrains;
+            waitForUserTimeout          = parser.Results.waitForUserTimeout;
             
-            p = obj.Params;
-            results = obj.Results;
+            p                           = obj.Params;
+            results                     = obj.Results;
 
             conditions = zeros(length(p.mirrorPositions)*length(p.targetPowers)*length(p.wavelengths), 3);
             
