@@ -38,6 +38,8 @@ classdef ArduinoConnection < handle
 
 	events
 		StateChanged
+        MoveLeverRequested
+        OptoRequested
 	end
 
 	methods
@@ -85,8 +87,7 @@ classdef ArduinoConnection < handle
 
 				% Add event handler to detect state changes
 				obj.Listeners.StateChanged = addlistener(obj, 'StateChanged', @obj.OnStateChanged);
-			end
-
+            end
 		end
 
 		%-----------------------------------------------~~
@@ -424,9 +425,25 @@ classdef ArduinoConnection < handle
 					obj.AnalogOutputEvents(obj.AnalogOutputEventIndex, :) = [channel, value, timestamp, absTime];
 
 					% Debug message
+					if obj.DebugMode 
+                        fprintf('\t\tANALOG_OUT: Channel %i set to %i.\n', channel, value)
+                    end
+                % Request move lever
+                case '^'
+					% Emit Event
+					notify(obj, 'MoveLeverRequested')
+
 					if obj.DebugMode
-						fprintf('		ANALOG_OUT: Channel %i set to %i.\n', channel, value)
-					end
+						fprintf('\t\tMOVE_LEVER: Request received.\n')
+                    end
+                % Request opto
+                case ';'
+                    % Emit event
+                    notify(obj, 'OptoRequested')
+
+					if obj.DebugMode
+						fprintf('\t\tREQUEST_OPTO: Request received.\n')
+                    end
 				otherwise
 					% Arduino sent a message
 					fprintf('%s\n', messageString)
