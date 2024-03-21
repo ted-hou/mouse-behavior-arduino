@@ -119,6 +119,8 @@ classdef TwoColorExperiment < handle
             if isfield(obj.LaserArduino.Listeners, 'TCE_MoveLeverRequested') || ~isvalid(obj.LaserArduino.Listeners.TCE_MoveLeverRequested)
                 obj.LaserArduino.Listeners.TCE_MoveLeverRequested = addlistener(obj.LaserArduino, 'MoveLeverRequested', @obj.OnMoveLeverRequested);
             end
+
+            obj.save();
         end
 
         function OnOptoRequested(obj, ~, ~)
@@ -149,20 +151,22 @@ classdef TwoColorExperiment < handle
                 nPulses=obj.Plan.stim.nPulses, pulseWidth=obj.Plan.stim.pulseWidth, ipi=obj.Plan.stim.ipi, ...
                 preTrainDelay=obj.Plan.stim.preTrainDelay, postTrainDelay=obj.Plan.stim.postTrainDelay);
 
+            obj.save();
+
         end
 
         function runStimSessionPlanned(obj, varargin)
             parser = inputParser();
             parser.addParameter('residual', true, @islogical); % True to only run the residual part of the plan that hasn't been (by arduino request) played yet.
             parser.addParameter('ignoreCompletion', false, @islogical); % True to run the plan even if (obj.Plan.stim.complete == true).
-            parser.addParameter('iti', 10, @isnumerical);
+            parser.addParameter('iti', 5, @isnumerical);
             parser.parse(varargin{:})
             residual = parser.Results.residual;
             ignoreCompletion = parser.Results.ignoreCompletion;
 
             p = obj.Params;
             results = obj.Results;
-            
+
             if ~ignoreCompletion && obj.Plan.stim.complete
                 warning('runStimSessionPlanned will not run becasue stim plan has been completed once. Try calling runStimSessionPlanned(ignoreCompletion=false) if you want to run stim anyway.')
                 return
@@ -187,14 +191,30 @@ classdef TwoColorExperiment < handle
                     nPulses=obj.Plan.stim.nPulses, pulseWidth=obj.Plan.stim.pulseWidth, ipi=obj.Plan.stim.ipi, ...
                     preTrainDelay=obj.Plan.stim.preTrainDelay, postTrainDelay=obj.Plan.stim.postTrainDelay);
                 
-                % Inter-train interval delay
-                delay(iti);
-
                 % Register completion
                 obj.Plan.stim.index = index;
                 if index == obj.Plan.stim.length
                     obj.Plan.stim.complete = true;
                 end
+                obj.save();
+            
+                % Give user a change to cancel
+                if index < obj.Plan.stim.length
+                    t = timer('StartDelay', 5, ...
+                        'TimerFcn', @(~,~)delete(findall(groot,'WindowStyle','modal')));
+                    start(t)
+                    answer = questdlg('Do you want to run next train?', ...
+                        'Continue', ...
+                        'Yes','No','Yes');
+                    % Handle response
+                    switch answer
+                        case 'No'
+                            break
+                        otherwise
+                            continue
+                    end
+                end
+                pause(iti);
             end
         end
 

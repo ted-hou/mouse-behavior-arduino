@@ -17,7 +17,10 @@ exp.validate(validationDelay=[1, 8])
 exp.planStim(nPulses=10, pulseWidth=0.01, ipi=0.5, preTrainDelay=8, postTrainDelay=1);
 exp.planLever(nBlocksPerPosition=3, nPositions=4, randomize=true); % We do 10 trials per block per position, so don't make this too long
 
-% Finish residuals
+% Finish residuals if we haven't gone through all the conditions (at least
+% once)
+exp.runStimSessionPlanned(residual=true, ignoreCompletion=false, iti=10);
+
 
 
 
