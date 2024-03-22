@@ -149,7 +149,7 @@ classdef TwoColorExperiment < handle
 
             obj.runStimTrainPlanned(iMirrorPos, iPower, iLaser, ...
                 nPulses=obj.Plan.stim.nPulses, pulseWidth=obj.Plan.stim.pulseWidth, ipi=obj.Plan.stim.ipi, ...
-                preTrainDelay=obj.Plan.stim.preTrainDelay, postTrainDelay=obj.Plan.stim.postTrainDelay);
+                preTrainDelay=obj.Plan.stim.preTrainDelay);
 
             obj.save();
 
@@ -159,15 +159,16 @@ classdef TwoColorExperiment < handle
             parser = inputParser();
             parser.addParameter('residual', true, @islogical); % True to only run the residual part of the plan that hasn't been (by arduino request) played yet.
             parser.addParameter('ignoreCompletion', false, @islogical); % True to run the plan even if (obj.Plan.stim.complete == true).
-            parser.addParameter('iti', 5, @isnumerical);
+            parser.addParameter('iti', 10, @isnumeric);
             parser.parse(varargin{:})
             residual = parser.Results.residual;
             ignoreCompletion = parser.Results.ignoreCompletion;
+            iti = parser.Results.iti;
 
             p = obj.Params;
             results = obj.Results;
 
-            if ~ignoreCompletion && obj.Plan.stim.complete
+            if ~ignoreCompletion && obj.Plan.stim.completed
                 warning('runStimSessionPlanned will not run becasue stim plan has been completed once. Try calling runStimSessionPlanned(ignoreCompletion=false) if you want to run stim anyway.')
                 return
             end
@@ -187,25 +188,26 @@ classdef TwoColorExperiment < handle
                 fprintf('Running condition %i of %i, mirror=%i, power=%.2fmW (%.2fmW), wavelength=%.1fnm:\n', index, length(conditions), p.mirrorPositions(iMirrorPos), p.targetPowers(iPower)*1e3, results.powersValidation(iPower, iMirrorPos, iLaser)*1e3, p.wavelengths(iLaser))
             
                 % Run stim train
-                obj.runStimTrainPlanned(iMirrorPos, iPower, iLaser, ...
+                obj.runStimTrain(iMirrorPos, iPower, iLaser, ...
                     nPulses=obj.Plan.stim.nPulses, pulseWidth=obj.Plan.stim.pulseWidth, ipi=obj.Plan.stim.ipi, ...
                     preTrainDelay=obj.Plan.stim.preTrainDelay, postTrainDelay=obj.Plan.stim.postTrainDelay);
                 
                 % Register completion
                 obj.Plan.stim.index = index;
                 if index == obj.Plan.stim.length
-                    obj.Plan.stim.complete = true;
+                    obj.Plan.stim.completed = true;
                 end
                 obj.save();
             
                 % Give user a change to cancel
                 if index < obj.Plan.stim.length
-                    t = timer('StartDelay', 5, ...
+                    t = timer('StartDelay', iti, ...
                         'TimerFcn', @(~,~)delete(findall(groot,'WindowStyle','modal')));
                     start(t)
                     answer = questdlg('Do you want to run next train?', ...
                         'Continue', ...
                         'Yes','No','Yes');
+                    stop(t)
                     % Handle response
                     switch answer
                         case 'No'
@@ -214,7 +216,6 @@ classdef TwoColorExperiment < handle
                             continue
                     end
                 end
-                pause(iti);
             end
         end
 
@@ -467,7 +468,6 @@ classdef TwoColorExperiment < handle
             parser.addParameter('pulseWidth', 0.01, @isnumeric)
             parser.addParameter('ipi', 0.5, @isnumeric) % Inter-pulse-interval, in seconds
             parser.addParameter('preTrainDelay', 8, @isnumeric)
-            parser.addParameter('postTrainDelay', 1, @isnumeric)
         
             parser.parse(iMirrorPos, iPower, iLaser, varargin{:})
        
@@ -507,62 +507,22 @@ classdef TwoColorExperiment < handle
             if DEBUG
                 fprintf('\t%s: move mirror.\n', datetime())
             end
-            disp('here1')
-            rc = rateControl(10);
-            reset(rc);
-            waitfor(rc);
-            while ~strcmpi('AT_TARGET', obj.getStateName('motor', 2))
-                waitfor(rc);
-                disp('here2')
-            end
-            log.mirrorStopTime = datetime();
-            if DEBUG
-                fprintf('\t%s: mirror at target.\n', datetime())
-            end
-
             % Step 2: Turn on laser and wait
             log.laserOnTime = datetime();
             obj.analogWrite(iLaser, results.aoutValues(iPower, iMirrorPos, iLaser));
-            rc = rateControl(1/r.preTrainDelay);
-            if DEBUG
-                fprintf('\t%s: laser on.\n', datetime())
-            end
-            waitfor(rc);
 
             % Step 3: Do pulses
             obj.setParam('laser', 'OPTO_ENABLED', 1);
             obj.setParam('laser', 'OPTO_PULSE_DURATION', round(r.pulseWidth*1e3));
             obj.setParam('laser', 'OPTO_PULSE_INTERVAL', round(r.ipi*1e3));
             obj.setParam('laser', 'OPTO_NUM_PULSES', r.nPulses);
-            rc = rateControl(10);
+            obj.setParam('laser', 'OPTO_WARMUP_TIME', round(r.preTrainDelay*1e3));
             if DEBUG
                 fprintf('\t%s: starting stim train.\n', datetime())
             end
-            log.trainOnTime = datetime();
             obj.LaserArduino.SendMessage('; 1'); % Tell arduino laser/mirror is ready, goto opto.
-            waitfor(rc);
-            obj.getStateName('laser')
-            while strcmpi('REQUEST_OPTO', obj.getStateName('laser'))
-                waitfor(rc);
-            end
-            while strcmpi('OPTO', obj.getStateName('laser'))
-                waitfor(rc);
-            end
-            log.trainOffTime = datetime();
-            if DEBUG
-                fprintf('\t%s: stim train complete.\n', datetime())
-            end
   
-            % Step 4: Wait and turn off laser
-            rc = rateControl(1/r.postTrainDelay);
-            waitfor(rc);
-            obj.analogWrite(iLaser, 0);
-            log.laserOffTime = datetime();
-            if DEBUG
-                fprintf('\t%s: laser off %i.\n', datetime(), rc.TotalElapsedTime)
-            end
             obj.addLogEntry(log);
-            clear rc
         end
 
         % Manual stim train

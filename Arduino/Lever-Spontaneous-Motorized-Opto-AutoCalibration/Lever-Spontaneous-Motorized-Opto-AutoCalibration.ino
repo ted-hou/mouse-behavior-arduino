@@ -278,6 +278,7 @@ enum ParamID
 	OPTO_PULSE_DURATION,			// Optogenetic stim, duration of single pulse (ms)
 	OPTO_PULSE_INTERVAL,			// Optogenetic stim, interval between pulses (ms)
 	OPTO_NUM_PULSES,				// Optogenetic stim, number of pulses to deliver	
+	OPTO_WARMUP_TIME,				// In REQUEST_OPTO, laser will be kept on this long before advancing to OPTO
 	OPTO_RANDOM_DELAY_MIN,			// Minimum random pre-stim delay (ms)
 	OPTO_RANDOM_DELAY_MAX,			// Maximum random pre-stim delay (ms)
 	LEVER_MOTOR_POS,				// 1-4, change this to set the twobit lever motor control
@@ -311,8 +312,9 @@ static const char *_paramNames[] =
 	"OPTO_PULSE_DURATION",			// Optogenetic stim, duration of single pulse (ms)
 	"OPTO_PULSE_INTERVAL",			// Optogenetic stim, interval between pulses (ms)
 	"OPTO_NUM_PULSES",				// Optogenetic stim, number of pulses to deliver	
-	"OPTO_RANDOM_DELAY_MIN",				// Minimum random pre-stim delay (ms)
-	"OPTO_RANDOM_DELAY_MAX",				// Maximum random pre-stim delay (ms)
+	"OPTO_WARMUP_TIME",				// In REQUEST_OPTO, laser will be kept on this long before advancing to OPTO
+	"OPTO_RANDOM_DELAY_MIN",		// Minimum random pre-stim delay (ms)
+	"OPTO_RANDOM_DELAY_MAX",		// Maximum random pre-stim delay (ms)
 	"LEVER_MOTOR_POS",				// 1-4, change this to set the twobit lever motor control
 	"NUM_REWARDS_PER_LEVER_MOVE",	// Move the lever after this many correct trials
 	"WAITFORTOUCH_TO_OPTO_TIMEOUT",
@@ -342,6 +344,7 @@ long _params[_NUM_PARAMS] =
 	10,		// OPTO_PULSE_DURATION
 	250,	// OPTO_PULSE_INTERVAL
 	10,		// OPTO_NUM_PULSES
+	8000, 	// OPTO_WARMUP_TIME
 	3000,	// OPTO_RANDOM_DELAY_MIN
 	6000,	// OPTO_RANDOM_DELAY_MAX
 	1, 		// LEVER_MOTOR_POS
@@ -932,6 +935,7 @@ void state_move_lever()
 void state_request_opto()
 {
 	static long timeRequest;
+	static long timeMatlabReturn;
 	static bool laserMotorStarted;
 	static bool laserMotorReached;
 	static bool isOptoAvailable;
@@ -949,6 +953,7 @@ void state_request_opto()
 
 		sendMessage(";"); // Request opto, tell MATLAB to move the laser mirror, and turn on the laser.
 		timeRequest = getTime();
+		timeMatlabReturn = 0;
 		laserMotorStarted = false;
 		laserMotorReached = false;
 		isOptoAvailable = false;
@@ -987,7 +992,7 @@ void state_request_opto()
 		return;
 	}
 
-	// MATLAB sent ";", laser motor has moved, laser has turned on and stabilized
+	// MATLAB sent ";", laser motor and laser power modulation commands have been sent by MATLAB
 	if (_command == ';')
 	{
 		if (_arguments[0] == 0)
@@ -998,12 +1003,13 @@ void state_request_opto()
 		}
 		else
 		{
+			timeMatlabReturn = getTime();
 			isOptoAvailable = true;
 		}
 	}
 
 	// Make sure the motor has finished moving, since MATLAB does not monitor this
-	if (isOptoAvailable && getTime() - timeRequest > 500 && digitalRead(PIN_LASERMOTOR_BUSY) == LOW)
+	if (isOptoAvailable && getTime() - timeRequest > 500 && getTime() - timeMatlabReturn >= _params[OPTO_WARMUP_TIME] && digitalRead(PIN_LASERMOTOR_BUSY) == LOW)
 	{
 		_state = STATE_OPTO;
 		return;
@@ -1098,9 +1104,11 @@ void state_opto()
 		{
 			if (getTime() - timePulseEnd >= randomDelayPost)
 			{
+				setAnalogOutput(1, 0);
+				setAnalogOutput(2, 0);
 				forceRetractLever(false);
 				_state = STATE_TIMEOUT;
-				_resultCode = CODE_LEVER_MOVED;
+				_resultCode = CODE_OPTO;
 				sendResultCode(_resultCode);
 				return;
 			}
