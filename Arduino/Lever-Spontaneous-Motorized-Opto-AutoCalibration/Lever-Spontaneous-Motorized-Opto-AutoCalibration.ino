@@ -35,10 +35,10 @@ A [channel] [value] - manual set analog output
 /*****************************************************
 	Servo stuff
 *****************************************************/
-#include <Servo.h>
-Servo _servoLever;
-Servo _servoTube;
-#define SERVO_READ_ACCURACY 1
+#include <PWMServo.h>
+PWMServo  _servoLever;
+PWMServo  _servoTube;
+#define SERVO_READ_ACCURACY 2
 enum ServoState
 {
 	_SERVOSTATE_INIT,
@@ -59,8 +59,8 @@ enum ServoState
 *****************************************************/
 // Digital OUT
 #define PIN_REWARD				24
-#define PIN_SERVO_LEVER			14
-#define PIN_SERVO_TUBE			15
+#define PIN_SERVO_LEVER			20  // 14
+#define PIN_SERVO_TUBE			14  // 15
 #define PIN_OPTOGEN_STIM		23
 #define PIN_LEVERMOTOR_HI		5
 #define PIN_LEVERMOTOR_LO		6
@@ -71,7 +71,7 @@ enum ServoState
 #define PIN_MIRROR_REWARD		22
 
 // PWM OUT
-#define PIN_SPEAKER				21
+#define PIN_SPEAKER				14
 
 // ANALOG OUT (DAC)
 #define PIN_LASER_PWR_1			A21
@@ -326,20 +326,20 @@ long _params[_NUM_PARAMS] =
 	0,		// _DEBUG
 	0,		// TIMEOUT_MIN
 	20000,	// TIMEOUT_MEAN
-	20000,	// TIMEOUT_MAX
-	50,		// LEVER_HOLD_TIME
+	10000,	// TIMEOUT_MAX
+	0,		// LEVER_HOLD_TIME
 	1000,	// LEVER_RETRACT_TIME
 	50,		// REWARD_DURATION
 	3000,	// MIN_REWARD_COLLECTION_TIME
 	1000,	// EXTRA_LICK_TIME
-	93,		// LEVER_POS_RETRACTED
+	83,		// LEVER_POS_RETRACTED
 	63,		// LEVER_POS_DEPLOYED
 	72,		// LEVER_SPEED_DEPLOY
 	72,		// LEVER_SPEED_RETRACT
-	60,		// TUBE_POS_RETRACTED
+	70,		// TUBE_POS_RETRACTED
 	90,		// TUBE_POS_DEPLOYED
-	36,		// TUBE_SPEED_DEPLOY
-	72,		// TUBE_SPEED_RETRACT
+	24,		// TUBE_SPEED_DEPLOY
+	24,		// TUBE_SPEED_RETRACT
 	0,		// OPTO_ENABLED
 	10,		// OPTO_PULSE_DURATION
 	250,	// OPTO_PULSE_INTERVAL
@@ -374,6 +374,7 @@ static long _timeLastLick			= 0;			// Time (ms) when last lick occured
 static bool _isLeverPressed			= false;		// True as long as lever is pressed down
 static bool _isLeverHeld 			= false;
 static bool _forceRetractLever		= false;		// Lever will not autocycle on touch but will stay retracted
+// static bool _forceDeployLever		= false;		// Lever will not autocycle on touch but will stay retracted
 static long _timeLastLeverPress		= 0;			// Time (ms) when last lever press occured
 static long _timeLastLeverRelease	= 0;			// Time (ms) when last lever press occured
 static long _timeLastLeverRetract 	= 0;			// Time (ms) when last lever retraction occured (due to touch)
@@ -389,6 +390,9 @@ static long _servoStartTimeTube		= 0;							// When servo started moving retriev
 static long _servoSpeedTube			= _params[TUBE_SPEED_RETRACT]; 	// Speed of servo movement (deg/s)
 static long _servoStartPosTube		= _params[TUBE_POS_DEPLOYED];	// Starting position of servo when rotation begins
 static long _servoTargetPosTube		= _params[TUBE_POS_DEPLOYED];	// Target position of servo
+
+static int _nRewardsSinceLeverMoved = 0;
+
 
 /*****************************************************
 	Setup
@@ -443,6 +447,7 @@ void mySetup()
 	_isLeverPressed			= false;		// True as long as lever is pressed down
 	_isLeverHeld 			= false;
 	_forceRetractLever		= false;
+	// _forceDeployLever		= false;
 	_timeLastLeverPress		= 0;			// Time (ms) when last lever press occured
 	_timeLastLeverRelease	= 0;			// Time (ms) when last lever press occured
 	_timeLastLeverRetract 	= 0;
@@ -458,6 +463,9 @@ void mySetup()
 	_servoSpeedTube			= _params[TUBE_SPEED_RETRACT]; 	// Speed of servo movement (deg/s)
 	_servoStartPosTube		= _params[TUBE_POS_DEPLOYED];	// Starting position of servo when rotation begins
 	_servoTargetPosTube		= _params[TUBE_POS_DEPLOYED];	// Target position of servo
+
+	_nRewardsSinceLeverMoved = 0;
+
 
 	// Sends all parameters, states and error codes to Matlab, then tell PC that we're running by sending '~' message:
 	hostInit();
@@ -581,11 +589,13 @@ void state_idle()
 		setOptogenStim(false);
 		noTone(PIN_SPEAKER);
 		setReward(false);
+		forceRetractLever(false);
 		deployLever(true);
 		deployTube(true);
 		setLeverPos(1);
 		_resultCode = -1;
 		_isUpdatingParams = false;
+		_nRewardsSinceLeverMoved = 0;
 	}
 
 	/*****************************************************
@@ -734,7 +744,6 @@ void state_reward()
 	static bool isRewardOn;
 	static bool isRewardComplete;
 	static bool isTubeRetracted;
-	static int nRewardsSinceLeverMoved = 0;
 	/*****************************************************
 		ACTION LIST
 	*****************************************************/
@@ -769,7 +778,7 @@ void state_reward()
 		isTubeRetracted = false;
 
 		// Increment reward count
-		nRewardsSinceLeverMoved++;
+		_nRewardsSinceLeverMoved++;
 
 		noTone(PIN_SPEAKER);
 		tone(PIN_SPEAKER, TONE_REWARD, _params[REWARD_DURATION]);
@@ -786,6 +795,7 @@ void state_reward()
 		if (_params[REWARD_DURATION] > 0)
 		{
 			deployTube(true);
+			// forceDeployLever(true);
 			setReward(true);
 		}			
 	}
@@ -806,6 +816,7 @@ void state_reward()
 	{
 		isTubeRetracted = true;
 		deployTube(false);
+		// forceDeployLever(false);
 	}
 
 
@@ -823,9 +834,9 @@ void state_reward()
 	if (isRewardComplete && _servoStateTube == SERVOSTATE_RETRACTED)
 	{
 		// MOVE_LEVER
-		if (nRewardsSinceLeverMoved >= _params[NUM_REWARDS_PER_LEVER_MOVE])
+		if (_nRewardsSinceLeverMoved >= _params[NUM_REWARDS_PER_LEVER_MOVE])
 		{
-			nRewardsSinceLeverMoved = 0;
+			_nRewardsSinceLeverMoved = 0;
 			_state = STATE_MOVE_LEVER;
 			return;
 		}
@@ -1197,6 +1208,11 @@ void handleLever()
 			sendEventMarker(EVENT_LEVER_HELD, -1);
 			deployLever(false);
 			_timeLastLeverRetract = getTime();
+			// if (!_forceDeployLever)
+			// {
+			// 	deployLever(false);
+			// 	_timeLastLeverRetract = getTime();
+			// }
 		}
 	}
 	// not in contact
@@ -1225,6 +1241,12 @@ void forceRetractLever(bool force)
 	deployLever(!force);
 }
 
+// void forceDeployLever(bool force)
+// {
+// 	_forceDeployLever = force;
+// 	deployLever(force);
+// }
+
 // Use servo to retract/present lever to the little dude
 void deployLever(bool deploy)
 {
@@ -1239,6 +1261,7 @@ void deployLever(bool deploy)
 		_servoSpeedLever = _params[LEVER_SPEED_DEPLOY];
 		_servoStartPosLever = _servoLever.read();
 		_servoTargetPosLever = _params[LEVER_POS_DEPLOYED];
+		// _servoLever.write(_servoTargetPosLever);
 	}
 	else 
 	{
@@ -1251,6 +1274,7 @@ void deployLever(bool deploy)
 		_servoSpeedLever = _params[LEVER_SPEED_RETRACT];
 		_servoStartPosLever = _servoLever.read();
 		_servoTargetPosLever = _params[LEVER_POS_RETRACTED];
+		// _servoLever.write(_servoTargetPosLever);
 	}
 }
 
@@ -1268,6 +1292,7 @@ void deployTube(bool deploy)
 		_servoSpeedTube = _params[TUBE_SPEED_DEPLOY];
 		_servoStartPosTube = _servoTube.read();
 		_servoTargetPosTube = _params[TUBE_POS_DEPLOYED];
+		// _servoTube.write(_servoTargetPosTube);
 	}
 	else
 	{
@@ -1280,6 +1305,7 @@ void deployTube(bool deploy)
 		_servoSpeedTube = _params[TUBE_SPEED_RETRACT];
 		_servoStartPosTube = _servoTube.read();
 		_servoTargetPosTube = _params[TUBE_POS_RETRACTED];
+		// _servoTube.write(_servoTargetPosTube);
 	}
 }
 
@@ -1307,7 +1333,7 @@ void handleServoLever()
 	}
 
 	// 0 - use max speed
-	if (_servoSpeedLever == 0)
+	if (_servoSpeedLever == 0 && abs(_servoLever.read() - _servoTargetPosLever) <= SERVO_READ_ACCURACY)
 	{
 		_servoLever.write(_servoTargetPosLever);
 	}
