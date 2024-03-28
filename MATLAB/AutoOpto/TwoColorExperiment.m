@@ -30,7 +30,7 @@ classdef TwoColorExperiment < handle
             end
 
             % Connect to arduinos
-            obj.connect(r.laserCOM, r.motorCOM, true);
+            obj.connect(r.laserCOM, r.motorCOM, false);
 
             % Choose save path
             [file, path] = uiputfile(sprintf('expname_%s.mat', datestr(now, 'yyyymmdd')), 'Choose autosave path:');
