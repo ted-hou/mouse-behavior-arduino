@@ -374,7 +374,7 @@ static long _timeLastLick			= 0;			// Time (ms) when last lick occured
 static bool _isLeverPressed			= false;		// True as long as lever is pressed down
 static bool _isLeverHeld 			= false;
 static bool _forceRetractLever		= false;		// Lever will not autocycle on touch but will stay retracted
-// static bool _forceDeployLever		= false;		// Lever will not autocycle on touch but will stay retracted
+static bool _forceDeployLever		= false;		// Lever will not autocycle on touch but will stay retracted
 static long _timeLastLeverPress		= 0;			// Time (ms) when last lever press occured
 static long _timeLastLeverRelease	= 0;			// Time (ms) when last lever press occured
 static long _timeLastLeverRetract 	= 0;			// Time (ms) when last lever retraction occured (due to touch)
@@ -447,7 +447,7 @@ void mySetup()
 	_isLeverPressed			= false;		// True as long as lever is pressed down
 	_isLeverHeld 			= false;
 	_forceRetractLever		= false;
-	// _forceDeployLever		= false;
+	_forceDeployLever		= false;
 	_timeLastLeverPress		= 0;			// Time (ms) when last lever press occured
 	_timeLastLeverRelease	= 0;			// Time (ms) when last lever press occured
 	_timeLastLeverRetract 	= 0;
@@ -590,6 +590,7 @@ void state_idle()
 		noTone(PIN_SPEAKER);
 		setReward(false);
 		forceRetractLever(false);
+		_forceDeployLever = false;
 		deployLever(true);
 		deployTube(true);
 		setLeverPos(1);
@@ -795,7 +796,7 @@ void state_reward()
 		if (_params[REWARD_DURATION] > 0)
 		{
 			deployTube(true);
-			// forceDeployLever(true);
+			forceDeployLever(true);
 			setReward(true);
 		}			
 	}
@@ -816,7 +817,7 @@ void state_reward()
 	{
 		isTubeRetracted = true;
 		deployTube(false);
-		// forceDeployLever(false);
+		forceDeployLever(false);
 	}
 
 
@@ -1206,13 +1207,11 @@ void handleLever()
 		{
 			_isLeverHeld = true;
 			sendEventMarker(EVENT_LEVER_HELD, -1);
-			deployLever(false);
-			_timeLastLeverRetract = getTime();
-			// if (!_forceDeployLever)
-			// {
-			// 	deployLever(false);
-			// 	_timeLastLeverRetract = getTime();
-			// }
+			if (!_forceDeployLever)
+			{
+				deployLever(false);
+				_timeLastLeverRetract = getTime();
+			}
 		}
 	}
 	// not in contact
@@ -1241,11 +1240,11 @@ void forceRetractLever(bool force)
 	deployLever(!force);
 }
 
-// void forceDeployLever(bool force)
-// {
-// 	_forceDeployLever = force;
-// 	deployLever(force);
-// }
+void forceDeployLever(bool force)
+{
+	_forceDeployLever = force;
+	deployLever(force);
+}
 
 // Use servo to retract/present lever to the little dude
 void deployLever(bool deploy)
