@@ -766,6 +766,37 @@ classdef TwoColorExperiment < handle
             save(obj.Path, 'obj');
         end
 
+        function saveArduino(obj)
+            expPath = strsplit(obj.Path, '.mat');
+            expPath = expPath{1};
+            obj.LaserArduino.SaveAsExperiment(sprintf('%s_laser.mat', expPath));
+            obj.MotorArduino.SaveAsExperiment(sprintf('%s_motor.mat', expPath));
+        end
+
+        function saveArduinoParams(obj)
+            expPath = strsplit(obj.Path, '\');
+            expName = strsplit(expPath{end}, '.mat');
+            expName = expName{1};
+            expDate = strsplit(expName, '_');
+            expDate = expDate{end};
+            expPath = strjoin(expPath(1:end-1), '\');
+            obj.LaserArduino.SaveParameters(sprintf('%s\\parameters_%s.mat', expPath, expDate));
+            obj.MotorArduino.SaveParameters(sprintf('%s\\parameters_%s_motor.mat', expPath, expDate));
+        end
+
+        function loadArduinoParams(obj)
+            path = uigetdir(obj.Path);
+
+            expPath = strsplit(path, '\');
+            expName = expPath{end};
+            expDate = strsplit(expName, '_');
+            expDate = expDate{end};
+
+            obj.LaserArduino.LoadParameters('', sprintf('%s\\parameters_%s.mat', path, expDate));
+            obj.MotorArduino.LoadParameters('', sprintf('%s\\parameters_%s_motor.mat', path, expDate));
+
+        end
+
         function addLogEntry(obj, trainLog)
             log = obj.Log;
             if isempty(log)

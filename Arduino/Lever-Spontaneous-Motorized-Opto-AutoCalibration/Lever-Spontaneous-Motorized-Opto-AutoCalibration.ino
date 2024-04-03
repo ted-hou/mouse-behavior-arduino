@@ -64,6 +64,8 @@ enum ServoState
 #define PIN_OPTOGEN_STIM		23
 #define PIN_LEVERMOTOR_HI		5
 #define PIN_LEVERMOTOR_LO		6
+#define PIN_LED_LEFT			15 // left LED (animal's perspective)
+#define PIN_LED_RIGHT			16
 
 // Mirrors to blackrock
 #define PIN_MIRROR_LICK 		9
@@ -71,7 +73,7 @@ enum ServoState
 #define PIN_MIRROR_REWARD		22
 
 // PWM OUT
-#define PIN_SPEAKER				14
+#define PIN_SPEAKER				21
 
 // ANALOG OUT (DAC)
 #define PIN_LASER_PWR_1			A21
@@ -94,7 +96,11 @@ static const int _digOutPins[] =
 	PIN_MIRROR_LICK,
 	PIN_MIRROR_LEVER,
 	PIN_MIRROR_REWARD,
-	PIN_SPEAKER
+	PIN_SPEAKER,
+	PIN_LED_LEFT,
+	PIN_LED_RIGHT,
+	8,
+	11
 };
 
 /*****************************************************
@@ -284,6 +290,7 @@ enum ParamID
 	LEVER_MOTOR_POS,				// 1-4, change this to set the twobit lever motor control
 	NUM_REWARDS_PER_LEVER_MOVE,		// Move the lever after this many correct trials
 	WAITFORTOUCH_TO_OPTO_TIMEOUT,	// Go to opto if this much time has elapsed in waitfortouch.
+	USE_LEFT_PAW,
 	_NUM_PARAMS						// (Private) Used to count how many parameters there are so we can initialize the param array with the correct size. Insert additional parameters before this.
 };
 
@@ -318,6 +325,7 @@ static const char *_paramNames[] =
 	"LEVER_MOTOR_POS",				// 1-4, change this to set the twobit lever motor control
 	"NUM_REWARDS_PER_LEVER_MOVE",	// Move the lever after this many correct trials
 	"WAITFORTOUCH_TO_OPTO_TIMEOUT",
+	"USE_LEFT_PAW",
 };
 
 // Initialize parameters
@@ -329,20 +337,20 @@ long _params[_NUM_PARAMS] =
 	10000,	// TIMEOUT_MAX
 	0,		// LEVER_HOLD_TIME
 	1000,	// LEVER_RETRACT_TIME
-	50,		// REWARD_DURATION
+	100,	// REWARD_DURATION
 	3000,	// MIN_REWARD_COLLECTION_TIME
 	1000,	// EXTRA_LICK_TIME
-	83,		// LEVER_POS_RETRACTED
-	63,		// LEVER_POS_DEPLOYED
-	72,		// LEVER_SPEED_DEPLOY
-	72,		// LEVER_SPEED_RETRACT
+	115,	// LEVER_POS_RETRACTED
+	95,		// LEVER_POS_DEPLOYED
+	36,		// LEVER_SPEED_DEPLOY
+	36,		// LEVER_SPEED_RETRACT
 	70,		// TUBE_POS_RETRACTED
 	90,		// TUBE_POS_DEPLOYED
 	24,		// TUBE_SPEED_DEPLOY
 	24,		// TUBE_SPEED_RETRACT
 	0,		// OPTO_ENABLED
 	10,		// OPTO_PULSE_DURATION
-	250,	// OPTO_PULSE_INTERVAL
+	500,	// OPTO_PULSE_INTERVAL
 	10,		// OPTO_NUM_PULSES
 	8000, 	// OPTO_WARMUP_TIME
 	3000,	// OPTO_RANDOM_DELAY_MIN
@@ -350,6 +358,7 @@ long _params[_NUM_PARAMS] =
 	1, 		// LEVER_MOTOR_POS
 	10,		// NUM_REWARDS_PER_LEVER_MOVE
 	30000,	// WAITFORTOUCH_TO_OPTO_TIMEOUT
+	1, 		// USE_LEFT_PAW
 };
 
 /*****************************************************
@@ -593,6 +602,8 @@ void state_idle()
 		_forceDeployLever = false;
 		deployLever(true);
 		deployTube(true);
+		digitalWrite(PIN_LED_LEFT, LOW);
+		digitalWrite(PIN_LED_RIGHT, LOW);
 		setLeverPos(1);
 		_resultCode = -1;
 		_isUpdatingParams = false;
@@ -1478,11 +1489,31 @@ void setLeverPos(int position)
 			digitalWrite(PIN_LEVERMOTOR_HI, LOW);
 			digitalWrite(PIN_LEVERMOTOR_LO, LOW);
 			sendEventMarker(EVENT_LEVERMOTOR_POS1_START, -1);
+			if (_params[USE_LEFT_PAW] == 0)
+			{
+				digitalWrite(PIN_LED_LEFT, LOW);
+				digitalWrite(PIN_LED_RIGHT, HIGH);
+			}
+			else
+			{
+				digitalWrite(PIN_LED_LEFT, HIGH);
+				digitalWrite(PIN_LED_RIGHT, LOW);
+			}
 			break;
 		case 2: // 01
 			digitalWrite(PIN_LEVERMOTOR_HI, LOW);
 			digitalWrite(PIN_LEVERMOTOR_LO, HIGH);
 			sendEventMarker(EVENT_LEVERMOTOR_POS2_START, -1);
+			if (_params[USE_LEFT_PAW] == 0)
+			{
+				digitalWrite(PIN_LED_LEFT, HIGH);
+				digitalWrite(PIN_LED_RIGHT, LOW);
+			}
+			else
+			{
+				digitalWrite(PIN_LED_LEFT, LOW);
+				digitalWrite(PIN_LED_RIGHT, HIGH);
+			}
 			break;
 		case 3: // 10
 			digitalWrite(PIN_LEVERMOTOR_HI, HIGH);
@@ -1663,6 +1694,39 @@ void handleParamUpdate()
 		{
 			_isUpdatingParams = true;
 			_params[_arguments[0]] = _arguments[1];
+
+			// Toggle left/right green LEDs on param change
+			if (_arguments[0] == USE_LEFT_PAW)
+			{
+				int position = getLeverPos();	
+				switch (position)
+				{
+					case 1: // 00
+						if (_params[USE_LEFT_PAW] == 0)
+						{
+							digitalWrite(PIN_LED_LEFT, LOW);
+							digitalWrite(PIN_LED_RIGHT, HIGH);
+						}
+						else
+						{
+							digitalWrite(PIN_LED_LEFT, HIGH);
+							digitalWrite(PIN_LED_RIGHT, LOW);
+						}
+						break;
+					case 2: // 01
+						if (_params[USE_LEFT_PAW] == 0)
+						{
+							digitalWrite(PIN_LED_LEFT, HIGH);
+							digitalWrite(PIN_LED_RIGHT, LOW);
+						}
+						else
+						{
+							digitalWrite(PIN_LED_LEFT, LOW);
+							digitalWrite(PIN_LED_RIGHT, HIGH);
+						}
+						break;
+				}
+			}
 		}
 
 		// Parameter transmission complete:

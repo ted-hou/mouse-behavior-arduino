@@ -94,31 +94,41 @@ classdef ArduinoConnection < handle
 		%		File I/O
 		%-----------------------------------------------~~
 		% Save parameters to parameter file
-		function varargout = SaveParameters(obj)
+		function varargout = SaveParameters(obj, path)
+            if nargin < 2
+                path = '';
+            end
+
 			% Fetch params from object
 			parameterNames = obj.ParamNames; 		% store parameter names
 			parameterValues = obj.ParamValues; 		% store parameter values
 
 			% Prompt user to select save path
-			if ~obj.IsMotorController()
-				[filename, filepath] = uiputfile(['parameters_', datestr(now, 'yyyymmdd'), '.mat'], 'Save current parameters to file');
-			else
-				[filename, filepath] = uiputfile(['parameters_', datestr(now, 'yyyymmdd'), '_motor.mat'], 'Save current parameters to file');
-			end
-			% Exit if no file selected
-			if ~(ischar(filename) && ischar(filepath))
-				varargout = {''};
-				return
-			end
+            if isempty(path)
+			    if ~obj.IsMotorController()
+				    [filename, filepath] = uiputfile(['parameters_', datestr(now, 'yyyymmdd'), '.mat'], 'Save current parameters to file');
+			    else
+				    [filename, filepath] = uiputfile(['parameters_', datestr(now, 'yyyymmdd'), '_motor.mat'], 'Save current parameters to file');
+			    end
+			    % Exit if no file selected
+			    if ~(ischar(filename) && ischar(filepath))
+				    varargout = {''};
+				    return
+                end
+                path = [filepath, filename];
+            end
 			% Save to file
-			save([filepath, filename], 'parameterNames', 'parameterValues');
+			save(path, 'parameterNames', 'parameterValues');
 
-			varargout = {[filepath, filename]};
+			varargout = {path};
 		end
 
 		% Load parameters from parameter/experiment file
-		function varargout = LoadParameters(obj, errorMessage)
+		function varargout = LoadParameters(obj, errorMessage, path)
 			varargout = {''};
+            if nargin < 3
+                path = '';
+            end
 			if nargin < 2
 				errorMessage = '';
 			end
@@ -135,13 +145,16 @@ classdef ArduinoConnection < handle
 				end
 			end
 
-			[filename, filepath] = uigetfile('*.mat', 'Load parameters from file');
-			% Exit if no file selected
-			if ~(ischar(filename) && ischar(filepath))
-				return
-			end
+            if isempty(path)
+			    [filename, filepath] = uigetfile('*.mat', 'Load parameters from file');
+			    % Exit if no file selected
+			    if ~(ischar(filename) && ischar(filepath))
+				    return
+                end
+                path = [filepath, filename];
+            end
 			% Load file
-			p = load([filepath, filename]);
+			p = load(path);
 			% If loaded file does not contain parameters
 			if ~(isfield(p, 'parameterNames') && isfield(p, 'parameterValues'))
 				% Ask the Grad Student if he wants to selcet another file instead
@@ -164,7 +177,7 @@ classdef ArduinoConnection < handle
 						% Attempt to execute update queue now, if current state does not allow param update, the queue will be executed when we enter an appropriate state
 						obj.UpdateParams_Execute()
 						% Return file path
-						varargout = {[filepath, filename]};
+						varargout = {path};
 					end
 				end
 			end
@@ -175,17 +188,23 @@ classdef ArduinoConnection < handle
 			save(obj.ExperimentFileName, 'obj');
 		end
 
-		function SaveAsExperiment(obj)
-			if ~obj.IsMotorController()
-				[filename, filepath] = uiputfile(['exp_name_',datestr(now, 'yyyymmdd'),'.mat'],'Save Experiment As New File');
-			else
-				[filename, filepath] = uiputfile(['exp_name_',datestr(now, 'yyyymmdd'),'_motor.mat'],'Save Experiment As New File');
-			end
-			% Exit if no file selected
-			if ~(ischar(filename) && ischar(filepath))
-				return
-			end
-			obj.ExperimentFileName = [filepath, filename];
+		function SaveAsExperiment(obj, path)
+            if nargin < 2
+                path = '';
+            end
+            if isempty(path)
+			    if ~obj.IsMotorController()
+				    [filename, filepath] = uiputfile(['exp_name_',datestr(now, 'yyyymmdd'),'.mat'],'Save Experiment As New File');
+			    else
+				    [filename, filepath] = uiputfile(['exp_name_',datestr(now, 'yyyymmdd'),'_motor.mat'],'Save Experiment As New File');
+			    end
+			    % Exit if no file selected
+			    if ~(ischar(filename) && ischar(filepath))
+				    return
+                end
+                path = [filepath, filename];
+            end
+			obj.ExperimentFileName = path;
 			obj.SaveExperiment()
 			% If online, enable autosave
 			if obj.Connected
@@ -193,7 +212,19 @@ classdef ArduinoConnection < handle
 				fprintf('Autosave enabled. Saving to %s after each trial.\n', obj.ExperimentFileName)
 			else
 				obj.AutosaveEnabled = false;
-			end
+            end
+
+			for iCam = 1:length(obj.Cameras)
+				if ~isempty(obj.Cameras(iCam).Camera)
+					if isvalid(obj.Cameras(iCam).Camera)
+						if ~isempty(obj.ExperimentFileName)
+							videoPath = strsplit(obj.ExperimentFileName, '.mat');
+							videoPath = videoPath{1};
+							obj.Cameras(iCam).Camera.SaveAs([videoPath, '_', num2str(iCam)]);
+						end
+					end
+				end
+			end            
 		end
 
 		function LoadExperiment(obj, errorMessage)
