@@ -361,7 +361,7 @@ classdef TwoColorExperiment < handle
                                 break
                             end
                             obj.analogWrite(iLaser, aoutValue);
-                            fprintf('%gnm, i=%i, tgt=%.1fmW, df=%.3fmW, %s=%i, AOUT(%i)=%i\n', p.wavelengths(iLaser), i, targetPwr*1e3, dist*1e3, stepType, thisStepSize, iLaser, aoutValue)
+                            fprintf('%gnm, i=%i, tgt=%.3fmW, df=%.3fmW, %s=%i, AOUT(%i)=%i\n', p.wavelengths(iLaser), i, targetPwr*1e3, dist*1e3, stepType, thisStepSize, iLaser, aoutValue)
                         
                     %         fprintf('%.10f%c\r',test_meter.meterPowerReading,test_meter.meterPowerUnit);
                         end
@@ -675,7 +675,7 @@ classdef TwoColorExperiment < handle
                 iPower = conditions(iCond, 2);
                 iLaser = conditions(iCond, 3);
             
-                fprintf('Running condition %i of %i, mirror=%i, power=%.2fmW (%.2fmW), wavelength=%.1fnm:\n', iCond, length(conditions), p.mirrorPositions(iMirrorPos), p.targetPowers(iPower)*1e3, results.powersValidation(iPower, iMirrorPos, iLaser)*1e3, p.wavelengths(iLaser))
+                fprintf('Running condition %i of %i, mirror=%i, power=%.3fmW (%.3fmW), wavelength=%.1fnm:\n', iCond, length(conditions), p.mirrorPositions(iMirrorPos), p.targetPowers(iPower)*1e3, results.powersValidation(iPower, iMirrorPos, iLaser)*1e3, p.wavelengths(iLaser))
             
                 obj.runStimTrain(iMirrorPos, iPower, iLaser, ...
                     nPulses=nPulses, pulseWidth=pulseWidth, ipi=ipi, ...
