@@ -822,5 +822,48 @@ classdef TwoColorExperiment < handle
             obj.MotorArduino.Stop();
             obj.MotorInterface.ArduinoClose([], [], true);
         end
+
+        function hash = getStimHash(obj, iTrain)
+            if length(iTrain) > 1
+                hash = zeros(length(iTrain), 1);
+                for i = 1:length(iTrain)
+                    hash(i) = obj.getStimHash(iTrain(i));
+                end
+                return
+            end
+
+            % wavelength, location, duration, power
+            wavelength = obj.Log(iTrain).wavelength;
+            location = obj.Log(iTrain).mirrorPos;
+            duration = obj.Log(iTrain).params.pulseWidth;
+            power = obj.Log(iTrain).targetPower;
+            switch wavelength
+                case 473
+                    iWavelength = 1;
+                case 593
+                    iWavelength = 2;
+            end
+        
+            % switch location
+            %     case -570
+            %         iLocation = 1;
+            %     case -380
+            %         iLocation = 2;
+            %     case -190
+            %         iLocation = 3;
+            %     case 0
+            %         iLocation = 4;
+            % end
+            iLocation = location./190 + 4;
+            iDuration = round(duration*100);
+            iPower = round(power*1e6./25);
+        
+            assert(iWavelength < 10 && mod(iWavelength, 1) == 0)
+            assert(iLocation < 10 && mod(iLocation, 1) == 0)
+            assert(iDuration < 100 && mod(iLocation, 1) == 0)
+            assert(iPower < 1000 && mod(iPower, 1) == 0)
+            
+            hash = 1e6*iWavelength + 1e5*iLocation + 1e3*iDuration + 1*iPower;
+        end
     end
 end
