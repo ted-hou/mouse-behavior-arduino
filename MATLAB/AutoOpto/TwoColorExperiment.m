@@ -794,7 +794,6 @@ classdef TwoColorExperiment < handle
 
             obj.LaserArduino.LoadParameters('', sprintf('%s\\parameters_%s.mat', path, expDate));
             obj.MotorArduino.LoadParameters('', sprintf('%s\\parameters_%s_motor.mat', path, expDate));
-
         end
 
         function addLogEntry(obj, trainLog)
@@ -823,38 +822,64 @@ classdef TwoColorExperiment < handle
             obj.MotorInterface.ArduinoClose([], [], true);
         end
 
-        function hash = getStimHash(obj, iTrain)
+        function [wavelength, location, duration, power] = getStimTrainConditions(obj, varargin)
+            p = inputParser();
+            p.addOptional('iTrain', [], @isnumeric)
+            p.parse(varargin{:})
+            iTrain = p.Results.iTrain;
+            if isempty(iTrain)
+                iTrain = 1:length(obj.Log);
+            end
+
             if length(iTrain) > 1
-                hash = zeros(length(iTrain), 1);
+                wavelength = zeros(length(iTrain), 1);
+                location = zeros(length(iTrain), 1);
+                duration = zeros(length(iTrain), 1);
+                power = zeros(length(iTrain), 1);
                 for i = 1:length(iTrain)
-                    hash(i) = obj.getStimHash(iTrain(i));
+                    [wavelength(i), location(i), duration(i), power(i)] = obj.getStimTrainConditions(iTrain(i));
                 end
                 return
             end
 
-            % wavelength, location, duration, power
             wavelength = obj.Log(iTrain).wavelength;
             location = obj.Log(iTrain).mirrorPos;
             duration = obj.Log(iTrain).params.pulseWidth;
             power = obj.Log(iTrain).targetPower;
+        end
+
+        function varargout = getStimHash(obj, varargin)
+            p = inputParser();
+            p.addOptional('iTrain', [], @isnumeric)
+            p.parse(varargin{:})
+            iTrain = p.Results.iTrain;
+            if isempty(iTrain)
+                iTrain = 1:length(obj.Log);
+            end
+
+            if length(iTrain) > 1
+                hash = zeros(length(iTrain), 1);
+                iWavelength = zeros(length(iTrain), 1);
+                iLocation = zeros(length(iTrain), 1);
+                iDuration = zeros(length(iTrain), 1);
+                iPower = zeros(length(iTrain), 1);
+                for i = 1:length(iTrain)
+                    [hash(i), iWavelength(i), iLocation(i), iDuration(i), iPower(i)] = obj.getStimHash(iTrain(i));
+                end
+                varargout = {hash, iWavelength, iLocation, iDuration, iPower};
+                return
+            end
+
+            % wavelength, location, duration, power
+            [wavelength, location, duration, power] = obj.getStimTrainConditions(iTrain);
             switch wavelength
                 case 473
                     iWavelength = 1;
                 case 593
                     iWavelength = 2;
             end
-        
-            % switch location
-            %     case -570
-            %         iLocation = 1;
-            %     case -380
-            %         iLocation = 2;
-            %     case -190
-            %         iLocation = 3;
-            %     case 0
-            %         iLocation = 4;
-            % end
-            iLocation = location./190 + 4;
+
+            iLocation = location./190 + 4; % -570->1, -380->2, -190->3, 0->4
             iDuration = round(duration*100);
             iPower = round(power*1e6./25);
         
@@ -864,6 +889,59 @@ classdef TwoColorExperiment < handle
             assert(iPower < 1000 && mod(iPower, 1) == 0)
             
             hash = 1e6*iWavelength + 1e5*iLocation + 1e3*iDuration + 1*iPower;
+
+            varargout = {hash, iWavelength, iLocation, iDuration, iPower};
+        end
+
+        function [groupIndices, conditions] = groupStimTrains(obj, varargin)
+            p = inputParser();
+            p.addOptional('groupBy', {'wavelength', 'location', 'duration', 'power'}, @(x) all(ismember(x, {'wavelength', 'location', 'duration', 'power'})));
+            p.parse(varargin{:});
+            groupBy = p.Results.groupBy;
+
+            [wavelength, location, duration, power] = obj.getStimTrainConditions();
+            [hash, iWavelength, iLocation, iDuration, iPower] = obj.getStimHash();
+            conditionMatrix = [];
+            for i = 1:length(groupBy)
+                switch lower(groupBy{i})
+                    case 'wavelength'
+                        conditionMatrix = horzcat(conditionMatrix, iWavelength);
+                    case 'location'
+                        conditionMatrix = horzcat(conditionMatrix, iLocation);
+                    case 'duration'
+                        conditionMatrix = horzcat(conditionMatrix, iDuration);
+                    case 'power'
+                        conditionMatrix = horzcat(conditionMatrix, iPower);
+                end
+            end
+
+            [C, ia, groupIndices] = unique(conditionMatrix, 'rows');
+            for i = 1:length(groupBy)
+                switch lower(groupBy{i})
+                    case 'wavelength'
+                        conditions(length(ia)).wavelength = [];
+                    case 'location'
+                        conditions(length(ia)).location = [];
+                    case 'duration'
+                        conditions(length(ia)).duration = [];
+                    case 'power'
+                        conditions(length(ia)).power = [];
+                end
+            end
+            for i = 1:length(ia)
+                if ismember('wavelength', groupBy)
+                    conditions(i).wavelength = wavelength(ia(i));
+                end
+                if ismember('location', groupBy)
+                    conditions(i).location = location(ia(i));
+                end
+                if ismember('duration', groupBy)
+                    conditions(i).duration = duration(ia(i))*1e3;
+                end
+                if ismember('power', groupBy)
+                    conditions(i).power = power(ia(i))*1e6;
+                end
+            end
         end
     end
 end
