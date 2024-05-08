@@ -936,10 +936,10 @@ classdef TwoColorExperiment < handle
                     conditions(i).location = location(ia(i));
                 end
                 if ismember('duration', groupBy)
-                    conditions(i).duration = duration(ia(i))*1e3;
+                    conditions(i).duration = duration(ia(i));
                 end
                 if ismember('power', groupBy)
-                    conditions(i).power = power(ia(i))*1e6;
+                    conditions(i).power = power(ia(i));
                 end
             end
         end
