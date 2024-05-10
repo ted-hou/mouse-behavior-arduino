@@ -30,6 +30,7 @@ T [(0/1)shutterOpen] - manual toggle shutter
 A [channel] [value] - manual set analog output
 ^ [(1-4)leverPos] - MATLAB return lever motor target index (1 based)
 ; [(0/1)doOpto] - MATLAB finished setting up laser, can proceded to OPTO (1), or SKIP (0)
+J - idle -> reward -> idle
 *********************************************************************/
 
 /*****************************************************
@@ -631,6 +632,13 @@ void state_idle()
 		return;
 	}
 
+	// J for manual reward while in IDLE (will deploy tube, deliver juice then retract, return to IDLE)
+	if (_command == 'J')
+	{
+		_state = STATE_REWARD;
+		return;
+	}
+
 
 	_state = STATE_IDLE;
 }
@@ -752,6 +760,7 @@ void state_waitfortouch()
 *****************************************************/
 void state_reward()
 {
+	static State entryState;
 	static long timeRewardOn;
 	static bool isRewardOn;
 	static bool isRewardComplete;
@@ -762,6 +771,7 @@ void state_reward()
 	if (_state != _prevState) 
 	{
 		// Register new state
+		entryState = _prevState;
 		_prevState = _state;
 		sendState(_state);
 
@@ -831,7 +841,6 @@ void state_reward()
 		forceDeployLever(false);
 	}
 
-
 	/*****************************************************
 		TRANSITION LIST
 	*****************************************************/
@@ -845,6 +854,12 @@ void state_reward()
 	// Reward dispensed and tube retracted fully --> TIMEOUT
 	if (isRewardComplete && _servoStateTube == SERVOSTATE_RETRACTED)
 	{
+		// IDLE
+		if (entryState == STATE_IDLE)
+		{
+			_state = STATE_IDLE;
+			return;
+		}
 		// MOVE_LEVER
 		if (_nRewardsSinceLeverMoved >= _params[NUM_REWARDS_PER_LEVER_MOVE])
 		{

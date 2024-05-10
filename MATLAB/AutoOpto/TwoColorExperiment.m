@@ -536,9 +536,9 @@ classdef TwoColorExperiment < handle
             parser.addParameter('ipi', 0.5, @isnumeric) % Inter-pulse-interval, in seconds
             parser.addParameter('preTrainDelay', 8, @isnumeric)
             parser.addParameter('postTrainDelay', 1, @isnumeric)
-        
+
             parser.parse(iMirrorPos, iPower, iLaser, varargin{:})
-       
+
             p = obj.Params;
             results = obj.Results;
 
