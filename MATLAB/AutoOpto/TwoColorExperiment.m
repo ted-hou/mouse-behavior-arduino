@@ -825,8 +825,10 @@ classdef TwoColorExperiment < handle
         function [wavelength, location, duration, power] = getStimTrainConditions(obj, varargin)
             p = inputParser();
             p.addOptional('iTrain', [], @isnumeric)
+            p.addOptional('firstShutterControlTrain', NaN, @isnumeric)
             p.parse(varargin{:})
             iTrain = p.Results.iTrain;
+            firstShutterControlTrain = p.Results.firstShutterControlTrain;
             if isempty(iTrain)
                 iTrain = 1:length(obj.Log);
             end
@@ -837,23 +839,34 @@ classdef TwoColorExperiment < handle
                 duration = zeros(length(iTrain), 1);
                 power = zeros(length(iTrain), 1);
                 for i = 1:length(iTrain)
-                    [wavelength(i), location(i), duration(i), power(i)] = obj.getStimTrainConditions(iTrain(i));
+                    [wavelength(i), location(i), duration(i), power(i)] = obj.getStimTrainConditions(iTrain(i), firstShutterControlTrain);
                 end
                 return
             end
 
-            wavelength = obj.Log(iTrain).wavelength;
-            location = obj.Log(iTrain).mirrorPos;
-            duration = obj.Log(iTrain).params.pulseWidth;
-            power = obj.Log(iTrain).targetPower;
+            if ~isnan(firstShutterControlTrain) && iTrain >= firstShutterControlTrain
+                wavelength = 0;
+                location = 0;
+                duration = obj.Log(iTrain).params.pulseWidth;
+                power = 0;
+            else
+                wavelength = obj.Log(iTrain).wavelength;
+                location = obj.Log(iTrain).mirrorPos;
+                duration = obj.Log(iTrain).params.pulseWidth;
+                power = obj.Log(iTrain).targetPower;
+            end
         end
 
         function varargout = getStimHash(obj, varargin)
             p = inputParser();
             p.addOptional('iTrain', [], @isnumeric)
+            p.addParameter('firstShutterControlTrain', NaN, @isnumeric)
+            p.addParameter('condition', struct([]), @(x) isstruct(x) && all(isfield(x, {'wavelength', 'location', 'duration', 'power'})))
             p.parse(varargin{:})
             iTrain = p.Results.iTrain;
-            if isempty(iTrain)
+            firstShutterControlTrain = p.Results.firstShutterControlTrain;
+            cond = p.Results.condition;
+            if isempty(iTrain) && isempty(cond)
                 iTrain = 1:length(obj.Log);
             end
 
@@ -864,31 +877,42 @@ classdef TwoColorExperiment < handle
                 iDuration = zeros(length(iTrain), 1);
                 iPower = zeros(length(iTrain), 1);
                 for i = 1:length(iTrain)
-                    [hash(i), iWavelength(i), iLocation(i), iDuration(i), iPower(i)] = obj.getStimHash(iTrain(i));
+                    [hash(i), iWavelength(i), iLocation(i), iDuration(i), iPower(i)] = obj.getStimHash(iTrain(i), firstShutterControlTrain=firstShutterControlTrain);
                 end
                 varargout = {hash, iWavelength, iLocation, iDuration, iPower};
                 return
             end
 
-            % wavelength, location, duration, power
-            [wavelength, location, duration, power] = obj.getStimTrainConditions(iTrain);
+            if ~isempty(iTrain)
+                % wavelength, location, duration, power
+                [wavelength, location, duration, power] = obj.getStimTrainConditions(iTrain, firstShutterControlTrain);
+            else
+                wavelength = cond.wavelength;
+                location = cond.location;
+                duration = cond.duration;
+                power = cond.power;
+            end
+
             switch wavelength
                 case 473
                     iWavelength = 1;
                 case 593
                     iWavelength = 2;
+                otherwise
+                    iWavelength = 0;
             end
 
             iLocation = location./190 + 4; % -570->1, -380->2, -190->3, 0->4
             iDuration = round(duration*100);
             iPower = round(power*1e6./25);
-        
+
             assert(iWavelength < 10 && mod(iWavelength, 1) == 0)
             assert(iLocation < 10 && mod(iLocation, 1) == 0)
             assert(iDuration < 100 && mod(iLocation, 1) == 0)
             assert(iPower < 1000 && mod(iPower, 1) == 0)
             
-            hash = 1e6*iWavelength + 1e5*iLocation + 1e3*iDuration + 1*iPower;
+%             hash = 1e6*iWavelength + 1e5*iLocation + 1e3*iDuration + 1*iPower;
+            hash = iLocation + 1e1*iWavelength + 1e2*iDuration + 1e4*iPower;
 
             varargout = {hash, iWavelength, iLocation, iDuration, iPower};
         end
@@ -896,11 +920,18 @@ classdef TwoColorExperiment < handle
         function [groupIndices, conditions] = groupStimTrains(obj, varargin)
             p = inputParser();
             p.addOptional('groupBy', {'wavelength', 'location', 'duration', 'power'}, @(x) all(ismember(x, {'wavelength', 'location', 'duration', 'power'})));
+            p.addOptional('firstShutterControlTrain', NaN, @isnumeric)
             p.parse(varargin{:});
             groupBy = p.Results.groupBy;
+            firstShutterControlTrain = p.Results.firstShutterControlTrain;
 
-            [wavelength, location, duration, power] = obj.getStimTrainConditions();
-            [hash, iWavelength, iLocation, iDuration, iPower] = obj.getStimHash();
+            [wavelength, location, duration, power] = obj.getStimTrainConditions(firstShutterControlTrain=firstShutterControlTrain);
+%             if ~isnan(firstShutterControlTrain)
+%                 wavelength(firstShutterControlTrain:end) = NaN;
+%                 location(firstShutterControlTrain:end) = NaN;
+%                 power(firstShutterControlTrain:end) = 0;
+%             end
+            [hash, iWavelength, iLocation, iDuration, iPower] = obj.getStimHash(firstShutterControlTrain=firstShutterControlTrain);
             conditionMatrix = [];
             for i = 1:length(groupBy)
                 switch lower(groupBy{i})
