@@ -7,6 +7,7 @@ classdef TwoColorExperiment < handle
         Results % Calibration Results
         Log % Stimulation Log
         Plan
+        HasShutter = true % Default TRUE for backwards compatibility
     end
 
     properties (Transient, Hidden)
@@ -22,12 +23,15 @@ classdef TwoColorExperiment < handle
             p.addParameter('offline', false, @islogical)
             p.addParameter('laserCOM', 'COM5', @ischar)
             p.addParameter('motorCOM', 'COM7', @ischar)
+            p.addParameter('hasShutter', false, @islogical)
             p.parse(varargin{:})
             r = p.Results;
 
             if r.offline
                 return
             end
+
+            obj.HasShutter = r.hasShutter;
 
             % Connect to arduinos
             obj.connect(r.laserCOM, r.motorCOM, false);
@@ -38,6 +42,7 @@ classdef TwoColorExperiment < handle
                 return
             end
             obj.Path = [path, file];
+
         end
 
         function connect(obj, laserCOM, motorCOM, debug)
@@ -62,7 +67,6 @@ classdef TwoColorExperiment < handle
             parser.parse(varargin{:})
             
             p = obj.Params;
-            results = obj.Results;
 
             conditions = zeros(length(p.mirrorPositions)*length(p.targetPowers)*length(p.wavelengths), 3);
                
@@ -94,7 +98,9 @@ classdef TwoColorExperiment < handle
             end
         end
 
+        % OBSOLETE METHOD: use 'planTask' instead.
         function positions = planLever(obj, varargin)
+            warning('Method ''planLever'' is obsolete (unless using older versions of Arduino task with shutter-contolled-opto), use ''planTask'' instead.')
             p = inputParser();
             p.addParameter('nBlocksPerPosition', 3, @isnumeric);
             p.addParameter('nPositions', 4, @isnumeric)
@@ -117,7 +123,45 @@ classdef TwoColorExperiment < handle
             obj.Plan.lever.isRandom     = randomize;
 
             if ~isfield(obj.LaserArduino.Listeners, 'TCE_MoveLeverRequested') || ~isvalid(obj.LaserArduino.Listeners.TCE_MoveLeverRequested)
-                obj.LaserArduino.Listeners.TCE_MoveLeverRequested = addlistener(obj.LaserArduino, 'MoveLeverRequested', @obj.OnMoveLeverRequested);
+                obj.LaserArduino.Listeners.TCE_MoveLeverRequested = addlistener(obj.LaserArduino, 'TaskRequested', @obj.OnMoveLeverRequested);
+            end
+
+            obj.save();
+        end
+
+        % Plan to alternate between lick and directional reach(lever) task
+        function positions = planTask(obj, varargin)
+            p = inputParser();
+            p.addParameter('includeLever', true, @islogical);
+            p.addParameter('includeLick', true, @islogical);
+            p.addParameter('nBlocksPerTask', 1, @isnumeric);
+            p.addParameter('nPositions', 2, @isnumeric);
+            p.addParameter('randomize', false, @islogical);
+            p.parse(varargin{:})
+            includeLever = p.Results.includeLever;
+            includeLick = p.Results.includeLick;
+            nBlocksPerTask = p.Results.nBlocksPerTask;
+            nPositions = p.Results.nPositions;
+            randomize = p.Results.randomize;
+
+            % set position to 0 for lick task, 1:n for directional reach task
+            assert(includeLick || includeLever, 'Must have at least one task type enabled.')
+            positions = [];
+            if includeLick
+                positions = horzcat(positions, 0);
+            end
+            if includeLever
+                positions = horzcat(positions, 1:nPositions);
+            end
+            positions = repmat(positions, 1, nBlocksPerPosition);
+            if randomize
+                positions = positions(randperm(nBlocksPerTask*nPositions));
+            end
+
+            obj.Plan.task = struct(length=length(positions), index=0, completed=false, positions=positions, isRandom=randomize);
+
+            if ~isfield(obj.LaserArduino.Listeners, 'TCE_TaskRequested') || ~isvalid(obj.LaserArduino.Listeners.TCE_TaskRequested)
+                obj.LaserArduino.Listeners.TCE_TaskRequested = addlistener(obj.LaserArduino, 'TaskRequested', @obj.OnTaskRequested);
             end
 
             obj.save();
@@ -155,71 +199,9 @@ classdef TwoColorExperiment < handle
 
         end
 
-        function runStimSessionPlanned(obj, varargin)
-            parser = inputParser();
-            parser.addParameter('residual', true, @islogical); % True to only run the residual part of the plan that hasn't been (by arduino request) played yet.
-            parser.addParameter('ignoreCompletion', false, @islogical); % True to run the plan even if (obj.Plan.stim.complete == true).
-            parser.addParameter('iti', 10, @isnumeric);
-            parser.parse(varargin{:})
-            residual = parser.Results.residual;
-            ignoreCompletion = parser.Results.ignoreCompletion;
-            iti = parser.Results.iti;
-
-            p = obj.Params;
-            results = obj.Results;
-
-            if ~ignoreCompletion && obj.Plan.stim.completed
-                warning('runStimSessionPlanned will not run becasue stim plan has been completed once. Try calling runStimSessionPlanned(ignoreCompletion=false) if you want to run stim anyway.')
-                return
-            end
-
-            if residual
-                startIndex = obj.Plan.stim.index + 1;
-            else
-                startIndex = 1;
-            end
-
-            for index = startIndex:obj.Plan.stim.length
-                conditions = obj.Plan.stim.conditions;
-                iMirrorPos = conditions(index, 1);
-                iPower = conditions(index, 2);
-                iLaser = conditions(index, 3);
-    
-                fprintf('Running condition %i of %i, mirror=%i, power=%.2fmW (%.2fmW), wavelength=%.1fnm:\n', index, length(conditions), p.mirrorPositions(iMirrorPos), p.targetPowers(iPower)*1e3, results.powersValidation(iPower, iMirrorPos, iLaser)*1e3, p.wavelengths(iLaser))
-            
-                % Run stim train
-                obj.runStimTrain(iMirrorPos, iPower, iLaser, ...
-                    nPulses=obj.Plan.stim.nPulses, pulseWidth=obj.Plan.stim.pulseWidth, ipi=obj.Plan.stim.ipi, ...
-                    preTrainDelay=obj.Plan.stim.preTrainDelay, postTrainDelay=obj.Plan.stim.postTrainDelay);
-                
-                % Register completion
-                obj.Plan.stim.index = index;
-                if index == obj.Plan.stim.length
-                    obj.Plan.stim.completed = true;
-                end
-                obj.save();
-            
-                % Give user a change to cancel
-                if index < obj.Plan.stim.length
-                    t = timer('StartDelay', iti, ...
-                        'TimerFcn', @(~,~)delete(findall(groot,'WindowStyle','modal')));
-                    start(t)
-                    answer = questdlg('Do you want to run next train?', ...
-                        'Continue', ...
-                        'Yes','No','Yes');
-                    stop(t)
-                    % Handle response
-                    switch answer
-                        case 'No'
-                            break
-                        otherwise
-                            continue
-                    end
-                end
-            end
-        end
-
+        % OBSOLETE METHOD: use 'OnTaskRequested' instead
         function OnMoveLeverRequested(obj, ~, ~)
+            warning('Method ''OnMoveLeverRequested'' is obsolete, use ''OnTaskRequested'' instead.')
             if isempty(obj.Plan) || ~isfield(obj.Plan, 'lever') || isempty(obj.Plan.lever) || ~isfield(obj.Plan.lever, 'positions') || isempty(obj.Plan.lever.positions)
                 warning('Lever plan is empty/not initialized, sending back "^ 1" so lever goes to position 1.')
                 obj.LaserArduino.SendMessage('^ 1');
@@ -239,6 +221,38 @@ classdef TwoColorExperiment < handle
             if obj.LaserArduino.DebugMode
                 fprintf('\t\tMOVE_LEVER: request processed, sending motor 1 to position %i (%i/%i).\n', pos, index, obj.Plan.lever.length)
             end
+        end
+
+        function OnTaskRequested(obj, ~, ~)
+            if isempty(obj.Plan) || ~isfield(obj.Plan, 'task') || isempty(obj.Plan.task) || ~isfield(obj.Plan.task, 'positions') || isempty(obj.Plan.task.positions)
+                warning('Task plan is empty/not initialized, sending back "^ 1" so lever goes to position 1.')
+                obj.LaserArduino.SendMessage('^ 1');
+                return
+            end
+
+            index = obj.Plan.task.index + 1;
+            if index > obj.Plan.task.length
+                index = 1;
+                obj.Plan.task.completed = true;
+            end
+            pos = obj.Plan.task.positions(index);
+
+            % Directional reach task
+            if pos ~= 0
+                if obj.LaserArduino.DebugMode
+                    fprintf('\t\tREQUEST_TASK: request processed, sending motor 1 to position %i (%i/%i).\n', pos, index, obj.Plan.lever.length)
+                end
+                obj.LaserArduino.SetParam('USE_LEVER', 1);
+            % Lick task
+            else
+                if obj.LaserArduino.DebugMode
+                    fprintf('\t\tREQUEST_TASK: request processed, switching to lick task (%i/%i).\n', index, obj.Plan.lever.length)
+                end
+                obj.LaserArduino.SetParam('USE_LEVER', 0);
+            end
+
+            obj.LaserArduino.SendMessage(sprintf('^ %i', pos));
+            obj.Plan.task.index = index;
         end
 
         function results = calibrate(obj, varargin)
@@ -507,21 +521,36 @@ classdef TwoColorExperiment < handle
             if DEBUG
                 fprintf('\t%s: move mirror.\n', datetime())
             end
-            % Step 2: Turn on laser and wait
-            log.laserOnTime = datetime();
-            obj.analogWrite(iLaser, results.aoutValues(iPower, iMirrorPos, iLaser));
 
-            % Step 3: Do pulses
-            obj.setParam('laser', 'OPTO_ENABLED', 1);
-            obj.setParam('laser', 'OPTO_PULSE_DURATION', round(r.pulseWidth*1e3));
-            obj.setParam('laser', 'OPTO_PULSE_INTERVAL', round(r.ipi*1e3));
-            obj.setParam('laser', 'OPTO_NUM_PULSES', r.nPulses);
-            obj.setParam('laser', 'OPTO_WARMUP_TIME', round(r.preTrainDelay*1e3));
-            if DEBUG
-                fprintf('\t%s: starting stim train.\n', datetime())
+            if obj.HasShutter
+                % Step 2: Turn on laser and wait
+                log.laserOnTime = datetime();
+                obj.analogWrite(iLaser, results.aoutValues(iPower, iMirrorPos, iLaser));
+    
+                % Step 3: Do pulses
+                obj.setParam('laser', 'OPTO_ENABLED', 1);
+                obj.setParam('laser', 'OPTO_PULSE_DURATION', round(r.pulseWidth*1e3));
+                obj.setParam('laser', 'OPTO_PULSE_INTERVAL', round(r.ipi*1e3));
+                obj.setParam('laser', 'OPTO_NUM_PULSES', r.nPulses);
+                obj.setParam('laser', 'OPTO_WARMUP_TIME', round(r.preTrainDelay*1e3));
+                if DEBUG
+                    fprintf('\t%s: starting stim train.\n', datetime())
+                end
+                obj.LaserArduino.SendMessage('; 1'); % Tell arduino laser/mirror is ready, goto opto.
+            % New version: no shutter
+            else
+                % Step 2: Do pulses
+                obj.setParam('laser', 'OPTO_ENABLED', 1);
+                obj.setParam('laser', 'OPTO_PULSE_DURATION', round(r.pulseWidth*1e3));
+                obj.setParam('laser', 'OPTO_PULSE_INTERVAL', round(r.ipi*1e3));
+                obj.setParam('laser', 'OPTO_NUM_PULSES', r.nPulses);
+                obj.setParam('laser', 'OPTO_LASER_ID', r.iLaser);
+                obj.setParam('laser', sprintf('OPTO_AOUT%i_VALUE', r.iLaser), results.aoutValues(iPower, iMirrorPos, iLaser));
+                if DEBUG
+                    fprintf('\t%s: starting stim train.\n', datetime())
+                end
+                obj.LaserArduino.SendMessage('; 1'); % Tell arduino laser/mirror is ready, goto opto.
             end
-            obj.LaserArduino.SendMessage('; 1'); % Tell arduino laser/mirror is ready, goto opto.
-  
             obj.addLogEntry(log);
         end
 
@@ -587,44 +616,140 @@ classdef TwoColorExperiment < handle
                 fprintf('\t%s: mirror at target.\n', datetime())
             end
 
-            % Step 2: Turn on laser and wait
-            log.laserOnTime = datetime();
-            obj.analogWrite(iLaser, results.aoutValues(iPower, iMirrorPos, iLaser));
-            if DEBUG
-                fprintf('\t%s: laser on.\n', datetime())
-            end
-            pause(r.preTrainDelay);
-
-            % Step 3: Do pulses
-            obj.setParam('laser', 'OPTO_ENABLED', 1);
-            obj.setParam('laser', 'OPTO_PULSE_DURATION', round(r.pulseWidth*1e3));
-            obj.setParam('laser', 'OPTO_PULSE_INTERVAL', round(r.ipi*1e3));
-            obj.setParam('laser', 'OPTO_NUM_PULSES', r.nPulses);
-%             obj.setParam('laser', 'OPTO_SELECTION', 1); % Deprecated feature, keep at 1
-            pause(0.1);
-            if DEBUG
-                fprintf('\t%s: starting stim train.\n', datetime())
-            end
-            log.trainOnTime = datetime();
-            success = obj.LaserArduino.OptogenStim();
-            assert(success)
-            pause(0.1);
-            while ~strcmpi('IDLE', obj.getStateName('laser'))
-                pause(0.01);
-            end
-            log.trainOffTime = datetime();
-            if DEBUG
-                fprintf('\t%s: stim train complete.\n', datetime())
-            end
-
-            % Step 4: Wait and turn off laser
-            pause(r.postTrainDelay);
-            obj.analogWrite(iLaser, 0);
-            log.laserOffTime = datetime();
-            if DEBUG
-                fprintf('\t%s: laser off.\n', datetime())
+            if obj.HasShutter
+                % Step 2: Turn on laser and wait
+                log.laserOnTime = datetime();
+                obj.analogWrite(iLaser, results.aoutValues(iPower, iMirrorPos, iLaser));
+                if DEBUG
+                    fprintf('\t%s: laser on.\n', datetime())
+                end
+                pause(r.preTrainDelay);
+    
+                % Step 3: Do pulses
+                obj.setParam('laser', 'OPTO_ENABLED', 1);
+                obj.setParam('laser', 'OPTO_PULSE_DURATION', round(r.pulseWidth*1e3));
+                obj.setParam('laser', 'OPTO_PULSE_INTERVAL', round(r.ipi*1e3));
+                obj.setParam('laser', 'OPTO_NUM_PULSES', r.nPulses);
+    %             obj.setParam('laser', 'OPTO_SELECTION', 1); % Deprecated feature, keep at 1
+                pause(0.1);
+                if DEBUG
+                    fprintf('\t%s: starting stim train.\n', datetime())
+                end
+                log.trainOnTime = datetime();
+                success = obj.LaserArduino.OptogenStim();
+                assert(success)
+                pause(0.1);
+                while ~strcmpi('IDLE', obj.getStateName('laser'))
+                    pause(0.01);
+                end
+                log.trainOffTime = datetime();
+                if DEBUG
+                    fprintf('\t%s: stim train complete.\n', datetime())
+                end
+    
+                % Step 4: Wait and turn off laser
+                pause(r.postTrainDelay);
+                obj.analogWrite(iLaser, 0);
+                log.laserOffTime = datetime();
+                if DEBUG
+                    fprintf('\t%s: laser off.\n', datetime())
+                end
+            % New version: no shutter                
+            else
+                % Step 2: Turn on laser and wait
+                pause(r.preTrainDelay);
+    
+                % Step 3: Do pulses
+                obj.setParam('laser', 'OPTO_ENABLED', 1);
+                obj.setParam('laser', 'OPTO_PULSE_DURATION', round(r.pulseWidth*1e3));
+                obj.setParam('laser', 'OPTO_PULSE_INTERVAL', round(r.ipi*1e3));
+                obj.setParam('laser', 'OPTO_NUM_PULSES', r.nPulses);
+                obj.setParam('laser', 'OPTO_LASER_ID', iLaser);
+                obj.setParam('laser', sprintf('OPTO_AOUT%i_VALUE', r.iLaser), results.aoutValues(iPower, iMirrorPos, iLaser));
+                pause(0.1);
+                if DEBUG
+                    fprintf('\t%s: starting stim train.\n', datetime())
+                end
+                log.trainOnTime = datetime();
+                success = obj.LaserArduino.OptogenStim();
+                assert(success)
+                pause(0.1);
+                while ~strcmpi('IDLE', obj.getStateName('laser'))
+                    pause(0.01);
+                end
+                log.trainOffTime = datetime();
+                if DEBUG
+                    fprintf('\t%s: stim train complete.\n', datetime())
+                end
+    
+                % Step 4: Wait and turn off laser
+                pause(r.postTrainDelay);
             end
             obj.addLogEntry(log);
+        end
+
+        function runStimSessionPlanned(obj, varargin)
+            parser = inputParser();
+            parser.addParameter('residual', true, @islogical); % True to only run the residual part of the plan that hasn't been (by arduino request) played yet.
+            parser.addParameter('ignoreCompletion', false, @islogical); % True to run the plan even if (obj.Plan.stim.complete == true).
+            parser.addParameter('iti', 10, @isnumeric);
+            parser.parse(varargin{:})
+            residual = parser.Results.residual;
+            ignoreCompletion = parser.Results.ignoreCompletion;
+            iti = parser.Results.iti;
+
+            p = obj.Params;
+            results = obj.Results;
+
+            if ~ignoreCompletion && obj.Plan.stim.completed
+                warning('runStimSessionPlanned will not run becasue stim plan has been completed once. Try calling runStimSessionPlanned(ignoreCompletion=false) if you want to run stim anyway.')
+                return
+            end
+
+            if residual
+                startIndex = obj.Plan.stim.index + 1;
+            else
+                startIndex = 1;
+            end
+
+            for index = startIndex:obj.Plan.stim.length
+                conditions = obj.Plan.stim.conditions;
+                iMirrorPos = conditions(index, 1);
+                iPower = conditions(index, 2);
+                iLaser = conditions(index, 3);
+    
+                fprintf('Running condition %i of %i, mirror=%i, power=%.2fmW (%.2fmW), wavelength=%.1fnm:\n', index, length(conditions), p.mirrorPositions(iMirrorPos), p.targetPowers(iPower)*1e3, results.powersValidation(iPower, iMirrorPos, iLaser)*1e3, p.wavelengths(iLaser))
+            
+                % Run stim train
+                obj.runStimTrain(iMirrorPos, iPower, iLaser, ...
+                    nPulses=obj.Plan.stim.nPulses, pulseWidth=obj.Plan.stim.pulseWidth, ipi=obj.Plan.stim.ipi, ...
+                    preTrainDelay=obj.Plan.stim.preTrainDelay, postTrainDelay=obj.Plan.stim.postTrainDelay);
+                
+                % Register completion
+                obj.Plan.stim.index = index;
+                if index == obj.Plan.stim.length
+                    obj.Plan.stim.completed = true;
+                end
+                obj.save();
+            
+                % Give user a change to cancel
+                if index < obj.Plan.stim.length
+                    t = timer('StartDelay', iti, ...
+                        'TimerFcn', @(~,~)delete(findall(groot,'WindowStyle','modal')));
+                    start(t)
+                    answer = questdlg('Do you want to run next train?', ...
+                        'Continue', ...
+                        'Yes','No','Yes');
+                    stop(t)
+                    % Handle response
+                    switch answer
+                        case 'No'
+                            break
+                        otherwise
+                            continue
+                    end
+                end
+            end
         end
 
         % Manual stim session (iterate through all stim conditions)
@@ -707,6 +832,10 @@ classdef TwoColorExperiment < handle
         end
 
         function openShutter(obj, state)
+            if ~obj.HasShutter
+                return
+            end
+
             if nargin < 2
                 state = true;
             end

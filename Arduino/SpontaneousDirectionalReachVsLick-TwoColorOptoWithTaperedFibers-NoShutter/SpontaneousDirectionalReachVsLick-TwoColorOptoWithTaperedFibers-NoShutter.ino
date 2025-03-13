@@ -967,8 +967,8 @@ void state_reward()
 *****************************************************/
 void state_request_task()
 {
-	static long timeLeverStart;
-	static bool leverPosReceived;
+	static long timeTaskReceived;
+	static bool taskReceived;
 	static int leverPos;
 	/*****************************************************
 		ACTION LIST
@@ -986,8 +986,8 @@ void state_request_task()
 		deployLever(false);
 
 		// Send message to MATLAB to request new lever position
-		leverPosReceived = false;
-		leverPos = 0;
+		taskReceived = false;
+		leverPos = -1;
 		sendMessage("^");
 	}
 
@@ -998,10 +998,15 @@ void state_request_task()
 	// ^ [(1-4)leverPosIndex]
 	if (_command == '^')
 	{
-		leverPosReceived = true;
-		timeLeverStart = getTime();
+		taskReceived = true;
+
 		leverPos = _arguments[0];
-		setLeverPos(leverPos);
+		timeTaskReceived = getTime();
+		// 0: lick task, 1-4: directional reach task
+		if (leverPos > 0)
+		{
+			setLeverPos(leverPos);			
+		}
 	}
 
 	/*****************************************************
@@ -1017,41 +1022,44 @@ void state_request_task()
 	// Lever reached target --> REQUEST OPTO
 	// Wait at least 100ms for motor command to reach motor arduino
 	// I've tried waiting as little as 1ms before: that worked as well.
-	if (leverPosReceived && getTime() - timeLeverStart > 100 && digitalRead(PIN_LEVERMOTOR_BUSY) == LOW)
+	if (taskReceived && getTime() - timeTaskReceived > 100)
 	{
-		switch (leverPos)
+		if (leverPos == 0 || digitalRead(PIN_LEVERMOTOR_BUSY) == LOW)
 		{
-			case 1:
-				sendEventMarker(EVENT_LEVERMOTOR_POS1_REACHED, -1);
-				break;
-			case 2:
-				sendEventMarker(EVENT_LEVERMOTOR_POS2_REACHED, -1);
-				break;
-			case 3:
-				sendEventMarker(EVENT_LEVERMOTOR_POS3_REACHED, -1);
-				break;
-			case 4:
-				sendEventMarker(EVENT_LEVERMOTOR_POS4_REACHED, -1);
-				break;
-		}
+			switch (leverPos)
+			{
+				case 1:
+					sendEventMarker(EVENT_LEVERMOTOR_POS1_REACHED, -1);
+					break;
+				case 2:
+					sendEventMarker(EVENT_LEVERMOTOR_POS2_REACHED, -1);
+					break;
+				case 3:
+					sendEventMarker(EVENT_LEVERMOTOR_POS3_REACHED, -1);
+					break;
+				case 4:
+					sendEventMarker(EVENT_LEVERMOTOR_POS4_REACHED, -1);
+					break;
+			}
 
-		_resultCode = CODE_TASK_CHANGE;
-		sendResultCode(_resultCode);
+			_resultCode = CODE_TASK_CHANGE;
+			sendResultCode(_resultCode);
 
-		if (_params[OPTO_ENABLED] == 0)
-		{
-			_state = STATE_TIMEOUT;
-			return;
-		}
-		else if (_params[REQUEST_OPTO_AFTER_BLOCK] != 0)
-		{
-			_state = STATE_REQUEST_OPTO;
-			return;
-		}
-		else
-		{
-			_state = STATE_OPTO;
-			return;
+			if (_params[OPTO_ENABLED] == 0)
+			{
+				_state = STATE_TIMEOUT;
+				return;
+			}
+			else if (_params[REQUEST_OPTO_AFTER_BLOCK] != 0)
+			{
+				_state = STATE_REQUEST_OPTO;
+				return;
+			}
+			else
+			{
+				_state = STATE_OPTO;
+				return;
+			}
 		}
 	}
 
@@ -1187,8 +1195,13 @@ void state_opto()
 		// Generate random interval length
 		if (entryState != STATE_IDLE)
 		{
-			randomDelayPre = random(_params[OPTO_RANDOM_DELAY_MIN], _params[OPTO_RANDOM_DELAY_MAX]);
-			randomDelayPost = random(_params[OPTO_RANDOM_DELAY_MIN], _params[OPTO_RANDOM_DELAY_MAX]);
+			randomDelayPre = random(_params[OPTO_RANDOM_DELAY_MIN], _params[OPTO_RANDOM_DELAY_MAX]) + _params[OPTO_FIXED_DELAY];
+			randomDelayPost = random(_params[OPTO_RANDOM_DELAY_MIN], _params[OPTO_RANDOM_DELAY_MAX]) + _params[OPTO_FIXED_DELAY];
+		}
+		else
+		{
+			randomDelayPre = 0;
+			randomDelayPost = 0;
 		}
 
 		// Register time of state entry
@@ -1207,7 +1220,7 @@ void state_opto()
 		if (!isOptogenStimOn(_params[OPTO_LASER_ID]))
 		{
 			// Delay first pulse by random interval unless manually opto-ing in IDLE.
-			if (entryState == STATE_IDLE || getTime() - timeEnter >= randomDelayPre + _params[OPTO_FIXED_DELAY])
+			if (entryState == STATE_IDLE || getTime() - timeEnter >= randomDelayPre)
 			{
 				if (numPulsesComplete == 0 || getTime() - timePulseEnd >= _params[OPTO_PULSE_INTERVAL])
 				{
@@ -1248,7 +1261,7 @@ void state_opto()
 		}
 		else
 		{
-			if (getTime() - timePulseEnd >= randomDelayPost + _params[OPTO_FIXED_DELAY])
+			if (getTime() - timePulseEnd >= randomDelayPost)
 			{
 				_resultCode = CODE_OPTO;
 				sendResultCode(_resultCode);

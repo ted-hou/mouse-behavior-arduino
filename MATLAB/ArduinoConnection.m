@@ -38,7 +38,7 @@ classdef ArduinoConnection < handle
 
 	events
 		StateChanged
-        MoveLeverRequested
+        TaskRequested
         OptoRequested
 	end
 
@@ -470,13 +470,13 @@ classdef ArduinoConnection < handle
 					if obj.DebugMode 
                         fprintf('\t\tANALOG_OUT: Channel %i set to %i.\n', channel, value)
                     end
-                % Request move lever
+                % Request new task
                 case '^'
 					% Emit Event
-					notify(obj, 'MoveLeverRequested')
+					notify(obj, 'TaskRequested')
 
 					if obj.DebugMode
-						fprintf('\t\tMOVE_LEVER: Request received.\n')
+						fprintf('\t\tREQUEST_TASK: Request received.\n')
                     end
                 % Request opto
                 case ';'
@@ -539,13 +539,26 @@ classdef ArduinoConnection < handle
 		end
 
 		% Update a single parameter by index
-		function SetParam(obj, paramId, value)
+		function SetParam(obj, index, value)
+			p = inputParser;
+			addRequired(p, 'Index', @(x) isnumeric(x) || ischar(x));
+			addRequired(p, 'Value', @isnumeric);
+			parse(p, index, value);
+			index = p.Results.Index;
+            value = p.Results.Value;
+            
+            if ischar(index)
+	            index = find(strcmpi(index, obj.ParamNames));
+            end
+
+            assert(~isempty(index), 'Invalid parameter index: check spelling if using param name as index.')
+
 			% Update parameter value in MATLAB
-			obj.ParamValues(paramId) = value;
+			obj.ParamValues(index) = value;
 			% Convert zero-based indices (Arduino) to one-based indices (MATLAB)
-			paramId = paramId - 1;
+			index = index - 1;
 			% Send new parameter to arduino via serial comms ("P id newValue")
-			obj.SendMessage(sprintf('P %d %d', paramId, value))
+			obj.SendMessage(sprintf('P %d %d', index, value))
 		end
 
 		% Add parameter update arguments to queue
