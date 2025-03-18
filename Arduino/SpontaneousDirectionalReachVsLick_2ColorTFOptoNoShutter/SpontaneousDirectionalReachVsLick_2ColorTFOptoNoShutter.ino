@@ -115,8 +115,8 @@ enum State
 	_STATE_INIT,
 	STATE_IDLE,
 	STATE_WAITFORTOUCH,
-	STATE_REWARD,
 	STATE_TIMEOUT,
+	STATE_REWARD,
 	STATE_REQUEST_TASK,
 	STATE_REQUEST_OPTO,
 	STATE_OPTO,
@@ -130,8 +130,8 @@ static const char *_stateNames[] =
 	"_INIT",
 	"IDLE",
 	"WAITFORTOUCH",
-	"REWARD",
 	"TIMEOUT",
+	"REWARD",
 	"REQUEST_TASK",
 	"REQUEST_OPTO",
 	"OPTO",
@@ -143,8 +143,8 @@ static const int _stateCanUpdateParams[] =
 	0,	// _STATE_INIT
 	1,	// STATE_IDLE
 	1,	// STATE_WAITFORTOUCH
-	1,	// STATE_REWARD
 	1,	// STATE_TIMEOUT
+	1,	// STATE_REWARD
 	1,	// STATE_REQUEST_TASK
 	1,	// STATE_REQUEST_OPTO
 	0,	// STATE_OPTO
@@ -415,6 +415,8 @@ static long _timeLastLeverPress		= 0;			// Time (ms) when last lever press occur
 static long _timeLastLeverRelease	= 0;			// Time (ms) when last lever press occured
 static long _timeLastLeverRetract 	= 0;			// Time (ms) when last lever retraction occured (due to touch)
 static long _timeLastTubeRetract 	= 0;			// Time (ms) when last tube retraction occured (due to touch)
+static bool _isLeverCycling 		= false;		// Only true when the bar is being recycled (from retract start to deploy end)
+static bool _isTubeCycling			= false;		// Only true when the tube is being recycled (from retract start to deploy end)
 
 static ServoState _servoStateTube	= _SERVOSTATE_INIT;				// Servo state
 static long _servoStartTimeLever	= 0;							// When servo started moving retrieved using getTime()
@@ -487,6 +489,8 @@ void mySetup()
 	_timeLastLeverRelease	= 0;			// Time (ms) when last lever press occured
 	_timeLastLeverRetract 	= 0;			// Time (ms) when last lever retraction occured (due to touch)
 	_timeLastTubeRetract 	= 0;			// Time (ms) when last tube retraction occured (due to touch)
+	_isLeverCycling 		= false;
+	_isTubeCycling			= false;
 
 	_servoStateTube			= _SERVOSTATE_INIT;				// Servo state
 	_servoStartTimeLever	= 0;							// When servo started moving retrieved using getTime()
@@ -573,15 +577,15 @@ void loop()
 			case STATE_IDLE:
 				state_idle();
 				break;
-			
-			case STATE_TIMEOUT:
-				state_timeout();
-				break;
 
 			case STATE_WAITFORTOUCH:
 				state_waitfortouch();
 				break;
 			
+			case STATE_TIMEOUT:
+				state_timeout();
+				break;
+
 			case STATE_REWARD:
 				state_reward();
 				break;
@@ -666,80 +670,6 @@ void state_idle()
 }
 
 /*****************************************************
-	INTERTRIAL
-*****************************************************/
-void state_timeout()
-{
-	static long timeoutDuration;
-	/*****************************************************
-		ACTION LIST
-	*****************************************************/
-	if (_state != _prevState) 
-	{
-		// Register new state
-		sendState(_state);
-
-		// Register events
-		sendEventMarker(EVENT_TIMEOUT_START, -1);
-		_timeTrialEnd = getTime();
-
-		// Lick task: keep lever retracted
-		if (_prevState != STATE_WAITFORTOUCH)
-		{
-			if (_params[USE_LEVER] == 0)
-			{
-				_leverCyclingEnabled = false;
-				_tubeCyclingEnabled = true;
-				deployLever(false);
-				// deployTube(true);
-			}
-			// Reach task: keep lever retracted
-			else
-			{
-				_leverCyclingEnabled = true;
-				_tubeCyclingEnabled = false;
-				// deployLever(true);
-				deployTube(false);
-			}
-		}
-
-		// Generate random interval length from exponential distribution
-		// CDF  p=F(x|μ)=1-exp(-x/μ);
-		// Inverse CDF is x=F^(−1)(p∣μ)=−μln(1−p).
-		// For each draw, we let p = uniform_rand(0, 1), get corresponding value x from inverse CDF.
-		timeoutDuration = -1*_params[TIMEOUT_MEAN]*log(1.0 - ((float)random(1UL << 31)) / (1UL << 31));
-		// Apply min/max cutoffs
-		timeoutDuration = max(timeoutDuration, _params[TIMEOUT_MIN]);
-		timeoutDuration = min(timeoutDuration, _params[TIMEOUT_MAX]);
-
-		// Update state
-		_prevState = _state;
-	}
-
-	/*****************************************************
-		OnEachLoop checks
-	*****************************************************/
-
-	/*****************************************************
-		TRANSITION LIST
-	*****************************************************/
-	// Quit signal from host --> IDLE
-	if (_command == 'Q') 
-	{
-		_state = STATE_IDLE;
-		return;
-	}
-
-	if (getTimeSinceTrialEnd() >= timeoutDuration)
-	{			
-		_state = STATE_WAITFORTOUCH;
-		return;
-	}
-
-	_state = STATE_TIMEOUT;
-}
-
-/*****************************************************
 	RESPONSE_WINDOW - Touch triggers reward
 *****************************************************/
 void state_waitfortouch() 
@@ -755,19 +685,17 @@ void state_waitfortouch()
 
 		_timeTrialStart = getTime();
 
+		_leverCyclingEnabled = false;
+		_tubeCyclingEnabled = false;
 		// Lick task: keep lever retracted
 		if (_params[USE_LEVER] == 0)
 		{
-			_leverCyclingEnabled = false;
-			_tubeCyclingEnabled = true;
 			deployLever(false);
 			deployTube(true);
 		}
 		// Reach task: keep lever retracted
 		else
 		{
-			_leverCyclingEnabled = true;
-			_tubeCyclingEnabled = false;
 			deployLever(true);
 			deployTube(false);
 		}
@@ -818,6 +746,137 @@ void state_waitfortouch()
 	}
 
 	_state = STATE_WAITFORTOUCH;
+}
+
+/*****************************************************
+	INTERTRIAL
+*****************************************************/
+void state_timeout()
+{
+	static long timeoutDuration;
+	static bool isWaitingForLeverCycling;
+	static bool isWaitingForTubeCycling;
+	/*****************************************************
+		ACTION LIST
+	*****************************************************/
+	if (_state != _prevState) 
+	{
+		// Register new state
+		sendState(_state);
+
+		// Lick task: keep lever retracted
+		// STATE_REWARD
+		// STATE_REQUEST_TASK
+		// STATE_REQUEST_OPTO
+		// STATE_OPTO
+		if (_params[USE_LEVER] == 0)
+		{
+			_leverCyclingEnabled = false;
+			_tubeCyclingEnabled = true;
+			deployLever(false);
+		}
+		// Reach task: keep lever retracted
+		else
+		{
+			_leverCyclingEnabled = true;
+			_tubeCyclingEnabled = false;
+			deployTube(false);
+		}
+
+		isWaitingForLeverCycling = _params[USE_LEVER] != 0 && _isLeverCycling;
+		isWaitingForTubeCycling = _params[USE_LEVER] == 0 && _isTubeCycling;
+
+		// Lever task and waiting for lever cycling
+		if (!isWaitingForLeverCycling && !isWaitingForTubeCycling)
+		{
+			// Register events
+			sendEventMarker(EVENT_TIMEOUT_START, -1);
+			_timeTrialEnd = getTime();
+
+			// Generate random interval length from exponential distribution
+			// CDF  p=F(x|μ)=1-exp(-x/μ);
+			// Inverse CDF is x=F^(−1)(p∣μ)=−μln(1−p).
+			// For each draw, we let p = uniform_rand(0, 1), get corresponding value x from inverse CDF.
+			timeoutDuration = -1*_params[TIMEOUT_MEAN]*log(1.0 - ((float)random(1UL << 31)) / (1UL << 31));
+			// Apply min/max cutoffs
+			timeoutDuration = max(timeoutDuration, _params[TIMEOUT_MIN]);
+			timeoutDuration = min(timeoutDuration, _params[TIMEOUT_MAX]);
+		}
+
+		// Update state
+		_prevState = _state;
+	}
+
+	/*****************************************************
+		OnEachLoop checks
+	*****************************************************/
+	// If lever is cycling, wait for it to finish cycling
+	if (!isWaitingForLeverCycling)
+	{
+		// Check if flag needs to be set to true
+		isWaitingForLeverCycling = _params[USE_LEVER] != 0 && _isLeverCycling;
+	}
+	// When lever is done cycling, we draw a new timeout interval
+	else if (!_isLeverCycling)
+	{
+		isWaitingForLeverCycling = false;
+
+		// Generate random interval length from exponential distribution
+		// CDF  p=F(x|μ)=1-exp(-x/μ);
+		// Inverse CDF is x=F^(−1)(p∣μ)=−μln(1−p).
+		// For each draw, we let p = uniform_rand(0, 1), get corresponding value x from inverse CDF.
+		timeoutDuration = -1*_params[TIMEOUT_MEAN]*log(1.0 - ((float)random(1UL << 31)) / (1UL << 31));
+		// Apply min/max cutoffs
+		timeoutDuration = max(timeoutDuration, _params[TIMEOUT_MIN]);
+		timeoutDuration = min(timeoutDuration, _params[TIMEOUT_MAX]);
+
+		// Register events
+		sendEventMarker(EVENT_TIMEOUT_START, -1);
+		_timeTrialEnd = getTime();
+	}
+
+	// If tube is cycling, wait for it to finish cycling
+	if (!isWaitingForTubeCycling)
+	{
+		// Check if flag needs to be set to true
+		isWaitingForTubeCycling = _params[USE_LEVER] == 0 && _isTubeCycling;
+	}
+	// When tube is done cycling, we draw a new timeout interval
+	else if (!_isTubeCycling)
+	{
+		isWaitingForTubeCycling = false;
+
+		// Generate random interval length from exponential distribution
+		// CDF  p=F(x|μ)=1-exp(-x/μ);
+		// Inverse CDF is x=F^(−1)(p∣μ)=−μln(1−p).
+		// For each draw, we let p = uniform_rand(0, 1), get corresponding value x from inverse CDF.
+		timeoutDuration = -1*_params[TIMEOUT_MEAN]*log(1.0 - ((float)random(1UL << 31)) / (1UL << 31));
+		// Apply min/max cutoffs
+		timeoutDuration = max(timeoutDuration, _params[TIMEOUT_MIN]);
+		timeoutDuration = min(timeoutDuration, _params[TIMEOUT_MAX]);
+
+		// Register events
+		sendEventMarker(EVENT_TIMEOUT_START, -1);
+		_timeTrialEnd = getTime();
+	}
+
+	/*****************************************************
+		TRANSITION LIST
+	*****************************************************/
+	// Quit signal from host --> IDLE
+	if (_command == 'Q') 
+	{
+		_state = STATE_IDLE;
+		return;
+	}
+
+	if (!isWaitingForLeverCycling && !isWaitingForTubeCycling && getTimeSinceTrialEnd() >= timeoutDuration)
+	{			
+		_state = STATE_WAITFORTOUCH;
+		return;
+	}
+
+	_state = STATE_TIMEOUT;
 }
 
 /*****************************************************
@@ -909,12 +968,19 @@ void state_reward()
 	if (!isTubeRetracted && getTime() - timeRewardOn >= _params[MIN_REWARD_COLLECTION_TIME] && getTimeSinceLastLick() >= _params[EXTRA_LICK_TIME])
 	{
 		isTubeRetracted = true;
-		_tubeCyclingEnabled = true;
-		deployTube(false);
+		// Lever task: retract lever and tube
 		if (_params[USE_LEVER] != 0)
 		{
 			_leverCyclingEnabled = true;
 			deployLever(false);
+			_tubeCyclingEnabled = false;
+			deployTube(false);
+		}
+		// Lick task: retract tube
+		else
+		{
+			_tubeCyclingEnabled = true;
+			deployTube(false);
 		}
 	}
 
@@ -929,7 +995,7 @@ void state_reward()
 	}
 
 	// Reward dispensed and tube retracted fully --> TIMEOUT
-	if (isRewardComplete && ((_params[USE_LEVER] != 0 && _servoStateLever == SERVOSTATE_RETRACTED) || (_params[USE_LEVER] == 0 && _servoStateTube == SERVOSTATE_RETRACTED)))
+	if (isRewardComplete && isTubeRetracted && ((_params[USE_LEVER] != 0 && _servoStateLever == SERVOSTATE_RETRACTED) || (_params[USE_LEVER] == 0 && _servoStateTube == SERVOSTATE_RETRACTED)))
 	{
 		// IDLE
 		if (entryState == STATE_IDLE)
@@ -1051,6 +1117,14 @@ void state_request_task()
 
 			if (_params[OPTO_ENABLED] == 0)
 			{
+				if (_params[USE_LEVER] != 0)
+				{
+					_leverCyclingEnabled = true;
+				}
+				else
+				{
+					_tubeCyclingEnabled = true;
+				}
 				_state = STATE_TIMEOUT;
 				return;
 			}
@@ -1140,6 +1214,14 @@ void state_request_opto()
 		if (_arguments[0] == 0)
 		{
 			isOptoAvailable = false;
+			if (_params[USE_LEVER] != 0)
+			{
+				_leverCyclingEnabled = true;
+			}
+			else
+			{
+				_tubeCyclingEnabled = true;
+			}
 			_state = STATE_TIMEOUT;
 			return;
 		}
@@ -1267,6 +1349,14 @@ void state_opto()
 				_resultCode = CODE_OPTO;
 				sendResultCode(_resultCode);
 
+				if (_params[USE_LEVER] != 0)
+				{
+					_leverCyclingEnabled = true;
+				}
+				else
+				{
+					_tubeCyclingEnabled = true;
+				}
 				_state = STATE_TIMEOUT;
 				return;
 			}
@@ -1280,52 +1370,6 @@ void state_opto()
 /*****************************************************
 	HARDWARE CONTROLS
 *****************************************************/
-// Lick detection
-bool getLickState() 
-{
-	if (digitalRead(PIN_LICK) == HIGH) 
-	{
-		digitalWrite(PIN_MIRROR_LICK, HIGH);
-		return true;
-	}
-	else 
-	{
-		digitalWrite(PIN_MIRROR_LICK, LOW);
-		return false;
-	}
-}
-
-// Must be called once and only once on each loop. Returns true during lick onset
-void handleLick() 
-{
-	if (getLickState() && !_isLicking)
-	{
-		_isLicking = true;
-		_isLickOnset = true;
-		_timeLastLick = getTime();
-		sendEventMarker(EVENT_LICK, -1);
-		if (_tubeCyclingEnabled)
-		{
-			deployTube(false);
-			_timeLastTubeRetract = getTime();
-		}
-	}
-	else
-	{
-		if (!getLickState() && _isLicking)
-		{
-			_isLicking = false;
-			sendEventMarker(EVENT_LICK_OFF, -1);
-		}
-		_isLickOnset = false;
-	}
-
-	if (_tubeCyclingEnabled && _servoStateTube == SERVOSTATE_RETRACTED && getTimeSinceLastTubeRetract() >= _params[TUBE_RETRACT_TIME])
-	{
-		deployTube(true);
-	}
-}
-
 // Lever detection
 bool getLeverState() 
 {
@@ -1337,6 +1381,21 @@ bool getLeverState()
 	else 
 	{
 		digitalWrite(PIN_MIRROR_LEVER, LOW);
+		return false;
+	}
+}
+
+// Lick detection
+bool getLickState() 
+{
+	if (digitalRead(PIN_LICK) == HIGH) 
+	{
+		digitalWrite(PIN_MIRROR_LICK, HIGH);
+		return true;
+	}
+	else 
+	{
+		digitalWrite(PIN_MIRROR_LICK, LOW);
 		return false;
 	}
 }
@@ -1362,6 +1421,7 @@ void handleLever()
 			{
 				deployLever(false);
 				_timeLastLeverRetract = getTime();
+				_isLeverCycling = true;
 			}
 		}
 	}
@@ -1378,10 +1438,72 @@ void handleLever()
 		}
 	}
 
-	if (_leverCyclingEnabled && _servoStateLever == SERVOSTATE_RETRACTED && getTimeSinceLastLeverRetract() >= _params[LEVER_RETRACT_TIME])
+	if (_leverCyclingEnabled)
 	{
-		deployLever(true);
-	} 
+		// Redeploy lever
+		if (_servoStateLever != SERVOSTATE_DEPLOYED && getTimeSinceLastLeverRetract() >= _params[LEVER_RETRACT_TIME])
+		{
+			deployLever(true);
+		}
+		if (_isLeverCycling && _servoStateLever == SERVOSTATE_DEPLOYED)
+		{
+			_isLeverCycling = false;
+		}
+	}
+	else
+	{
+		_isLeverCycling = false;
+	}
+}
+
+// Must be called once and only once on each loop. Returns true during lick onset
+void handleLick() 
+{
+	// Spout contact
+	if (getLickState())
+	{
+		// Onset
+		if (!_isLicking)
+		{
+			_isLicking = true;
+			_isLickOnset = true;
+			_timeLastLick = getTime();
+			sendEventMarker(EVENT_LICK, -1);
+			if (_tubeCyclingEnabled)
+			{
+				deployTube(false);
+				_timeLastTubeRetract = getTime();
+				_isTubeCycling = true;
+			}
+		}
+	}
+	// not in contact
+	else
+	{
+		_isLickOnset = false;
+		// Offset
+		if (_isLicking)
+		{
+			_isLicking = false;
+			sendEventMarker(EVENT_LICK_OFF, -1);
+		}
+	}
+
+	if (_tubeCyclingEnabled)
+	{
+		if (_servoStateTube != SERVOSTATE_DEPLOYED && getTimeSinceLastTubeRetract() >= _params[TUBE_RETRACT_TIME])
+		{
+			deployTube(true);
+		}
+		if (_isTubeCycling && _servoStateTube == SERVOSTATE_DEPLOYED)
+		{
+			_isTubeCycling = false;
+		}
+	}
+	else
+	{
+		_isTubeCycling = false;
+	}
 }
 
 // Use servo to retract/present lever to the little dude
