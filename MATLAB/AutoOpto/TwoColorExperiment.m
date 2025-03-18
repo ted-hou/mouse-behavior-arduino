@@ -21,8 +21,8 @@ classdef TwoColorExperiment < handle
         function obj = TwoColorExperiment(varargin)
             p = inputParser();
             p.addParameter('offline', false, @islogical)
-            p.addParameter('laserCOM', 'COM5', @ischar)
-            p.addParameter('motorCOM', 'COM7', @ischar)
+            p.addParameter('laserCOM', 'COM7', @ischar)
+            p.addParameter('motorCOM', 'COM3', @ischar)
             p.addParameter('hasShutter', false, @islogical)
             p.parse(varargin{:})
             r = p.Results;
@@ -153,7 +153,7 @@ classdef TwoColorExperiment < handle
             if includeLever
                 positions = horzcat(positions, 1:nPositions);
             end
-            positions = repmat(positions, 1, nBlocksPerPosition);
+            positions = repmat(positions, 1, nBlocksPerTask);
             if randomize
                 positions = positions(randperm(nBlocksPerTask*nPositions));
             end
@@ -240,13 +240,13 @@ classdef TwoColorExperiment < handle
             % Directional reach task
             if pos ~= 0
                 if obj.LaserArduino.DebugMode
-                    fprintf('\t\tREQUEST_TASK: request processed, sending motor 1 to position %i (%i/%i).\n', pos, index, obj.Plan.lever.length)
+                    fprintf('\t\tREQUEST_TASK: request processed, sending motor 1 to position %i (%i/%i).\n', pos, index, obj.Plan.task.length)
                 end
                 obj.LaserArduino.SetParam('USE_LEVER', 1);
             % Lick task
             else
                 if obj.LaserArduino.DebugMode
-                    fprintf('\t\tREQUEST_TASK: request processed, switching to lick task (%i/%i).\n', index, obj.Plan.lever.length)
+                    fprintf('\t\tREQUEST_TASK: request processed, switching to lick task (%i/%i).\n', index, obj.Plan.task.length)
                 end
                 obj.LaserArduino.SetParam('USE_LEVER', 0);
             end

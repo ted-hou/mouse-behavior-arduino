@@ -66,6 +66,8 @@ enum ServoState
 #define PIN_LEVERMOTOR_LO		6
 #define PIN_OPTO_1				15
 #define PIN_OPTO_2				16
+#define PIN_LED_LEFT			8 // left LED (animal's perspective)
+#define PIN_LED_RIGHT			11
 
 // Mirrors to blackrock
 #define PIN_MIRROR_LICK 		9
@@ -272,6 +274,7 @@ enum ParamID
 {
 	_DEBUG,							// (Private) 1 to enable debug mode. Default 0.
 	USE_LEVER, 						// 1 for lever task, 0 for lick task
+	USE_LEFT_PAW,
 	TIMEOUT_MIN,					// ITI length min cutoff (ms)
 	TIMEOUT_MEAN,					// ITI length (mean of exponential distribution) (ms)
 	TIMEOUT_MAX,					// ITI length max cutoff (ms)
@@ -312,6 +315,7 @@ static const char *_paramNames[] =
 {
 	"_DEBUG",						// (Private) 1 to enable debug mode. Default 0.
 	"USE_LEVER", 					// 1 for lever task, 0 for lick task
+	"USE_LEFT_PAW",
 	"TIMEOUT_MIN",					// ITI length min cutoff (ms)
 	"TIMEOUT_MEAN",					// ITI length (mean of exponential distribution) (ms)
 	"TIMEOUT_MAX",					// ITI length max cutoff (ms)
@@ -350,6 +354,7 @@ long _params[_NUM_PARAMS] =
 {
 	0,		// _DEBUG
 	1, 		// USE_LEVER
+	0, 		// USE_LEFT_PAW
 	0,		// TIMEOUT_MIN
 	20000,	// TIMEOUT_MEAN
 	10000,	// TIMEOUT_MAX
@@ -379,7 +384,7 @@ long _params[_NUM_PARAMS] =
 	3000,	// OPTO_RANDOM_DELAY_MAX
 	10,		// NUM_REWARDS_PER_BLOCK
 	1,		// REQUEST_TASK_AFTER_BLOCK
-	1,		// REQUEST_OPTO_AFTER_BLOCK
+	0,		// REQUEST_OPTO_AFTER_BLOCK
 	30000,	// WAITFORTOUCH_TO_OPTO_TIMEOUT
 };
 
@@ -686,14 +691,14 @@ void state_timeout()
 				_leverCyclingEnabled = false;
 				_tubeCyclingEnabled = true;
 				deployLever(false);
-				deployTube(true);
+				// deployTube(true);
 			}
 			// Reach task: keep lever retracted
 			else
 			{
 				_leverCyclingEnabled = true;
 				_tubeCyclingEnabled = false;
-				deployLever(true);
+				// deployLever(true);
 				deployTube(false);
 			}
 		}
@@ -822,7 +827,6 @@ void state_reward()
 {
 	static State entryState;
 	static long timeRewardOn;
-	static bool isRewardOn;
 	static bool isRewardComplete;
 	static bool isTubeRetracted;
 	/*****************************************************
@@ -934,7 +938,7 @@ void state_reward()
 			return;
 		}
 		// REQUEST_TASK
-		if (_nRewardsSinceBlockStart >= _params[NUM_REWARDS_PER_LEVER_MOVE])
+		if (_nRewardsSinceBlockStart >= _params[NUM_REWARDS_PER_BLOCK])
 		{
 			_nRewardsSinceBlockStart = 0;
 			if (_params[REQUEST_TASK_AFTER_BLOCK] != 0)
@@ -1072,7 +1076,6 @@ void state_request_task()
 void state_request_opto()
 {
 	static long timeRequest;
-	static long timeMatlabReturn;
 	static bool laserMotorStarted;
 	static bool laserMotorReached;
 	static bool isOptoAvailable;
@@ -1093,7 +1096,6 @@ void state_request_opto()
 
 		sendMessage(";"); // Request opto, tell MATLAB to move the laser mirror
 		timeRequest = getTime();
-		timeMatlabReturn = 0;
 		laserMotorStarted = false;
 		laserMotorReached = false;
 		isOptoAvailable = false;
@@ -1143,7 +1145,6 @@ void state_request_opto()
 		}
 		else
 		{
-			timeMatlabReturn = getTime();
 			isOptoAvailable = true;
 		}
 	}
@@ -1670,30 +1671,46 @@ void setLeverPos(int position)
 			digitalWrite(PIN_LEVERMOTOR_HI, LOW);
 			digitalWrite(PIN_LEVERMOTOR_LO, LOW);
 			sendEventMarker(EVENT_LEVERMOTOR_POS1_START, -1);
-			if (_params[USE_LEFT_PAW] == 0)
+			if (_params[USE_LEVER] == 0)
 			{
 				digitalWrite(PIN_LED_LEFT, LOW);
-				digitalWrite(PIN_LED_RIGHT, HIGH);
+				digitalWrite(PIN_LED_RIGHT, LOW);
 			}
 			else
 			{
-				digitalWrite(PIN_LED_LEFT, HIGH);
-				digitalWrite(PIN_LED_RIGHT, LOW);
+				if (_params[USE_LEFT_PAW] == 0)
+				{
+					digitalWrite(PIN_LED_LEFT, LOW);
+					digitalWrite(PIN_LED_RIGHT, HIGH);
+				}
+				else
+				{
+					digitalWrite(PIN_LED_LEFT, HIGH);
+					digitalWrite(PIN_LED_RIGHT, LOW);
+				}
 			}
 			break;
 		case 2: // 01
 			digitalWrite(PIN_LEVERMOTOR_HI, LOW);
 			digitalWrite(PIN_LEVERMOTOR_LO, HIGH);
 			sendEventMarker(EVENT_LEVERMOTOR_POS2_START, -1);
-			if (_params[USE_LEFT_PAW] == 0)
+			if (_params[USE_LEVER] == 0)
 			{
-				digitalWrite(PIN_LED_LEFT, HIGH);
+				digitalWrite(PIN_LED_LEFT, LOW);
 				digitalWrite(PIN_LED_RIGHT, LOW);
 			}
 			else
 			{
-				digitalWrite(PIN_LED_LEFT, LOW);
-				digitalWrite(PIN_LED_RIGHT, HIGH);
+				if (_params[USE_LEFT_PAW] == 0)
+				{
+					digitalWrite(PIN_LED_LEFT, HIGH);
+					digitalWrite(PIN_LED_RIGHT, LOW);
+				}
+				else
+				{
+					digitalWrite(PIN_LED_LEFT, LOW);
+					digitalWrite(PIN_LED_RIGHT, HIGH);
+				}
 			}
 			break;
 		case 3: // 10
@@ -1877,33 +1894,49 @@ void handleParamUpdate()
 			_params[_arguments[0]] = _arguments[1];
 
 			// Toggle left/right green LEDs on param change
-			if (_arguments[0] == USE_LEFT_PAW)
+			if (_arguments[0] == USE_LEFT_PAW || _arguments[0] == USE_LEVER)
 			{
 				int position = getLeverPos();	
 				switch (position)
 				{
 					case 1: // 00
-						if (_params[USE_LEFT_PAW] == 0)
+						if (_params[USE_LEVER] == 0)
 						{
 							digitalWrite(PIN_LED_LEFT, LOW);
-							digitalWrite(PIN_LED_RIGHT, HIGH);
+							digitalWrite(PIN_LED_RIGHT, LOW);
 						}
 						else
 						{
-							digitalWrite(PIN_LED_LEFT, HIGH);
-							digitalWrite(PIN_LED_RIGHT, LOW);
+							if (_params[USE_LEFT_PAW] == 0)
+							{
+								digitalWrite(PIN_LED_LEFT, LOW);
+								digitalWrite(PIN_LED_RIGHT, HIGH);
+							}
+							else
+							{
+								digitalWrite(PIN_LED_LEFT, HIGH);
+								digitalWrite(PIN_LED_RIGHT, LOW);
+							}
 						}
 						break;
 					case 2: // 01
-						if (_params[USE_LEFT_PAW] == 0)
+						if (_params[USE_LEVER] == 0)
 						{
-							digitalWrite(PIN_LED_LEFT, HIGH);
+							digitalWrite(PIN_LED_LEFT, LOW);
 							digitalWrite(PIN_LED_RIGHT, LOW);
 						}
 						else
 						{
-							digitalWrite(PIN_LED_LEFT, LOW);
-							digitalWrite(PIN_LED_RIGHT, HIGH);
+							if (_params[USE_LEFT_PAW] == 0)
+							{
+								digitalWrite(PIN_LED_LEFT, HIGH);
+								digitalWrite(PIN_LED_RIGHT, LOW);
+							}
+							else
+							{
+								digitalWrite(PIN_LED_LEFT, LOW);
+								digitalWrite(PIN_LED_RIGHT, HIGH);
+							}
 						}
 						break;
 				}
@@ -1995,5 +2028,11 @@ long getTimeSinceLastLeverRelease()
 long getTimeSinceLastLeverRetract()
 {
 	long time = getTime() - _timeLastLeverRetract;
+	return time;
+}
+
+long getTimeSinceLastTubeRetract()
+{
+	long time = getTime() - _timeLastTubeRetract;
 	return time;
 }
