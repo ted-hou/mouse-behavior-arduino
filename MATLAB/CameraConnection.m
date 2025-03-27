@@ -32,7 +32,7 @@ classdef CameraConnection < handle
 			timestampInterval 	= p.Results.TimestampInterval;
 			dialogPosition 		= p.Results.DialogPosition;
 
-			hwinfo = imaqhwinfo('winvideo');
+		    hwinfo = imaqhwinfo('winvideo');
 
 			if isempty(hwinfo.DeviceIDs)
 				error('No webcam connected!');

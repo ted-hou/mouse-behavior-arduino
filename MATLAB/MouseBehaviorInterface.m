@@ -56,29 +56,33 @@ classdef MouseBehaviorInterface < handle
 
 			% Establish camera connection
 			if ~strcmp(arduinoPortName, '/offline') && ~obj.Arduino.IsMotorController()
-				numCameras = CameraConnection.GetAvailableCameras;
-				if numCameras > 0
-					if isfield(obj.Rsc, 'TaskScheduler') && isvalid(obj.Rsc.TaskScheduler)
-						position = obj.Rsc.TaskScheduler.OuterPosition(1:2) + [0, obj.Rsc.TaskScheduler.OuterPosition(4)];
-					else
-						position = [];
-					end
-
-					if isempty(camID)
-						camID = 1:numCameras;
-					end
-					for iCam = camID
-						obj.Arduino.Cameras(iCam).Camera = CameraConnection(...
-							'CameraID', iCam,...
-							'Format', 'YUY2_640x480',...
-							'FrameRate', 30,...
-							'FileFormat', 'MPEG-4',...
-							'FrameGrabInterval', 1,...
-							'TimestampInterval', 10,...
-							'DialogPosition', position...
-						);
-					end
-				end
+                try
+				    numCameras = CameraConnection.GetAvailableCameras;
+				    if numCameras > 0
+					    if isfield(obj.Rsc, 'TaskScheduler') && isvalid(obj.Rsc.TaskScheduler)
+						    position = obj.Rsc.TaskScheduler.OuterPosition(1:2) + [0, obj.Rsc.TaskScheduler.OuterPosition(4)];
+					    else
+						    position = [];
+					    end
+    
+					    if isempty(camID)
+						    camID = 1:numCameras;
+					    end
+					    for iCam = camID
+						    obj.Arduino.Cameras(iCam).Camera = CameraConnection(...
+							    'CameraID', iCam,...
+							    'Format', 'YUY2_640x480',...
+							    'FrameRate', 30,...
+							    'FileFormat', 'MPEG-4',...
+							    'FrameGrabInterval', 1,...
+							    'TimestampInterval', 10,...
+							    'DialogPosition', position...
+						    );
+					    end
+                    end
+                catch
+                    warning('Could not establish camera connection, this is normal if you don''t have webcam connected.')
+                end
 			end
 		end
 
