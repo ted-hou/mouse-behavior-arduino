@@ -8,6 +8,8 @@ classdef TwoColorExperiment < handle
         Log % Stimulation Log
         Plan
         HasShutter = true % Default TRUE for backwards compatibility
+        HasMotorizedMirror = true
+        HasMotorizedLever = true
     end
 
     properties (Transient, Hidden)
@@ -18,12 +20,15 @@ classdef TwoColorExperiment < handle
     end
 
     methods
+        % exp = TwoColorExperiment(hasMirror=false)
         function obj = TwoColorExperiment(varargin)
             p = inputParser();
             p.addParameter('offline', false, @islogical)
             p.addParameter('laserCOM', 'COM7', @ischar)
             p.addParameter('motorCOM', 'COM3', @ischar)
             p.addParameter('hasShutter', false, @islogical)
+            p.addParameter('hasMotorizedMirror', true, @islogical)
+            p.addParameter('hasMotorizedLever', true, @islogical)
             p.parse(varargin{:})
             r = p.Results;
 
@@ -32,6 +37,8 @@ classdef TwoColorExperiment < handle
             end
 
             obj.HasShutter = r.hasShutter;
+            obj.HasMotorizedMirror = r.hasMotorizedMirror;
+            obj.HasMotorizedLever = r.hasMotorizedLever;
 
             % Connect to arduinos
             obj.connect(r.laserCOM, r.motorCOM, false);
@@ -42,7 +49,6 @@ classdef TwoColorExperiment < handle
                 return
             end
             obj.Path = [path, file];
-
         end
 
         function connect(obj, laserCOM, motorCOM, debug)
@@ -50,11 +56,14 @@ classdef TwoColorExperiment < handle
                 debug = false;
             end
             obj.LaserInterface = MouseBehaviorInterface(laserCOM); % This is the laser control arduino
-            obj.MotorInterface = MouseBehaviorInterface(motorCOM); % This is the stepping motor arduino (for moving mirror)
             obj.LaserArduino = obj.LaserInterface.Arduino;
-            obj.MotorArduino = obj.MotorInterface.Arduino;
             obj.LaserArduino.DebugMode = debug;
-            obj.MotorArduino.DebugMode = debug;
+
+            if obj.HasMotorizedLever || obj.HasMotorizedMirror
+                obj.MotorInterface = MouseBehaviorInterface(motorCOM); % This is the stepping motor arduino (for moving mirror)
+                obj.MotorArduino = obj.MotorInterface.Arduino;
+                obj.MotorArduino.DebugMode = debug;
+            end
         end
 
         function conditions = planStim(obj, varargin)
@@ -254,17 +263,21 @@ classdef TwoColorExperiment < handle
             if isfield(obj.Plan.task, 'TIMEOUT_MAX')
                 obj.LaserArduino.SetParam('TIMEOUT_MAX', obj.Plan.task.TIMEOUT_MAX(index));
             end
+<<<<<<< HEAD
 
+=======
+            
+>>>>>>> 40f443d25111710f48ce470371be234f7e69d9ab
             obj.LaserArduino.SendMessage(sprintf('^ %i', pos));
             obj.Plan.task.index = index;
         end
 
         function results = calibrate(obj, varargin)
             p = inputParser();
-            p.addParameter('mirrorPositions', [-300, 0], @isnumeric)
+            p.addParameter('mirrorPositions', NaN, @isnumeric) % [0 300]
             p.addParameter('targetPowers', [0.5, 2, 4, 10].*1e-3, @isnumeric)
             p.addParameter('wavelengths', [473, 593], @(x) isnumeric(x) && length(x) == 2)
-            p.addParameter('stepDelays', [0.5, 8], @(x) isnumeric(x) && length(x) == 2)
+            p.addParameter('stepDelays', [0.5, 0.5], @(x) isnumeric(x) && length(x) == 2)
             p.addParameter('aoutMin', 500, @isnumeric)
             p.addParameter('aoutMax', 4095, @isnumeric)
             p.addParameter('tolerance', 2.5e-2, @isnumeric) % Fraction (0-1)
@@ -284,10 +297,12 @@ classdef TwoColorExperiment < handle
             results.powers = zeros(length(p.targetPowers), length(p.mirrorPositions), 2);
 
             % Init motor
-            obj.setParam('motor', 'MOTOR2_TARGET', 0);
-            if any(strcmpi('IDLE', obj.getStateName('motor')))
-                obj.MotorArduino.Start();
-            end            
+            if obj.HasMotorizedMirror
+                obj.setParam('motor', 'MOTOR2_TARGET', 0);
+                if any(strcmpi('IDLE', obj.getStateName('motor')))
+                    obj.MotorArduino.Start();
+                end
+            end
 
             obj.openShutter();
 
@@ -309,9 +324,11 @@ classdef TwoColorExperiment < handle
 
             
             for iMirrorPos = 1:length(p.mirrorPositions)
-                obj.setParam('motor', 'MOTOR2_TARGET', p.mirrorPositions(iMirrorPos));
-                while ~strcmpi('AT_TARGET', obj.getStateName('motor', 2))
-                    pause(0.5);
+                if obj.HasMotorizedMirror
+                    obj.setParam('motor', 'MOTOR2_TARGET', p.mirrorPositions(iMirrorPos));
+                    while ~strcmpi('AT_TARGET', obj.getStateName('motor', 2))
+                        pause(0.5);
+                    end
                 end
                 for iLaser = 1:2
                     meter.setWaveLength(p.wavelengths(iLaser));            % Set sensor wavelength
@@ -420,9 +437,11 @@ classdef TwoColorExperiment < handle
             obj.openShutter();
 
             % Init motor
-            obj.setParam('motor', 'MOTOR2_TARGET', 0);
-            if any(strcmpi('IDLE', obj.getStateName('motor')))
-                obj.MotorArduino.Start();
+            if obj.HasMotorizedMirror
+                obj.setParam('motor', 'MOTOR2_TARGET', 0);
+                if any(strcmpi('IDLE', obj.getStateName('motor')))
+                    obj.MotorArduino.Start();
+                end
             end
 
             % Init power meter
@@ -443,9 +462,11 @@ classdef TwoColorExperiment < handle
                         
             results.powersValidation = zeros(size(results.powers));
             for iMirrorPos = 1:length(p.mirrorPositions)
-                obj.setParam('motor', 'MOTOR2_TARGET', p.mirrorPositions(iMirrorPos));
-                while ~strcmpi('AT_TARGET', obj.getStateName('motor', 2))
-                    pause(0.5);
+                if obj.HasMotorizedMirror
+                    obj.setParam('motor', 'MOTOR2_TARGET', p.mirrorPositions(iMirrorPos));
+                    while ~strcmpi('AT_TARGET', obj.getStateName('motor', 2))
+                        pause(0.5);
+                    end
                 end
                 for iLaser = 1:2
                     obj.analogWrite(1, 0);
@@ -524,13 +545,17 @@ classdef TwoColorExperiment < handle
             % When did laser turn off
         
             % Step 1: Set mirror
-            obj.setParam('motor', 'MOTOR2_TARGET', p.mirrorPositions(iMirrorPos));
-            log.mirrorStartTime = datetime();
-            if DEBUG
-                fprintf('\t%s: move mirror.\n', datetime())
+            if obj.HasMotorizedMirror
+                obj.setParam('motor', 'MOTOR2_TARGET', p.mirrorPositions(iMirrorPos));
+                log.mirrorStartTime = datetime();
+                if DEBUG
+                    fprintf('\t%s: move mirror.\n', datetime())
+                end
             end
 
             if obj.HasShutter
+                assert(obj.HasMotorizedLever && obj.HasMotorizedMirror, 'We did not write code to handle this situation where we have shutter but no stepping motor.')
+
                 % Step 2: Turn on laser and wait
                 log.laserOnTime = datetime();
                 obj.analogWrite(iLaser, results.aoutValues(iPower, iMirrorPos, iLaser));
@@ -607,24 +632,28 @@ classdef TwoColorExperiment < handle
             % When did laser turn off
 
             % Step 1: Set mirror
-            obj.setParam('motor', 'MOTOR2_TARGET', p.mirrorPositions(iMirrorPos));
-            if any(strcmpi('IDLE', obj.getStateName('motor')))
-                obj.MotorArduino.Start();
-            end
-            log.mirrorStartTime = datetime();
-            if DEBUG
-                fprintf('\t%s: move mirror.\n', datetime())
-            end
-            pause(0.1);
-            while ~strcmpi('AT_TARGET', obj.getStateName('motor', 2))
-                pause(0.01);
-            end
-            log.mirrorStopTime = datetime();
-            if DEBUG
-                fprintf('\t%s: mirror at target.\n', datetime())
+            if obj.HasMotorizedMirror
+                obj.setParam('motor', 'MOTOR2_TARGET', p.mirrorPositions(iMirrorPos));
+                if any(strcmpi('IDLE', obj.getStateName('motor')))
+                    obj.MotorArduino.Start();
+                end
+                log.mirrorStartTime = datetime();
+                if DEBUG
+                    fprintf('\t%s: move mirror.\n', datetime())
+                end
+                pause(0.1);
+                while ~strcmpi('AT_TARGET', obj.getStateName('motor', 2))
+                    pause(0.01);
+                end
+                log.mirrorStopTime = datetime();
+                if DEBUG
+                    fprintf('\t%s: mirror at target.\n', datetime())
+                end
             end
 
             if obj.HasShutter
+                assert(obj.HasMotorizedLever && obj.HasMotorizedMirror, 'We did not write code to handle this situation where we have shutter but no stepping motor.')
+
                 % Step 2: Turn on laser and wait
                 log.laserOnTime = datetime();
                 obj.analogWrite(iLaser, results.aoutValues(iPower, iMirrorPos, iLaser));
@@ -944,6 +973,8 @@ classdef TwoColorExperiment < handle
         end
 
         function close(obj)
+            assert(obj.HasMotorizedLever && obj.HasMotorizedMirror)
+
             obj.LaserInterface.ArduinoClose([], [], true);
 
             obj.setParam('motor', 'MOTOR1_TARGET_1', 0);
@@ -1031,15 +1062,19 @@ classdef TwoColorExperiment < handle
             end
 
             switch wavelength
-                case 473
+                case {473, 465}
                     iWavelength = 1;
-                case 593
+                case {593, 635, 660}
                     iWavelength = 2;
                 otherwise
                     iWavelength = 0;
             end
 
-            iLocation = location./190 + 4; % -570->1, -380->2, -190->3, 0->4
+            if obj.HasMotorizedMirror
+                iLocation = location./190 + 4; % -570->1, -380->2, -190->3, 0->4
+            else
+                iLocation = 1;
+            end
             iDuration = round(duration*100);
             iPower = round(power*1e6./25);
 
