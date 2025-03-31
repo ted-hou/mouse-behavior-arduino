@@ -263,11 +263,7 @@ classdef TwoColorExperiment < handle
             if isfield(obj.Plan.task, 'TIMEOUT_MAX')
                 obj.LaserArduino.SetParam('TIMEOUT_MAX', obj.Plan.task.TIMEOUT_MAX(index));
             end
-<<<<<<< HEAD
 
-=======
-            
->>>>>>> 40f443d25111710f48ce470371be234f7e69d9ab
             obj.LaserArduino.SendMessage(sprintf('^ %i', pos));
             obj.Plan.task.index = index;
         end
