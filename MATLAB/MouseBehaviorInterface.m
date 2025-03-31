@@ -28,9 +28,9 @@ classdef MouseBehaviorInterface < handle
 			end
 
 			% Splash
-			if ~strcmp(arduinoPortName, '/offline')
-				obj.CreateDialog_Splash()
-			end
+			% if ~strcmp(arduinoPortName, '/offline')
+			% 	obj.CreateDialog_Splash()
+			% end
 
 			% Establish arduino connection
 			obj.Arduino = ArduinoConnection(arduinoPortName);
@@ -50,9 +50,9 @@ classdef MouseBehaviorInterface < handle
 			% obj.CreateDialog_TaskScheduler()
 
 			% Kill splash
-			if ~strcmp(arduinoPortName, '/offline')
-				obj.CloseDialog_Splash()
-			end
+			% if ~strcmp(arduinoPortName, '/offline')
+			% 	obj.CloseDialog_Splash()
+			% end
 
 			% Establish camera connection
 			if ~strcmp(arduinoPortName, '/offline') && ~obj.Arduino.IsMotorController()
