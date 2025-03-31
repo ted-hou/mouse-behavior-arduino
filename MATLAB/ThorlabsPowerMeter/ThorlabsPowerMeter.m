@@ -92,7 +92,7 @@ classdef ThorlabsPowerMeter < matlab.mixin.Copyable
         % This line points to folder 'Thorlabs_DotNet_dll' under the same directory
         % Comment out this line and uncomment next line to use customized dll file directory
 %         METERPATHDEFAULT=[pwd '\Thorlabs_DotNet_dll\'];
-        METERPATHDEFAULT='C:\MATLAB\MouseBehaviorArduino\ThorlabsPowerMeter\Thorlabs_DotNet_dll\';
+        METERPATHDEFAULT='C:\GIT\mouse-behavior-arduino\MATLAB\ThorlabsPowerMeter\Thorlabs_DotNet_dll\';
         %METERPATHDEFAULT=['---Your---Own---Path---'];
         
         %   *.dll files to be loaded
