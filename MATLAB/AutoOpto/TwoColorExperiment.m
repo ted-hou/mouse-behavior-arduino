@@ -251,6 +251,10 @@ classdef TwoColorExperiment < handle
                 obj.LaserArduino.SetParam('USE_LEVER', 0);
             end
 
+            if isfield(obj.Plan.task, 'TIMEOUT_MAX')
+                obj.LaserArduino.SetParam('TIMEOUT_MAX', obj.Plan.task.TIMEOUT_MAX(index));
+            end
+
             obj.LaserArduino.SendMessage(sprintf('^ %i', pos));
             obj.Plan.task.index = index;
         end
@@ -354,9 +358,13 @@ classdef TwoColorExperiment < handle
                                 stepType = 'constStep';
                             elseif isnan(dPwr)
                                 thisStepSize = -sign(dist)*max(1, ceil(p.stepSizeMultiplierDist * abs(dist)));
+                                thisStepSize = min(p.stepSizeConst, thisStepSize);
+                                thisStepSize = max(-p.stepSizeConst, thisStepSize);
                                 stepType = 'distStep';
                             else
                                 thisStepSize = -sign(dist)*max(1, ceil(abs(p.stepSizeMultiplierGrad*dist./(dPwr./dAout))));
+                                thisStepSize = min(p.stepSizeConst, thisStepSize);
+                                thisStepSize = max(-p.stepSizeConst, thisStepSize);
                                 stepType = 'gradStep';
                             end
                             if abs(dist) > p.tolerance * targetPwr
