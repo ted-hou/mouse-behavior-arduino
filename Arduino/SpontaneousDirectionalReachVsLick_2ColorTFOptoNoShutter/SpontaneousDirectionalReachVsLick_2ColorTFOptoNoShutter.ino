@@ -1441,7 +1441,7 @@ void handleLever()
 	if (_leverCyclingEnabled)
 	{
 		// Redeploy lever
-		if (_servoStateLever != SERVOSTATE_DEPLOYED && getTimeSinceLastLeverRetract() >= _params[LEVER_RETRACT_TIME])
+		if ((_servoStateLever != SERVOSTATE_DEPLOYED && _servoStateLever != SERVOSTATE_DEPLOYING) && getTimeSinceLastLeverRetract() >= _params[LEVER_RETRACT_TIME])
 		{
 			deployLever(true);
 		}
@@ -1491,7 +1491,7 @@ void handleLick()
 
 	if (_tubeCyclingEnabled)
 	{
-		if (_servoStateTube != SERVOSTATE_DEPLOYED && getTimeSinceLastTubeRetract() >= _params[TUBE_RETRACT_TIME])
+		if ((_servoStateTube != SERVOSTATE_DEPLOYED && _servoStateTube != SERVOSTATE_DEPLOYING) && getTimeSinceLastTubeRetract() >= _params[TUBE_RETRACT_TIME])
 		{
 			deployTube(true);
 		}
