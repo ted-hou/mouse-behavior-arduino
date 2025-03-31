@@ -18,14 +18,14 @@ exp.calibrate(mirrorPositions=[-570, -380, -190, 0], ...
 exp.validate(validationDelay=[1, 1])
 
 %% Or load calibration
-% sampleCalibration = load('C:\Users\assad\Desktop\test\test_20250331.mat');
-% sampleCalibration = sampleCalibration.obj;
-% 
-% exp.Params = sampleCalibration.Params;
-% exp.Results = sampleCalibration.Results;
+sampleCalibration = load('C:\Users\assad\Desktop\test\test_20250331.mat');
+sampleCalibration = sampleCalibration.obj;
+
+exp.Params = sampleCalibration.Params;
+exp.Results = sampleCalibration.Results;
 
 %% Make stim/lever plan
-% exp.planStim(nPulses=10, pulseWidth=0.05, ipi=0.95)
+exp.planStim(nPulses=10, pulseWidth=0.05, ipi=0.95)
 exp.planTask(includeLever=true, includeLick=true, nBlocksPerTask=1, nPositions=2, randomize=false);
 exp.Plan.task.positions = [2, 0, 1]; % lever 1 (initial), lever 2, then lick
 exp.Plan.task.TIMEOUT_MAX = [10000, 10000, 10000];
@@ -43,7 +43,7 @@ exp.save();
 
 
 %% Finish residual stim conditions if we haven't gone through all the conditions
-% exp.runStimSessionPlanned(residual=true, ignoreCompletion=true, iti=10);
+exp.runStimSessionPlanned(residual=true, ignoreCompletion=true, iti=10);
 % 
 % %%
 % exp.save();
