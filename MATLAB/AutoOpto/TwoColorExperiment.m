@@ -281,7 +281,8 @@ classdef TwoColorExperiment < handle
             p.addParameter('maxStationaryIters', 5, @isnumeric);
             p.addParameter('stepSizeMultiplierDist', 50000, @isnumeric); % Step size = -multiplier * (read wattage - target wattage)
             p.addParameter('stepSizeMultiplierGrad', 0.25, @isnumeric); % Step size = multiplier * (targetWattage - currentWattage) ./ (dWattage./dAout)
-            p.addParameter('stepSizeConst', 250);
+            p.addParameter('stepSizeConst', 100);
+            p.addParameter('maxStepSize', 250);
             p.addParameter('powerMeterThreshold', 50e-6);
 
             p.parse(varargin{:})
@@ -332,12 +333,18 @@ classdef TwoColorExperiment < handle
                     meter.setPowerAutoRange(1);                            % Set Autorange
                     pause(5)                                                    % Pause the program a bit to allow the power meter to autoadjust
                         
+                    aoutValue = 0;
+                    aoutValueOld = 0;
+
                     for iPower = 1:length(p.targetPowers)
-                        obj.analogWrite(1, 0);
-                        obj.analogWrite(2, 0);
+                        if iLaser == 1
+                            obj.analogWrite(1, aoutValue);
+                            obj.analogWrite(2, 0);
+                        else
+                            obj.analogWrite(1, 0);
+                            obj.analogWrite(2, aoutValue);
+                        end
                         
-                        aoutValue = 0;
-                        aoutValueOld = 0;
                         pwr = NaN;
                         pwrOld = NaN;
                         targetPwr = p.targetPowers(iPower);
@@ -371,13 +378,13 @@ classdef TwoColorExperiment < handle
                                 stepType = 'constStep';
                             elseif isnan(dPwr)
                                 thisStepSize = -sign(dist)*max(1, ceil(p.stepSizeMultiplierDist * abs(dist)));
-                                thisStepSize = min(p.stepSizeConst, thisStepSize);
-                                thisStepSize = max(-p.stepSizeConst, thisStepSize);
+                                thisStepSize = min(p.maxStepSize, thisStepSize);
+                                thisStepSize = max(-p.maxStepSize, thisStepSize);
                                 stepType = 'distStep';
                             else
                                 thisStepSize = -sign(dist)*max(1, ceil(abs(p.stepSizeMultiplierGrad*dist./(dPwr./dAout))));
-                                thisStepSize = min(p.stepSizeConst, thisStepSize);
-                                thisStepSize = max(-p.stepSizeConst, thisStepSize);
+                                thisStepSize = min(p.maxStepSize, thisStepSize);
+                                thisStepSize = max(-p.maxStepSize, thisStepSize);
                                 stepType = 'gradStep';
                             end
                             if abs(dist) > p.tolerance * targetPwr
@@ -396,7 +403,7 @@ classdef TwoColorExperiment < handle
                                 break
                             end
                             obj.analogWrite(iLaser, aoutValue);
-                            fprintf('%gnm, i=%i, tgt=%.3fmW, df=%.3fmW, %s=%i, AOUT(%i)=%i\n', p.wavelengths(iLaser), i, targetPwr*1e3, dist*1e3, stepType, thisStepSize, iLaser, aoutValue)
+                            fprintf('%gnm, i=%i, tgt=%.3fmW, measured=%.3fmW, df=%.3fmW, %s=%i, AOUT(%i)=%i\n', p.wavelengths(iLaser), i, targetPwr*1e3, meter.meterPowerReading*1e3, dist*1e3, stepType, thisStepSize, iLaser, aoutValue)
                         
                     %         fprintf('%.10f%c\r',test_meter.meterPowerReading,test_meter.meterPowerUnit);
                         end
@@ -481,7 +488,7 @@ classdef TwoColorExperiment < handle
                         meter.updateReading(0);
                         results.powersValidation(iPower, iMirrorPos, iLaser) = meter.meterPowerReading;
             
-                        fprintf('%inm, mirror=%i, Tgt=%.1fmW, Cal=%.3fmW, Val=%.3fmW\n', p.wavelengths(iLaser), p.mirrorPositions(iMirrorPos), p.targetPowers(iPower)*1e3, results.powers(iPower, iMirrorPos, iLaser)*1e3, meter.meterPowerReading*1e3);
+                        fprintf('%inm, mirror=%i, Tgt=%.3fmW, Cal=%.3fmW, Val=%.3fmW\n', p.wavelengths(iLaser), p.mirrorPositions(iMirrorPos), p.targetPowers(iPower)*1e3, results.powers(iPower, iMirrorPos, iLaser)*1e3, meter.meterPowerReading*1e3);
                     end
                 end
             end
