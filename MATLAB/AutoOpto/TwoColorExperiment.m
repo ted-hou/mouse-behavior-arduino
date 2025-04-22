@@ -1067,7 +1067,8 @@ classdef TwoColorExperiment < handle
             end
 
             if obj.HasMotorizedMirror
-                iLocation = location./190 + 4; % -570->1, -380->2, -190->3, 0->4
+%                 iLocation = location./190 + 4; % -570->1, -380->2, -190->3, 0->4
+                iLocation = find(obj.Params.mirrorPositions == location);
             else
                 iLocation = 1;
             end
