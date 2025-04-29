@@ -73,16 +73,21 @@ classdef TwoColorExperiment < handle
             parser.addParameter('ipi', 0.5, @isnumeric) % Inter-pulse-interval, in seconds
             parser.addParameter('preTrainDelay', 8, @isnumeric)
             parser.addParameter('postTrainDelay', 1, @isnumeric)
+            parser.addParameter('skip', [], @isnumeric) % [iMirrorPos, iPower, iLaser]
             parser.parse(varargin{:})
             
             p = obj.Params;
 
-            conditions = zeros(length(p.mirrorPositions)*length(p.targetPowers)*length(p.wavelengths), 3);
+            conditions = zeros(length(p.mirrorPositions)*length(p.targetPowers)*length(p.wavelengths) - size(parser.Results.skip, 1), 3);
                
             iCond = 0;
             for iMirrorPos = 1:length(p.mirrorPositions)
                 for iPower = 1:length(p.targetPowers)
                     for iLaser = 1:length(p.wavelengths)
+                        if ismember([iMirrorPos, iPower, iLaser], parser.Results.skip, 'rows')
+                            fprintf('skipping condition [iMirrorPos=%i, iPower=%i, iLaser=%i]\n', iMirrorPos, iPower, iLaser)
+                            continue
+                        end
                         iCond = iCond + 1;
                         conditions(iCond, 1:3) = [iMirrorPos, iPower, iLaser];
                     end
@@ -805,6 +810,7 @@ classdef TwoColorExperiment < handle
             parser.addParameter('waitForUserTimeout', 10, @isnumeric) % If no response, auto continue
             parser.addParameter('planned', true, @islogical)
             parser.addParameter('onlyRemaining', true, @islogical)
+            parser.addParameter('skip', [], @isnumeric) % [iMirrorPos, iPower, iLaser; iMirrorPos, iPower, iLaser]
             parser.parse(varargin{:})
             nPulses                     = parser.Results.nPulses;
             pulseWidth                  = parser.Results.pulseWidth;
@@ -814,16 +820,21 @@ classdef TwoColorExperiment < handle
             iti                         = parser.Results.iti;
             waitForUserBetweenTrains    = parser.Results.waitForUserBetweenTrains;
             waitForUserTimeout          = parser.Results.waitForUserTimeout;
+            skip                        = parser.Results.skip;
             
             p                           = obj.Params;
             results                     = obj.Results;
 
-            conditions = zeros(length(p.mirrorPositions)*length(p.targetPowers)*length(p.wavelengths), 3);
+            conditions = zeros(length(p.mirrorPositions)*length(p.targetPowers)*length(p.wavelengths) - size(skip, 1), 3);
             
             iCond = 0;
             for iMirrorPos = 1:length(p.mirrorPositions)
                 for iPower = 1:length(p.targetPowers)
                     for iLaser = 1:length(p.wavelengths)
+                        if ismember([iMirrorPos, iPower, iLaser], skip, 'rows')
+                            fprintf('skipping condition [iMirrorPos=%i, iPower=%i, iLaser=%i]\n', iMirrorPos, iPower, iLaser)
+                            continue
+                        end
                         iCond = iCond + 1;
                         conditions(iCond, 1:3) = [iMirrorPos, iPower, iLaser];
                     end
