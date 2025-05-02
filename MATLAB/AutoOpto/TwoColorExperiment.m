@@ -1081,13 +1081,16 @@ classdef TwoColorExperiment < handle
             end
             iDuration = round(duration*100);
             iPower = round(power*1e6./25);
+            fprintf('iPower=%i, power=%.6fuW\n', iPower, power*1e6)
 
             assert(iWavelength < 10 && mod(iWavelength, 1) == 0)
             assert(iLocation < 10 && mod(iLocation, 1) == 0)
             assert(iDuration < 100 && mod(iLocation, 1) == 0)
-            assert(iPower < 1000 && mod(iPower, 1) == 0)
+%             assert(iPower < 10000 && mod(iPower, 1) == 0)
+            assert(mod(iPower, 1) == 0)
             
 %             hash = 1e6*iWavelength + 1e5*iLocation + 1e3*iDuration + 1*iPower;
+            % For plotting, we do order by (power, duration, wavelength, location)
             hash = iLocation + 1e1*iWavelength + 1e2*iDuration + 1e4*iPower;
 
             varargout = {hash, iWavelength, iLocation, iDuration, iPower};
