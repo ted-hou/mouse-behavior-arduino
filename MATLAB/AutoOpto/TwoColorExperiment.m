@@ -1092,7 +1092,7 @@ classdef TwoColorExperiment < handle
             end
             iDuration = round(duration*100);
             iPower = round(power*1e6./25);
-            fprintf('iPower=%i, power=%.6fuW\n', iPower, power*1e6)
+%             fprintf('iPower=%i, power=%.6fuW\n', iPower, power*1e6)
 
             assert(iWavelength < 10 && mod(iWavelength, 1) == 0)
             assert(iLocation < 10 && mod(iLocation, 1) == 0)
