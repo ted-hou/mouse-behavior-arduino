@@ -73,7 +73,7 @@ classdef TwoColorExperiment < handle
             parser.addParameter('ipi', 0.5, @isnumeric) % Inter-pulse-interval, in seconds
             parser.addParameter('preTrainDelay', 8, @isnumeric)
             parser.addParameter('postTrainDelay', 1, @isnumeric)
-            parser.addParameter('skip', [], @isnumeric) % [iMirrorPos, iPower, iLaser]
+            parser.addParameter('skip', [NaN NaN NaN], @isnumeric) % [iMirrorPos, iPower, iLaser]
             parser.parse(varargin{:})
             
             p = obj.Params;
@@ -810,7 +810,7 @@ classdef TwoColorExperiment < handle
             parser.addParameter('waitForUserTimeout', 10, @isnumeric) % If no response, auto continue
             parser.addParameter('planned', true, @islogical)
             parser.addParameter('onlyRemaining', true, @islogical)
-            parser.addParameter('skip', [], @isnumeric) % [iMirrorPos, iPower, iLaser; iMirrorPos, iPower, iLaser]
+            parser.addParameter('skip', [NaN NaN NaN], @isnumeric) % [iMirrorPos, iPower, iLaser; iMirrorPos, iPower, iLaser]
             parser.parse(varargin{:})
             nPulses                     = parser.Results.nPulses;
             pulseWidth                  = parser.Results.pulseWidth;
