@@ -64,8 +64,8 @@ enum ServoState
 #define PIN_OPTOGEN_STIM		23
 #define PIN_LEVERMOTOR_HI		5
 #define PIN_LEVERMOTOR_LO		6
-#define PIN_OPTO_1				15
-#define PIN_OPTO_2				16
+// #define PIN_OPTO_1				15
+// #define PIN_OPTO_2				16
 #define PIN_LED_LEFT			8 // left LED (animal's perspective)
 #define PIN_LED_RIGHT			11
 
@@ -82,8 +82,8 @@ enum ServoState
 #define PIN_LASER_PWR_2			A22
 
 // Digital IN
-#define PIN_LICK				25
-#define PIN_LEVER				26
+#define PIN_LICK				_params[LICK_PIN]
+#define PIN_LEVER				_params[LEVER_PIN]
 #define PIN_LEVERMOTOR_BUSY		7
 #define PIN_LASERMOTOR_BUSY		4
 
@@ -94,8 +94,8 @@ static const int _digOutPins[] =
 	PIN_SERVO_TUBE,
 	PIN_LEVERMOTOR_HI,
 	PIN_LEVERMOTOR_LO,
-	PIN_OPTO_1,
-	PIN_OPTO_2,
+	// PIN_OPTO_1,
+	// PIN_OPTO_2,
 	PIN_MIRROR_LICK,
 	PIN_MIRROR_LEVER,
 	PIN_MIRROR_REWARD,
@@ -306,6 +306,9 @@ enum ParamID
 	REQUEST_TASK_AFTER_BLOCK, 		// 1: Request new task parameters from MATLAB at the end of each block
 	REQUEST_OPTO_AFTER_BLOCK,		// 1: Request new opto parameters from MATLAB at the end of each block.
 	WAITFORTOUCH_TO_OPTO_TIMEOUT,	// Go to opto if this much time has elapsed in waitfortouch.
+	LICK_PIN,
+	LEVER_PIN,
+	LOW_IS_TOUCH,					// 1: using janelia, 0: using teensybox
 	_NUM_PARAMS						// (Private) Used to count how many parameters there are so we can initialize the param array with the correct size. Insert additional parameters before this.
 };
 
@@ -344,9 +347,12 @@ static const char *_paramNames[] =
 	"OPTO_RANDOM_DELAY_MIN",		// Minimum random pre-stim delay (ms)
 	"OPTO_RANDOM_DELAY_MAX",		// Maximum random pre-stim delay (ms)
 	"NUM_REWARDS_PER_BLOCK",		// A block ends after this many correct trials
-	"REQUEST_TASK_AFTER_BLOCK", 		// 1: Auto switch to other task (lick vs. lever) at the end of each block
+	"REQUEST_TASK_AFTER_BLOCK", 	// 1: Auto switch to other task (lick vs. lever) at the end of each block
 	"REQUEST_OPTO_AFTER_BLOCK",		// 1: Go to opto at end of each block.
 	"WAITFORTOUCH_TO_OPTO_TIMEOUT",	// Go to opto if this much time has elapsed in waitfortouch.
+	"LICK_PIN",
+	"LEVER_PIN",
+	"LOW_IS_TOUCH",					// 1: using janelia, 0: using teensybox
 };
 
 // Initialize parameters
@@ -386,6 +392,9 @@ long _params[_NUM_PARAMS] =
 	1,		// REQUEST_TASK_AFTER_BLOCK
 	0,		// REQUEST_OPTO_AFTER_BLOCK
 	30000,	// WAITFORTOUCH_TO_OPTO_TIMEOUT
+	25, 	// LICK_PIN
+	26, 	// LEVER_PIN
+	0, 		// LOW_IS_TOUCH
 };
 
 /*****************************************************
@@ -432,6 +441,8 @@ static long _servoTargetPosTube		= _params[TUBE_POS_DEPLOYED];	// Target positio
 
 static int _nRewardsSinceBlockStart = 0;
 
+static bool _isOpto1On = false;
+static bool _isOpto2On = false;
 
 /*****************************************************
 	Setup
@@ -448,6 +459,10 @@ void setup()
 	// Init input pins
 	pinMode(PIN_LICK, INPUT);					// Lick detector (input)
 	pinMode(PIN_LEVER, INPUT);					// Lever press detector (input)
+	pinMode(15, INPUT);
+	pinMode(16, INPUT);
+	pinMode(25, INPUT);
+	pinMode(26, INPUT);
 	pinMode(PIN_LEVERMOTOR_BUSY, INPUT);		// High when motor is moving
 	pinMode(PIN_LASERMOTOR_BUSY, INPUT);
 
@@ -505,7 +520,8 @@ void mySetup()
 	_servoTargetPosTube		= _params[TUBE_POS_DEPLOYED];	// Target position of servo
 
 	_nRewardsSinceBlockStart = 0;
-
+	_isOpto1On = false;
+	_isOpto2On = false;
 
 	// Sends all parameters, states and error codes to Matlab, then tell PC that we're running by sending '~' message:
 	hostInit();
@@ -1373,30 +1389,62 @@ void state_opto()
 // Lever detection
 bool getLeverState() 
 {
-	if (digitalRead(PIN_LEVER) == HIGH) 
+	if (_params[LOW_IS_TOUCH] == 0)
 	{
-		digitalWrite(PIN_MIRROR_LEVER, HIGH);
-		return true;
+		if (digitalRead(PIN_LEVER) == HIGH) 
+		{
+			digitalWrite(PIN_MIRROR_LEVER, HIGH);
+			return true;
+		}
+		else 
+		{
+			digitalWrite(PIN_MIRROR_LEVER, LOW);
+			return false;
+		}
 	}
-	else 
+	else
 	{
-		digitalWrite(PIN_MIRROR_LEVER, LOW);
-		return false;
+		if (digitalRead(PIN_LEVER) == LOW) 
+		{
+			digitalWrite(PIN_MIRROR_LEVER, HIGH);
+			return true;
+		}
+		else 
+		{
+			digitalWrite(PIN_MIRROR_LEVER, LOW);
+			return false;
+		}
 	}
 }
 
 // Lick detection
 bool getLickState() 
 {
-	if (digitalRead(PIN_LICK) == HIGH) 
+	if (_params[LOW_IS_TOUCH] == 0)
 	{
-		digitalWrite(PIN_MIRROR_LICK, HIGH);
-		return true;
+		if (digitalRead(PIN_LICK) == HIGH) 
+		{
+			digitalWrite(PIN_MIRROR_LICK, HIGH);
+			return true;
+		}
+		else 
+		{
+			digitalWrite(PIN_MIRROR_LICK, LOW);
+			return false;
+		}
 	}
-	else 
+	else
 	{
-		digitalWrite(PIN_MIRROR_LICK, LOW);
-		return false;
+		if (digitalRead(PIN_LICK) == LOW) 
+		{
+			digitalWrite(PIN_MIRROR_LICK, HIGH);
+			return true;
+		}
+		else 
+		{
+			digitalWrite(PIN_MIRROR_LICK, LOW);
+			return false;
+		}
 	}
 }
 
@@ -1730,11 +1778,13 @@ void setOptogenStim(int channel, bool turnOn)
 		{
 			case 1:
 				setAnalogOutput(1, _params[OPTO_AOUT1_VALUE]);
-				digitalWrite(PIN_OPTO_1, HIGH);
+				_isOpto1On = true;
+				// digitalWrite(PIN_OPTO_1, HIGH);
 				break;
 			case 2:
 				setAnalogOutput(2, _params[OPTO_AOUT2_VALUE]);
-				digitalWrite(PIN_OPTO_2, HIGH);
+				_isOpto2On = true;
+				// digitalWrite(PIN_OPTO_2, HIGH);
 				break;
 		}
 	}
@@ -1756,11 +1806,13 @@ void setOptogenStim(int channel, bool turnOn)
 		{
 			case 1:
 				setAnalogOutput(1, 0);
-				digitalWrite(PIN_OPTO_1, LOW);
+				_isOpto1On = false;
+				// digitalWrite(PIN_OPTO_1, LOW);
 				break;
 			case 2:
 				setAnalogOutput(2, 0);
-				digitalWrite(PIN_OPTO_2, LOW);
+				_isOpto2On = false;
+				// digitalWrite(PIN_OPTO_2, LOW);
 				break;
 		}
 	}
@@ -1770,12 +1822,15 @@ bool isOptogenStimOn(int channel)
 {
 	switch (channel)
 	{
-	    case 1:
-			return (digitalRead(PIN_OPTO_1) == HIGH);
-	    case 2:
-			return (digitalRead(PIN_OPTO_2) == HIGH);
+		case 1:
+			// return (digitalRead(PIN_OPTO_1) == HIGH);
+			return _isOpto1On;
+		case 2:
+			// return (digitalRead(PIN_OPTO_2) == HIGH);
+			return _isOpto2On;
 		default:
-			return (digitalRead(PIN_OPTO_1) == HIGH || digitalRead(PIN_OPTO_2) == HIGH);
+			return (_isOpto1On || _isOpto2On);
+			// return (digitalRead(PIN_OPTO_1) == HIGH || digitalRead(PIN_OPTO_2) == HIGH);
 	}
 }
 
