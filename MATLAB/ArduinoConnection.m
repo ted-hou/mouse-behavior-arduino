@@ -519,6 +519,33 @@ classdef ArduinoConnection < handle
             end
         end
 
+        function t = GetEventMarker(obj, index, varargin)
+			p = inputParser;
+			addRequired(p, 'Index', @(x) isnumeric(x) || ischar(x));
+            addOptional(p, 'TimeType', 'millis', @(x) ismember(x, {'millis', 'datenum', 'datetime'}))
+			parse(p, index, varargin{:});
+			index = p.Results.Index;
+            timeType = p.Results.TimeType;
+
+			if ischar(index)
+				index = find(strcmpi(index, obj.EventMarkerNames), 1, 'first');
+            end
+            if isempty(index)
+                t = [];
+                return;
+            end
+            sel = obj.EventMarkersUntrimmed(:, 1) == index;
+            switch timeType
+                case 'millis'
+                    t = obj.EventMarkersUntrimmed(sel, 2);
+                case 'datenum'
+                    t = obj.EventMarkersUntrimmed(sel, 3);
+                case 'datetime'
+                    t = obj.EventMarkersUntrimmed(sel, 3);
+                    t = datetime(t, ConvertFrom='datenum', TimeZone='America/New_York');
+            end
+        end
+
 		% Read a parameter
 		function varargout = GetParam(obj, index)
 			p = inputParser;
