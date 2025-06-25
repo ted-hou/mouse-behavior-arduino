@@ -1680,7 +1680,7 @@ void handleAccelLick()
 		_accelHighPassLick = _accelValueLick - _accelLowPassLick;
 		_accelLastUpdateMillisLick = getTime();
 
-		sendDebugMessage("ALK: " + String(_accelValueLick) + String(_accelLowPassLick) + String(_accelHighPassLick));
+		sendDebugMessage("ALICk: " + String(_accelValueLick) + String(_accelLowPassLick) + String(_accelHighPassLick));
 	}
 }
 
@@ -1696,7 +1696,7 @@ void handleAccelLever()
 		_accelHighPassLever = _accelValueLever - _accelLowPassLever;
 		_accelLastUpdateMillisLever = getTime();
 
-		sendDebugMessage("ALK: " + String(_accelValueLever) + String(_accelLowPassLever) + String(_accelHighPassLever));		
+		sendDebugMessage("ALEVR: " + String(_accelValueLever) + String(_accelLowPassLever) + String(_accelHighPassLever));		
 	}
 }
 
