@@ -87,6 +87,9 @@ enum ServoState
 #define PIN_LEVERMOTOR_BUSY		7
 #define PIN_LASERMOTOR_BUSY		4
 
+#define PIN_LICK_ACCEL 			A4
+#define PIN_LEVER_ACCEL			A5
+
 static const int _digOutPins[] = 
 {
 	PIN_REWARD,
@@ -309,6 +312,16 @@ enum ParamID
 	LICK_PIN,
 	LEVER_PIN,
 	LOW_IS_TOUCH,					// 1: using janelia, 0: using teensybox
+	ACCEL_BASED_LICK,				// 1: use accelerometer-based lick detection
+	ACCEL_BASED_LEVER,				// 1: use accelerometer-based lever detection
+	ACCEL_THRESHOLD_LICK,			// Accelerometer threshold for lick detection (HLF: I pulled out the Y channel of two accelerometers, fed into A4 and A5. Both are powered by teensy 3V3 and grounded to AGND)
+	ACCEL_THRESHOLD_LEVER,			// Accelerometer threshold for lick detection (HLF: I pulled out the Y channel of two accelerometers, fed into A4 and A5. Both are powered by teensy 3V3 and grounded to AGND)
+	ACCEL_SMOOTH_FACTOR_LICK,		// 0<alpha<1. Highpass is applied to accel Y before thresholding. To do high pass, we substract the low pass i.e., exponential smoothing: s0 = x0; s(t) = alpha*x(t) + (1-alpha)*s(t-1); 
+	ACCEL_SMOOTH_FACTOR_LEVER,		// 0<alpha<1. Highpass is applied to accel Y before thresholding. To do high pass, we substract the low pass i.e., exponential smoothing: s0 = x0; s(t) = alpha*x(t) + (1-alpha)*s(t-1); 
+	ACCEL_SMOOTH_SAMPLE_PERIOD_LICK,// in ms, sampling period for accelerometer
+	ACCEL_SMOOTH_SAMPLE_PERIOD_LEVER,// in ms, sampling period for accelerometer
+	ACCEL_BLANK_POST_MOVE_TUBE,  	// in ms, ignore accel-based-lick during tube deploy/retract and for this duration after STATE_DEPLOYED/STATE_RETRACTED
+	ACCEL_BLANK_POST_MOVE_LEVER, 	// in ms, ignore accel-based-lever during lever deploy/retract and for this duration after STATE_DEPLOYED/STATE_RETRACTED	
 	_NUM_PARAMS						// (Private) Used to count how many parameters there are so we can initialize the param array with the correct size. Insert additional parameters before this.
 };
 
@@ -353,6 +366,16 @@ static const char *_paramNames[] =
 	"LICK_PIN",
 	"LEVER_PIN",
 	"LOW_IS_TOUCH",					// 1: using janelia, 0: using teensybox
+	"ACCEL_BASED_LICK",				// 1: use accelerometer-based lick detection
+	"ACCEL_BASED_LEVER",			// 1: use accelerometer-based lever detection
+	"ACCEL_THRESHOLD_LICK",			// Accelerometer threshold for lick detection (HLF: I pulled out the Y channel of two accelerometers, fed into A4 and A5. Both are powered by teensy 3V3 and grounded to AGND)
+	"ACCEL_THRESHOLD_LEVER",		// Accelerometer threshold for lick detection (HLF: I pulled out the Y channel of two accelerometers, fed into A4 and A5. Both are powered by teensy 3V3 and grounded to AGND)
+	"ACCEL_SMOOTH_FACTOR_LICK",		// alpha=factor*1000, must satisfy: 0<alpha<1. Highpass is applied to accel Y before thresholding. To do high pass, we substract the low pass i.e., exponential smoothing: s0 = x0; s(t) = alpha*x(t) + (1-alpha)*s(t-1); 
+	"ACCEL_SMOOTH_FACTOR_LEVER",	// alpha=factor*1000, must satisfy: 0<alpha<1. Highpass is applied to accel Y before thresholding. To do high pass, we substract the low pass i.e., exponential smoothing: s0 = x0; s(t) = alpha*x(t) + (1-alpha)*s(t-1); 
+	"ACCEL_SMOOTH_SAMPLE_PERIOD_LICK",// in ms, sampling period for accelerometer
+	"ACCEL_SMOOTH_SAMPLE_PERIOD_LEVER",// in ms, sampling period for accelerometer
+	"ACCEL_BLANK_POST_MOVE_TUBE",  	// in ms, ignore accel-based-lick during tube deploy/retract and for this duration after STATE_DEPLOYED/STATE_RETRACTED
+	"ACCEL_BLANK_POST_MOVE_LEVER", 	// in ms, ignore accel-based-lever during lever deploy/retract and for this duration after STATE_DEPLOYED/STATE_RETRACTED
 };
 
 // Initialize parameters
@@ -395,6 +418,16 @@ long _params[_NUM_PARAMS] =
 	25, 	// LICK_PIN
 	26, 	// LEVER_PIN
 	0, 		// LOW_IS_TOUCH
+	0,		// ACCEL_BASED_LICK
+	0,		// ACCEL_BASED_LEVER
+	0,		// ACCEL_THRESHOLD_LICK
+	0,		// ACCEL_THRESHOLD_LEVER
+	300,	// ACCEL_SMOOTH_FACTOR_LICK
+	300,	// ACCEL_SMOOTH_FACTOR_LEVER
+	1, 		// ACCEL_SMOOTH_SAMPLE_PERIOD_LICK
+	1, 		// ACCEL_SMOOTH_SAMPLE_PERIOD_LEVER
+	100,	// ACCEL_BLANK_POST_MOVE_TUBE
+	100,	// ACCEL_BLANK_POST_MOVE_LEVER
 };
 
 /*****************************************************
@@ -429,12 +462,14 @@ static bool _isTubeCycling			= false;		// Only true when the tube is being recyc
 
 static ServoState _servoStateTube	= _SERVOSTATE_INIT;				// Servo state
 static long _servoStartTimeLever	= 0;							// When servo started moving retrieved using getTime()
+static long _servoStopTimeLever		= 0;							// When servo started moving retrieved using getTime()
 static long _servoSpeedLever		= _params[LEVER_SPEED_RETRACT]; // Speed of servo movement (deg/s)
 static long _servoStartPosLever		= _params[LEVER_POS_RETRACTED];	// Starting position of servo when rotation begins
 static long _servoTargetPosLever	= _params[LEVER_POS_RETRACTED];	// Target position of servo
 
 static ServoState _servoStateLever 	= _SERVOSTATE_INIT;				// Servo state
 static long _servoStartTimeTube		= 0;							// When servo started moving retrieved using getTime()
+static long _servoStopTimeTube		= 0;							// When servo started moving retrieved using getTime()
 static long _servoSpeedTube			= _params[TUBE_SPEED_RETRACT]; 	// Speed of servo movement (deg/s)
 static long _servoStartPosTube		= _params[TUBE_POS_DEPLOYED];	// Starting position of servo when rotation begins
 static long _servoTargetPosTube		= _params[TUBE_POS_DEPLOYED];	// Target position of servo
@@ -443,6 +478,15 @@ static int _nRewardsSinceBlockStart = 0;
 
 static bool _isOpto1On = false;
 static bool _isOpto2On = false;
+
+static long _accelValueLick = 0;
+static long _accelValueLever = 0;
+static long _accelLowPassLick = 0;
+static long _accelLowPassLever = 0;
+static long _accelHighPassLick = 0;
+static long _accelHighPassLever = 0;
+static long _accelLastUpdateMillisLick = 0;
+static long _accelLastUpdateMillisLever = 0;
 
 /*****************************************************
 	Setup
@@ -469,6 +513,9 @@ void setup()
 	analogWriteResolution(ANALOG_WRITE_RESOLUTION);
 	pinMode(PIN_LASER_PWR_1, OUTPUT);
 	pinMode(PIN_LASER_PWR_2, OUTPUT);
+
+	pinMode(PIN_LICK_ACCEL, INPUT);
+	pinMode(PIN_LEVER_ACCEL, INPUT);
 
 	// Initiate servo
 	_servoLever.attach(PIN_SERVO_LEVER);
@@ -509,12 +556,14 @@ void mySetup()
 
 	_servoStateTube			= _SERVOSTATE_INIT;				// Servo state
 	_servoStartTimeLever	= 0;							// When servo started moving retrieved using getTime()
+	_servoStopTimeLever		= 0;							// When servo started moving retrieved using getTime()
 	_servoSpeedLever		= _params[LEVER_SPEED_RETRACT]; // Speed of servo movement (deg/s)
 	_servoStartPosLever		= _params[LEVER_POS_RETRACTED];	// Starting position of servo when rotation begins
 	_servoTargetPosLever	= _params[LEVER_POS_RETRACTED];	// Target position of servo
 
 	_servoStateLever 		= _SERVOSTATE_INIT;				// Servo state
 	_servoStartTimeTube		= 0;							// When servo started moving retrieved using getTime()
+	_servoStopTimeTube		= 0;							// When servo started moving retrieved using getTime()
 	_servoSpeedTube			= _params[TUBE_SPEED_RETRACT]; 	// Speed of servo movement (deg/s)
 	_servoStartPosTube		= _params[TUBE_POS_DEPLOYED];	// Starting position of servo when rotation begins
 	_servoTargetPosTube		= _params[TUBE_POS_DEPLOYED];	// Target position of servo
@@ -522,6 +571,15 @@ void mySetup()
 	_nRewardsSinceBlockStart = 0;
 	_isOpto1On = false;
 	_isOpto2On = false;
+
+	_accelValueLick = 0;
+	_accelValueLever = 0;
+	_accelLowPassLick = analogRead(PIN_LICK_ACCEL);
+	_accelLowPassLever = analogRead(PIN_LEVER_ACCEL);
+	_accelHighPassLick = 0;
+	_accelHighPassLever = 0;
+	_accelLastUpdateMillisLick = 0;
+	_accelLastUpdateMillisLever = 0;
 
 	// Sends all parameters, states and error codes to Matlab, then tell PC that we're running by sending '~' message:
 	hostInit();
@@ -575,6 +633,8 @@ void loop()
 		}
 
 		// 2) Other onEachLoop routines
+		handleAccelLick();
+		handleAccelLever();
 		handleLick();			// Check for licks on/offset
 		handleLever();			// Check for lever press on/offset
 		handleServoTube();		// Tube servo control
@@ -1389,7 +1449,34 @@ void state_opto()
 // Lever detection
 bool getLeverState() 
 {
-	if (_params[LOW_IS_TOUCH] == 0)
+	if (_params[ACCEL_BASED_LEVER])
+	{
+		if (_params[ACCEL_BLANK_POST_MOVE_LEVER] >= 0)
+		{
+			if (_servoStateLever == SERVOSTATE_DEPLOYING || _servoStateLever == SERVOSTATE_RETRACTING)
+			{
+				digitalWrite(PIN_MIRROR_LEVER, LOW);
+				return false;
+			}
+			if (getTime() <= _servoStopTimeLever + _params[ACCEL_BLANK_POST_MOVE_LEVER])
+			{
+				digitalWrite(PIN_MIRROR_LEVER, LOW);
+				return false;
+			}
+		}
+
+		if (_accelHighPassLever >= _params[ACCEL_THRESHOLD_LEVER]) 
+		{
+			digitalWrite(PIN_MIRROR_LEVER, HIGH);
+			return true;
+		}
+		else 
+		{
+			digitalWrite(PIN_MIRROR_LEVER, LOW);
+			return false;
+		}
+	}
+	else if (_params[LOW_IS_TOUCH] == 0)
 	{
 		if (digitalRead(PIN_LEVER) == HIGH) 
 		{
@@ -1420,7 +1507,34 @@ bool getLeverState()
 // Lick detection
 bool getLickState() 
 {
-	if (_params[LOW_IS_TOUCH] == 0)
+	if (_params[ACCEL_BASED_LICK])
+	{
+		if (_params[ACCEL_BLANK_POST_MOVE_TUBE] >= 0)
+		{
+			if (_servoStateTube == SERVOSTATE_DEPLOYING || _servoStateTube == SERVOSTATE_RETRACTING)
+			{
+				digitalWrite(PIN_MIRROR_LICK, LOW);
+				return false;
+			}
+			if (getTime() <= _servoStopTimeTube + _params[ACCEL_BLANK_POST_MOVE_TUBE])
+			{
+				digitalWrite(PIN_MIRROR_LICK, LOW);
+				return false;
+			}
+		}
+
+		if (_accelHighPassLick >= _params[ACCEL_THRESHOLD_LICK]) 
+		{
+			digitalWrite(PIN_MIRROR_LICK, HIGH);
+			return true;
+		}
+		else 
+		{
+			digitalWrite(PIN_MIRROR_LICK, LOW);
+			return false;
+		}
+	}
+	else if (_params[LOW_IS_TOUCH] == 0)
 	{
 		if (digitalRead(PIN_LICK) == HIGH) 
 		{
@@ -1554,6 +1668,38 @@ void handleLick()
 	}
 }
 
+void handleAccelLick()
+{
+	static float alpha;
+
+	if (getTime() - _accelLastUpdateMillisLick >= _params[ACCEL_SMOOTH_SAMPLE_PERIOD_LICK])
+	{
+		alpha = ((float)_params[ACCEL_SMOOTH_FACTOR_LICK]) / 1000.0;
+		_accelValueLick = analogRead(PIN_LICK_ACCEL);
+		_accelLowPassLick = alpha*_accelValueLick + (1-alpha)*_accelLowPassLick;
+		_accelHighPassLick = _accelValueLick - _accelLowPassLick;
+		_accelLastUpdateMillisLick = getTime();
+
+		sendDebugMessage("ALK: " + String(_accelValueLick) + String(_accelLowPassLick) + String(_accelHighPassLick));
+	}
+}
+
+void handleAccelLever()
+{
+	static float alpha;
+
+	if (getTime() - _accelLastUpdateMillisLever >= _params[ACCEL_SMOOTH_SAMPLE_PERIOD_LEVER])
+	{
+		alpha = ((float)_params[ACCEL_SMOOTH_FACTOR_LEVER]) / 1000.0;
+		_accelValueLever = analogRead(PIN_LEVER_ACCEL);
+		_accelLowPassLever = alpha*_accelValueLever + (1-alpha)*_accelLowPassLever;
+		_accelHighPassLever = _accelValueLever - _accelLowPassLever;
+		_accelLastUpdateMillisLever = getTime();
+
+		sendDebugMessage("ALK: " + String(_accelValueLever) + String(_accelLowPassLever) + String(_accelHighPassLever));		
+	}
+}
+
 // Use servo to retract/present lever to the little dude
 void deployLever(bool deploy)
 {
@@ -1684,12 +1830,14 @@ void handleServoTube()
 	// Handle movement completion events
 	if (_servoStateTube == SERVOSTATE_DEPLOYING && abs(_servoTube.read() - _params[TUBE_POS_DEPLOYED]) <= SERVO_READ_ACCURACY)
 	{
+		_servoStopTimeTube = getTime();
 		_servoStateTube = SERVOSTATE_DEPLOYED;
 		sendEventMarker(EVENT_TUBE_DEPLOY_END, -1);
 	}
 
 	if (_servoStateTube == SERVOSTATE_RETRACTING && abs(_servoTube.read() - _params[TUBE_POS_RETRACTED]) <= SERVO_READ_ACCURACY)
 	{
+		_servoStopTimeLever = getTime();
 		_servoStateTube = SERVOSTATE_RETRACTED;
 		sendEventMarker(EVENT_TUBE_RETRACT_END, -1);
 	}
