@@ -17,10 +17,12 @@ classdef MouseBehaviorInterface < handle
 			p = inputParser;
 			addOptional(p, 'COM', '', @ischar) % 'COM6'
 			addOptional(p, 'CamID', [], @isnumeric); % [1, 2]
+            addParameter(p, 'NoCam', false, @islogical)
 			parse(p, varargin{:});
 			arduinoPortName	= p.Results.COM;
 			camID 			= p.Results.CamID;
 			camID 			= transpose(camID(:));
+            noCam = p.Results.NoCam;
 
 			% Find arduino port
 			if isempty(arduinoPortName)
@@ -55,7 +57,7 @@ classdef MouseBehaviorInterface < handle
 			% end
 
 			% Establish camera connection
-			if ~strcmp(arduinoPortName, '/offline') && ~obj.Arduino.IsMotorController()
+			if ~strcmp(arduinoPortName, '/offline') && ~obj.Arduino.IsMotorController() && ~noCam
                 try
 				    numCameras = CameraConnection.GetAvailableCameras;
 				    if numCameras > 0

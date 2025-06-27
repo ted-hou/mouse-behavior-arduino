@@ -327,6 +327,7 @@ classdef ArduinoConnection < handle
 		end
 
 		function OnMessageReceived(obj, ~, ~)
+            global myLineLength
 			if (~obj.Connected)
 				obj.Connected = true;
 			end
@@ -488,7 +489,8 @@ classdef ArduinoConnection < handle
                     end
 				otherwise
 					% Arduino sent a message
-					fprintf('%s\n', messageString)
+                    fprintf(repmat('\b', [1, myLineLength]))
+					myLineLength = fprintf('%s\n', messageString);
 			end
 		end
 

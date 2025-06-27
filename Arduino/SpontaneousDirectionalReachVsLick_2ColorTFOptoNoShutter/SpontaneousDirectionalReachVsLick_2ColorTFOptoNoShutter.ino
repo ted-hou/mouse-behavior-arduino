@@ -514,8 +514,7 @@ void setup()
 	pinMode(PIN_LASER_PWR_1, OUTPUT);
 	pinMode(PIN_LASER_PWR_2, OUTPUT);
 
-	pinMode(PIN_LICK_ACCEL, INPUT);
-	pinMode(PIN_LEVER_ACCEL, INPUT);
+	analogReadResolution(ANALOG_WRITE_RESOLUTION);
 
 	// Initiate servo
 	_servoLever.attach(PIN_SERVO_LEVER);
@@ -635,6 +634,8 @@ void loop()
 		// 2) Other onEachLoop routines
 		handleAccelLick();
 		handleAccelLever();
+
+		// sendDebugMessage(");	
 		handleLick();			// Check for licks on/offset
 		handleLever();			// Check for lever press on/offset
 		handleServoTube();		// Tube servo control
@@ -1465,7 +1466,7 @@ bool getLeverState()
 			}
 		}
 
-		if (_accelHighPassLever >= _params[ACCEL_THRESHOLD_LEVER]) 
+		if (abs(_accelHighPassLever) >= _params[ACCEL_THRESHOLD_LEVER]) 
 		{
 			digitalWrite(PIN_MIRROR_LEVER, HIGH);
 			return true;
@@ -1523,7 +1524,7 @@ bool getLickState()
 			}
 		}
 
-		if (_accelHighPassLick >= _params[ACCEL_THRESHOLD_LICK]) 
+		if (abs(_accelHighPassLick) >= _params[ACCEL_THRESHOLD_LICK]) 
 		{
 			digitalWrite(PIN_MIRROR_LICK, HIGH);
 			return true;
@@ -1680,7 +1681,6 @@ void handleAccelLick()
 		_accelHighPassLick = _accelValueLick - _accelLowPassLick;
 		_accelLastUpdateMillisLick = getTime();
 
-		sendDebugMessage("ALICk: " + String(_accelValueLick) + String(_accelLowPassLick) + String(_accelHighPassLick));
 	}
 }
 
@@ -1696,7 +1696,7 @@ void handleAccelLever()
 		_accelHighPassLever = _accelValueLever - _accelLowPassLever;
 		_accelLastUpdateMillisLever = getTime();
 
-		sendDebugMessage("ALEVR: " + String(_accelValueLever) + String(_accelLowPassLever) + String(_accelHighPassLever));		
+		// sendDebugMessage("ALICk: " + String(_accelValueLick) + " " + String(_accelLowPassLick) + " " + String(_accelHighPassLick) + "   ALEVR: " + String(_accelValueLever) + " " + String(_accelLowPassLever) + " " + String(_accelHighPassLever));
 	}
 }
 
