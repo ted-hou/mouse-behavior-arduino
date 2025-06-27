@@ -1777,12 +1777,14 @@ void handleServoLever()
 	// Handle movement completion events
 	if (_servoStateLever == SERVOSTATE_DEPLOYING && abs(_servoLever.read() - _params[LEVER_POS_DEPLOYED]) <= SERVO_READ_ACCURACY)
 	{
+		_servoStopTimeLever = getTime();
 		_servoStateLever = SERVOSTATE_DEPLOYED;
 		sendEventMarker(EVENT_LEVER_DEPLOY_END, -1);
 	}
 
 	if (_servoStateLever == SERVOSTATE_RETRACTING && abs(_servoLever.read() - _params[LEVER_POS_RETRACTED]) <= SERVO_READ_ACCURACY)
 	{
+		_servoStopTimeLever = getTime();
 		_servoStateLever = SERVOSTATE_RETRACTED;
 		sendEventMarker(EVENT_LEVER_RETRACT_END, -1);
 	}
@@ -1837,7 +1839,7 @@ void handleServoTube()
 
 	if (_servoStateTube == SERVOSTATE_RETRACTING && abs(_servoTube.read() - _params[TUBE_POS_RETRACTED]) <= SERVO_READ_ACCURACY)
 	{
-		_servoStopTimeLever = getTime();
+		_servoStopTimeTube = getTime();
 		_servoStateTube = SERVOSTATE_RETRACTED;
 		sendEventMarker(EVENT_TUBE_RETRACT_END, -1);
 	}
