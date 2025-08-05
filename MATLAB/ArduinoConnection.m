@@ -532,7 +532,7 @@ classdef ArduinoConnection < handle
 			if ischar(index)
 				index = find(strcmpi(index, obj.EventMarkerNames), 1, 'first');
             end
-            if isempty(index)
+            if isempty(index) || isempty(obj.EventMarkersUntrimmed)
                 t = [];
                 return;
             end
