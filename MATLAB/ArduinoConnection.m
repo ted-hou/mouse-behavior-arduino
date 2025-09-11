@@ -525,25 +525,31 @@ classdef ArduinoConnection < handle
 			p = inputParser;
 			addRequired(p, 'Index', @(x) isnumeric(x) || ischar(x));
             addOptional(p, 'TimeType', 'millis', @(x) ismember(x, {'millis', 'datenum', 'datetime'}))
+            addParameter(p, 'Untrimmed', true, @islogical)
 			parse(p, index, varargin{:});
 			index = p.Results.Index;
             timeType = p.Results.TimeType;
+            if p.Results.Untrimmed
+                data = obj.EventMarkersUntrimmed;
+            else
+                data = obj.EventMarkers;
+            end
 
 			if ischar(index)
 				index = find(strcmpi(index, obj.EventMarkerNames), 1, 'first');
             end
-            if isempty(index) || isempty(obj.EventMarkersUntrimmed)
+            if isempty(index) || isempty(data)
                 t = [];
                 return;
             end
-            sel = obj.EventMarkersUntrimmed(:, 1) == index;
+            sel = data(:, 1) == index;
             switch timeType
                 case 'millis'
-                    t = obj.EventMarkersUntrimmed(sel, 2);
+                    t = data(sel, 2);
                 case 'datenum'
-                    t = obj.EventMarkersUntrimmed(sel, 3);
+                    t = data(sel, 3);
                 case 'datetime'
-                    t = obj.EventMarkersUntrimmed(sel, 3);
+                    t = data(sel, 3);
                     t = datetime(t, ConvertFrom='datenum', TimeZone='America/New_York');
             end
         end
