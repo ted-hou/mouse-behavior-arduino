@@ -161,6 +161,7 @@ enum EventMarker
 	EVENT_WAITFORTOUCH,				// New trial initiated
 	EVENT_LICK,						// Lick onset
 	EVENT_LICK_OFF,					// Lick offset
+	EVENT_LICK_HELD,
 	EVENT_LEVER_PRESSED,			// Lever touch onset
 	EVENT_LEVER_RELEASED,			// Lever touch offset
 	EVENT_LEVER_HELD,
@@ -198,6 +199,7 @@ static const char *_eventMarkerNames[] =
 	"WAITFORTOUCH",				// New trial initiated
 	"LICK",						// Lick onset
 	"LICK_OFF",					// Lick offset
+	"LICK_HELD",
 	"LEVER_PRESSED",			// Lever touch onset
 	"LEVER_RELEASED",			// Lever touch offset
 	"LEVER_HELD",
@@ -445,11 +447,11 @@ static int _resultCode				= -1;			// Result code. -1 if there is no result.
 static State _state					= _STATE_INIT;	// This variable (current _state) get passed into a _state function, which determines what the next _state should be, and updates it to the next _state.
 static State _prevState				= _STATE_INIT;	// Remembers the previous _state from the last loop (actions should only be executed when you enter a _state for the first time, comparing currentState vs _prevState helps us keep track of that).
 static char _command				= ' ';			// Command char received from host, resets on each loop
-static int _arguments[2]			= {0, 0};			// Two integers received from host , resets on each loop
+static int _arguments[2]			= {0, 0};		// Two integers received from host , resets on each loop
 static bool _isUpdatingParams 		= false;
 
 static bool _isLicking 				= false;		// True if the little dude is licking (in contact with spout)
-static bool _isLickOnset 			= false;		// True during lick onset (onset of spout contact)
+static bool _isLickHeld 			= false; 		// True if little dude has been in contact with spout for some time
 static long _timeLastLick			= 0;			// Time (ms) when last lick onset occured
 
 static bool _isLeverPressed			= false;		// True as long as lever is pressed down
@@ -542,7 +544,7 @@ void mySetup()
 	_isUpdatingParams 		= false;
 
 	_isLicking 				= false;		// True if the little dude is licking (in contact with spout)
-	_isLickOnset 			= false;		// True during lick onset (onset of spout contact)
+	_isLickHeld 			= false; 		// True if little dude has been in contact with spout for some time
 	_timeLastLick			= 0;			// Time (ms) when last lick onset occured
 
 	_isLeverPressed			= false;		// True as long as lever is pressed down
@@ -1632,9 +1634,14 @@ void handleLick()
 		if (!_isLicking)
 		{
 			_isLicking = true;
-			_isLickOnset = true;
 			_timeLastLick = getTime();
 			sendEventMarker(EVENT_LICK, -1);
+		}
+		// Lick-and-hold timeout reach
+		if (!_isLickHeld && getTimeSinceLastLick() >= _params[LICK_HOLD_TIME])
+		{
+			_isLickHeld = true;
+			sendEventMarker(EVENT_LICK_HELD, -1);
 			if (_tubeCyclingEnabled)
 			{
 				deployTube(false);
@@ -1646,11 +1653,11 @@ void handleLick()
 	// not in contact
 	else
 	{
-		_isLickOnset = false;
 		// Offset
 		if (_isLicking)
 		{
 			_isLicking = false;
+			_isLickHeld = false;
 			sendEventMarker(EVENT_LICK_OFF, -1);
 		}
 	}
