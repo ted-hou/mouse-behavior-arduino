@@ -281,6 +281,7 @@ enum ParamID
 	TIMEOUT_MIN,					// ITI length min cutoff (ms)
 	TIMEOUT_MEAN,					// ITI length (mean of exponential distribution) (ms)
 	TIMEOUT_MAX,					// ITI length max cutoff (ms)
+	LICK_HOLD_TIME,					// Spout contact must be maintained for this duration (ms) before reward dispensed..
 	LEVER_HOLD_TIME,				// Lever contact must be maintained for this duration (ms) before reward dispensed..
 	LEVER_RETRACT_TIME,				// Lever will be retracted for this duration before redeploying (start of retract to start of deploy)
 	TUBE_RETRACT_TIME,				// Tube will be retracted for this duration before redeploying (start of retract to start of deploy)
@@ -335,6 +336,7 @@ static const char *_paramNames[] =
 	"TIMEOUT_MIN",					// ITI length min cutoff (ms)
 	"TIMEOUT_MEAN",					// ITI length (mean of exponential distribution) (ms)
 	"TIMEOUT_MAX",					// ITI length max cutoff (ms)
+	"LICK_HOLD_TIME",				// Spout contact must be maintained for this duration (ms) before reward dispensed..
 	"LEVER_HOLD_TIME",				// Lever contact must be maintained for this duration (ms) before reward dispensed..
 	"LEVER_RETRACT_TIME",			// Lever will be retracted for this duration before redeploying (start of retract to start of deploy)
 	"TUBE_RETRACT_TIME",			// Tube will be retracted for this duration before redeploying (start of retract to start of deploy)
@@ -387,7 +389,8 @@ long _params[_NUM_PARAMS] =
 	0,		// TIMEOUT_MIN
 	20000,	// TIMEOUT_MEAN
 	10000,	// TIMEOUT_MAX
-	0,		// LEVER_HOLD_TIME
+	1, 		// LICK_HOLD_TIME
+	1,		// LEVER_HOLD_TIME
 	1000,	// LEVER_RETRACT_TIME
 	1000, 	// TUBE_RETRACT_TIME
 	100,	// REWARD_DURATION
@@ -411,7 +414,7 @@ long _params[_NUM_PARAMS] =
 	1000, 	// OPTO_FIXED_DELAY
 	1000,	// OPTO_RANDOM_DELAY_MIN
 	3000,	// OPTO_RANDOM_DELAY_MAX
-	10,		// NUM_REWARDS_PER_BLOCK
+	15,		// NUM_REWARDS_PER_BLOCK
 	1,		// REQUEST_TASK_AFTER_BLOCK
 	0,		// REQUEST_OPTO_AFTER_BLOCK
 	30000,	// WAITFORTOUCH_TO_OPTO_TIMEOUT
@@ -420,13 +423,13 @@ long _params[_NUM_PARAMS] =
 	0, 		// LOW_IS_TOUCH
 	1,		// ACCEL_BASED_LICK
 	1,		// ACCEL_BASED_LEVER
-	25,		// ACCEL_THRESHOLD_LICK
-	35,		// ACCEL_THRESHOLD_LEVER
+	30,		// ACCEL_THRESHOLD_LICK
+	25,		// ACCEL_THRESHOLD_LEVER
 	300,	// ACCEL_SMOOTH_FACTOR_LICK
 	300,	// ACCEL_SMOOTH_FACTOR_LEVER
 	1, 		// ACCEL_SMOOTH_SAMPLE_PERIOD_LICK
 	1, 		// ACCEL_SMOOTH_SAMPLE_PERIOD_LEVER
-	250,	// ACCEL_BLANK_POST_MOVE_TUBE
+	500,	// ACCEL_BLANK_POST_MOVE_TUBE
 	125,	// ACCEL_BLANK_POST_MOVE_LEVER
 };
 
