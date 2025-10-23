@@ -73,6 +73,7 @@ enum ServoState
 #define PIN_MIRROR_LICK 		9
 #define PIN_MIRROR_LEVER 		10
 #define PIN_MIRROR_REWARD		22
+#define PIN_MIRROR_TIMEOUT 		15
 
 // PWM OUT
 #define PIN_SPEAKER				21
@@ -90,6 +91,8 @@ enum ServoState
 #define PIN_LICK_ACCEL 			A4
 #define PIN_LEVER_ACCEL			A5
 
+#define PIN_IMEC_SYNC 			16
+
 static const int _digOutPins[] = 
 {
 	PIN_REWARD,
@@ -97,16 +100,13 @@ static const int _digOutPins[] =
 	PIN_SERVO_TUBE,
 	PIN_LEVERMOTOR_HI,
 	PIN_LEVERMOTOR_LO,
-	// PIN_OPTO_1,
-	// PIN_OPTO_2,
 	PIN_MIRROR_LICK,
 	PIN_MIRROR_LEVER,
 	PIN_MIRROR_REWARD,
 	PIN_SPEAKER,
 	PIN_LED_LEFT,
 	PIN_LED_RIGHT,
-	8,
-	11
+	PIN_MIRROR_TIMEOUT
 };
 
 /*****************************************************
@@ -168,6 +168,7 @@ enum EventMarker
 	EVENT_REWARD_ON,				// Reward, juice valve on
 	EVENT_REWARD_OFF,				// Reward, juice valve off
 	EVENT_TIMEOUT_START,			// At start of timeout
+	EVENT_TIMEOUT_END,				// Exit timeout state (there could be multiple timeout_starts before each timeout_end)
 	EVENT_LEVER_RETRACT_START,		// Lever retract start
 	EVENT_LEVER_RETRACT_END,		// Lever retracted
 	EVENT_LEVER_DEPLOY_START,		// Lever deploy start
@@ -191,33 +192,36 @@ enum EventMarker
 	EVENT_REQUEST_OPTO,
 	EVENT_LASERMOTOR_START,
 	EVENT_LASERMOTOR_REACHED,
+	EVENT_IMEC_SYNC_ON,
+	EVENT_IMEC_SYNC_OFF,
 	_NUM_EVENT_MARKERS
 };
 
 static const char *_eventMarkerNames[] =
 {
-	"WAITFORTOUCH",				// New trial initiated
-	"LICK",						// Lick onset
-	"LICK_OFF",					// Lick offset
+	"WAITFORTOUCH",
+	"LICK",
+	"LICK_OFF",
 	"LICK_HELD",
-	"LEVER_PRESSED",			// Lever touch onset
-	"LEVER_RELEASED",			// Lever touch offset
+	"LEVER_PRESSED",
+	"LEVER_RELEASED",
 	"LEVER_HELD",
-	"REWARD_ON",				// Reward, juice valve on
-	"REWARD_OFF",				// Reward, juice valve off
-	"TIMEOUT_START",			// At start of timeout
-	"LEVER_RETRACT_START",		// Lever retract start
-	"LEVER_RETRACT_END",		// Lever retracted
-	"LEVER_DEPLOY_START",		// Lever deploy start
-	"LEVER_DEPLOY_END",			// Lever deploy end
-	"TUBE_RETRACT_START",		// Tube retract start
-	"TUBE_RETRACT_END",			// Tube retract end
-	"TUBE_DEPLOY_START",		// Tube deploy start
-	"TUBE_DEPLOY_END",			// Tube deploy end
-	"OPTO1_ON",				// Begin optogenetic stim (single pulse start) on laser 1 (dac1)
-	"OPTO1_OFF",			// End optogenetic stim (single pulse end) on laser 1 (dac1)
-	"OPTO2_ON",				// Begin optogenetic stim (single pulse start) on laser 2 (dac2)
-	"OPTO2_OFF",			// End optogenetic stim (single pulse end) on laser 2 (dac2)
+	"REWARD_ON",
+	"REWARD_OFF",
+	"TIMEOUT_START",
+	"TIMEOUT_END",
+	"LEVER_RETRACT_START",
+	"LEVER_RETRACT_END",
+	"LEVER_DEPLOY_START",
+	"LEVER_DEPLOY_END",
+	"TUBE_RETRACT_START",
+	"TUBE_RETRACT_END",
+	"TUBE_DEPLOY_START",
+	"TUBE_DEPLOY_END",
+	"OPTO1_ON",
+	"OPTO1_OFF",
+	"OPTO2_ON",
+	"OPTO2_OFF",
 	"LEVERMOTOR_POS1_START",
 	"LEVERMOTOR_POS1_REACHED",
 	"LEVERMOTOR_POS2_START",
@@ -229,6 +233,8 @@ static const char *_eventMarkerNames[] =
 	"REQUEST_OPTO",
 	"LASERMOTOR_START",
 	"LASERMOTOR_REACHED",
+	"IMEC_SYNC_ON",
+	"IMEC_SYNC_OFF",
 };
 
 /*****************************************************
@@ -493,6 +499,8 @@ static long _accelHighPassLever = 0;
 static long _accelLastUpdateMillisLick = 0;
 static long _accelLastUpdateMillisLever = 0;
 
+static bool _isSyncHigh = false;
+
 /*****************************************************
 	Setup
 *****************************************************/
@@ -508,12 +516,11 @@ void setup()
 	// Init input pins
 	pinMode(PIN_LICK, INPUT);					// Lick detector (input)
 	pinMode(PIN_LEVER, INPUT);					// Lever press detector (input)
-	pinMode(15, INPUT);
-	pinMode(16, INPUT);
 	pinMode(25, INPUT);
 	pinMode(26, INPUT);
 	pinMode(PIN_LEVERMOTOR_BUSY, INPUT);		// High when motor is moving
 	pinMode(PIN_LASERMOTOR_BUSY, INPUT);
+	pinMode(PIN_IMEC_SYNC, INPUT);
 
 	analogWriteResolution(ANALOG_WRITE_RESOLUTION);
 	pinMode(PIN_LASER_PWR_1, OUTPUT);
@@ -585,6 +592,8 @@ void mySetup()
 	_accelLastUpdateMillisLick = 0;
 	_accelLastUpdateMillisLever = 0;
 
+	_isSyncHigh = false;
+
 	// Sends all parameters, states and error codes to Matlab, then tell PC that we're running by sending '~' message:
 	hostInit();
 
@@ -647,6 +656,7 @@ void loop()
 		handleServoLever();		// Lever servo control
 		handleParamUpdate();	// Writes to _isUpdatingParams
 		handleAnalogOutput();	// Write to DAC channels to modulate laser pwoer
+		handleSync();
 
 		// 3) Update state machine
 		// Depending on what state we're in, call the appropriate state function, which will evaluate the transition conditions, and update the `_state` var to what the next state should be
@@ -804,7 +814,7 @@ void state_waitfortouch()
 	// Lick task
 	if (_params[USE_LEVER] == 0)
 	{
-		if (getLickState())
+		if (_isLickHeld)
 		{
 			_state = STATE_REWARD;
 			return;
@@ -872,6 +882,7 @@ void state_timeout()
 		if (!isWaitingForLeverCycling && !isWaitingForTubeCycling)
 		{
 			// Register events
+			digitalWrite(PIN_MIRROR_TIMEOUT, HIGH);
 			sendEventMarker(EVENT_TIMEOUT_START, -1);
 			_timeTrialEnd = getTime();
 
@@ -913,6 +924,7 @@ void state_timeout()
 		timeoutDuration = min(timeoutDuration, _params[TIMEOUT_MAX]);
 
 		// Register events
+		digitalWrite(PIN_MIRROR_TIMEOUT, HIGH);
 		sendEventMarker(EVENT_TIMEOUT_START, -1);
 		_timeTrialEnd = getTime();
 	}
@@ -938,6 +950,7 @@ void state_timeout()
 		timeoutDuration = min(timeoutDuration, _params[TIMEOUT_MAX]);
 
 		// Register events
+		digitalWrite(PIN_MIRROR_TIMEOUT, HIGH);
 		sendEventMarker(EVENT_TIMEOUT_START, -1);
 		_timeTrialEnd = getTime();
 	}
@@ -949,12 +962,16 @@ void state_timeout()
 	if (_command == 'Q') 
 	{
 		_state = STATE_IDLE;
+		digitalWrite(PIN_MIRROR_TIMEOUT, LOW);
+		sendEventMarker(EVENT_TIMEOUT_END, -1);
 		return;
 	}
 
 	if (!isWaitingForLeverCycling && !isWaitingForTubeCycling && getTimeSinceTrialEnd() >= timeoutDuration)
 	{			
 		_state = STATE_WAITFORTOUCH;
+		digitalWrite(PIN_MIRROR_TIMEOUT, LOW);
+		sendEventMarker(EVENT_TIMEOUT_END, -1);
 		return;
 	}
 
@@ -2085,6 +2102,27 @@ int getLeverPos()
 		return 4;
 	}
 }
+
+void handleSync()
+{
+	if (digitalRead(PIN_IMEC_SYNC) == HIGH)
+	{
+		if (!_isSyncHigh)
+		{
+			_isSyncHigh = true;
+			sendEventMarker(EVENT_IMEC_SYNC_ON, -1);
+		}
+	}
+	else
+	{
+		if (_isSyncHigh)
+		{
+			_isSyncHigh = false;
+			sendEventMarker(EVENT_IMEC_SYNC_OFF, -1);
+		}
+	}
+}
+
 
 /*****************************************************
 	SERIAL COMMUNICATION TO HOST
