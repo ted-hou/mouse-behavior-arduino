@@ -17,6 +17,7 @@ classdef TwoColorExperiment < handle
         MotorInterface
         PowerMeter
         Listeners
+        CurrentFiberLaunch = ''
     end
 
     methods
@@ -289,6 +290,7 @@ classdef TwoColorExperiment < handle
             p.addParameter('stepSizeConst', 100);
             p.addParameter('maxStepSize', 250);
             p.addParameter('powerMeterThreshold', 50e-6);
+            p.addParameter('fiberLaunchDivide', -1500, @isnumeric)
 
             p.parse(varargin{:})
             p = p.Results;
@@ -304,6 +306,7 @@ classdef TwoColorExperiment < handle
                 if any(strcmpi('IDLE', obj.getStateName('motor')))
                     obj.MotorArduino.Start();
                 end
+                obj.CurrentFiberLaunch = '';
             end
 
             obj.openShutter();
@@ -330,6 +333,49 @@ classdef TwoColorExperiment < handle
                     obj.setParam('motor', 'MOTOR2_TARGET', p.mirrorPositions(iMirrorPos));
                     while ~strcmpi('AT_TARGET', obj.getStateName('motor', 2))
                         pause(0.5);
+                    end
+                    if p.mirrorPositions(iMirrorPos) > p.fiberLaunchDivide
+                        if ~strcmpi(obj.CurrentFiberLaunch, 'A')
+                            answer = questdlg( ...
+                                sprintf('Calibration would now like to move mirror to position %i. Please aim fiber A at the power meter.', p.mirrorPositions(iMirrorPos)), ...
+                                'Fiber Change to A!', ...
+                                'I pointed the thingamabob at the doohickey!', 'Cancel', 'Cancel');
+                            switch answer
+                                case 'I pointed the thingamabob at the doohickey!'
+                                    obj.CurrentFiberLaunch = 'A';
+                                    disp('Look at you, you did a thing, you magnificent you!')
+                                case 'Cancel'
+                                    if ~isempty(obj.PowerMeter)
+                                        try
+                                            obj.PowerMeter.disconnect();
+                                        end
+                                    end
+                                    obj.analogWrite(1, 0);
+                                    obj.analogWrite(2, 0);
+                                    return
+                            end
+                        end
+                    else
+                        if ~strcmpi(obj.CurrentFiberLaunch, 'B')
+                            answer = questdlg( ...
+                                sprintf('Calibration would now like to move mirror to position %i. Please aim fiber B at the power meter.', p.mirrorPositions(iMirrorPos)), ...
+                                'Fiber Change to B!', ...
+                                'I pointed the thingamabob at the doohickey!', 'Cancel', 'Cancel');
+                            switch answer
+                                case 'I pointed the thingamabob at the doohickey!'
+                                    obj.CurrentFiberLaunch = 'B';
+                                    disp('Look at you, you did a thing, you magnificent you!')
+                                case 'Cancel'
+                                    if ~isempty(obj.PowerMeter)
+                                        try
+                                            obj.PowerMeter.disconnect();
+                                        end
+                                    end
+                                    obj.analogWrite(1, 0);
+                                    obj.analogWrite(2, 0);
+                                    return
+                            end
+                        end
                     end
                 end
                 for iLaser = 1:2
@@ -474,6 +520,49 @@ classdef TwoColorExperiment < handle
                     obj.setParam('motor', 'MOTOR2_TARGET', p.mirrorPositions(iMirrorPos));
                     while ~strcmpi('AT_TARGET', obj.getStateName('motor', 2))
                         pause(0.5);
+                    end
+                    if p.mirrorPositions(iMirrorPos) > p.fiberLaunchDivide
+                        if ~strcmpi(obj.CurrentFiberLaunch, 'A')
+                            answer = questdlg( ...
+                                sprintf('Calibration would now like to move mirror to position %i. Please aim fiber A at the power meter.', p.mirrorPositions(iMirrorPos)), ...
+                                'Fiber Change to A!', ...
+                                'I pointed the thingamabob at the doohickey!', 'Cancel', 'Cancel');
+                            switch answer
+                                case 'I pointed the thingamabob at the doohickey!'
+                                    obj.CurrentFiberLaunch = 'A';
+                                    disp('Look at you, you did a thing, you magnificent you!')
+                                case 'Cancel'
+                                    if ~isempty(obj.PowerMeter)
+                                        try
+                                            obj.PowerMeter.disconnect();
+                                        end
+                                    end
+                                    obj.analogWrite(1, 0);
+                                    obj.analogWrite(2, 0);
+                                    return
+                            end
+                        end
+                    else
+                        if ~strcmpi(obj.CurrentFiberLaunch, 'B')
+                            answer = questdlg( ...
+                                sprintf('Calibration would now like to move mirror to position %i. Please aim fiber B at the power meter.', p.mirrorPositions(iMirrorPos)), ...
+                                'Fiber Change to B!', ...
+                                'I pointed the thingamabob at the doohickey!', 'Cancel', 'Cancel');
+                            switch answer
+                                case 'I pointed the thingamabob at the doohickey!'
+                                    obj.CurrentFiberLaunch = 'B';
+                                    disp('Look at you, you did a thing, you magnificent you!')
+                                case 'Cancel'
+                                    if ~isempty(obj.PowerMeter)
+                                        try
+                                            obj.PowerMeter.disconnect();
+                                        end
+                                    end
+                                    obj.analogWrite(1, 0);
+                                    obj.analogWrite(2, 0);
+                                    return
+                            end
+                        end
                     end
                 end
                 for iLaser = 1:2
