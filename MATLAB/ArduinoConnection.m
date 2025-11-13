@@ -38,6 +38,7 @@ classdef ArduinoConnection < handle
 
 	events
 		StateChanged
+        EventMarkerReceived
         TaskRequested
         OptoRequested
 	end
@@ -376,11 +377,15 @@ classdef ArduinoConnection < handle
 				case '&'
 					% Arduino sent an event code and its timestamp - "& 0 100"
 					subStrings = strsplit(strtrim(value), ' ');
-					eventCode = str2num(subStrings{1}) + 1; % Convert zero-based indices (Arduino) to one-based indices (MATLAB)
-					timeStamp = str2num(subStrings{2});
+					eventCode = str2double(subStrings{1}) + 1; % Convert zero-based indices (Arduino) to one-based indices (MATLAB)
+					timeStamp = str2double(subStrings{2});
 					absTime = now;
 					obj.EventMarkersBuffer = [obj.EventMarkersBuffer; eventCode, timeStamp, absTime];
 					obj.EventMarkersUntrimmed = [obj.EventMarkersUntrimmed; eventCode, timeStamp, absTime];
+
+					% Trigger EventMarkerReceived Event
+                    eventMarkerData = EventMarkerData(eventCode, timeStamp, absTime, obj.EventMarkerNames{eventCode});
+					notify(obj, 'EventMarkerReceived', eventMarkerData)
 
 					% Debug message
 					if obj.DebugMode
