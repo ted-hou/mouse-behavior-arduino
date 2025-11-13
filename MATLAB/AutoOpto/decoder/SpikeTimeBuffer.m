@@ -119,5 +119,9 @@ classdef SpikeTimeBuffer < handle
             end
             obj.Timer = [];
         end
+
+        function value = isRunning(obj)
+            value = ~isempty(obj.Timer) && isvalid(obj.Timer);
+        end
     end
 end

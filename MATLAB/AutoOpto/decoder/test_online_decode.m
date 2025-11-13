@@ -24,6 +24,9 @@ stb.stop();
 % xlim([nSamples+1, 2*nSamples])
 % ylim([-61.5, 61.5])
 %% Training (record)
+exp = TwoColorExperiment();
+od = OnlineDecoder(stb, exp.LaserArduino);
+
 % While in STATE_WAITFORTOUCH or STATE_TIMEOUT, continuously generate a 6s buffer of spike times
 % onEnter STATE_WAITFORTOUCH or STATE_TIMEOUT, discard buffered spike times
 % While in STATE_WAITFORTOUCH or STATE_TIMEOUT, on EVENT_LICK_ON or EVENT_LEVER TOUCHED, calculate spike rates for [-0.5, 0] and [min(-6, -validBufferLength), -2] 
