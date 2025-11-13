@@ -5,22 +5,22 @@
 % 4. For the rest of the session, monitor spikerates continuously, stimOn when pMove > theta (try theta=0.5)
 
 %% Common module (spikeTimeBuffer)
-stb = SpikeTimeBuffer(SpikeThreshold=-75, MaxDuration=6, UpdateInterval=0.02, SpikeDetectionInterval=0.03);
-stb.Connect('10.11.151.172');
-stb.StartUpdate();
+stb = SpikeTimeBuffer(SpikeThreshold=-30, MaxDuration=6, UpdateInterval=0.02, UpdateIntervalPadding=0.01, Debug=true);
+stb.connect('10.11.151.172');
+stb.start();
 %%
-stb.StopUpdate();
-%%
-% obj = stb;
+stb.stop();
+%% Plot a channel (for testing)
+% channel = 4 + 1;
 % nSamples=300;
-% obj.Connect();[data, headSampleIndex] = FetchLatest(obj.SGLX, 2, 0, nSamples*2); %% js=2: use filtered IM stream buffer; ip=0:?4
-% data = double(data.*obj.Int16ToMicroVolts);
+% stb.connect();[data, headSampleIndex] = FetchLatest(stb.SGLX, 2, 0, nSamples*2); %% js=2: use filtered IM stream buffer; ip=0:?4
+% data = double(data.*stb.Int16ToMicroVolts);
 % 
-% [B, A] = butter(2, [300, 9000]/(obj.SampleRate/2));
+% [B, A] = butter(2, [300, 9000]/(stb.SampleRate/2));
 % data = filter(B, A, data);
 % data = data - median(data, 2);
 % 
-% plot(data(:, 119))
+% plot(data(:, channel))
 % xlim([nSamples+1, 2*nSamples])
 % ylim([-61.5, 61.5])
 %% Training (record)
