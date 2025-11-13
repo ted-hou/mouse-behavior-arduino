@@ -5,9 +5,24 @@
 % 4. For the rest of the session, monitor spikerates continuously, stimOn when pMove > theta (try theta=0.5)
 
 %% Common module (spikeTimeBuffer)
-
-
-
+stb = SpikeTimeBuffer(SpikeThreshold=-75, MaxDuration=6, UpdateInterval=0.02, SpikeDetectionInterval=0.03);
+stb.Connect('10.11.151.172');
+stb.StartUpdate();
+%%
+stb.StopUpdate();
+%%
+% obj = stb;
+% nSamples=300;
+% obj.Connect();[data, headSampleIndex] = FetchLatest(obj.SGLX, 2, 0, nSamples*2); %% js=2: use filtered IM stream buffer; ip=0:?4
+% data = double(data.*obj.Int16ToMicroVolts);
+% 
+% [B, A] = butter(2, [300, 9000]/(obj.SampleRate/2));
+% data = filter(B, A, data);
+% data = data - median(data, 2);
+% 
+% plot(data(:, 119))
+% xlim([nSamples+1, 2*nSamples])
+% ylim([-61.5, 61.5])
 %% Training (record)
 % While in STATE_WAITFORTOUCH or STATE_TIMEOUT, continuously generate a 6s buffer of spike times
 % onEnter STATE_WAITFORTOUCH or STATE_TIMEOUT, discard buffered spike times
