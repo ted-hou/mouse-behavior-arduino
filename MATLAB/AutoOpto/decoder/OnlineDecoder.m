@@ -33,6 +33,7 @@ classdef OnlineDecoder < handle
 
         function stopTraining(obj)
             assert(obj.Mode == "training", "Current mode is %s, expected ""training"".", obj.Mode)
+            obj.Mode = "off";
         end
 
         function startTesting(obj)
@@ -60,11 +61,20 @@ classdef OnlineDecoder < handle
 
         % Listener callback for ArduinoConnection EventMarkerReceived events
         function onEventMarkerReceived(obj, src, event)
+            t = obj.getTime();
             % See class: EventMarkerData
             switch event.Name 
                 case {'LEVER_HELD', 'LICK_HELD'}
-                    obj.EventBuffer.(event.Name) = obj.
+                    obj.EventBuffer.(event.Name) = [obj.EventBuffer.(event.Name), t];
                 case {'TIMEOUT_START'}
+            end
+        end
+
+        function addEventToBuffer(obj, event)
+            t = obj.getTime();
+            % See class: EventMarkerData
+            if ismember(event.Name, {'LEVER_HELD', 'LICK_HELD', 'TIMEOUT_START', 'LEVER_DEPLOY_START', 'LEVER_DEPLOY_END', 'LEVER_RETRACT_START', 'LEVER_RETRACT_END'})
+                obj.EventBuffer.(event.Name) = [obj.EventBuffer.(event.Name), t];
             end
         end
 
