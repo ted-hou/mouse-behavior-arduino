@@ -128,7 +128,8 @@ legend(ax)
 
 %% How early can we detect movement?
 
-% first stupid version
+%% first stupid version
+
 % run decoder from above on 100ms intervals of spike data from -2 to 0s
 % use xtest and y test in a scatter plot
 % blue move, red baseline
@@ -141,6 +142,8 @@ legend(ax)
 % resolution
 
 % so i think i should redo readimec and get voltage data in time rois
+
+%100ms bins, stepsize 100ms
 
 % PARAMETERS
 testTrial = 7;                          % which test trial to analyze, 37 out of total
@@ -204,7 +207,7 @@ title(sprintf('Decoder trajectory for test trial %d', testTrial))
 ylim([0 1])
 legend({'baseline bins','movement bins'}, 'Location','best')
 
-%% DO FOR ALL TRIALS TG
+%% all trials [-6,0]
 
 % PARAMETERS
 binSize = 0.1;                   % 100 ms
@@ -274,8 +277,7 @@ ylabel('Decoder output p(move)');
 title('Decoder trajectories for ALL test trials');
 ylim([0 1])
 
-
-%% COUNT CORRECT PER TIME BIN
+% COUNT CORRECT PER TIME BIN
 
 % 4-COLOR HISTOGRAM OF DECODER PERFORMANCE
 % Categories:
@@ -343,4 +345,333 @@ ylim([0 1])
 xline(-0.5, '--k', 'LineWidth', 1.5)  % boundary between baseline and movement
 
 
+%% count correct per time bin
 
+% 4-COLOR HISTOGRAM OF DECODER PERFORMANCE
+% Categories:
+% 1 = correct baseline (dark red)
+% 2 = incorrect -> predicted move during baseline (light blue)
+% 3 = incorrect -> predicted baseline during movement (light red)
+% 4 = correct movement (dark blue)
+nTrials = nTestTrials;
+
+% Preallocate category counts
+catCounts = zeros(4, nBins);
+
+for b = 1:nBins
+    
+    % ground truth for this bin
+    isMoveBin = centers(b) >= -0.5;   % true label: movement vs baseline
+    
+    for t = 1:nTrials
+        
+        p = pAll(t,b);
+        
+        if ~isMoveBin
+            % TRUE BASELINE
+            if p < 0.99
+                % correct baseline
+                catCounts(1,b) = catCounts(1,b) + 1;
+            else
+                % incorrect movement prediction
+                catCounts(2,b) = catCounts(2,b) + 1;
+            end
+            
+        else
+            % TRUE MOVEMENT
+            if p < 0.99
+                % incorrect baseline prediction
+                catCounts(3,b) = catCounts(3,b) + 1;
+            else
+                % correct movement
+                catCounts(4,b) = catCounts(4,b) + 1;
+            end
+        end
+    end
+end
+
+% Normalize by number of trials
+catProportions = catCounts ./ nTrials;   % 4 × nBins
+
+% Plot
+figure; hold on
+bar(centers, catProportions', 'stacked');
+
+% Define colors in row order:
+% dark red, light blue, light red, dark blue
+myColors = [
+    1 0 0;    % correct baseline
+    0.98 0.85 0.87;  % incorrect baseline->movement
+    0.5843 0.8157 0.9882;  % incorrect movement->baseline
+    0 0 1     % correctmovement
+];
+colororder(myColors);
+
+xlabel('Time (s relative to movement)')
+ylabel('Proportion of trials')
+title('Decoder correctness by time bin')
+ylim([0 1])
+xline(-0.5, '--k', 'LineWidth', 1.5)  % boundary between baseline and movement
+
+%% all trials, after timeoutoffset, right-aligned
+
+binSize = 0.1;   % 100 ms
+
+testTrialIdx = (nTrialsTrain+1) : length(trials.reward);
+nTestTrials = length(testTrialIdx);
+
+figure; hold on
+
+for t = 1:nTestTrials
+    
+    fullIndex = testTrialIdx(t);
+
+    trialStart = trials.reward(fullIndex).Start;   % TimeoutOff timestamp
+    eventTime  = trials.reward(fullIndex).Stop;    % movement onset
+
+    % Build edges from trial start to movement onset
+    edges = trialStart : binSize : eventTime;
+    centers = edges(1:end-1) + binSize/2;
+
+    nBins = length(centers);
+
+    p_t   = nan(1, nBins);
+    lab_t = nan(1, nBins);
+
+    for b = 1:nBins
+        
+        t0 = edges(b);
+        t1 = edges(b+1);
+
+        tr.ReadIMEC(Channels=1:384, TimeWindow=[t0 t1], ReadMode='simple');
+
+        isBelow = tr.Amplifier.Data < threshold;
+        spikeCounts = sum(diff(isBelow,1,2)==1,2);
+        rate = spikeCounts / binSize;
+        X = mean(rate);
+
+        p_t(b) = mdl.predict(X);
+
+        % Label = movement if within last 0.5 seconds before movement onset
+        lab_t(b) = double(centers(b) >= (eventTime - 0.5));
+    end
+
+    % --- align time so eventTime becomes x = 0 ---
+    x = centers - eventTime;    % now all trials end at 0
+
+    % Plot dots colored by true task label
+    scatter(x(lab_t==0), p_t(lab_t==0), 20, 'r', 'filled');  % baseline = red
+    scatter(x(lab_t==1), p_t(lab_t==1), 20, 'b', 'filled');  % movement = blue
+
+    % Connect with thin gray line
+    plot(x, p_t, 'Color', [0.7 0.7 0.7]);
+end
+
+yline(0.5, 'k--', 'LineWidth', 1.5);
+
+xlabel('Time before movement (s)');
+ylabel('Decoder output p(move)');
+title('Right-aligned decoder trajectories (time = 0 at movement)');
+ylim([0 1])
+xlim([-inf 0])
+
+%% change to 100ms bins with 40ms step size
+
+binSize = 0.1;    % 100 ms window width
+stepSize = 0.05;  % 50 ms step
+
+testTrialIdx = (nTrialsTrain+1) : length(trials.reward);
+nTestTrials = length(testTrialIdx);
+
+figure; hold on
+
+for t = 1:nTestTrials
+    
+    fullIndex = testTrialIdx(t);
+
+    trialStart = trials.reward(fullIndex).Start;   % TimeoutOff timestamp
+    eventTime  = trials.reward(fullIndex).Stop;    % movement onset
+
+    % Build sliding-window edges
+    % Window start times
+    edgesStart = trialStart : stepSize : (eventTime - binSize);
+    % Window end times
+    edgesEnd   = edgesStart + binSize;
+
+    centers = edgesStart + binSize/2;
+    nBins = length(centers);
+
+    p_t   = nan(1, nBins);
+    lab_t = nan(1, nBins);
+
+    for b = 1:nBins
+        
+        t0 = edgesStart(b);
+        t1 = edgesEnd(b);
+
+        tr.ReadIMEC(Channels=1:384, TimeWindow=[t0 t1], ReadMode='simple');
+
+        isBelow = tr.Amplifier.Data < threshold;
+        spikeCounts = sum(diff(isBelow,1,2)==1,2);
+        rate = spikeCounts / binSize;
+        X = mean(rate);
+
+        p_t(b) = mdl.predict(X);
+
+        % Label = movement if within 0.5 s of movement onset
+        lab_t(b) = double(centers(b) >= (eventTime - 0.5));
+    end
+
+    % Align time so eventTime = 0
+    x = centers - eventTime;
+    centersAll{t} = x; % THIS ONE
+    
+    % --- Crop to [-6, 0] seconds ---
+    valid = (x >= -6) & (x <= 0);
+    xPlot   = x(valid);
+    pPlot   = p_t(valid);
+    labPlot = lab_t(valid);
+    
+    % Plot dots colored by true task label
+    scatter(xPlot(labPlot==0), pPlot(labPlot==0), 20, 'r', 'filled');  % baseline
+    scatter(xPlot(labPlot==1), pPlot(labPlot==1), 20, 'b', 'filled');  % movement
+    
+    % Connect with thin gray line
+    plot(xPlot, pPlot, 'Color', [0.7 0.7 0.7]);
+
+end
+
+yline(0.5, 'k--', 'LineWidth', 1.5);
+xlabel('Time before movement (s)');
+ylabel('Decoder output p(move)');
+title('Right-aligned decoder trajectories (time = 0 at movement)');
+ylim([0 1])
+xlim([-6 0])
+
+
+%% 2-step classification + histogram aligned to movement onset
+
+%% TESTING FROM CHAT
+
+%% change to 100ms bins with 50ms step size
+
+binSize = 0.1;    % 100 ms window width
+stepSize = 0.03;  % 30 ms step
+
+testTrialIdx = (nTrialsTrain+1) : length(trials.reward);
+nTestTrials = length(testTrialIdx);
+
+% Preallocate cell arrays for storing full-length time and p(move)
+centersAll = cell(nTestTrials, 1);   % per-trial aligned time (full)
+pAll       = cell(nTestTrials, 1);   % per-trial decoder prob (full)
+
+figure; hold on
+
+for t = 1:nTestTrials
+    
+    fullIndex = testTrialIdx(t);
+
+    trialStart = trials.reward(fullIndex).Start;   % TimeoutOff timestamp
+    eventTime  = trials.reward(fullIndex).Stop;    % movement onset
+
+    % Build sliding-window edges
+    edgesStart = trialStart : stepSize : (eventTime - binSize);
+    edgesEnd   = edgesStart + binSize;
+
+    centers = edgesStart + binSize/2;
+    nBins = length(centers);
+
+    p_t   = nan(1, nBins);
+    lab_t = nan(1, nBins);
+
+    for b = 1:nBins
+        
+        t0 = edgesStart(b);
+        t1 = edgesEnd(b);
+
+        tr.ReadIMEC(Channels=1:384, TimeWindow=[t0 t1], ReadMode='simple');
+
+        isBelow = tr.Amplifier.Data < threshold;
+        spikeCounts = sum(diff(isBelow,1,2)==1,2);
+        rate = spikeCounts / binSize;
+        X = mean(rate);
+
+        p_t(b) = mdl.predict(X);
+
+        % Label = movement if within 0.5 s before onset
+        lab_t(b) = double(centers(b) >= (eventTime - 0.5));
+    end
+
+    % ---- Align time so movement onset = 0 ----
+    x = centers - eventTime;
+
+    % ---- Store full-length arrays (CRITICAL) ----
+    centersAll{t} = x;     % full time bins
+    pAll{t}       = p_t;   % full p(move) bins
+
+    % ---- Crop just for plotting (does NOT affect detection) ----
+    valid = (x >= -6) & (x <= 0);
+    xPlot   = x(valid);
+    pPlot   = p_t(valid);
+    labPlot = lab_t(valid);
+
+    % ---- Plot ----
+    scatter(xPlot(labPlot==0), pPlot(labPlot==0), 20, 'r', 'filled');
+    scatter(xPlot(labPlot==1), pPlot(labPlot==1), 20, 'b', 'filled');
+    plot(xPlot, pPlot, 'Color', [0.7 0.7 0.7]);
+
+end
+
+% Axes
+yline(0.5, 'k--', 'LineWidth', 1.5);
+xlabel('Time before movement (s)');
+ylabel('Decoder output p(move)');
+title('Right-aligned decoder trajectories (time = 0 at movement)');
+ylim([0 1])
+xlim([-6 0])
+
+%                  DETECT PERI-MOVEMENT 011 SIGNATURE
+
+periMvmtTimes = cell(nTestTrials, 1);
+
+for t = 1:nTestTrials
+
+    x = centersAll{t};   % full un-cropped aligned times
+    p = pAll{t};         % full p(move)
+
+    % Crop to [-6, 0] for detection
+    valid = (x >= -6) & (x <= 0);
+    xSub = x(valid);
+    pSub = p(valid);
+
+    if isempty(xSub)
+        periMvmtTimes{t} = [];
+        continue
+    end
+
+    % Step 1: binarize at p >= 0.95
+    binPred = pSub >= 0.95;
+
+    % Step 2: detect 0-1-1 pattern
+    hitIdx = [];
+    for b = 2:(length(binPred)-1)
+        if binPred(b-1)==0 && binPred(b)==1 && binPred(b+1)==1
+            hitIdx(end+1) = b; %#ok<AGROW>
+        end
+    end
+
+    % Convert indices to timestamps
+    periMvmtTimes{t} = xSub(hitIdx);
+end
+
+% Print results
+
+fprintf('\n===== PERI-MOVEMENT SIGNATURE TIMES =====\n');
+for t = 1:nTestTrials
+    fprintf('Trial %d: ', t);
+    if isempty(periMvmtTimes{t})
+        fprintf('none\n');
+    else
+        fprintf('%s\n', sprintf('%.3f ', periMvmtTimes{t}));
+    end
+end

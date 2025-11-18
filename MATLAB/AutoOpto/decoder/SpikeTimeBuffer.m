@@ -104,6 +104,7 @@ classdef SpikeTimeBuffer < handle
             obj.connect(obj.IP);
             if ~isempty(obj.Timer) && isvalid(obj.Timer)
                 stop(obj.Timer);
+                delete(obj.Timer);
             end
             obj.Timer = timer();
             obj.Timer.Period = obj.UpdateInterval;
@@ -116,12 +117,20 @@ classdef SpikeTimeBuffer < handle
         function stop(obj)
             if ~isempty(obj.Timer) && isvalid(obj.Timer)
                 stop(obj.Timer);
+                delete(obj.Timer);
             end
             obj.Timer = [];
         end
 
         function value = isRunning(obj)
             value = ~isempty(obj.Timer) && isvalid(obj.Timer);
+        end
+
+        function sr = getSpikeRates(obj, window)
+            sr = zeros(1, 384);
+            for iChannel = 1:384
+                sr(iChannel) = nnz(obj.SpikeTimes{iChannel} >= window(1) & obj.SpikeTimes{iChannel} < window(2)) ./ (window(2) - window(1));
+            end
         end
     end
 end

@@ -2,15 +2,15 @@ classdef (ConstructOnLoad) EventMarkerData < event.EventData
     properties
         Code
         Timestamp
-        AbsTime
+        DateNum
         Name
     end
 
     methods
-        function data = EventMarkerData(code, timestamp, absTime, name)
+        function data = EventMarkerData(code, timestamp, datenum, name)
             data.Code = code;
             data.Timestamp = timestamp;
-            data.AbsTime = absTime;
+            data.DateNum = datenum;
             data.Name = name;
         end
     end
