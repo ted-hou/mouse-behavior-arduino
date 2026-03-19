@@ -270,6 +270,10 @@ classdef TwoColorExperiment < handle
                 obj.LaserArduino.SetParam('TIMEOUT_MAX', obj.Plan.task.TIMEOUT_MAX(index));
             end
 
+            if isfield(obj.Plan.task, 'WAITFORTOUCH_TO_OPTO_TIMEOUT')
+                obj.LaserArduino.SetParam('WAITFORTOUCH_TO_OPTO_TIMEOUT', obj.Plan.task.WAITFORTOUCH_TO_OPTO_TIMEOUT(index));
+            end
+
             obj.LaserArduino.SendMessage(sprintf('^ %i', pos));
             obj.Plan.task.index = index;
         end
