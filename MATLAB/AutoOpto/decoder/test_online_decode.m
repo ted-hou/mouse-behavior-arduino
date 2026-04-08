@@ -6,11 +6,12 @@
 exp = TwoColorExperiment();
 
 %% Common module (spikeTimeBuffer)
-stb = SpikeTimeBuffer(SpikeThreshold=-30, MaxDuration=6, UpdateInterval=0.02, UpdateIntervalPadding=0.01, Debug=true);
+stb = SpikeTimeBuffer(SpikeThreshold=-30, MaxDuration=6, UpdateInterval=0.02, UpdateIntervalPadding=0.01, Debug=false);
 stb.connect('10.11.151.172');
+%%
 stb.start();
 %%
-stb.stop();
+% stb.stop();
 %% Plot a channel (for testing)
 % channel = 4 + 1;
 % nSamples=300;
@@ -59,15 +60,3 @@ od.startDecoding();
 % Decode yMove = f(spikeRate_last100ms)
 % Start stim when yMove > 0.5 (or some theta)
 % onEvent: LEVER_PRESSED or LICK_ON, stop stim
-
-
-%% PROBLEM: timer callback too slow and hangs up matlab
-% We're gonna try to execute spike detection on a separate thread,
-% as a DataQueue
-q = parallel.pool.DataQueue;
-afterEach(q, @disp); % execute a call back each time data is received
-
-
-fcn = @(~, ~) q.send(datetime);
-t = timer(TimerFcn=fcn, Period=0.02, ExecutionMode='fixedRate');
-t.start;

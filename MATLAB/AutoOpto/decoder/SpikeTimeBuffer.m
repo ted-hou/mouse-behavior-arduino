@@ -17,6 +17,7 @@ classdef SpikeTimeBuffer < handle
         Timer
         Debug = false % Set to true to print debug messages
         LastUpdated = 0
+        BackgroundPool
     end
 
     properties (Transient, Hidden)
@@ -47,6 +48,7 @@ classdef SpikeTimeBuffer < handle
             assert(obj.SpikeThreshold < 0, 'SpikeThreshold must be negative, is %g.', obj.SpikeThreshold)
 
             obj.SpikeTimes = cell(384, 1);
+            obj.BackgroundPool = backgroundPool();
         end
 
         function connect(obj, ip)
@@ -62,7 +64,7 @@ classdef SpikeTimeBuffer < handle
             nSamples = ceil(duration*obj.SampleRate);
             % data: nSamples x nChannels (int16)
             % headCt: sampleIndex of first sample in matrix
-            [data, headSampleIndex] = FetchLatest(obj.SGLX, 2, 0, min(2*nSamples, obj.SampleRate*2)); %% js=2: use filtered IM stream buffer; ip=0:?
+            [data, headSampleIndex] = FetchLatest(obj.SGLX, 2, 0, min(nSamples, obj.SampleRate*2)); %% js=2: use filtered IM stream buffer; ip=0:?
             data = double(data).*obj.Int16ToMicroVolts; % Convert to uV
             t0 = double(headSampleIndex - 1) ./ obj.SampleRate;
         end
@@ -77,21 +79,24 @@ classdef SpikeTimeBuffer < handle
             timeElapsed = currentTime - obj.LastUpdated;
             [data, t0] = obj.fetch(min(timeElapsed + obj.UpdateIntervalPadding, min(obj.MaxDuration, 2))); % SpikeGLX only has 2 seconds of buffered data
 
-             % Can we parfeval everything below?
-            spikeTimes = obj.detectSpikes(data, t0, obj.SampleRate, obj.SpikeThreshold);
-            % append new spiketimes
-            for iChannel = 1:384
-                st = [obj.SpikeTimes{iChannel}, spikeTimes{iChannel}];
-                st(st < currentTime - obj.MaxDuration) = [];
-                obj.SpikeTimes{iChannel} = unique(st);
-            end
+            % Can we parfeval everything below?
+            discardBefore = currentTime - obj.MaxDuration;
+            % [spikeTimes, currentTime] = SpikeTimeBuffer.detectSpikes(data, t0, currentTime, obj.SampleRate, obj.SpikeThreshold, obj.SpikeTimes, discardBefore);
+            % obj.updateSpikeTimes(spikeTimes, currentTime);
+            F = parfeval(obj.BackgroundPool, @SpikeTimeBuffer.detectSpikes, 2, data, t0, currentTime, obj.SampleRate, obj.SpikeThreshold, obj.SpikeTimes, discardBefore);
+            afterAll(F, @obj.updateSpikeTimes, 0);
+        end
+
+        function updateSpikeTimes(obj, spikeTimes, currentTime)
+            obj.SpikeTimes = spikeTimes;
+            timeElapsed = currentTime - obj.LastUpdated;
+            obj.LastUpdated = currentTime;
             if obj.Debug
                 fprintf(repmat('\b', [1, obj.LineLength]));
                 currentTimeDisp = seconds(currentTime);
                 currentTimeDisp.Format = 'hh:mm:ss.SSS';
-                obj.LineLength = fprintf('Iteration %i: CurrentTime = %s, TimeElapsed = %.1f ms (TimerAverage = %.1f ms), Channel0 = %.1f sp/s, Channel4 = %.1f sp/s\n', obj.Timer.TasksExecuted, currentTimeDisp, 1000*timeElapsed, 1000*obj.Timer.AveragePeriod, length(obj.SpikeTimes{1})./obj.MaxDuration, length(obj.SpikeTimes{5})./obj.MaxDuration);
+                obj.LineLength = fprintf('Iteration %i: CurrentTime = %s, TimeElapsed = %.1f ms (TimerAverage = %.1f ms)\nChannel0 = %.1f sp/s, Channel4 = %.1f sp/s\n', obj.Timer.TasksExecuted, currentTimeDisp, 1000*timeElapsed, 1000*obj.Timer.AveragePeriod, length(obj.SpikeTimes{1})./obj.MaxDuration, length(obj.SpikeTimes{5})./obj.MaxDuration);
             end
-            obj.LastUpdated = currentTime;
         end
 
         function start(obj)
@@ -102,7 +107,7 @@ classdef SpikeTimeBuffer < handle
             end
             obj.Timer = timer();
             obj.Timer.Period = obj.UpdateInterval;
-            obj.Timer.ExecutionMode = 'fixedRate'; % fixedDelay, fixedSpacing
+            obj.Timer.ExecutionMode = 'fixedSpacing'; % fixedRate, fixedDelay, fixedSpacing; 'fixedSpacing' worked best it seems
             obj.Timer.TimerFcn = @(~, ~) obj.onUpdate();
 
             start(obj.Timer);
@@ -131,16 +136,17 @@ classdef SpikeTimeBuffer < handle
 
     methods (Static)
 
-        function spikeTimes = detectSpikes(obj, data, t0, sampleRate, spikeThreshold)
+        function [spikeTimes, currentTime] = detectSpikes(data, t0, currentTime, sampleRate, spikeThreshold, spikeTimes, discardBefore)
             [B, A] = butter(2, [300, 9000]/(sampleRate/2)); % Bandpass
             data = filter(B, A, data); % Bandpass
-            data = data(nSamples+1:end, :);
             data = data - mean(data, 2); % CAR, we do mean since it's faster(?) than median 
 
             isBelowThreshold = data < spikeThreshold;
-            spikeTimes = cell(384, 1);
+            % spikeTimes = cell(384, 1);
             for iChannel = 1:384
-                spikeTimes{iChannel} = t0 + strfind(isBelowThreshold(:, iChannel)', [0,0,0,0,0, 1, 1, 1])./obj.SampleRate;
+                st = [spikeTimes{iChannel}, t0 + strfind(isBelowThreshold(:, iChannel)', [0,0,0,0,0, 1, 1, 1])./sampleRate];
+                st(st < discardBefore) = [];
+                spikeTimes{iChannel} = unique(st);
             end
         end
 

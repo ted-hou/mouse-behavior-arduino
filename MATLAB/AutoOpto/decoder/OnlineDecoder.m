@@ -225,10 +225,10 @@ classdef OnlineDecoder < handle
             end
             yHat = obj.Model.MDL.predict(X);
 
-            % fprintf(repmat('\b', [1, obj.LineLength]));
-            % currentTimeDisp = seconds(t);
-            % currentTimeDisp.Format = 'hh:mm:ss.SSS';
-            % obj.LineLength = fprintf('CurrentTime = %s, X = %.1f sp/s, P(Move) = %.0f%%\n', currentTimeDisp, X, 100*yHat);
+            fprintf(repmat('\b', [1, obj.LineLength]));
+            currentTimeDisp = seconds(t);
+            currentTimeDisp.Format = 'hh:mm:ss.SSS';
+            obj.LineLength = fprintf('CurrentTime = %s, X = %.1f sp/s, P(Move) = %.0f%%\n', currentTimeDisp, X, 100*yHat);
         end
 
         function stopDecoding(obj)
