@@ -24,6 +24,7 @@ classdef SpikeTimeBuffer < handle
     end
 
     methods
+
         function obj = SpikeTimeBuffer(varargin)
             p = inputParser();
             p.addParameter('SpikeThreshold', -75, @isnumeric) % Spike detection threshold (uV)
@@ -56,24 +57,14 @@ classdef SpikeTimeBuffer < handle
             obj.SGLX = SpikeGL(ip);
         end
 
-        function spikeTimes = detectSpikes(obj, duration)
+        % Not thread safe (apparently because reference to obj.SGLX)
+        function [data, t0] = fetch(obj, duration)
             nSamples = ceil(duration*obj.SampleRate);
             % data: nSamples x nChannels (int16)
             % headCt: sampleIndex of first sample in matrix
             [data, headSampleIndex] = FetchLatest(obj.SGLX, 2, 0, min(2*nSamples, obj.SampleRate*2)); %% js=2: use filtered IM stream buffer; ip=0:?
-
             data = double(data).*obj.Int16ToMicroVolts; % Convert to uV
-            [B, A] = butter(2, [300, 9000]/(obj.SampleRate/2)); % Bandpass
-            data = filter(B, A, data); % Bandpass
-            data = data(nSamples+1:end, :);
-            data = data - mean(data, 2); % CAR, we do mean since it's faster(?) than median 
-
             t0 = double(headSampleIndex - 1) ./ obj.SampleRate;
-            isBelowThreshold = data < obj.SpikeThreshold;
-            spikeTimes = cell(384, 1);
-            for iChannel = 1:384
-                spikeTimes{iChannel} = t0 + strfind(isBelowThreshold(:, iChannel)', [0,0,0,0,0, 1, 1, 1])./obj.SampleRate;
-            end
         end
 
         function t = getTime(obj)
@@ -84,7 +75,10 @@ classdef SpikeTimeBuffer < handle
         function onUpdate(obj)
             currentTime = obj.getTime();
             timeElapsed = currentTime - obj.LastUpdated;
-            spikeTimes = obj.detectSpikes(min(timeElapsed + obj.UpdateIntervalPadding, min(obj.MaxDuration, 2)));
+            [data, t0] = obj.fetch(min(timeElapsed + obj.UpdateIntervalPadding, min(obj.MaxDuration, 2))); % SpikeGLX only has 2 seconds of buffered data
+
+             % Can we parfeval everything below?
+            spikeTimes = obj.detectSpikes(data, t0, obj.SampleRate, obj.SpikeThreshold);
             % append new spiketimes
             for iChannel = 1:384
                 st = [obj.SpikeTimes{iChannel}, spikeTimes{iChannel}];
@@ -132,5 +126,23 @@ classdef SpikeTimeBuffer < handle
                 sr(iChannel) = nnz(obj.SpikeTimes{iChannel} >= window(1) & obj.SpikeTimes{iChannel} < window(2)) ./ (window(2) - window(1));
             end
         end
+
+    end
+
+    methods (Static)
+
+        function spikeTimes = detectSpikes(obj, data, t0, sampleRate, spikeThreshold)
+            [B, A] = butter(2, [300, 9000]/(sampleRate/2)); % Bandpass
+            data = filter(B, A, data); % Bandpass
+            data = data(nSamples+1:end, :);
+            data = data - mean(data, 2); % CAR, we do mean since it's faster(?) than median 
+
+            isBelowThreshold = data < spikeThreshold;
+            spikeTimes = cell(384, 1);
+            for iChannel = 1:384
+                spikeTimes{iChannel} = t0 + strfind(isBelowThreshold(:, iChannel)', [0,0,0,0,0, 1, 1, 1])./obj.SampleRate;
+            end
+        end
+
     end
 end
