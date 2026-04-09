@@ -1,7 +1,7 @@
 %% CameraConnection: records footage from a windows webcam
 classdef CameraConnection < handle
 	properties
-		EventLog = struct([])
+		EventLog = struct(Timestamp=[], FrameNumber=[])
 		Params
 	end
 
@@ -9,7 +9,11 @@ classdef CameraConnection < handle
 		VideoInput
 		Source
 		Rsc
-	end
+    end
+
+    properties (Transient, Access=private)
+        EventLogIndex = 0;
+    end
 
 	methods
 		function obj = CameraConnection(varargin)
@@ -238,9 +242,13 @@ classdef CameraConnection < handle
 
 		% Executed every 10 frames by default
 		function OnTrigger(obj, ~, evnt)
-			iEvent = length(obj.EventLog) + 1;
-			obj.EventLog(iEvent).Timestamp = datenum(evnt.Data.AbsTime);
-			obj.EventLog(iEvent).FrameNumber = evnt.Data.FrameNumber;
+			obj.EventLogIndex = obj.EventLogIndex + 1;
+
+            if obj.EventLogIndex > length(obj.EventLog)
+                obj.EventLog(length(obj.EventLog)*2) = struct(Timestamp=[], FrameNumber=[]);
+            end
+			obj.EventLog(obj.EventLogIndex).Timestamp = datenum(evnt.Data.AbsTime);
+			obj.EventLog(obj.EventLogIndex).FrameNumber = evnt.Data.FrameNumber;
 		end
 
 		% Open preview window
@@ -267,6 +275,9 @@ classdef CameraConnection < handle
 				obj.SaveAs()
 			end
 
+            obj.EventLogIndex = 0;
+            obj.EventLog = struct(Timestamp=[], FrameNumber=[]);
+            obj.EventLog(21600) = struct(Timestamp=[], FrameNumber=[]);
 			fprintf(1, 'Loggin video to disk...\n')
 
 			start(obj.VideoInput)
@@ -285,6 +296,7 @@ classdef CameraConnection < handle
 				pause(.1)
 			end
 
+            obj.EventLog = obj.EventLog(arrayfun(@(log) ~isempty(log.Timestamp), obj.EventLog, UniformOutput=true));
 			fprintf(1, 'Video logging ended.\n')
 		end
 
