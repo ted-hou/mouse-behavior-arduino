@@ -5,8 +5,14 @@ classdef ArduinoConnection < handle
 		StateCanUpdateParams = logical([])
 		ParamNames = {}
 		ResultCodeNames = {}
-		EventMarkers = []
-		EventMarkersUntrimmed = []
+    end
+    properties (Hidden)
+		EventMarkersUntrimmed  % as of 20260409 this is deprecated, both point to the same untrimmed eventmarkers list
+    end
+    properties (Dependent)
+        EventMarkers % Made this one for backwards compatibility, 'untrimmed' ususally has all the event markers, 'eventmarkers' usually ends after the last trial finishes.
+    end
+    properties
 		EventMarkerNames = {}
 		Trials = struct([])
 		ExperimentFileName = ''			% Contains 'C://path/filename.mat'
@@ -28,11 +34,12 @@ classdef ArduinoConnection < handle
 		SerialConnection = []
 		State = []
 		ParamUpdateQueue = []
-		EventMarkersBuffer = []
 		Listeners
     end
 
     properties (Transient, Hidden)
+		EventMarkersBuffer % deprecated
+        EventMarkerIndex = 0
         AnalogOutputEventIndex = 0
     end
 
@@ -276,8 +283,7 @@ classdef ArduinoConnection < handle
 				end
 
 				% Load relevant experiment data
-				obj.EventMarkers 			= p.obj.EventMarkers;
-				obj.EventMarkersUntrimmed 	= p.obj.EventMarkersUntrimmed;
+				obj.EventMarkers 	        = p.obj.EventMarkers;
 				obj.Trials 					= p.obj.Trials;
 				obj.TrialsCompleted 		= p.obj.TrialsCompleted;
 
@@ -328,7 +334,6 @@ classdef ArduinoConnection < handle
 		end
 
 		function OnMessageReceived(obj, ~, ~)
-            global myLineLength
 			if (~obj.Connected)
 				obj.Connected = true;
 			end
@@ -349,7 +354,7 @@ classdef ArduinoConnection < handle
 					% New state entered - "$2 1" we've entered the second state on machine 2.
 					% Convert zero-based state indices (Arduino) to one-based indices (MATLAB)
 					subStrings = strsplit(strtrim(value), ' ');
-                    if length(subStrings) == 1
+                    if isscalar(subStrings)
                         index = 1;
                         state = str2double(subStrings{1}) + 1;
                         obj.SetState(state, index);
@@ -370,26 +375,32 @@ classdef ArduinoConnection < handle
 					% Arduino sent the name of a state - "@ 1 IDLE"
 					subStrings = strsplit(strtrim(value), ' ');
 					% Convert zero-based indices (Arduino) to one-based indices (MATLAB)
-					stateId = str2num(subStrings{1}) + 1;
+					stateId = str2double(subStrings{1}) + 1;
 					% Register state name and whether this states allows param update
 					obj.StateNames{stateId} = subStrings{2};
-					obj.StateCanUpdateParams(stateId) = logical(str2num(subStrings{3}));
+					obj.StateCanUpdateParams(stateId) = logical(str2double(subStrings{3}));
 				case '&'
 					% Arduino sent an event code and its timestamp - "& 0 100"
 					subStrings = strsplit(strtrim(value), ' ');
 					eventCode = str2double(subStrings{1}) + 1; % Convert zero-based indices (Arduino) to one-based indices (MATLAB)
-					timeStamp = str2double(subStrings{2});
+					timestamp = str2double(subStrings{2});
 					absTime = now;
-					obj.EventMarkersBuffer = [obj.EventMarkersBuffer; eventCode, timeStamp, absTime];
-					obj.EventMarkersUntrimmed = [obj.EventMarkersUntrimmed; eventCode, timeStamp, absTime];
+
+                    obj.EventMarkerIndex = obj.EventMarkerIndex + 1;
+                    % Allocate a bigger array if necessary
+                    if obj.EventMarkerIndex > size(obj.EventMarkers, 1)
+                        obj.EventMarkers = vertcat(obj.EventMarkers, NaN(size(obj.EventMarkers))); % Eww
+                    end
+
+					obj.EventMarkers(obj.EventMarkerIndex, :) = [eventCode, timestamp, absTime];
 
 					% Trigger EventMarkerReceived Event
-                    eventMarkerData = EventMarkerData(eventCode, timeStamp, absTime, obj.EventMarkerNames{eventCode});
+                    eventMarkerData = EventMarkerData(eventCode, timestamp, absTime, obj.EventMarkerNames{eventCode});
 					notify(obj, 'EventMarkerReceived', eventMarkerData)
 
 					% Debug message
 					if obj.DebugMode
-						fprintf('		EVENT: %s - %d\n', obj.EventMarkerNames{eventCode}, timeStamp)
+						fprintf('		EVENT: %s - %d\n', obj.EventMarkerNames{eventCode}, timestamp)
 					end
 				case '+'
 					% Arduino sent the name of an event marker - "+ 0 TRIAL_START"
@@ -412,18 +423,13 @@ classdef ArduinoConnection < handle
 					% Result code 1 returned - "`1"
 					% Result code 1 returned for machine 2 - "`2 1"
 					subStrings = strsplit(strtrim(value), ' ');
-                    if length(subStrings) == 1
+                    if isscalar(subStrings)
                         index = 1;
                         resultCode = str2double(subStrings{1}) + 1;
                     else
                         index = str2double(subStrings{1});
                         resultCode = str2double(subStrings{2}) + 1;
                     end
-
-
-					% Move eventMarkers from this trial into permanent storage
-					obj.EventMarkers = [obj.EventMarkers; obj.EventMarkersBuffer];
-					obj.EventMarkersBuffer = []; % Clear buffer
 
 					% Store trial results in as a new trial
 					iTrial = obj.TrialsCompleted + 1;
@@ -445,6 +451,8 @@ classdef ArduinoConnection < handle
 					% Register parameter name and value
 					obj.ResultCodeNames{codeId} = subStrings{2};
 				case '~'
+                    obj.EventMarkerIndex = 0;
+                    obj.EventMarkers = NaN(200000, 3); % typical session has no more than 100,000 events
 					fprintf('\nUp and running.\n')
                 case ':'
 					% Arduino sent analogWriteResolution - ": 12"
@@ -494,8 +502,7 @@ classdef ArduinoConnection < handle
                     end
 				otherwise
 					% Arduino sent a message
-                    fprintf(repmat('\b', [1, myLineLength]))
-					myLineLength = fprintf('%s\n', messageString);
+					fprintf('%s\n', messageString);
 			end
 		end
 
@@ -526,19 +533,24 @@ classdef ArduinoConnection < handle
             end
         end
 
+        function set.EventMarkers(obj, value)
+            obj.EventMarkersUntrimmed = value;
+        end
+
+        function value = get.EventMarkers(obj)
+            value = obj.EventMarkersUntrimmed;
+        end
+
         function t = GetEventMarker(obj, index, varargin)
 			p = inputParser;
 			addRequired(p, 'Index', @(x) isnumeric(x) || ischar(x));
             addOptional(p, 'TimeType', 'millis', @(x) ismember(x, {'millis', 'datenum', 'datetime'}))
-            addParameter(p, 'Untrimmed', true, @islogical)
+            addParameter(p, 'Untrimmed', true, @islogical) % as of 20260409 this is deprecated, both point to the same untrimmed eventmarkers list
 			parse(p, index, varargin{:});
 			index = p.Results.Index;
             timeType = p.Results.TimeType;
-            if p.Results.Untrimmed
-                data = obj.EventMarkersUntrimmed;
-            else
-                data = obj.EventMarkers;
-            end
+
+            data = obj.EventMarkers;
 
 			if ischar(index)
 				index = find(strcmpi(index, obj.EventMarkerNames), 1, 'first');
@@ -643,14 +655,11 @@ classdef ArduinoConnection < handle
 		% Interrupt current trial and return to IDLE
 		function Stop(obj)
 			obj.SendMessage('Q')
-			obj.EventMarkersBuffer = [];
 		end
 
 		% Trigger a soft restart on arduino
 		function Reset(obj)
 			obj.EventMarkers = [];
-			obj.EventMarkersUntrimmed = [];
-			obj.EventMarkersBuffer = [];
 			obj.Trials = struct([]); 
 			obj.TrialsCompleted = 0;
 			obj.State = [];
