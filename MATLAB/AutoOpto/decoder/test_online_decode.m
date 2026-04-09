@@ -4,7 +4,9 @@
 % 3. Build decoder via fitglm(): pMove as a function of spikerate
 % 4. For the rest of the session, monitor spikerates continuously, stimOn when pMove > theta (try theta=0.5)
 exp = TwoColorExperiment();
-
+%%
+exp.save();
+exp.saveArduino();
 %% Common module (spikeTimeBuffer)
 stb = SpikeTimeBuffer(SpikeThreshold=-30, MaxDuration=6, UpdateInterval=0.02, UpdateIntervalPadding=0.01, Debug=false);
 stb.connect('10.11.151.172');

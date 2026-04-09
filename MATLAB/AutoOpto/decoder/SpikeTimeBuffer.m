@@ -77,7 +77,7 @@ classdef SpikeTimeBuffer < handle
         function onUpdate(obj)
             currentTime = obj.getTime();
             timeElapsed = currentTime - obj.LastUpdated;
-            [data, t0] = obj.fetch(min(timeElapsed + obj.UpdateIntervalPadding, min(obj.MaxDuration, 2))); % SpikeGLX only has 2 seconds of buffered data
+            [data, t0] = obj.fetch(min(timeElapsed + obj.UpdateIntervalPadding, min(obj.MaxDuration, 0.1))); % SpikeGLX only has 2 seconds of buffered data
 
             % Can we parfeval everything below?
             discardBefore = currentTime - obj.MaxDuration;
