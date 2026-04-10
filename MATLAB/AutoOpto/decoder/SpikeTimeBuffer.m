@@ -10,18 +10,16 @@ classdef SpikeTimeBuffer < handle
         MaxDuration % Buffer capacity in seconds
         UpdateInterval
         UpdateIntervalPadding
+        UpdateIntervalActual % Measured update interval
         IP
+        Filter
     end
 
     properties (Transient)
         Timer
         Debug = false % Set to true to print debug messages
         LastUpdated = 0
-        BackgroundPool
-    end
-
-    properties (Transient, Hidden)
-        LineLength = 0
+        Pool
     end
 
     methods
@@ -48,7 +46,8 @@ classdef SpikeTimeBuffer < handle
             assert(obj.SpikeThreshold < 0, 'SpikeThreshold must be negative, is %g.', obj.SpikeThreshold)
 
             obj.SpikeTimes = cell(384, 1);
-            obj.BackgroundPool = backgroundPool();
+            [B, A] = butter(2, [300, 9000]/(obj.SampleRate/2));
+            obj.Filter = struct(B=B, A=A);
         end
 
         function connect(obj, ip)
@@ -81,25 +80,38 @@ classdef SpikeTimeBuffer < handle
 
             % Can we parfeval everything below?
             discardBefore = currentTime - obj.MaxDuration;
-            % [spikeTimes, currentTime] = SpikeTimeBuffer.detectSpikes(data, t0, currentTime, obj.SampleRate, obj.SpikeThreshold, obj.SpikeTimes, discardBefore);
-            % obj.updateSpikeTimes(spikeTimes, currentTime);
-            F = parfeval(obj.BackgroundPool, @SpikeTimeBuffer.detectSpikes, 2, data, t0, currentTime, obj.SampleRate, obj.SpikeThreshold, obj.SpikeTimes, discardBefore);
+
+            % SpikeTimeBuffer.detectSpikes(data, t0, currentTime, obj.SampleRate, obj.SpikeThreshold, obj.SpikeTimes, discardBefore, obj.Filter.B, obj.Filter.A);
+            F = parfeval(obj.Pool, @SpikeTimeBuffer.detectSpikes, 2, data, t0, currentTime, obj.SampleRate, obj.SpikeThreshold, obj.SpikeTimes, discardBefore, obj.Filter.B, obj.Filter.A);
             afterAll(F, @obj.updateSpikeTimes, 0);
+
+            if obj.Debug
+                obj.print();
+            end
         end
 
         function updateSpikeTimes(obj, spikeTimes, currentTime)
             obj.SpikeTimes = spikeTimes;
-            timeElapsed = currentTime - obj.LastUpdated;
+            obj.UpdateIntervalActual = currentTime - obj.LastUpdated;
             obj.LastUpdated = currentTime;
-            if obj.Debug
-                fprintf(repmat('\b', [1, obj.LineLength]));
-                currentTimeDisp = seconds(currentTime);
-                currentTimeDisp.Format = 'hh:mm:ss.SSS';
-                obj.LineLength = fprintf('Iteration %i: CurrentTime = %s, TimeElapsed = %.1f ms (TimerAverage = %.1f ms)\nChannel0 = %.1f sp/s, Channel4 = %.1f sp/s\n', obj.Timer.TasksExecuted, currentTimeDisp, 1000*timeElapsed, 1000*obj.Timer.AveragePeriod, length(obj.SpikeTimes{1})./obj.MaxDuration, length(obj.SpikeTimes{5})./obj.MaxDuration);
-            end
+        end
+
+        function print(obj)
+            % persistent ll
+            tDisp = seconds(obj.LastUpdated);
+            tDisp.Format = 'hh:mm:ss.SSS';
+            fprintf('Iteration %i: LastUpdate = %s, UpdateIntervalActual=%.1f ms, TimerAverage = %.1f ms; Channel0 = %.1f sp/s, Channel4 = %.1f sp/s\n', ...
+                obj.Timer.TasksExecuted, tDisp, 1000*obj.UpdateIntervalActual, 1000*obj.Timer.AveragePeriod, length(obj.SpikeTimes{1})./obj.MaxDuration, length(obj.SpikeTimes{5})./obj.MaxDuration);
         end
 
         function start(obj)
+            if isempty(obj.Pool) || ~isvalid(obj.Pool)
+                if ~isempty(gcp("nocreate"))
+                    delete(gcp("nocreate"))
+                end
+                % obj.Pool = parpool('Threads');
+                obj.Pool = backgroundPool;
+            end
             obj.connect(obj.IP);
             if ~isempty(obj.Timer) && isvalid(obj.Timer)
                 stop(obj.Timer);
@@ -119,6 +131,9 @@ classdef SpikeTimeBuffer < handle
                 delete(obj.Timer);
             end
             obj.Timer = [];
+            if ~isempty(obj.Pool) && isvalid(obj.Pool)
+                delete(obj.Pool);
+            end
         end
 
         function value = isRunning(obj)
@@ -136,8 +151,7 @@ classdef SpikeTimeBuffer < handle
 
     methods (Static)
 
-        function [spikeTimes, currentTime] = detectSpikes(data, t0, currentTime, sampleRate, spikeThreshold, spikeTimes, discardBefore)
-            [B, A] = butter(2, [300, 9000]/(sampleRate/2)); % Bandpass
+        function [spikeTimes, currentTime] = detectSpikes(data, t0, currentTime, sampleRate, spikeThreshold, spikeTimes, discardBefore, B, A)
             data = filter(B, A, data); % Bandpass
             data = data - mean(data, 2); % CAR, we do mean since it's faster(?) than median 
 
@@ -149,6 +163,20 @@ classdef SpikeTimeBuffer < handle
                 spikeTimes{iChannel} = unique(st);
             end
         end
+        % % Multichannel: data is nSamples x nChannels
+        % function [data] = filterData(data, B, A)
+        %     % [B, A] = butter(2, [300, 9000]/(sampleRate/2)); % Bandpass
+        %     data = filter(B, A, data); % Bandpass
+        %     data = data - mean(data, 2); % CAR, we do mean since it's faster(?) than median 
+        % end
+        % 
+        % % Singlechannel: data is 1 x nSamples, for parallel processing with
+        % % parfeval
+        % function [spikeTimes, currentTime, iChannel] = detectSpikes(data, t0, currentTime, sampleRate, spikeThreshold, spikeTimes, discardBefore, iChannel)
+        %     st = [spikeTimes, t0 + strfind(data < spikeThreshold, [0,0,0,0,0, 1, 1, 1])./sampleRate];
+        %     st(st < discardBefore) = [];
+        %     spikeTimes = unique(st);
+        % end
 
     end
 end

@@ -8,12 +8,12 @@ exp = TwoColorExperiment();
 exp.save();
 exp.saveArduino();
 %% Common module (spikeTimeBuffer)
-stb = SpikeTimeBuffer(SpikeThreshold=-30, MaxDuration=6, UpdateInterval=0.02, UpdateIntervalPadding=0.01, Debug=false);
+stb = SpikeTimeBuffer(SpikeThreshold=-45, MaxDuration=6, UpdateInterval=0.02, UpdateIntervalPadding=0.01, Debug=false);
 stb.connect('10.11.151.172');
 %%
 stb.start();
 %%
-% stb.stop();
+stb.stop();
 %% Plot a channel (for testing)
 % channel = 4 + 1;
 % nSamples=300;

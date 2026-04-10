@@ -8,6 +8,7 @@ classdef OnlineDecoder < handle
         Params = struct(Train=[], Test=[])
         Data = struct(Train=struct(XBaseline={}, XMove={}, tBaseline={}, tMove={}, trialLength={}), Test=struct(XBaseline={}, XMove={}, tBaseline={}, tMove={}, trialLength={}))
         Model
+        Debug = false
     end
 
     properties (Transient, SetAccess=protected)
@@ -18,11 +19,6 @@ classdef OnlineDecoder < handle
         Timer
         Listeners
     end
-
-    properties (Transient, Hidden)
-        LineLength = 0
-    end
-
 
     methods
         function obj = OnlineDecoder(stb, ac)
@@ -225,10 +221,11 @@ classdef OnlineDecoder < handle
             end
             yHat = obj.Model.MDL.predict(X);
 
-            % fprintf(repmat('\b', [1, obj.LineLength]));
-            % currentTimeDisp = seconds(t);
-            % currentTimeDisp.Format = 'hh:mm:ss.SSS';
-            % obj.LineLength = fprintf('CurrentTime = %s, X = %.1f sp/s, P(Move) = %.0f%%\n', currentTimeDisp, X, 100*yHat);
+            if obj.Debug
+                currentTimeDisp = seconds(t);
+                currentTimeDisp.Format = 'hh:mm:ss.SSS';
+                fprintf('CurrentTime = %s, X = %.1f sp/s, P(Move) = %.0f%%\n', currentTimeDisp, X, 100*yHat);
+            end
         end
 
         function stopDecoding(obj)
