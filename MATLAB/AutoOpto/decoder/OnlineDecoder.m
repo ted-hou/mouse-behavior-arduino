@@ -115,7 +115,7 @@ classdef OnlineDecoder < handle
             p.addParameter('UpdateInterval', 0.02, @isnumeric)
             p.addParameter('BinWidth', 0.1, @isnumeric)
             p.addParameter('Threshold', 0.5, @(x) isnumeric(x) && x<=1 && x>=0)
-            p.addParameter('Duration', 1, @(x) isnumeric(x) && x>=0)
+            p.addParameter('Duration', 0.5, @(x) isnumeric(x) && x>=0)
             p.addParameter('AOutValue', 4095, @isnumeric)
             p.parse(varargin{:})
             updateInterval = p.Results.UpdateInterval;
@@ -167,6 +167,7 @@ classdef OnlineDecoder < handle
             pMove = obj.Model.MDL.predict(X);
             obj.PMove = pMove;
 
+            % In TIMEOUT/WAITFORTOUCH, start opto if pMove exceeds threshold
             if pMove > obj.Params.Opto.Threshold && ~obj.IsLaserOn && ismember(obj.ArduinoState, ["TIMEOUT", "WAITFORTOUCH"])
                 % Turn laser on
                 obj.setLaser(true, obj.Params.Opto.AOutValue);

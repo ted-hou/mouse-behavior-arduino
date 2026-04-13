@@ -48,3 +48,8 @@ od.Debug = false;
 % Decode yMove = f(spikeRate_last100ms)
 % Start stim when yMove > 0.5 (or some theta)
 % onEvent: LEVER_PRESSED or LICK_ON, stop stim
+od.Debug = true;
+od.startAutoOpto(UpdateInterval=0.02, BinWidth=0.1, Threshold=0.5, Duration=0.5, AOutValue=exp.Results.aoutValues(5, 1, 1)); %iPower, iMirrorPos, iLaser
+%% 
+od.stopAutoOpto();
+od.Debug = false;
