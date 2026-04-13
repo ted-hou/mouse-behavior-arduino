@@ -5,7 +5,7 @@ classdef OnlineDecoder < handle
         SpikeTimeBuffer
         Arduino
         EventBuffer = struct(LEVER_HELD=[], LICK_HELD=[], TIMEOUT_START=[], HasMadeFirstMove=false)
-        Params = struct(Train=[], Test=[])
+        Params = struct(Train=[], Test=[], Opto=[])
         Data = struct(Train=struct(XBaseline={}, XMove={}, tBaseline={}, tMove={}, trialLength={}), Test=struct(XBaseline={}, XMove={}, tBaseline={}, tMove={}, trialLength={}))
         Model
         Debug = false
@@ -13,10 +13,14 @@ classdef OnlineDecoder < handle
 
     properties (Transient, SetAccess=protected)
         Mode = "off" % "off", "training", "testing", "opto"
+        PMove = NaN
+        IsLaserOn = false
+        ArduinoState = ""
     end
 
     properties (Transient)
         Timer
+        OptoPulseTimer
         Listeners
     end
 
@@ -73,7 +77,7 @@ classdef OnlineDecoder < handle
             obj.Timer.ExecutionMode = 'fixedRate'; % fixedDelay, fixedSpacing
             obj.Timer.TimerFcn = @(~, ~) obj.onTestingUpdate();
 
-            start(obj.Timer);            
+            start(obj.Timer);
         end
 
         function stopTesting(obj)
@@ -83,49 +87,142 @@ classdef OnlineDecoder < handle
                 delete(obj.Timer);
             end
             obj.Timer = [];
+            obj.Mode = "off";
         end
 
         function onTestingUpdate(obj)
             t = obj.getTime();
             X = obj.SpikeTimeBuffer.getSpikeRates([t - obj.Params.Test.BinWidth, t]); % There's a more direct way of doing this without aliasing?
-            X = mean(X, 2);
+            X = mean(X, 2); % Average across neurons
             if isempty(obj.Model)
                 return
             end
-            yHat = obj.Model.MDL.predict(X);
+            pMove = obj.Model.MDL.predict(X);
+            obj.PMove = pMove;
 
             if obj.Debug
                 currentTimeDisp = seconds(t);
                 currentTimeDisp.Format = 'hh:mm:ss.SSS';
-                fprintf('CurrentTime = %s, X = %.1f sp/s, P(Move) = %.0f%%\n', currentTimeDisp, X, 100*yHat);
+                fprintf('CurrentTime = %s, X = %.1f sp/s, P(Move) = %.0f%%\n', currentTimeDisp, X, 100*pMove);
             end
         end
 
-        function startOptoClosedLoop(obj)
+        function startAutoOpto(obj, varargin)
             assert(obj.Mode == "off", "Current mode is %s, expected ""off"".", obj.Mode)            
             obj.Mode = "opto";
-            error("Not implemented: mode ""opto"".")
+
+            p = inputParser();
+            p.addParameter('UpdateInterval', 0.02, @isnumeric)
+            p.addParameter('BinWidth', 0.1, @isnumeric)
+            p.addParameter('Threshold', 0.5, @(x) isnumeric(x) && x<=1 && x>=0)
+            p.addParameter('Duration', 1, @(x) isnumeric(x) && x>=0)
+            p.addParameter('AOutValue', 4095, @isnumeric)
+            p.parse(varargin{:})
+            updateInterval = p.Results.UpdateInterval;
+            binWidth = p.Results.BinWidth;
+
+            obj.Params.Opto.UpdateInterval = updateInterval;
+            obj.Params.Opto.BinWidth = binWidth;
+            obj.Params.Opto.Threshold = p.Results.Threshold;
+            obj.Params.Opto.Duration = p.Results.Duration;
+            obj.Params.Opto.AOutValue = p.Results.AOutValue;
+
+            if ~isempty(obj.Timer) && isvalid(obj.Timer)
+                stop(obj.Timer);
+                delete(obj.Timer);
+            end
+            obj.Timer = timer();
+            obj.Timer.Period = updateInterval;
+            obj.Timer.ExecutionMode = 'fixedRate'; % fixedDelay, fixedSpacing
+            obj.Timer.TimerFcn = @(~, ~) obj.onAutoOptoUpdate();
+
+            start(obj.Timer);
         end
 
-        function stopOptoClosedLoop(obj)
-            assert(obj.Mode == "opto", "Current mode is %s, expected ""opto"".", obj.Mode)            
+        function stopAutoOpto(obj)
+            assert(obj.Mode == "opto", "Current mode is %s, expected ""opto"".", obj.Mode)
+            if ~isempty(obj.Timer) && isvalid(obj.Timer)
+                stop(obj.Timer);
+                delete(obj.Timer);
+            end
+            obj.Timer = [];
+            if ~isempty(obj.OptoPulseTimer) && isvalid(obj.OptoPulseTimer)
+                stop(obj.OptoPulseTimer);
+                delete(obj.OptoPulseTimer);
+            end
+            obj.OptoPulseTimer = [];
+            if obj.IsLaserOn
+                obj.setLaser(false);
+            end
+            obj.Mode = "off";
+        end
+
+        function onAutoOptoUpdate(obj)
+            t = obj.getTime();
+            X = obj.SpikeTimeBuffer.getSpikeRates([t - obj.Params.Opto.BinWidth, t]); % There's a more direct way of doing this without aliasing?
+            X = mean(X, 2); % Average across neurons
+            if isempty(obj.Model)
+                return
+            end
+            pMove = obj.Model.MDL.predict(X);
+            obj.PMove = pMove;
+
+            if pMove > obj.Params.Opto.Threshold && ~obj.IsLaserOn && ismember(obj.ArduinoState, ["TIMEOUT", "WAITFORTOUCH"])
+                % Turn laser on
+                obj.setLaser(true, obj.Params.Opto.AOutValue);
+
+                % Schedule laser to turn off after "Duration"    
+                if ~isempty(obj.OptoPulseTimer) && isvalid(obj.OptoPulseTimer)
+                    stop(obj.OptoPulseTimer);
+                    delete(obj.OptoPulseTimer);
+                end
+                obj.OptoPulseTimer = timer();
+                obj.OptoPulseTimer.StartDelay = obj.Params.Opto.Duration;
+                obj.OptoPulseTimer.ExecutionMode = 'singleShot'; % fixedDelay, fixedSpacing
+                obj.OptoPulseTimer.TimerFcn = @(~, ~) obj.setLaser(false);
+                start(obj.OptoPulseTimer);
+            end
+
+            if obj.Debug
+                currentTimeDisp = seconds(t);
+                currentTimeDisp.Format = 'hh:mm:ss.SSS';
+                fprintf('CurrentTime = %s, X = %.1f sp/s, P(Move) = %.0f%%\n', currentTimeDisp, X, 100*pMove);
+            end
+        end
+
+        function setLaser(obj, turnOn, aout)
+            if turnOn
+                obj.IsLaserOn = true;
+                obj.Arduino.SendMessage(sprintf('A %i %i', 1, aout));
+                if obj.Debug
+                    fprintf("##########  OPTO ON, aout=%i  ############\n", aout)
+                end
+            else
+                obj.IsLaserOn = false;
+                obj.Arduino.SendMessage(sprintf('A %i %i', 1, 0));
+                if obj.Debug
+                    fprintf("##########  OPTO OFF  ############\n")
+                end
+            end
         end
 
         % Listener callback for ArduinoConnection StateChanged events
         function onStateChanged(obj, src, ~)
+            ac = obj.Arduino;
+            obj.ArduinoState = string(ac.StateNames{ac.GetState()});
         end
 
         % Listener callback for ArduinoConnection EventMarkerReceived events
         function onEventMarkerReceived(obj, src, event)
-            % See class: EventMarkerData
-            t = obj.addEventToBuffer(event);
 
             switch obj.Mode
                 case "training"
                     switch event.Name
                         case 'TIMEOUT_START'
+                            t = obj.addEventToBuffer(event);
                             obj.EventBuffer.HasMadeFirstMove = false;
                         case {'LICK_HELD', 'LEVER_HELD'}
+                            t = obj.addEventToBuffer(event);
                             if obj.EventBuffer.HasMadeFirstMove
                                 return % Skip because not first move in a trial
                             end
@@ -144,17 +241,30 @@ classdef OnlineDecoder < handle
                             obj.Data.Train(length(obj.Data.Train) + 1) = struct(XBaseline=XBaseline, XMove=XMove, tBaseline=baselineWindow, tMove=moveWindow, trialLength=t-t0);
                             obj.EventBuffer.HasMadeFirstMove = true;
                     end
-                case {"testing", "opto"}
-                case "off"
+
+                case "opto"
+                        case 'TIMEOUT_START'
+                            t = obj.addEventToBuffer(event);
+                            obj.EventBuffer.HasMadeFirstMove = false;
+                        case {'LICK_HELD', 'LEVER_HELD'}
+                            t = obj.addEventToBuffer(event);
+                            if obj.EventBuffer.HasMadeFirstMove
+                                return % Skip because not first move in a trial
+                            end
+                            obj.EventBuffer.HasMadeFirstMove = true;
+
+                case {"testing", "off"}
             end
         end
 
         function t = addEventToBuffer(obj, event)
-            t = obj.getTime();
             % See class: EventMarkerData
             % if ismember(event.Name, {'LEVER_HELD', 'LICK_HELD', 'TIMEOUT_START', 'LEVER_DEPLOY_START', 'LEVER_DEPLOY_END', 'LEVER_RETRACT_START', 'LEVER_RETRACT_END'})
             if ismember(event.Name, {'LEVER_HELD', 'LICK_HELD', 'TIMEOUT_START'})
+                t = obj.getTime();
                 obj.EventBuffer.(event.Name) = [obj.EventBuffer.(event.Name), t];
+            else
+                t = [];
             end
         end
 
