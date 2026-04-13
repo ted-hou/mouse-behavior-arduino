@@ -50,13 +50,55 @@ classdef OnlineDecoder < handle
             obj.Mode = "off";
         end
 
-        function startTesting(obj)
+        function startTesting(obj, varargin)
             assert(obj.Mode == "off", "Current mode is %s, expected ""off"".", obj.Mode)
             obj.Mode = "testing";
+
+            p = inputParser();
+            p.addParameter('UpdateInterval', 0.02, @isnumeric)
+            p.addParameter('BinWidth', 0.1, @isnumeric)
+            p.parse(varargin{:})
+            updateInterval = p.Results.UpdateInterval;
+            binWidth = p.Results.BinWidth;
+
+            obj.Params.Test.UpdateInterval = updateInterval;
+            obj.Params.Test.BinWidth = binWidth;
+
+            if ~isempty(obj.Timer) && isvalid(obj.Timer)
+                stop(obj.Timer);
+                delete(obj.Timer);
+            end
+            obj.Timer = timer();
+            obj.Timer.Period = updateInterval;
+            obj.Timer.ExecutionMode = 'fixedRate'; % fixedDelay, fixedSpacing
+            obj.Timer.TimerFcn = @(~, ~) obj.onTestingUpdate();
+
+            start(obj.Timer);            
         end
 
         function stopTesting(obj)
-            assert(obj.Mode == "testing", "Current mode is %s, expected ""testing"".", obj.Mode)            
+            assert(obj.Mode == "testing", "Current mode is %s, expected ""testing"".", obj.Mode)
+            if ~isempty(obj.Timer) && isvalid(obj.Timer)
+                stop(obj.Timer);
+                delete(obj.Timer);
+            end
+            obj.Timer = [];
+        end
+
+        function onTestingUpdate(obj)
+            t = obj.getTime();
+            X = obj.SpikeTimeBuffer.getSpikeRates([t - obj.Params.Test.BinWidth, t]); % There's a more direct way of doing this without aliasing?
+            X = mean(X, 2);
+            if isempty(obj.Model)
+                return
+            end
+            yHat = obj.Model.MDL.predict(X);
+
+            if obj.Debug
+                currentTimeDisp = seconds(t);
+                currentTimeDisp.Format = 'hh:mm:ss.SSS';
+                fprintf('CurrentTime = %s, X = %.1f sp/s, P(Move) = %.0f%%\n', currentTimeDisp, X, 100*yHat);
+            end
         end
 
         function startOptoClosedLoop(obj)
@@ -189,51 +231,5 @@ classdef OnlineDecoder < handle
             obj.Model.MDL = mdl;
         end
 
-        function startDecoding(obj, varargin)
-            p = inputParser();
-            p.addParameter('UpdateInterval', 0.02, @isnumeric)
-            p.addParameter('BinWidth', 0.1, @isnumeric)
-            p.parse(varargin{:})
-            updateInterval = p.Results.UpdateInterval;
-            binWidth = p.Results.BinWidth;
-
-            obj.Params.Test.UpdateInterval = updateInterval;
-            obj.Params.Test.BinWidth = binWidth;
-
-            if ~isempty(obj.Timer) && isvalid(obj.Timer)
-                stop(obj.Timer);
-                delete(obj.Timer);
-            end
-            obj.Timer = timer();
-            obj.Timer.Period = updateInterval;
-            obj.Timer.ExecutionMode = 'fixedRate'; % fixedDelay, fixedSpacing
-            obj.Timer.TimerFcn = @(~, ~) obj.onDecoderUpdate();
-
-            start(obj.Timer);
-        end
-
-        function onDecoderUpdate(obj)
-            t = obj.getTime();
-            X = obj.SpikeTimeBuffer.getSpikeRates([t - obj.Params.Test.BinWidth, t]); % There's a more direct way of doing this without aliasing?
-            X = mean(X, 2);
-            if isempty(obj.Model)
-                return
-            end
-            yHat = obj.Model.MDL.predict(X);
-
-            if obj.Debug
-                currentTimeDisp = seconds(t);
-                currentTimeDisp.Format = 'hh:mm:ss.SSS';
-                fprintf('CurrentTime = %s, X = %.1f sp/s, P(Move) = %.0f%%\n', currentTimeDisp, X, 100*yHat);
-            end
-        end
-
-        function stopDecoding(obj)
-            if ~isempty(obj.Timer) && isvalid(obj.Timer)
-                stop(obj.Timer);
-                delete(obj.Timer);
-            end
-            obj.Timer = [];
-        end
     end
 end

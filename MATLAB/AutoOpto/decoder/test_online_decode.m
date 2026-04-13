@@ -14,46 +14,32 @@ stb.connect('10.11.151.172');
 stb.start();
 %%
 stb.stop();
-%% Plot a channel (for testing)
-% channel = 4 + 1;
-% nSamples=300;
-% stb.connect();[data, headSampleIndex] = FetchLatest(stb.SGLX, 2, 0, nSamples*2); %% js=2: use filtered IM stream buffer; ip=0:?4
-% data = double(data.*stb.Int16ToMicroVolts);
-% 
-% [B, A] = butter(2, [300, 9000]/(stb.SampleRate/2));
-% data = filter(B, A, data);
-% data = data - median(data, 2);
-% 
-% plot(data(:, channel))
-% xlim([nSamples+1, 2*nSamples])
-% ylim([-61.5, 61.5])
-%% Training (record)
+
+%% Create online decorder
 od = OnlineDecoder(stb, exp.LaserArduino);
 
-%%
-od.clearEventBuffer();
-od.clearTrainingData();
-od.startTraining(MinTrialLength=1, BaselineWindow=[-6, -1], MoveWindow=[-0.5, 0]);
+%% Start collect training data (run this and let the mouse do task) 
 % While in STATE_WAITFORTOUCH or STATE_TIMEOUT, continuously generate a 6s buffer of spike times
 % onEnter STATE_WAITFORTOUCH or STATE_TIMEOUT, discard buffered spike times
 % While in STATE_WAITFORTOUCH or STATE_TIMEOUT, on EVENT_LICK_ON or EVENT_LEVER TOUCHED, calculate spike rates for [-0.5, 0] and [min(-6, -validBufferLength), -2] 
 % Accumute spikerate.move and spikerate.baseline, and trialInfo (correct/incorrect reach/lick, tTimeoutStart, tMove)
+od.clearEventBuffer();
+od.clearTrainingData();
+od.startTraining(MinTrialLength=1, BaselineWindow=[-6, -1], MoveWindow=[-0.5, 0]);
 
-%%
+%% Stop collect training data
 od.stopTraining();
 
-%%
+%% Fit model that predicts p(move) as a function of spike rate (logistic regression, usually)
 od.fitModel(Holdout=0.1, ShowPlot=true)
-% od.fitModel()
 
-%%
-od.startDecoding();
+%% Test decoder performace by continuously printing decoded p(move)
+od.Debug = true;
+od.startTesting(UpdateInterval=0.02, BinWidth=0.1);
 
-%% Training (build model)
-% Call a function to stop collecting training data
-% Some manual curation
-% Build GLM
-% k-fold validate GLM, find best theta
+%% Stop testing decoder
+od.stopTesting();
+od.Debug = false;
 
 %% Opto-ing
 
