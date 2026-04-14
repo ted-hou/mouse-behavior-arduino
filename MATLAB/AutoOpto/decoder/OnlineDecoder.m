@@ -16,6 +16,7 @@ classdef OnlineDecoder < handle
         PMove = NaN
         IsLaserOn = false
         ArduinoState = ""
+        Files = struct(DecodedData=-1, Events=-1);
     end
 
     properties (Transient)
@@ -91,13 +92,7 @@ classdef OnlineDecoder < handle
         end
 
         function onTestingUpdate(obj)
-            t = obj.getTime();
-            X = obj.SpikeTimeBuffer.getSpikeRates([t - obj.Params.Test.BinWidth, t]); % There's a more direct way of doing this without aliasing?
-            X = mean(X, 2); % Average across neurons
-            if isempty(obj.Model)
-                return
-            end
-            pMove = obj.Model.MDL.predict(X);
+            [pMove, t, X] = obj.decodeNow(obj.Params.Test.BinWidth);
             obj.PMove = pMove;
 
             if obj.Debug
@@ -158,13 +153,7 @@ classdef OnlineDecoder < handle
         end
 
         function onAutoOptoUpdate(obj)
-            t = obj.getTime();
-            X = obj.SpikeTimeBuffer.getSpikeRates([t - obj.Params.Opto.BinWidth, t]); % There's a more direct way of doing this without aliasing?
-            X = mean(X, 2); % Average across neurons
-            if isempty(obj.Model)
-                return
-            end
-            pMove = obj.Model.MDL.predict(X);
+            [pMove, t, X] = obj.decodeNow(obj.Params.Opto.BinWidth);
             obj.PMove = pMove;
 
             % In TIMEOUT/WAITFORTOUCH, start opto if pMove exceeds threshold
@@ -188,6 +177,98 @@ classdef OnlineDecoder < handle
                 currentTimeDisp = seconds(t);
                 currentTimeDisp.Format = 'hh:mm:ss.SSS';
                 fprintf('CurrentTime = %s, X = %.1f sp/s, P(Move) = %.0f%%\n', currentTimeDisp, X, 100*pMove);
+            end
+        end
+
+        function fitModel(obj, varargin)
+            p = inputParser();
+            p.addParameter('Holdout', 0, @isnumeric)
+            p.addParameter('ShowPlot', false, @islogical)
+            p.parse(varargin{:})
+            holdout = p.Results.Holdout;
+            showPlot = p.Results.ShowPlot;
+
+            nTrials = length(obj.Data.Train);
+            if holdout > 0
+                cvp = cvpartition(nTrials, Holdout=0.3);
+                isTraining = cvp.training();
+                isTest = cvp.test();
+            else
+                isTraining = true(nTrials, 1);
+                isTest = false(nTrials, 1);
+            end
+            nTrain = nnz(isTraining);
+            nTest = nnz(isTest);
+
+            XTrain = [vertcat(obj.Data.Train(isTraining).XBaseline); vertcat(obj.Data.Train(isTraining).XMove)];
+            XTrain = mean(XTrain, 2);
+            yTrain = [zeros(nTrain, 1); ones(nTrain, 1)];
+            
+            mdl = fitglm(XTrain, yTrain, 'linear', Distribution='binomial', Link='logit');
+
+            yHatTrainMove = mdl.predict(XTrain(yTrain==1, :)); % should cluster near 1
+            yHatTrainBaseline = mdl.predict(XTrain(yTrain==0, :)); % should cluster near 0
+
+            if nTest > 0
+                XTest = [vertcat(obj.Data.Train(isTest).XBaseline); vertcat(obj.Data.Train(isTest).XMove)];
+                XTest = mean(XTest, 2);
+                yTest = [zeros(nTest, 1); ones(nTest, 1)];
+                yHatTestMove = mdl.predict(XTest(yTest==1, :)); % should cluster near 1
+                yHatTestBaseline = mdl.predict(XTest(yTest==0, :)); % should cluster near 0
+            end
+
+            if showPlot
+                ax = axes(figure);
+                hold(ax, 'on')
+                histogram(ax, yHatTrainMove, -0.1:0.05:1.1, FaceColor='blue', FaceAlpha=0.2, EdgeAlpha=0, DisplayName='peri-move (train)')
+                histogram(ax, yHatTrainBaseline, -0.1:0.05:1.1, FaceColor='red', FaceAlpha=0.2, EdgeAlpha=0, DisplayName='baseline (train)')
+
+                if nTest > 0
+                    histogram(ax, yHatTestMove, -0.1:0.05:1.1, FaceColor='blue', FaceAlpha=0.2, EdgeAlpha=1, DisplayName='peri-move (test)')
+                    histogram(ax, yHatTestBaseline, -0.1:0.05:1.1, FaceColor='red', FaceAlpha=0.2, EdgeAlpha=1, DisplayName='baseline (test)')
+                end
+
+                xlabel('p(move)')
+                ylabel('no. trials')
+                legend(ax)
+            end
+
+            obj.Model.MDL = mdl;
+        end
+
+        function [p, t, X] = decodeNow(obj, binWidth)
+            % p: decoded movement probability, [0, 1]
+            % t: current time (ephys)
+            % X: spikerate (averaged across channels) during [t-binWidth, t]
+            t = obj.getTime();
+            X = obj.SpikeTimeBuffer.getSpikeRates([t - binWidth, t]); % There's a more direct way of doing this without aliasing?
+            X = mean(X, 2); % Average across neurons
+            if isempty(obj.Model)
+                p = NaN;
+                return
+            end
+            p = obj.Model.MDL.predict(X);
+            obj.writeDecodedData(p, t, X); % Write decoded data to file.
+        end
+
+        function writeDecodedData(obj, p, t, X)
+            i = uint32(obj.SpikeTimeBuffer.timestampToSampleIndex(t));
+            X = uint16(X / 200 * 65535);
+            p = uint8(p * 255);
+
+            fid = obj.getOrCreateFile('DecodedData');
+            fwrite(fid, i, 'uint32');
+            fwrite(fid, X, 'uint16');
+            fwrite(fid, p, 'uint8');
+        end
+
+        function fid = getOrCreateFile(obj, name)
+            fid = obj.(name);
+            % You're gonna be wanting to create it
+            if isempty(fopen(fid)) % Returns empty for invalid fid (non-existent or closed)
+                [path, ~, ~] = fileparts(obj.Arduino.ExperimentFileName);
+                assert(isfolder(path));
+                fid = fopen(fullfile(path, sprintf('%s.bin', name)), 'a');
             end
         end
 
@@ -286,61 +367,7 @@ classdef OnlineDecoder < handle
             obj.EventBuffer = struct(LEVER_HELD=[], LICK_HELD=[], TIMEOUT_START=[], HasMadeFirstMove=false);
         end
 
-        function fitModel(obj, varargin)
-            p = inputParser();
-            p.addParameter('Holdout', 0, @isnumeric)
-            p.addParameter('ShowPlot', false, @islogical)
-            p.parse(varargin{:})
-            holdout = p.Results.Holdout;
-            showPlot = p.Results.ShowPlot;
-
-            nTrials = length(obj.Data.Train);
-            if holdout > 0
-                cvp = cvpartition(nTrials, Holdout=0.3);
-                isTraining = cvp.training();
-                isTest = cvp.test();
-            else
-                isTraining = true(nTrials, 1);
-                isTest = false(nTrials, 1);
-            end
-            nTrain = nnz(isTraining);
-            nTest = nnz(isTest);
-
-            XTrain = [vertcat(obj.Data.Train(isTraining).XBaseline); vertcat(obj.Data.Train(isTraining).XMove)];
-            XTrain = mean(XTrain, 2);
-            yTrain = [zeros(nTrain, 1); ones(nTrain, 1)];
-            
-            mdl = fitglm(XTrain, yTrain, 'linear', Distribution='binomial', Link='logit');
-
-            yHatTrainMove = mdl.predict(XTrain(yTrain==1, :)); % should cluster near 1
-            yHatTrainBaseline = mdl.predict(XTrain(yTrain==0, :)); % should cluster near 0
-
-            if nTest > 0
-                XTest = [vertcat(obj.Data.Train(isTest).XBaseline); vertcat(obj.Data.Train(isTest).XMove)];
-                XTest = mean(XTest, 2);
-                yTest = [zeros(nTest, 1); ones(nTest, 1)];
-                yHatTestMove = mdl.predict(XTest(yTest==1, :)); % should cluster near 1
-                yHatTestBaseline = mdl.predict(XTest(yTest==0, :)); % should cluster near 0
-            end
-
-            if showPlot
-                ax = axes(figure);
-                hold(ax, 'on')
-                histogram(ax, yHatTrainMove, -0.1:0.05:1.1, FaceColor='blue', FaceAlpha=0.2, EdgeAlpha=0, DisplayName='peri-move (train)')
-                histogram(ax, yHatTrainBaseline, -0.1:0.05:1.1, FaceColor='red', FaceAlpha=0.2, EdgeAlpha=0, DisplayName='baseline (train)')
-
-                if nTest > 0
-                    histogram(ax, yHatTestMove, -0.1:0.05:1.1, FaceColor='blue', FaceAlpha=0.2, EdgeAlpha=1, DisplayName='peri-move (test)')
-                    histogram(ax, yHatTestBaseline, -0.1:0.05:1.1, FaceColor='red', FaceAlpha=0.2, EdgeAlpha=1, DisplayName='baseline (test)')
-                end
-
-                xlabel('p(move)')
-                ylabel('no. trials')
-                legend(ax)
-            end
-
-            obj.Model.MDL = mdl;
-        end
+        [path, file, ext] = fileparts(obj.ExperimentFileName)
 
     end
 end

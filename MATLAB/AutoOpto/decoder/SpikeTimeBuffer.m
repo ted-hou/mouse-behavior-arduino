@@ -73,6 +73,10 @@ classdef SpikeTimeBuffer < handle
             t = double(sampleIndex - 1) ./ obj.SampleRate;
         end
 
+        function i = timestampToSampleIndex(obj, t)
+            i = round(t.*obj.SampleRate + 1);
+        end
+
         function onUpdate(obj)
             currentTime = obj.getTime();
             timeElapsed = currentTime - obj.LastUpdated;
