@@ -7,6 +7,23 @@ exp = TwoColorExperiment();
 %%
 exp.save();
 exp.saveArduino();
+
+
+%% Or load calibration
+sampleCalibration = load('C:\DATA\optrodecalibration\optrodecalibration_20260226\optrodecalibration_20260226.mat');
+sampleCalibration = sampleCalibration.obj;
+
+exp.Params = sampleCalibration.Params;
+exp.Results = sampleCalibration.Results;
+
+%% Make stim/lever plan
+exp.planTask(includeLever=true, includeLick=true, nBlocksPerTask=1, nPositions=1, randomize=false);
+exp.Plan.task.positions = [0, 1]; % lick = 0, 1-4 = lever positions
+exp.Plan.task.TIMEOUT_MAX = [10000, 10000];
+
+exp.save();
+
+
 %% Common module (spikeTimeBuffer)
 stb = SpikeTimeBuffer(SpikeThreshold=-45, MaxDuration=6, UpdateInterval=0.02, UpdateIntervalPadding=0.01, Debug=false);
 stb.connect('10.11.151.172');
@@ -49,7 +66,8 @@ od.Debug = false;
 % Start stim when yMove > 0.5 (or some theta)
 % onEvent: LEVER_PRESSED or LICK_ON, stop stim
 od.Debug = true;
-od.startAutoOpto(UpdateInterval=0.02, BinWidth=0.1, Threshold=0.5, Duration=0.5, AOutValue=exp.Results.aoutValues(5, 1, 1)); %iPower, iMirrorPos, iLaser
+% od.startAutoOpto(UpdateInterval=0.02, BinWidth=0.1, Threshold=0.5, Duration=0.5, AOutValue=exp.Results.aoutValues(5, 1, 1)); %iPower, iMirrorPos, iLaser
+od.startAutoOpto(UpdateInterval=0.02, BinWidth=0.1, Threshold=0.5, Duration=0.5, AOutValue=4095); %iPower, iMirrorPos, iLaser
 %% 
 od.stopAutoOpto();
 od.Debug = false;

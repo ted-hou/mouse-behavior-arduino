@@ -15,6 +15,7 @@ classdef OnlineDecoder < handle
         Mode = "off" % "off", "training", "testing", "opto"
         PMove = NaN
         IsLaserOn = false
+        HasStimHappened = false
         ArduinoState = ""
         Files = struct(DecodedData=-1, Events=-1);
     end
@@ -157,9 +158,10 @@ classdef OnlineDecoder < handle
             obj.PMove = pMove;
 
             % In TIMEOUT/WAITFORTOUCH, start opto if pMove exceeds threshold
-            if pMove > obj.Params.Opto.Threshold && ~obj.IsLaserOn && ismember(obj.ArduinoState, ["TIMEOUT", "WAITFORTOUCH"])
+            if pMove > obj.Params.Opto.Threshold && ~obj.IsLaserOn && ismember(obj.ArduinoState, ["WAITFORTOUCH"]) && ~obj.HasStimHappened
                 % Turn laser on
                 obj.setLaser(true, obj.Params.Opto.AOutValue);
+                obj.HasStimHappened = true;
 
                 % Schedule laser to turn off after "Duration"    
                 if ~isempty(obj.OptoPulseTimer) && isvalid(obj.OptoPulseTimer)
@@ -171,6 +173,8 @@ classdef OnlineDecoder < handle
                 obj.OptoPulseTimer.ExecutionMode = 'singleShot'; % fixedDelay, fixedSpacing
                 obj.OptoPulseTimer.TimerFcn = @(~, ~) obj.setLaser(false);
                 start(obj.OptoPulseTimer);
+
+                fprintf("pMove=%.1f%%\n", pMove*100)
             end
 
             if obj.Debug
@@ -262,13 +266,19 @@ classdef OnlineDecoder < handle
             fwrite(fid, p, 'uint8');
         end
 
+        function closeDecoderData(obj)
+            fid = obj.getOrCreateFile('DecodedData');
+            fclose(fid);
+        end
+
         function fid = getOrCreateFile(obj, name)
-            fid = obj.(name);
+            fid = obj.Files.(name);
             % You're gonna be wanting to create it
             if isempty(fopen(fid)) % Returns empty for invalid fid (non-existent or closed)
                 [path, ~, ~] = fileparts(obj.Arduino.ExperimentFileName);
                 assert(isfolder(path));
                 fid = fopen(fullfile(path, sprintf('%s.bin', name)), 'a');
+                obj.Files.(name) = fid;
             end
         end
 
@@ -292,6 +302,9 @@ classdef OnlineDecoder < handle
         function onStateChanged(obj, src, ~)
             ac = obj.Arduino;
             obj.ArduinoState = string(ac.StateNames{ac.GetState()});
+            if obj.ArduinoState == "TIMEOUT"
+                obj.HasStimHappened = false;
+            end
         end
 
         % Listener callback for ArduinoConnection EventMarkerReceived events
@@ -304,10 +317,10 @@ classdef OnlineDecoder < handle
                             t = obj.addEventToBuffer(event);
                             obj.EventBuffer.HasMadeFirstMove = false;
                         case {'LICK_HELD', 'LEVER_HELD'}
-                            t = obj.addEventToBuffer(event);
                             if obj.EventBuffer.HasMadeFirstMove
                                 return % Skip because not first move in a trial
                             end
+                            t = obj.addEventToBuffer(event);
                             % Find the preceeding TIMEOUT_START
                             t0 = obj.EventBuffer.TIMEOUT_START(find(obj.EventBuffer.TIMEOUT_START < t, 1, 'last'));
                             if isempty(t0) || t - t0 < obj.Params.Train.MinTrialLength % Discard short trials, or movements before 1st ever timeout_start
@@ -324,18 +337,18 @@ classdef OnlineDecoder < handle
                             obj.EventBuffer.HasMadeFirstMove = true;
                     end
 
-                case "opto"
+                case {"opto", "testing"}
                         case 'TIMEOUT_START'
                             t = obj.addEventToBuffer(event);
                             obj.EventBuffer.HasMadeFirstMove = false;
                         case {'LICK_HELD', 'LEVER_HELD'}
-                            t = obj.addEventToBuffer(event);
+                            fprintf("MOVED: pMove=%.1f%%\n", obj.PMove*100)
                             if obj.EventBuffer.HasMadeFirstMove
                                 return % Skip because not first move in a trial
                             end
+                            t = obj.addEventToBuffer(event);
                             obj.EventBuffer.HasMadeFirstMove = true;
-
-                case {"testing", "off"}
+                case "off"
             end
         end
 
@@ -366,8 +379,6 @@ classdef OnlineDecoder < handle
         function clearEventBuffer(obj)
             obj.EventBuffer = struct(LEVER_HELD=[], LICK_HELD=[], TIMEOUT_START=[], HasMadeFirstMove=false);
         end
-
-        [path, file, ext] = fileparts(obj.ExperimentFileName)
 
     end
 end
