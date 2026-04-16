@@ -282,8 +282,8 @@ classdef TwoColorExperiment < handle
             p = inputParser();
             p.addParameter('mirrorPositions', NaN, @isnumeric) % [0 300]
             p.addParameter('targetPowers', [0.5, 2, 4, 10].*1e-3, @isnumeric)
-            p.addParameter('wavelengths', [473, 593], @(x) isnumeric(x) && length(x) == 2)
-            p.addParameter('stepDelays', [0.5, 0.5], @(x) isnumeric(x) && length(x) == 2)
+            p.addParameter('wavelengths', [473, 593], @(x) isnumeric(x) && length(x) <= 2)
+            p.addParameter('stepDelays', [0.5, 0.5], @(x) isnumeric(x) && length(x) <= 2)
             p.addParameter('aoutMin', 500, @isnumeric)
             p.addParameter('aoutMax', 4095, @isnumeric)
             p.addParameter('tolerance', 2.5e-2, @isnumeric) % Fraction (0-1)
@@ -300,9 +300,9 @@ classdef TwoColorExperiment < handle
             p = p.Results;
             obj.Params = p;
 
-            results.aoutValues = zeros(length(p.targetPowers), length(p.mirrorPositions), 2);
-            results.targetReached = false(length(p.targetPowers), length(p.mirrorPositions), 2);
-            results.powers = zeros(length(p.targetPowers), length(p.mirrorPositions), 2);
+            results.aoutValues = zeros(length(p.targetPowers), length(p.mirrorPositions), length(p.wavelengths));
+            results.targetReached = false(length(p.targetPowers), length(p.mirrorPositions), length(p.wavelengths));
+            results.powers = zeros(length(p.targetPowers), length(p.mirrorPositions), length(p.wavelengths));
 
             % Init motor
             if obj.HasMotorizedMirror
@@ -382,7 +382,7 @@ classdef TwoColorExperiment < handle
                         end
                     end
                 end
-                for iLaser = 1:2
+                for iLaser = 1:length(p.wavelengths)
                     meter.setWaveLength(p.wavelengths(iLaser));            % Set sensor wavelength
                     meter.sensorInfo;                                      % Retrive the sensor info
                     meter.setPowerAutoRange(1);                            % Set Autorange
@@ -484,7 +484,7 @@ classdef TwoColorExperiment < handle
 
         function results = validate(obj, varargin)
             p = inputParser();
-            p.addParameter('validationDelay', [4, 15], @(x) isnumeric(x) && length(x) == 2)
+            p.addParameter('validationDelay', [4, 15], @(x) isnumeric(x) && length(x) <= 2)
             p.parse(varargin{:})
             obj.Params.validationDelay = p.Results.validationDelay;
             p = obj.Params;
@@ -569,7 +569,7 @@ classdef TwoColorExperiment < handle
                         end
                     end
                 end
-                for iLaser = 1:2
+                for iLaser = 1:length(p.wavelengths)
                     obj.analogWrite(1, 0);
                     obj.analogWrite(2, 0);
             
