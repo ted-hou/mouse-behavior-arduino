@@ -107,7 +107,7 @@ classdef OnlineDecoder < handle
             p = inputParser();
             p.addParameter('AOutValues', [4095, 0], @isnumeric) % 0 - laser off control
             p.addParameter('Durations', [1, 3], @isnumeric);
-
+            p.parse(varargin{:})
 
             % condition(iCond, :) =: [aout, duration]
             conditions = zeros(length(p.Results.AOutValues)*length(p.Results.Durations), 2);
@@ -116,7 +116,7 @@ classdef OnlineDecoder < handle
             for iAOutValue = 1:length(p.Results.AOutValues)
                 for iDuration = 1:length(p.Results.Durations)
                     iCond = iCond + 1;
-                    conditions(iCond, 1:3) = [p.Results.AOutValues(iAOutValue), p.Results.Durations(iDuration)];
+                    conditions(iCond, 1:2) = [p.Results.AOutValues(iAOutValue), p.Results.Durations(iDuration)];
                 end
             end
 
@@ -193,10 +193,11 @@ classdef OnlineDecoder < handle
             obj.PMove = pMove;
 
             % In TIMEOUT/WAITFORTOUCH, start opto if pMove exceeds threshold
+            % obj.getTimeSinceTimeoutStart(t)
             if pMove > obj.Params.Opto.Threshold && ~obj.IsLaserOn && ismember(obj.ArduinoState, ["TIMEOUT", "WAITFORTOUCH"]) && ~obj.HasStimHappened && obj.getTimeSinceTimeoutStart(t) >= obj.Params.Opto.WaitAtLeastSeconds
                 % Fetch conditions from plan
                 obj.Params.Opto.Plan.Index = obj.Params.Opto.Plan.Index + 1;
-                if obj.Params.Opto.Plan.Index + 1 > obj.Params.Opto.Plan.Length
+                if obj.Params.Opto.Plan.Index > obj.Params.Opto.Plan.Length
                     obj.Params.Opto.Plan.Completed = true;
                     obj.Params.Opto.Plan.Index = 1;
                 end
@@ -348,9 +349,6 @@ classdef OnlineDecoder < handle
         function onStateChanged(obj, src, ~)
             ac = obj.Arduino;
             obj.ArduinoState = string(ac.StateNames{ac.GetState()});
-            if obj.ArduinoState == "TIMEOUT"
-                obj.HasStimHappened = false;
-            end
         end
 
         % Listener callback for ArduinoConnection EventMarkerReceived events
@@ -384,16 +382,19 @@ classdef OnlineDecoder < handle
                     end
 
                 case {"opto", "testing"}
+                    switch event.Name
                         case 'TIMEOUT_START'
                             t = obj.addEventToBuffer(event);
                             obj.EventBuffer.HasMadeFirstMove = false;
+                            obj.HasStimHappened = false;
                         case {'LICK_HELD', 'LEVER_HELD'}
-                            fprintf("MOVED: pMove=%.1f%%\n", obj.PMove*100)
                             if obj.EventBuffer.HasMadeFirstMove
                                 return % Skip because not first move in a trial
                             end
+                            fprintf("MOVED: pMove=%.1f%%\n", obj.PMove*100)
                             t = obj.addEventToBuffer(event);
                             obj.EventBuffer.HasMadeFirstMove = true;
+                    end
                 case "off"
             end
         end
