@@ -4,7 +4,7 @@ classdef OnlineDecoder < handle
     properties
         SpikeTimeBuffer
         Arduino
-        EventBuffer = struct(LEVER_HELD=[], LICK_HELD=[], TIMEOUT_START=[], HasMadeFirstMove=false)
+        EventBuffer = struct(LEVER_PRESSED=[], LICK=[], TIMEOUT_START=[], HasMadeFirstMove=false)
         Params = struct(Train=[], Test=[], Opto=[])
         Data = struct(Train=struct(XBaseline={}, XMove={}, tBaseline={}, tMove={}, trialLength={}), Test=struct(XBaseline={}, XMove={}, tBaseline={}, tMove={}, trialLength={}))
         Model
@@ -360,7 +360,7 @@ classdef OnlineDecoder < handle
                         case 'TIMEOUT_START'
                             t = obj.addEventToBuffer(event);
                             obj.EventBuffer.HasMadeFirstMove = false;
-                        case {'LICK_HELD', 'LEVER_HELD'}
+                        case {'LICK', 'LEVER_PRESSED'}
                             if obj.EventBuffer.HasMadeFirstMove
                                 return % Skip because not first move in a trial
                             end
@@ -387,7 +387,7 @@ classdef OnlineDecoder < handle
                             t = obj.addEventToBuffer(event);
                             obj.EventBuffer.HasMadeFirstMove = false;
                             obj.HasStimHappened = false;
-                        case {'LICK_HELD', 'LEVER_HELD'}
+                        case {'LICK', 'LEVER_PRESSED'}
                             if obj.EventBuffer.HasMadeFirstMove
                                 return % Skip because not first move in a trial
                             end
@@ -402,7 +402,7 @@ classdef OnlineDecoder < handle
         function t = addEventToBuffer(obj, event)
             % See class: EventMarkerData
             % if ismember(event.Name, {'LEVER_HELD', 'LICK_HELD', 'TIMEOUT_START', 'LEVER_DEPLOY_START', 'LEVER_DEPLOY_END', 'LEVER_RETRACT_START', 'LEVER_RETRACT_END'})
-            if ismember(event.Name, {'LEVER_HELD', 'LICK_HELD', 'TIMEOUT_START'})
+            if ismember(event.Name, {'LEVER_PRESSED', 'LICK', 'TIMEOUT_START'})
                 t = obj.getTime();
                 obj.EventBuffer.(event.Name) = [obj.EventBuffer.(event.Name), t];
             else
@@ -432,7 +432,7 @@ classdef OnlineDecoder < handle
         end
 
         function clearEventBuffer(obj)
-            obj.EventBuffer = struct(LEVER_HELD=[], LICK_HELD=[], TIMEOUT_START=[], HasMadeFirstMove=false);
+            obj.EventBuffer = struct(LEVER_PRESSED=[], LICK=[], TIMEOUT_START=[], HasMadeFirstMove=false);
         end
 
     end
