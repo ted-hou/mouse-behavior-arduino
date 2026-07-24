@@ -1476,7 +1476,7 @@ bool getLeverState()
 	{
 		if (_params[ACCEL_BLANK_POST_MOVE_LEVER] >= 0)
 		{
-			if (_servoStateLever == SERVOSTATE_DEPLOYING || _servoStateLever == SERVOSTATE_RETRACTING)
+			if (_servoStateLever == SERVOSTATE_DEPLOYING || _servoStateLever == SERVOSTATE_RETRACTING || _servoStateLever == SERVOSTATE_RETRACTED)
 			{
 				digitalWrite(PIN_MIRROR_LEVER, LOW);
 				return false;
@@ -1534,7 +1534,7 @@ bool getLickState()
 	{
 		if (_params[ACCEL_BLANK_POST_MOVE_TUBE] >= 0)
 		{
-			if (_servoStateTube == SERVOSTATE_DEPLOYING || _servoStateTube == SERVOSTATE_RETRACTING)
+			if (_servoStateTube == SERVOSTATE_DEPLOYING || _servoStateTube == SERVOSTATE_RETRACTING || _servoStateTube == SERVOSTATE_RETRACTED)
 			{
 				digitalWrite(PIN_MIRROR_LICK, LOW);
 				return false;
