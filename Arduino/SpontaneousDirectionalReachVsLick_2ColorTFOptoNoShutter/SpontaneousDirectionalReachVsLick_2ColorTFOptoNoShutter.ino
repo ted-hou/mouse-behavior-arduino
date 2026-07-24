@@ -1594,14 +1594,20 @@ void handleLever()
 		if (!_isLeverPressed)
 		{
 			_isLeverPressed = true;
-			sendEventMarker(EVENT_LEVER_PRESSED, -1);
+			if (_state != STATE_REWARD)
+			{
+				sendEventMarker(EVENT_LEVER_PRESSED, -1);
+			}
 			_timeLastLeverPress = getTime();
 		}
 		// Press-and-hold timeout reached
 		if (!_isLeverHeld && getTimeSinceLastLeverPress() >= _params[LEVER_HOLD_TIME])
 		{
 			_isLeverHeld = true;
-			sendEventMarker(EVENT_LEVER_HELD, -1);
+			if (_state != STATE_REWARD)
+			{
+				sendEventMarker(EVENT_LEVER_HELD, -1);
+			}
 			if (_leverCyclingEnabled)
 			{
 				deployLever(false);
@@ -1618,7 +1624,7 @@ void handleLever()
 		{
 			_isLeverPressed = false;
 			_isLeverHeld = false;
-			sendEventMarker(EVENT_LEVER_RELEASED, -1);
+			// sendEventMarker(EVENT_LEVER_RELEASED, -1);
 			_timeLastLeverRelease = getTime();
 		}
 	}
@@ -1652,13 +1658,19 @@ void handleLick()
 		{
 			_isLicking = true;
 			_timeLastLick = getTime();
-			sendEventMarker(EVENT_LICK, -1);
+			if (_state != STATE_REWARD)
+			{
+				sendEventMarker(EVENT_LICK, -1);
+			}
 		}
 		// Lick-and-hold timeout reach
 		if (!_isLickHeld && getTimeSinceLastLick() >= _params[LICK_HOLD_TIME])
 		{
 			_isLickHeld = true;
-			sendEventMarker(EVENT_LICK_HELD, -1);
+			if (_state != STATE_REWARD)
+			{
+				sendEventMarker(EVENT_LICK_HELD, -1);
+			}
 			if (_tubeCyclingEnabled)
 			{
 				deployTube(false);
@@ -1675,7 +1687,7 @@ void handleLick()
 		{
 			_isLicking = false;
 			_isLickHeld = false;
-			sendEventMarker(EVENT_LICK_OFF, -1);
+			//sendEventMarker(EVENT_LICK_OFF, -1);
 		}
 	}
 
