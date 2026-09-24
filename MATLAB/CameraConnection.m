@@ -9,6 +9,8 @@ classdef CameraConnection < handle
 		VideoInput
 		Source
 		Rsc
+        MemMapPath
+        MemMapFile
     end
 
     properties (Transient, Access=private)
@@ -26,6 +28,7 @@ classdef CameraConnection < handle
 			addParameter(p, 'FrameGrabInterval', 1, @(x) isnumeric(x) && floor(x) == x); % Set to 2 to skip every other frame
 			addParameter(p, 'TimestampInterval', 10, @(x) isnumeric(x) && floor(x) == x); % Set to 10 to register a timestamp every 10 frames
 			addParameter(p, 'DialogPosition', [], @isnumeric);
+            addParameter(p, 'MemMapPath', ""); % "C:\MATLAB_MEMMAP\CameraConnection"
 			parse(p, varargin{:});
 			camID 				= p.Results.CameraID;
 			camFormat 			= p.Results.Format;
@@ -35,6 +38,7 @@ classdef CameraConnection < handle
 			frameGrabInterval 	= p.Results.FrameGrabInterval;
 			timestampInterval 	= p.Results.TimestampInterval;
 			dialogPosition 		= p.Results.DialogPosition;
+            obj.MemMapPath 		= p.Results.MemMapPath;
 
 			hwinfo = imaqhwinfo('winvideo');
 
@@ -238,7 +242,33 @@ classdef CameraConnection < handle
 			end
 			videoFile.FrameRate = obj.Params.FrameRate;
 			obj.VideoInput.DiskLogger = videoFile;
-		end
+
+            % Create memmapfile
+            if ~isempty(obj.MemMapPath)
+                % Create the folder if needed
+                if ~exist(obj.MemMapPath, 'dir')
+                    mkdir(obj.MemMapPath)
+                end
+                memMapFileName = fullfile(obj.MemMapPath, sprintf("memmap_CameraConnection_%i.dat", obj.VideoInput.DeviceID));
+
+                % Create the file
+                obj.MemMapFile = memmapfile(memMapFileName, Format='uint8', Writable=true);
+                obj.VideoInput.FramesAcquiredFcn = @obj.WriteToMemMap;
+                obj.VideoInput.FramesAcquiredFcnCount = 1;
+            end
+        end
+
+        function WriteToMemMap(obj, vid, ~)
+            mmf = obj.MemMapFile;
+            if mmf.Data(1) == 0 % Do not write until python finishes processing and sets this back to 0 (might drop frames if python slow)
+                frame = vid.peekdata(1);
+                if ~isempty(frame)
+                    %frame = permute(frame, [2, 1, 3]);
+                    mmf.Data(2:end) = frame(:);
+                    mmf.Data(1) = 1;
+                end
+            end
+        end
 
 		% Executed every 10 frames by default
 		function OnTrigger(obj, ~, evnt)
