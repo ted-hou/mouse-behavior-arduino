@@ -11,6 +11,7 @@ classdef CameraConnection < handle
 		Rsc
         MemMapPath
         MemMapFile
+        Pose
     end
 
     properties (Transient, Access=private)
@@ -125,7 +126,11 @@ classdef CameraConnection < handle
 			obj.VideoInput.TriggerFcn = @obj.OnTrigger;
 
 			% Disk logging parameters
-			obj.VideoInput.LoggingMode = 'disk';
+            if isempty(obj.MemMapPath)
+			    obj.VideoInput.LoggingMode = 'disk';
+            else
+                obj.VideoInput.LoggingMode = 'disk&memory';
+            end
 			obj.Params.Filename = filename;
 			obj.Params.FileFormat = fileFormat;
 			obj.Params.FrameRate = frameRate;
@@ -250,24 +255,73 @@ classdef CameraConnection < handle
                     mkdir(obj.MemMapPath)
                 end
                 memMapFileName = fullfile(obj.MemMapPath, sprintf("memmap_CameraConnection_%i.dat", obj.VideoInput.DeviceID));
+                if exist(memMapFileName, 'file')
+                    delete(memMapFileName);
+                end
 
                 % Create the file
-                obj.MemMapFile = memmapfile(memMapFileName, Format='uint8', Writable=true);
+                sz = obj.VideoInput.VideoResolution;
+                w = sz(1);
+                h = sz(2);
+                frameSize = w*h*3;
+                poseSize = 3*8; % 3 double floats
+
+                % Create/Zero out the shared binary file (Header: 1 uint64 for frame index + image data)
+                totalBytes = 8 + frameSize + poseSize; 
+                fileID = fopen(memMapFileName, 'w');
+                fwrite(fileID, zeros(totalBytes, 1, 'uint8'));
+                fclose(fileID);
+
+                obj.MemMapFile = memmapfile(memMapFileName, Writable=true, ...
+                    Format={ ...
+                        'uint64', [1 1], 'idx'; ...
+                        'uint8', [h, w, 3], 'frame'; ...
+                        'double', [1, 3], 'pose'; ... [x, y, likelihood] of hand
+                    });
                 obj.VideoInput.FramesAcquiredFcn = @obj.WriteToMemMap;
                 obj.VideoInput.FramesAcquiredFcnCount = 1;
             end
         end
 
         function WriteToMemMap(obj, vid, ~)
-            mmf = obj.MemMapFile;
-            if mmf.Data(1) == 0 % Do not write until python finishes processing and sets this back to 0 (might drop frames if python slow)
-                frame = vid.peekdata(1);
+            framesAvailable = vid.FramesAvailable;
+            if framesAvailable > 0
+                % Safely extract data and timestamps from memory without disrupting the disk write
+                [data, ~, ~] = getdata(vid, framesAvailable);
+
+                mmf = obj.MemMapFile;
+                frame = data(:, :, :, end);
                 if ~isempty(frame)
-                    %frame = permute(frame, [2, 1, 3]);
-                    mmf.Data(2:end) = frame(:);
-                    mmf.Data(1) = 1;
+                    mmf.Data.frame = frame;
+                    mmf.Data.idx = uint64(vid.FramesAcquired);
                 end
+                obj.Pose = mmf.Data.pose;
+                fprintf("Frame %i, x=%.2f, y=%.2f, llh=%.2f\n", mmf.Data.idx, obj.Pose(1), obj.Pose(2), obj.Pose(3))
             end
+        end
+
+        function PreviewPose(obj)
+            % Create a custom figure and axes
+            fig = figure;
+            ax = axes(fig);
+
+            % Initialize an image object in the axes
+            hImage = image(ax, zeros(480, 640, 3));
+            preview(obj.VideoInput, hImage);
+
+            setappdata(hImage, 'UpdatePreviewWindowFcn', @obj.PreviewPose_Update);
+        end
+
+        function PreviewPose_Update(obj, ~, event, hImage)
+            % Get the current video frame from the event data
+            frame = event.Data;
+
+            % Add text annotation using insertText
+            annotatedFrame = insertText(frame, [obj.Pose(1), obj.Pose(2)], 'Hand', ...
+                'FontSize', 18, 'BoxColor', 'yellow', 'BoxOpacity', 0.4);
+
+            % Update the image object with the annotated frame
+            set(hImage, 'CData', annotatedFrame);
         end
 
 		% Executed every 10 frames by default
