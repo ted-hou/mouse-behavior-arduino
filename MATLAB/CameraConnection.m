@@ -263,11 +263,12 @@ classdef CameraConnection < handle
                 sz = obj.VideoInput.VideoResolution;
                 w = sz(1);
                 h = sz(2);
-                frameSize = w*h*3;
-                poseSize = 3*8; % 3 double floats
+                headerSize = 8; % uint64 for frame index
+                frameSize = w*h*3; % uint8, 3 color channels
+                poseSize = 3*4; % 3 single floats per bodypart (there are 2: hand/jaw)
 
                 % Create/Zero out the shared binary file (Header: 1 uint64 for frame index + image data)
-                totalBytes = 8 + frameSize + poseSize; 
+                totalBytes = 8 + frameSize + 2*poseSize; 
                 fileID = fopen(memMapFileName, 'w');
                 fwrite(fileID, zeros(totalBytes, 1, 'uint8'));
                 fclose(fileID);
@@ -276,7 +277,7 @@ classdef CameraConnection < handle
                     Format={ ...
                         'uint64', [1 1], 'idx'; ...
                         'uint8', [h, w, 3], 'frame'; ...
-                        'double', [1, 3], 'pose'; ... [x, y, likelihood] of hand
+                        'single', [2, 3], 'pose'; ... [x, y, likelihood] of hand;jaw
                     });
                 obj.VideoInput.FramesAcquiredFcn = @obj.WriteToMemMap;
                 obj.VideoInput.FramesAcquiredFcnCount = 1;
@@ -296,7 +297,7 @@ classdef CameraConnection < handle
                     mmf.Data.idx = uint64(vid.FramesAcquired);
                 end
                 obj.Pose = mmf.Data.pose;
-                fprintf("Frame %i, x=%.2f, y=%.2f, llh=%.2f\n", mmf.Data.idx, obj.Pose(1), obj.Pose(2), obj.Pose(3))
+                % fprintf("Frame %i, x=%.2f, y=%.2f, llh=%.2f\n", mmf.Data.idx, obj.Pose(1), obj.Pose(2), obj.Pose(3))
             end
         end
 
@@ -317,8 +318,8 @@ classdef CameraConnection < handle
             frame = event.Data;
 
             % Add text annotation using insertText
-            annotatedFrame = insertText(frame, [obj.Pose(1), obj.Pose(2)], 'Hand', ...
-                'FontSize', 18, 'BoxColor', 'yellow', 'BoxOpacity', 0.4);
+            annotatedFrame = insertText(frame, obj.Pose(:, 1:2), [sprintf("Jaw %.2f", obj.Pose(1, 3)); sprintf("Hand %.2f", obj.Pose(2, 3))], ...
+                'FontSize', 18, 'BoxColor', ["yellow", "red"], 'BoxOpacity', 0.4, 'AnchorPoint', 'LeftTop');
 
             % Update the image object with the annotated frame
             set(hImage, 'CData', annotatedFrame);
