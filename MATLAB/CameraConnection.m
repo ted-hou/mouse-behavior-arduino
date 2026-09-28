@@ -9,14 +9,11 @@ classdef CameraConnection < handle
 		VideoInput
 		Source
 		Rsc
-        MemMapPath
-        MemMapFile
-        Pose
-    end
+	end
 
-    properties (Transient, Access=private)
-        EventLogIndex = 0;
-    end
+	properties (Transient, Access=private)
+		EventLogIndex = 0;
+	end
 
 	methods
 		function obj = CameraConnection(varargin)
@@ -29,7 +26,6 @@ classdef CameraConnection < handle
 			addParameter(p, 'FrameGrabInterval', 1, @(x) isnumeric(x) && floor(x) == x); % Set to 2 to skip every other frame
 			addParameter(p, 'TimestampInterval', 10, @(x) isnumeric(x) && floor(x) == x); % Set to 10 to register a timestamp every 10 frames
 			addParameter(p, 'DialogPosition', [], @isnumeric);
-            addParameter(p, 'MemMapPath', ""); % "C:\MATLAB_MEMMAP\CameraConnection"
 			parse(p, varargin{:});
 			camID 				= p.Results.CameraID;
 			camFormat 			= p.Results.Format;
@@ -39,8 +35,6 @@ classdef CameraConnection < handle
 			frameGrabInterval 	= p.Results.FrameGrabInterval;
 			timestampInterval 	= p.Results.TimestampInterval;
 			dialogPosition 		= p.Results.DialogPosition;
-            obj.MemMapPath 		= p.Results.MemMapPath;
-            obj.MemMapPath 		= p.Results.MemMapPath;
 
 			hwinfo = imaqhwinfo('winvideo');
 
@@ -127,11 +121,7 @@ classdef CameraConnection < handle
 			obj.VideoInput.TriggerFcn = @obj.OnTrigger;
 
 			% Disk logging parameters
-            if isempty(obj.MemMapPath)
-			    obj.VideoInput.LoggingMode = 'disk';
-            else
-                obj.VideoInput.LoggingMode = 'disk&memory';
-            end
+			obj.VideoInput.LoggingMode = 'disk';
 			obj.Params.Filename = filename;
 			obj.Params.FileFormat = fileFormat;
 			obj.Params.FrameRate = frameRate;
@@ -249,98 +239,17 @@ classdef CameraConnection < handle
 			videoFile.FrameRate = obj.Params.FrameRate;
 			obj.VideoInput.DiskLogger = videoFile;
 
-            % Create memmapfile
-            if ~isempty(obj.MemMapPath)
-                % Create the folder if needed
-                if ~exist(obj.MemMapPath, 'dir')
-                    mkdir(obj.MemMapPath)
-                end
-                memMapFileName = fullfile(obj.MemMapPath, sprintf("memmap_CameraConnection_%i.dat", obj.VideoInput.DeviceID));
-                if exist(memMapFileName, 'file')
-                    delete(memMapFileName);
-                end
-
-                % Create the file
-                sz = obj.VideoInput.VideoResolution;
-                w = sz(1);
-                h = sz(2);
-                headerSize = 4; % uint32 for frame index
-                frameSize = w*h*3; % uint8, 3 color channels
-                poseSize = 3*4; % 3 single floats per bodypart (there are 2: hand/jaw)
-
-                % Create/Zero out the shared binary file (Header: 1 uint32 for frame index + image data)
-                totalBytes = headerSize + frameSize + 2*poseSize; 
-                fileID = fopen(memMapFileName, 'w');
-                fwrite(fileID, zeros(totalBytes, 1, 'uint8'));
-                fclose(fileID);
-
-                obj.MemMapFile = memmapfile(memMapFileName, Writable=true, ...
-                    Format={ ...
-                        'uint32', [1, 1], 'idx'; ... frame index
-                        'uint8', [h, w, 3], 'frame'; ... image
-                        'single', [2, 3], 'pose'; ... each row is [x, y, likelihood] for a different bodypart (hand; jaw)
-                    });
-                obj.VideoInput.FramesAcquiredFcn = @obj.WriteToMemMap;
-                obj.VideoInput.FramesAcquiredFcnCount = 1;
-            end
-        end
-
-        function WriteToMemMap(obj, vid, ~)
-            framesAvailable = vid.FramesAvailable;
-            if framesAvailable > 0
-                % Safely extract data and timestamps from memory without disrupting the disk write
-                [data, ~, ~] = getdata(vid, framesAvailable);
-
-                % Write frame index and image to memmap'd file
-                mmf = obj.MemMapFile;
-                frame = data(:, :, :, end);
-                if ~isempty(frame)
-                    mmf.Data.frame = frame;
-                    mmf.Data.idx = uint32(vid.FramesAcquired);
-                end
-                % Read results back from Python (race conditions exist, to fix: use a handshake, or try tcp/ip instead of memmap)
-                % but honestly we're talking microseconds here, so it probably does not matter for 30fps:
-                % MATLAB sends a new frame and reads last pose estimate from Python (30Hz) -> Python sends back new pose data (30Hz)
-                % We should probably improve by having MATLAB read Python pose as soon as that returns
-                % But this function is called each time camera acquires a new frame, so we'd need a faster/separate timer which sounds like a new can of dragons
-                obj.Pose = mmf.Data.pose;
-                % fprintf("Frame %i, x=%.2f, y=%.2f, llh=%.2f\n", mmf.Data.idx, obj.Pose(1), obj.Pose(2), obj.Pose(3))
-            end
-        end
-
-        function PreviewPose(obj)
-            % Create a custom figure and axes
-            fig = figure;
-            ax = axes(fig);
-
-            % Initialize an image object in the axes
-            hImage = image(ax, zeros(480, 640, 3));
-            preview(obj.VideoInput, hImage);
-
-            setappdata(hImage, 'UpdatePreviewWindowFcn', @obj.PreviewPose_Update);
-        end
-
-        function PreviewPose_Update(obj, ~, event, hImage)
-            % Get the current video frame from the event data
-            frame = event.Data;
-
-            % Add text annotation using insertText
-            annotatedFrame = insertText(frame, obj.Pose(:, 1:2), [sprintf("Jaw %.2f", obj.Pose(1, 3)); sprintf("Hand %.2f", obj.Pose(2, 3))], ...
-                'FontSize', 18, 'BoxColor', ["yellow", "red"], 'BoxOpacity', 0.4, 'AnchorPoint', 'LeftTop');
-
-            % Update the image object with the annotated frame
-            set(hImage, 'CData', annotatedFrame);
-        end
+		end
 
 		% Executed every 10 frames by default
 		function OnTrigger(obj, ~, evnt)
 			obj.EventLogIndex = obj.EventLogIndex + 1;
 
-            % Grow preallocated arrays if needed
-            if obj.EventLogIndex > length(obj.EventLog.FrameNumber)
-                obj.EventLog.Timestamp(length(obj.EventLog.Timestamp)+21600) = NaT;
-                obj.EventLog.FrameNumber(length(obj.EventLog.FrameNumber)+21600) = 0;
-            end
+			% Grow preallocated arrays if needed
+			if obj.EventLogIndex > length(obj.EventLog.FrameNumber)
+				obj.EventLog.Timestamp(length(obj.EventLog.Timestamp)+21600) = NaT;
+				obj.EventLog.FrameNumber(length(obj.EventLog.FrameNumber)+21600) = 0;
+			end
 			obj.EventLog.Timestamp(obj.EventLogIndex) = datetime(evnt.Data.AbsTime, Format="uuuu-MM-dd HH:mm:ss.SSSSSS"); % `datenum` has ~1ms resolution (likely good enough for 30fps cameras), using `datetime` would have ns resolution
 			obj.EventLog.FrameNumber(obj.EventLogIndex) = uint32(evnt.Data.FrameNumber);
 		end
@@ -369,8 +278,8 @@ classdef CameraConnection < handle
 				obj.SaveAs()
 			end
 
-            obj.EventLogIndex = 0;
-            obj.EventLog = struct(Timestamp=NaT(21600, 1), FrameNumber=zeros(21600, 1, 'uint32'));
+			obj.EventLogIndex = 0;
+			obj.EventLog = struct(Timestamp=NaT(21600, 1), FrameNumber=zeros(21600, 1, 'uint32'));
 			fprintf(1, 'Loggin video to disk...\n')
 
 			start(obj.VideoInput)
@@ -389,10 +298,10 @@ classdef CameraConnection < handle
 				pause(.1)
 			end
 
-            % Trim preallocated/unused zeros from eventlog
-            isValid = obj.EventLog.FrameNumber ~= 0;
-            obj.EventLog.Timestamp = obj.EventLog.Timestamp(isValid);
-            obj.EventLog.FrameNumber = obj.EventLog.FrameNumber(isValid);
+			% Trim preallocated/unused zeros from eventlog
+			isValid = obj.EventLog.FrameNumber ~= 0;
+			obj.EventLog.Timestamp = obj.EventLog.Timestamp(isValid);
+			obj.EventLog.FrameNumber = obj.EventLog.FrameNumber(isValid);
 			fprintf(1, 'Video logging ended (%i+ frames).\n', obj.EventLog.FrameNumber(end))
 		end
 
@@ -442,7 +351,7 @@ classdef CameraConnection < handle
 
 			fprintf(1, ['Checking available formats/framerates for ''', hwinfo.DeviceInfo(camID).DeviceName, ''' (', num2str(camID), '):\n'])
 
-            maxFrameRates = zeros(1, length(formats));
+			maxFrameRates = zeros(1, length(formats));
 			for iFormat = 1:length(formats)
 				vid = videoinput('winvideo', camID, formats{iFormat});
 				frameRates = set(getselectedsource(vid), 'FrameRate');

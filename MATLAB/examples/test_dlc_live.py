@@ -9,7 +9,7 @@ pose_size = 3 * 4  # x, y, llh
 total_size = header_size + frame_size + 2*pose_size
 idx_hand = 7
 idx_jaw = 0
-filename = r"E:\MATLAB_MEMMAP\memmap_CameraConnection_1.dat"
+filename = r"E:\MATLAB_MEMMAP\memmap_var_1.dat"
 
 import deeplabcut
 
