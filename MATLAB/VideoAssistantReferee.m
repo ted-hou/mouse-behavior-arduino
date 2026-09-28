@@ -122,18 +122,6 @@ classdef VideoAssistantReferee < handle
 			end
         end
 
-		function updatePreview(obj, ~, event, hImage)
-			% Get the current video frame from the event data
-			frame = event.Data;
-
-			% Add text annotation using insertText
-			annotatedFrame = insertText(frame, obj.CurrentPose(:, 1:3), [sprintf("%s %.2f", obj.BodypartNames(1), obj.CurrentPose(1, 3)); sprintf("%s %.2f", obj.BodypartNames(2), obj.CurrentPose(2, 3)); sprintf("%s %.2f", obj.BodypartNames(3), obj.CurrentPose(3, 3))], ...
-				'FontSize', 18, 'BoxColor', ["yellow", "red", "blue"], 'BoxOpacity', 0.4, 'AnchorPoint', 'LeftTop');
-
-			% Update the image object with the annotated frame
-			set(hImage, 'CData', annotatedFrame);
-		end
-
         function initBuffer(obj, bufferLength)
             obj.BufferLength = bufferLength;
             obj.Buffer = struct( ...
@@ -153,6 +141,26 @@ classdef VideoAssistantReferee < handle
             obj.Buffer.FrameIdx(obj.CurrentBufferIdx) = frameIdx;
             obj.Buffer.AbsTime(obj.CurrentBufferIdx) = absTime;
             obj.Buffer.Pose(:, :, obj.CurrentBufferIdx) = pose;
+        end
+
+		function updatePreview(obj, ~, event, hImage)
+			% Get the current video frame from the event data
+			frame = event.Data;
+
+			% Add text annotation using insertText
+			annotatedFrame = insertText(frame, obj.CurrentPose(:, 1:3), [sprintf("%s %.2f", obj.BodypartNames(1), obj.CurrentPose(1, 3)); sprintf("%s %.2f", obj.BodypartNames(2), obj.CurrentPose(2, 3)); sprintf("%s %.2f", obj.BodypartNames(3), obj.CurrentPose(3, 3))], ...
+				'FontSize', 18, 'BoxColor', ["yellow", "red", "blue"], 'BoxOpacity', 0.4, 'AnchorPoint', 'LeftTop');
+            for frameShift = -1:-1:-10
+                iFrame = obj.CurrentBufferIdx + frameShift;
+                if iFrame <= 0
+                    iFrame = obj.BufferLength + iFrame;
+                end
+			    annotatedFrame = insertText(annotatedFrame, 'circle', [obj.Buffer.Pose(:, 1:2, iFrame), 30+2*frameShift], ...
+				    'Color', ["yellow", "red", "blue"], 'Opacity', 0.4, LineWidth=0);
+            end
+
+			% Update the image object with the annotated frame
+			set(hImage, 'CData', annotatedFrame);
         end
     end
 end
