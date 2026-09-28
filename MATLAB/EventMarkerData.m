@@ -1,16 +1,16 @@
 classdef (ConstructOnLoad) EventMarkerData < event.EventData
     properties
         Code
-        Timestamp
-        DateNum
+        Timestamp % arduino millis, uint32
+        AbsTime % matlab datetime(), 128bit
         Name
     end
 
     methods
-        function data = EventMarkerData(code, timestamp, datenum, name)
+        function data = EventMarkerData(code, timestamp, absTime, name)
             data.Code = code;
             data.Timestamp = timestamp;
-            data.DateNum = datenum;
+            data.AbsTime = absTime;
             data.Name = name;
         end
     end

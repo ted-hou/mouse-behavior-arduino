@@ -341,7 +341,7 @@ classdef CameraConnection < handle
                 obj.EventLog.Timestamp(length(obj.EventLog.Timestamp)+21600) = 0;
                 obj.EventLog.FrameNumber(length(obj.EventLog.FrameNumber)+21600) = 0;
             end
-			obj.EventLog.Timestamp(obj.EventLogIndex) = datetime(evnt.Data.AbsTime, Format="dd-MMM-uuuu HH:mm:ss.SSSSSS"); % `datenum` has ~1ms resolution (likely good enough for 30fps cameras), using `datetime` would have ns resolution
+			obj.EventLog.Timestamp(obj.EventLogIndex) = datetime(evnt.Data.AbsTime, Format="uuuu-MM-dd HH:mm:ss.SSSSSS"); % `datenum` has ~1ms resolution (likely good enough for 30fps cameras), using `datetime` would have ns resolution
 			obj.EventLog.FrameNumber(obj.EventLogIndex) = uint32(evnt.Data.FrameNumber);
 		end
 

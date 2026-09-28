@@ -13,13 +13,14 @@ classdef ArduinoConnection < handle
         EventMarkers % Made this one for backwards compatibility, b/c in older recorded data: 'untrimmed' ususally has all the event markers, 'eventmarkers' usually ends after the last trial finishes.
     end
     properties
-        EventMarkerDateTime = datetime.empty();
+        EventMarkerAbsTime = datetime.empty();
 		EventMarkerNames = {}
 		Trials = struct([])
 		ExperimentFileName = ''			% Contains 'C://path/filename.mat'
 		Cameras = struct([])
 		Camera = []
         AnalogOutputEvents = []
+        AnalogOutputEventAbsTime = datetime.empty()
         AnalogOutputResolution = NaN
 	end
 
@@ -383,17 +384,20 @@ classdef ArduinoConnection < handle
 				case '&'
 					% Arduino sent an event code and its timestamp - "& 0 100"
 					subStrings = strsplit(strtrim(value), ' ');
-					eventCode = str2double(subStrings{1}) + 1; % Convert zero-based indices (Arduino) to one-based indices (MATLAB)
-					timestamp = str2double(subStrings{2});
-					absTime = now(); % this is lower precision (datenum), refer to EventMarkerDateTime for higher precision version (datetime)
+					eventCode = uint32(sscanf(subStrings{1}, '%u')) + 1; % Convert zero-based indices (Arduino) to one-based indices (MATLAB)
+					timestamp = uint32(sscanf(subStrings{2}, '%u')); % Arduino millis() returns uint32, which overflows after ~49.7 days
+					% absTime = now(); % this is lower precision (datenum), refer to EventMarkerDateTime for higher precision version (datetime)
+                    absTime = datetime('now', Format='uuuu-MM-dd HH:mm:ss.SSS');
 
                     obj.EventMarkerIndex = obj.EventMarkerIndex + 1;
                     % Allocate a bigger array if necessary
                     if obj.EventMarkerIndex > size(obj.EventMarkers, 1)
-                        obj.EventMarkers = vertcat(obj.EventMarkers, NaN(size(obj.EventMarkers))); % Eww
+                        obj.EventMarkers(size(obj.EventMarkers, 1) + 200000, :) = zeros(1, 'uint32');
+                        obj.EventMarkerAbsTime(size(obj.EventMarkers, 1) + 200000) = NaT;
                     end
 
-					obj.EventMarkers(obj.EventMarkerIndex, :) = [eventCode, timestamp, absTime];
+					obj.EventMarkers(obj.EventMarkerIndex, 1:2) = [eventCode, timestamp];
+					obj.EventMarkerAbsTime(obj.EventMarkerIndex) = absTime;
 
 					% Trigger EventMarkerReceived Event
                     eventMarkerData = EventMarkerData(eventCode, timestamp, absTime, obj.EventMarkerNames{eventCode});
@@ -401,23 +405,23 @@ classdef ArduinoConnection < handle
 
 					% Debug message
 					if obj.DebugMode
-						fprintf('		EVENT: %s - %d\n', obj.EventMarkerNames{eventCode}, timestamp)
+						fprintf('		EVENT: %s - %d, %s\n', obj.EventMarkerNames{eventCode}, timestamp, absTime)
 					end
 				case '+'
 					% Arduino sent the name of an event marker - "+ 0 TRIAL_START"
 					subStrings = strsplit(strtrim(value), ' ');
 					% Convert zero-based indices (Arduino) to one-based indices (MATLAB)
-					eventMarkerId = str2num(subStrings{1}) + 1;
+					eventMarkerId = str2double(subStrings{1}) + 1;
 					% Register event marker names so MATLAB KNOWs WHAT IS GOING ON WHEN SHIT GOES DOWN
 					obj.EventMarkerNames{eventMarkerId} = subStrings{2};
 				case '#'
 					% Arduino sent the name and default value of a parameter - "# 1 INTERVAL_MIN 1250"
 					subStrings = strsplit(strtrim(value), ' ');
 					% Convert zero-based indices (Arduino) to one-based indices (MATLAB)
-					paramId = str2num(subStrings{1}) + 1;
+					paramId = str2double(subStrings{1}) + 1;
 					% Register parameter name and value
 					obj.ParamNames{paramId} = subStrings{2};
-					obj.ParamValues(paramId) = str2num(subStrings{3});
+					obj.ParamValues(paramId) = str2double(subStrings{3});
 				case '`'
 					% Result code returned, this is only expected once per trial
 
@@ -448,38 +452,42 @@ classdef ArduinoConnection < handle
 					% Arduino sent error code interpretations - "# 0 ERROR_LEVER_NOT_PRESSED" means error code -1
 					subStrings = strsplit(strtrim(value), ' ');
 					% Convert zero-based indices (Arduino) to one-based indices (MATLAB)
-					codeId = str2num(subStrings{1}) + 1;
+					codeId = str2double(subStrings{1}) + 1;
 					% Register parameter name and value
 					obj.ResultCodeNames{codeId} = subStrings{2};
 				case '~'
                     obj.EventMarkerIndex = 0;
-                    obj.EventMarkers = NaN(200000, 3); % typical session has no more than 100,000 events
+                    obj.EventMarkers = zeros(200000, 2, 'uint32'); % typical session has no more than 100,000 events
+                    obj.EventMarkerAbsTime = NaT(200000, 1, Format='uuuu-MM-dd HH:mm:ss.SSS'); % typical session has no more than 100,000 events
 					fprintf('\nUp and running.\n')
                 case ':'
 					% Arduino sent analogWriteResolution - ": 12"
 					subStrings = strsplit(strtrim(value), ' ');
-					obj.AnalogOutputResolution = str2num(subStrings{1});
+					obj.AnalogOutputResolution = str2double(subStrings{1});
                     if ~isempty(obj.AnalogOutputEvents)
                         warning('AnalogOutputEvents is not empty, but is being overriden. If you are reading this, arduino probably sent the ":" symbol more than once')
                     end
                     obj.AnalogOutputEventIndex = 0;
-                    obj.AnalogOutputEvents = NaN(100, 4);
+                    obj.AnalogOutputEvents = NaN(1000, 3);
+                    obj.AnalogOutputEventAbsTime = NaT(1000, 1, Format='uuuu-MM-dd HH:mm:ss.SSSSSS');
                 case '%'
 					% Arduino sent analogOutputEvent - "% channel value timestamp"
 					% Arduino sent an event code and its timestamp - "& 0 100"
 					subStrings = strsplit(strtrim(value), ' ');
-					channel = str2num(subStrings{1}); % Both arduino and matlab use 1 based index, i.e., channel 1 or 2
-					value = str2num(subStrings{2});
-                    timestamp = str2num(subStrings{3});
-					absTime = now;
+					channel = str2double(subStrings{1}); % Both arduino and matlab use 1 based index, i.e., channel 1 or 2
+					value = str2double(subStrings{2});
+                    timestamp = str2double(subStrings{3});
+					absTime = datetime('now', Format='uuuu-MM-dd HH:mm:ss.SSSSSS');
                     obj.AnalogOutputEventIndex = obj.AnalogOutputEventIndex + 1;
                     
                     % Allocate a bigger array if necessary
                     if obj.AnalogOutputEventIndex > size(obj.AnalogOutputEvents, 1)
                         obj.AnalogOutputEvents = vertcat(obj.AnalogOutputEvents, NaN(size(obj.AnalogOutputEvents))); % Woah you just walk around with that thing?
+                        obj.AnalogOutputEventAbsTime = vertcat(obj.AnalogOutputEventAbsTime, NaT(size(obj.AnalogOutputEventAbsTime)));
                     end
 
-					obj.AnalogOutputEvents(obj.AnalogOutputEventIndex, :) = [channel, value, timestamp, absTime];
+					obj.AnalogOutputEvents(obj.AnalogOutputEventIndex, :) = [channel, value, timestamp];
+                    obj.AnalogOutputEventAbsTime(obj.AnalogOutputEventIndex) = absTime;
 
 					% Debug message
 					if obj.DebugMode 
@@ -565,10 +573,21 @@ classdef ArduinoConnection < handle
                 case 'millis'
                     t = data(sel, 2);
                 case 'datenum'
-                    t = data(sel, 3);
+                    if size(data, 2) == 3 % Old version: datenum is saved as 3rd col of obj.EventMarker array
+                        t = data(sel, 3);
+                    elseif ~isempty(obj.EventMarkerAbsTime) % 20260928 new version: we save a separate datetime array
+                        t = datenum(obj.EventMarkerAbsTime(sel));
+                    else
+                        error('Schenanigans afoot.')
+                    end
                 case 'datetime'
-                    t = data(sel, 3);
-                    t = datetime(t, ConvertFrom='datenum', TimeZone='America/New_York');
+                    if size(data, 2) == 3 % Old version: datenum is saved as 3rd col of obj.EventMarker array
+                        t = datetime(data(sel, 3), ConvertFrom='datenum', TimeZone='America/New_York');
+                    elseif ~isempty(obj.EventMarkerAbsTime) % 20260928 new version: we save a separate datetime array
+                        t = obj.EventMarkerAbsTime(sel);
+                    else
+                        error('Schenanigans afoot.')
+                    end
             end
         end
 
@@ -660,7 +679,9 @@ classdef ArduinoConnection < handle
 
 		% Trigger a soft restart on arduino
 		function Reset(obj)
-			obj.EventMarkers = [];
+            obj.EventMarkerIndex = 0;
+            obj.EventMarkers = zeros(200000, 2, 'uint32'); % typical session has no more than 100,000 events
+            obj.EventMarkerAbsTime = NaT(200000, 1, Format='uuuu-MM-dd HH:mm:ss.SSS'); % typical session has no more than 100,000 events
 			obj.Trials = struct([]); 
 			obj.TrialsCompleted = 0;
 			obj.State = [];
