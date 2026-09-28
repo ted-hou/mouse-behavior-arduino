@@ -40,6 +40,7 @@ classdef CameraConnection < handle
 			timestampInterval 	= p.Results.TimestampInterval;
 			dialogPosition 		= p.Results.DialogPosition;
             obj.MemMapPath 		= p.Results.MemMapPath;
+            obj.MemMapPath 		= p.Results.MemMapPath;
 
 			hwinfo = imaqhwinfo('winvideo');
 
@@ -332,7 +333,7 @@ classdef CameraConnection < handle
             if obj.EventLogIndex > length(obj.EventLog)
                 obj.EventLog(length(obj.EventLog)*2) = struct(Timestamp=[], FrameNumber=[]);
             end
-			obj.EventLog(obj.EventLogIndex).Timestamp = evnt.Data.AbsTime; % `datenum` has ~1ms resolution (likely good enough for 30fps cameras), using `datetime` would have ns resolution
+			obj.EventLog(obj.EventLogIndex).Timestamp = datetime(evnt.Data.AbsTime, Format="dd-MMM-uuuu HH:mm:ss.SSSSSS"); % `datenum` has ~1ms resolution (likely good enough for 30fps cameras), using `datetime` would have ns resolution
 			obj.EventLog(obj.EventLogIndex).FrameNumber = evnt.Data.FrameNumber;
 		end
 
