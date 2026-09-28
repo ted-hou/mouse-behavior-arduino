@@ -6,9 +6,10 @@ w, h = 640, 480
 header_size = 4  # uint32, for frame index
 frame_size = w * h * 3
 pose_size = 3 * 4  # x, y, llh
-total_size = header_size + frame_size + 2*pose_size
-idx_hand = 7
+total_size = header_size + frame_size + 3*pose_size
 idx_jaw = 0
+idx_handl = 11
+idx_handr = 7
 filename = r"E:\MATLAB_MEMMAP\memmap_var_1.dat"
 
 import deeplabcut
@@ -34,6 +35,6 @@ while True:
         pose = dlc_live.get_pose(img)
 
         pose_slice = mm[header_size+frame_size:]
-        pose_slice.view(np.float32)[:] = pose[[idx_jaw, idx_hand], :].astype(np.float32).ravel('F')
+        pose_slice.view(np.float32)[:] = pose[[idx_jaw, idx_handl, idx_handr], :].astype(np.float32).ravel('F')
 
         print(pose_slice.view(np.float32)[:])
