@@ -7,12 +7,13 @@ classdef ArduinoConnection < handle
 		ResultCodeNames = {}
     end
     properties (Hidden)
-		EventMarkersUntrimmed  % as of 20260409 this is deprecated, both point to the same untrimmed eventmarkers list
+		EventMarkersUntrimmed  % as of 20260409 this is deprecated, both EventMarkersUntrimmed and EventMarkers point to the same untrimmed eventmarkers list
     end
     properties (Dependent)
-        EventMarkers % Made this one for backwards compatibility, 'untrimmed' ususally has all the event markers, 'eventmarkers' usually ends after the last trial finishes.
+        EventMarkers % Made this one for backwards compatibility, b/c in older recorded data: 'untrimmed' ususally has all the event markers, 'eventmarkers' usually ends after the last trial finishes.
     end
     properties
+        EventMarkerDateTime = datetime.empty();
 		EventMarkerNames = {}
 		Trials = struct([])
 		ExperimentFileName = ''			% Contains 'C://path/filename.mat'
@@ -384,7 +385,7 @@ classdef ArduinoConnection < handle
 					subStrings = strsplit(strtrim(value), ' ');
 					eventCode = str2double(subStrings{1}) + 1; % Convert zero-based indices (Arduino) to one-based indices (MATLAB)
 					timestamp = str2double(subStrings{2});
-					absTime = now;
+					absTime = now(); % this is lower precision (datenum), refer to EventMarkerDateTime for higher precision version (datetime)
 
                     obj.EventMarkerIndex = obj.EventMarkerIndex + 1;
                     % Allocate a bigger array if necessary

@@ -264,21 +264,21 @@ classdef CameraConnection < handle
                 sz = obj.VideoInput.VideoResolution;
                 w = sz(1);
                 h = sz(2);
-                headerSize = 8; % uint64 for frame index
+                headerSize = 4; % uint32 for frame index
                 frameSize = w*h*3; % uint8, 3 color channels
                 poseSize = 3*4; % 3 single floats per bodypart (there are 2: hand/jaw)
 
-                % Create/Zero out the shared binary file (Header: 1 uint64 for frame index + image data)
-                totalBytes = 8 + frameSize + 2*poseSize; 
+                % Create/Zero out the shared binary file (Header: 1 uint32 for frame index + image data)
+                totalBytes = headerSize + frameSize + 2*poseSize; 
                 fileID = fopen(memMapFileName, 'w');
                 fwrite(fileID, zeros(totalBytes, 1, 'uint8'));
                 fclose(fileID);
 
                 obj.MemMapFile = memmapfile(memMapFileName, Writable=true, ...
                     Format={ ...
-                        'uint64', [1 1], 'idx'; ...
-                        'uint8', [h, w, 3], 'frame'; ...
-                        'single', [2, 3], 'pose'; ... [x, y, likelihood] of hand;jaw
+                        'uint32', [1, 1], 'idx'; ... frame index
+                        'uint8', [h, w, 3], 'frame'; ... image
+                        'single', [2, 3], 'pose'; ... each row is [x, y, likelihood] for a different bodypart (hand; jaw)
                     });
                 obj.VideoInput.FramesAcquiredFcn = @obj.WriteToMemMap;
                 obj.VideoInput.FramesAcquiredFcnCount = 1;
@@ -291,12 +291,18 @@ classdef CameraConnection < handle
                 % Safely extract data and timestamps from memory without disrupting the disk write
                 [data, ~, ~] = getdata(vid, framesAvailable);
 
+                % Write frame index and image to memmap'd file
                 mmf = obj.MemMapFile;
                 frame = data(:, :, :, end);
                 if ~isempty(frame)
                     mmf.Data.frame = frame;
-                    mmf.Data.idx = uint64(vid.FramesAcquired);
+                    mmf.Data.idx = uint32(vid.FramesAcquired);
                 end
+                % Read results back from Python (race conditions exist, to fix: use a handshake, or try tcp/ip instead of memmap)
+                % but honestly we're talking microseconds here, so it probably does not matter for 30fps:
+                % MATLAB sends a new frame and reads last pose estimate from Python (30Hz) -> Python sends back new pose data (30Hz)
+                % We should probably improve by having MATLAB read Python pose as soon as that returns
+                % But this function is called each time camera acquires a new frame, so we'd need a faster/separate timer which sounds like a new can of dragons
                 obj.Pose = mmf.Data.pose;
                 % fprintf("Frame %i, x=%.2f, y=%.2f, llh=%.2f\n", mmf.Data.idx, obj.Pose(1), obj.Pose(2), obj.Pose(3))
             end
@@ -336,7 +342,7 @@ classdef CameraConnection < handle
                 obj.EventLog.FrameNumber(length(obj.EventLog.FrameNumber)+21600) = 0;
             end
 			obj.EventLog.Timestamp(obj.EventLogIndex) = datetime(evnt.Data.AbsTime, Format="dd-MMM-uuuu HH:mm:ss.SSSSSS"); % `datenum` has ~1ms resolution (likely good enough for 30fps cameras), using `datetime` would have ns resolution
-			obj.EventLog.FrameNumber(obj.EventLogIndex) = evnt.Data.FrameNumber;
+			obj.EventLog.FrameNumber(obj.EventLogIndex) = uint32(evnt.Data.FrameNumber);
 		end
 
 		% Open preview window
@@ -364,7 +370,7 @@ classdef CameraConnection < handle
 			end
 
             obj.EventLogIndex = 0;
-            obj.EventLog = struct(Timestamp=zeros(21600, 1, 'double'), FrameNumber=zeros(21600, 1, 'uint64'));
+            obj.EventLog = struct(Timestamp=zeros(21600, 1, 'double'), FrameNumber=zeros(21600, 1, 'uint32'));
 			fprintf(1, 'Loggin video to disk...\n')
 
 			start(obj.VideoInput)
