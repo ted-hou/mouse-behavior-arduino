@@ -21,7 +21,7 @@ classdef VideoAssistantReferee < handle
             p = inputParser();
             p.addRequired('ArduinoOrCamera', @(x) isa(x, 'ArduinoConnection') || isa(x, 'CameraConnection'))
             p.addParameter('CamId', 3, @(x) isscalar(x) && isnumeric(x)) % Use left camera as default
-            p.addParameter('BodypartNames', ["Jaw", "HandL", "HandR"], @(x) isstring && length(x)==3);
+            p.addParameter('BodypartNames', ["Jaw", "HandL", "HandR"], @(x) isstring(x) && length(x)==3);
             p.addParameter('BufferLength', 300, @(x) isnumeric(x) & isscalar(x)) % 300 at 30fps = 10s
             p.addParameter('MemMapFolder', "C:\MATLAB_MEMMAP\VideoAssistantReferee"); % ""
             p.parse(arduinoOrCamera, varargin{:})
@@ -148,15 +148,20 @@ classdef VideoAssistantReferee < handle
 			frame = event.Data;
 
 			% Add text annotation using insertText
-			annotatedFrame = insertText(frame, obj.CurrentPose(:, 1:3), [sprintf("%s %.2f", obj.BodypartNames(1), obj.CurrentPose(1, 3)); sprintf("%s %.2f", obj.BodypartNames(2), obj.CurrentPose(2, 3)); sprintf("%s %.2f", obj.BodypartNames(3), obj.CurrentPose(3, 3))], ...
+			annotatedFrame = insertText(frame, obj.CurrentPose(:, 1:2), ...
+                [ ...
+                    sprintf("%s %.2f", obj.BodypartNames(1), obj.CurrentPose(1, 3)); ...
+                    sprintf("%s %.2f", obj.BodypartNames(2), obj.CurrentPose(2, 3)); ...
+                    sprintf("%s %.2f", obj.BodypartNames(3), obj.CurrentPose(3, 3)) ...
+                ], ...
 				'FontSize', 18, 'BoxColor', ["yellow", "red", "blue"], 'BoxOpacity', 0.4, 'AnchorPoint', 'LeftTop');
-            for frameShift = -1:-1:-10
+            for frameShift = -1:-1:-15
                 iFrame = obj.CurrentBufferIdx + frameShift;
                 if iFrame <= 0
                     iFrame = obj.BufferLength + iFrame;
                 end
-			    annotatedFrame = insertText(annotatedFrame, 'circle', [obj.Buffer.Pose(:, 1:2, iFrame), 30+2*frameShift], ...
-				    'Color', ["yellow", "red", "blue"], 'Opacity', 0.4, LineWidth=0);
+			    annotatedFrame = insertShape(annotatedFrame, 'filled-circle', [obj.Buffer.Pose(:, 1:2, iFrame), repmat(11+frameShift/15*5, [size(obj.Buffer.Pose, 1), 1])], ...
+				    'ShapeColor', ["yellow", "red", "blue"], 'Opacity', 0.4, LineWidth=1);
             end
 
 			% Update the image object with the annotated frame
