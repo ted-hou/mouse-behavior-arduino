@@ -16,4 +16,4 @@ var = VideoAssistantReferee(cc, MemMapFolder='E:\MATLAB_MEMMAP');
 % This will start writing Pose data back to the memmap file
 
 %% Manually close the preview window, then create our own preview which draws pose estimates from dlc-live
-obj.PreviewPose()
+var.PreviewPose()

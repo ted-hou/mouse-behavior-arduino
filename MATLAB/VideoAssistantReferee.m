@@ -1,4 +1,4 @@
-classdef VideoAssistantReferee
+classdef VideoAssistantReferee < handle
     %VIDEOASSISTANTREFEREE
     %   to make sure mouse does not lick during reach trials, and vice versa
 
@@ -68,7 +68,7 @@ classdef VideoAssistantReferee
             if ~exist(folder, 'dir')
                 mkdir(folder)
             end
-            memMapFilePath = fullfile(filepath, sprintf("memmap_var_%i.dat", obj.Camera.VideoInput.DeviceID));
+            memMapFilePath = fullfile(folder, sprintf("memmap_var_%i.dat", obj.Camera.VideoInput.DeviceID));
             if exist(memMapFilePath, 'file')
                 delete(memMapFilePath);
             end
