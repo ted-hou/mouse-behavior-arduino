@@ -468,7 +468,7 @@ classdef ArduinoConnection < handle
                         warning('AnalogOutputEvents is not empty, but is being overriden. If you are reading this, arduino probably sent the ":" symbol more than once')
                     end
                     obj.AnalogOutputEventIndex = 0;
-                    obj.AnalogOutputEvents = NaN(1000, 3);
+                    obj.AnalogOutputEvents = NaN(1000, 3); % In older versions this was NaN(1000, 4), 4th col was datenum
                     obj.AnalogOutputEventAbsTime = NaT(1000, 1, Format='uuuu-MM-dd HH:mm:ss.SSSSSS');
                 case '%'
 					% Arduino sent analogOutputEvent - "% channel value timestamp"
@@ -486,7 +486,7 @@ classdef ArduinoConnection < handle
                         obj.AnalogOutputEventAbsTime = vertcat(obj.AnalogOutputEventAbsTime, NaT(size(obj.AnalogOutputEventAbsTime)));
                     end
 
-					obj.AnalogOutputEvents(obj.AnalogOutputEventIndex, :) = [channel, value, timestamp];
+					obj.AnalogOutputEvents(obj.AnalogOutputEventIndex, :) = [channel, value, timestamp];  % In older versions 4th col was datenum
                     obj.AnalogOutputEventAbsTime(obj.AnalogOutputEventIndex) = absTime;
 
 					% Debug message
@@ -591,6 +591,44 @@ classdef ArduinoConnection < handle
             end
         end
 
+        function [t, values] = GetAnalogOutputEvents(obj, channel, varargin)
+			p = inputParser;
+			addRequired(p, 'Channel', @(x) isscalar(x) && (x==0 || x==1)); % 0 or 1
+            addOptional(p, 'TimeType', 'millis', @(x) ismember(x, {'millis', 'datenum', 'datetime'}))
+			parse(p, channel, varargin{:});
+			channel = p.Results.Channel;
+            timeType = p.Results.TimeType;
+
+            data = obj.AnalogOutputEvents;
+
+            if isempty(channel) || isempty(data)
+                t = [];
+                values = [];
+                return;
+            end
+            sel = data(:, 1) == channel;
+            values = data(sel, 2); % analog output value, usually 0-4095, 12bit int
+            switch timeType
+                case 'millis'
+                    t = data(sel, 3);
+                case 'datenum'
+                    if size(data, 2) == 4 % Old version: datenum is saved as 3rd col of obj.EventMarker array
+                        t = data(sel, 4);
+                    elseif ~isempty(obj.AnalogOutputEventAbsTime) % 20260928 new version: we save a separate datetime array
+                        t = datenum(obj.AnalogOutputEventAbsTime(sel));
+                    else
+                        error('Schenanigans afoot.')
+                    end
+                case 'datetime'
+                    if size(data, 2) == 4 % Old version: datenum is saved as 3rd col of obj.EventMarker array
+                        t = datetime(data(sel, 4), ConvertFrom='datenum', TimeZone='America/New_York');
+                    elseif ~isempty(obj.AnalogOutputEventAbsTime) % 20260928 new version: we save a separate datetime array
+                        t = obj.AnalogOutputEventAbsTime(sel);
+                    else
+                        error('Schenanigans afoot.')
+                    end
+            end
+        end
 		% Read a parameter
 		function varargout = GetParam(obj, index)
 			p = inputParser;
