@@ -330,11 +330,13 @@ classdef CameraConnection < handle
 		function OnTrigger(obj, ~, evnt)
 			obj.EventLogIndex = obj.EventLogIndex + 1;
 
-            if obj.EventLogIndex > length(obj.EventLog)
-                obj.EventLog(length(obj.EventLog)*2) = struct(Timestamp=[], FrameNumber=[]);
+            % Grow preallocated arrays if needed
+            if obj.EventLogIndex > length(obj.EventLog.FrameNumber)
+                obj.EventLog.Timestamp(length(obj.EventLog.Timestamp)+21600) = 0;
+                obj.EventLog.FrameNumber(length(obj.EventLog.FrameNumber)+21600) = 0;
             end
-			obj.EventLog(obj.EventLogIndex).Timestamp = datetime(evnt.Data.AbsTime, Format="dd-MMM-uuuu HH:mm:ss.SSSSSS"); % `datenum` has ~1ms resolution (likely good enough for 30fps cameras), using `datetime` would have ns resolution
-			obj.EventLog(obj.EventLogIndex).FrameNumber = evnt.Data.FrameNumber;
+			obj.EventLog.Timestamp(obj.EventLogIndex) = datetime(evnt.Data.AbsTime, Format="dd-MMM-uuuu HH:mm:ss.SSSSSS"); % `datenum` has ~1ms resolution (likely good enough for 30fps cameras), using `datetime` would have ns resolution
+			obj.EventLog.FrameNumber(obj.EventLogIndex) = evnt.Data.FrameNumber;
 		end
 
 		% Open preview window
@@ -362,8 +364,7 @@ classdef CameraConnection < handle
 			end
 
             obj.EventLogIndex = 0;
-            obj.EventLog = struct(Timestamp=[], FrameNumber=[]);
-            obj.EventLog(21600) = struct(Timestamp=[], FrameNumber=[]);
+            obj.EventLog = struct(Timestamp=zeros(21600, 1, 'double'), FrameNumber=zeros(21600, 1, 'uint64'));
 			fprintf(1, 'Loggin video to disk...\n')
 
 			start(obj.VideoInput)
@@ -382,8 +383,11 @@ classdef CameraConnection < handle
 				pause(.1)
 			end
 
-            obj.EventLog = obj.EventLog(arrayfun(@(log) ~isempty(log.Timestamp), obj.EventLog, UniformOutput=true));
-			fprintf(1, 'Video logging ended.\n')
+            % Trim preallocated/unused zeros from eventlog
+            isValid = obj.EventLog.FrameNumber ~= 0;
+            obj.EventLog.Timestamp = obj.EventLog.Timestamp(isValid);
+            obj.EventLog.FrameNumber = obj.EventLog.FrameNumber(isValid);
+			fprintf(1, 'Video logging ended (%i+ frames).\n', obj.EventLog.FrameNumber(end))
 		end
 
 		% Terminates connection to camera
