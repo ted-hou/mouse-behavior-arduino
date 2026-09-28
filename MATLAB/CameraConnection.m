@@ -338,7 +338,7 @@ classdef CameraConnection < handle
 
             % Grow preallocated arrays if needed
             if obj.EventLogIndex > length(obj.EventLog.FrameNumber)
-                obj.EventLog.Timestamp(length(obj.EventLog.Timestamp)+21600) = 0;
+                obj.EventLog.Timestamp(length(obj.EventLog.Timestamp)+21600) = NaT;
                 obj.EventLog.FrameNumber(length(obj.EventLog.FrameNumber)+21600) = 0;
             end
 			obj.EventLog.Timestamp(obj.EventLogIndex) = datetime(evnt.Data.AbsTime, Format="uuuu-MM-dd HH:mm:ss.SSSSSS"); % `datenum` has ~1ms resolution (likely good enough for 30fps cameras), using `datetime` would have ns resolution
@@ -370,7 +370,7 @@ classdef CameraConnection < handle
 			end
 
             obj.EventLogIndex = 0;
-            obj.EventLog = struct(Timestamp=zeros(21600, 1, 'double'), FrameNumber=zeros(21600, 1, 'uint32'));
+            obj.EventLog = struct(Timestamp=NaT(21600, 1), FrameNumber=zeros(21600, 1, 'uint32'));
 			fprintf(1, 'Loggin video to disk...\n')
 
 			start(obj.VideoInput)
