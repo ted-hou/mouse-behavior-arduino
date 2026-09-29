@@ -1,12 +1,17 @@
-%% 1. Start camera
-clc
-cc = CameraConnection('Format', 'MJPG_640x480',...
-    'FrameRate', 30,...
-    'FileFormat', 'MPEG-4');
-mkdir("E:\Data\Test")
-cc.SaveAs("E:\Data\Test\test_1.mp4");
+% %% 1a. Start camera
+% clc
+% cc = CameraConnection('Format', 'MJPG_640x480',...
+%     'FrameRate', 30,...
+%     'FileFormat', 'MPEG-4');
+% mkdir("E:\Data\Test_DLCLive")
+% cc.SaveAs("E:\Data\Test_DLCLive\test_1.mp4");
+% 
+% var = VideoAssistantReferee(cc, BodypartNames=["Jaw", "HandL", "HandR"], ...
+%     MemMapFolder='E:\MATLAB_MEMMAP');
 
-var = VideoAssistantReferee(cc, BodypartNames=["Jaw", "HandL", "HandR"], ...
+%% 1b. Use recorded video file instead of camera
+clc
+var = VideoAssistantReferee("E:\DATA\Test_DLCLive\desmond46_20260717_laser_3.mp4", BodypartNames=["Jaw", "HandL", "HandR"], ...
     MemMapFolder='E:\MATLAB_MEMMAP');
 
 

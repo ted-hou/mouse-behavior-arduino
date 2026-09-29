@@ -1,5 +1,6 @@
 from dlclive import DLCLive, Processor
 import numpy as np
+import matplotlib.pyplot as plt
 
 w, h = 640, 480
 header_size = 4  # uint32, for frame index
@@ -9,7 +10,7 @@ total_size = header_size + frame_size + 3 * pose_size
 idx_jaw = 4  #0
 idx_handl = 0  #11
 idx_handr = 1  #7
-filename = r"E:\MATLAB_MEMMAP\memmap_var_1.dat"
+filename = r"E:\MATLAB_MEMMAP\memmap_var.dat"
 
 print("Initializing DeepLabCut-live...")
 dlc_proc = Processor()
@@ -24,22 +25,32 @@ dlc_live = DLCLive(
 mm = np.memmap(filename, dtype='uint8', mode='r+', shape=(total_size,))
 
 img = mm[header_size:header_size + frame_size]
-img = img.reshape((h, w, 3))
+img = img.reshape((h, w, 3), order='F')
 dlc_live.init_inference(img)
 
 print("Up and running!")
+
+# plt.ion()
+# fig, ax = plt.subplots()
 
 last_idx = 0
 while True:
     idx = mm[:header_size].view(np.uint32)[0]
     # print("Waiting for next frame...")
     if idx != last_idx:
+        if idx - last_idx > 1:
+            print(f"skipped {idx - last_idx - 1} frames, now at {idx}...")
         last_idx = idx
         img = mm[header_size:header_size + frame_size]
-        img = img.reshape((h, w, 3))
+        img = img.reshape((h, w, 3), order='F')
         pose = dlc_live.get_pose(img)
 
         pose_slice = mm[header_size + frame_size:]
         pose_slice.view(np.float32)[:] = pose[[idx_jaw, idx_handl, idx_handr], :].astype(np.float32).ravel('F')
+
+        # ax.clear()
+        # ax.imshow(img)
+        # ax.axis("off")
+        # plt.draw()
 
         # print(pose_slice.view(np.float32)[:])

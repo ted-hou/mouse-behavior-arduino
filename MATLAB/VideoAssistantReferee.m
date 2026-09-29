@@ -5,6 +5,8 @@ classdef VideoAssistantReferee < handle
     properties
         Arduino
         Camera
+        Video % For testing on pre-recorded videos only
+        Source
         MemMapFilePath
         MemMapFile
         BodypartNames
@@ -17,21 +19,32 @@ classdef VideoAssistantReferee < handle
     end
 
     methods
-        function obj = VideoAssistantReferee(arduinoOrCamera, varargin)
+        function obj = VideoAssistantReferee(source, varargin)
             p = inputParser();
-            p.addRequired('ArduinoOrCamera', @(x) isa(x, 'ArduinoConnection') || isa(x, 'CameraConnection'))
+            p.addRequired('Source', @(x) isa(x, 'ArduinoConnection') || isa(x, 'CameraConnection') || ischar(x) || isstring(x))
             p.addParameter('CamId', 3, @(x) isscalar(x) && isnumeric(x)) % Use left camera as default
             p.addParameter('BodypartNames', ["Jaw", "HandL", "HandR"], @(x) isstring(x) && length(x)==3);
             p.addParameter('BufferLength', 300, @(x) isnumeric(x) & isscalar(x)) % 300 at 30fps = 10s
             p.addParameter('MemMapFolder', "C:\MATLAB_MEMMAP\VideoAssistantReferee"); % ""
-            p.parse(arduinoOrCamera, varargin{:})
+            p.parse(source, varargin{:})
             
-            if isa(arduinoOrCamera, 'ArduinoConnection')
+            if isa(source, 'ArduinoConnection')
                 obj.Arduino = p.Results.Arduino;
                 obj.Camera = arduino.Cameras(p.Results.camId).Camera;
-            else
+                obj.Video = [];
+                obj.Source = "Arduino";
+            elseif isa(source, 'CameraConnection')
                 obj.Arduino = [];
-                obj.Camera = arduinoOrCamera;
+                obj.Camera = source;
+                obj.Video = [];
+                obj.Source = "Camera";
+            elseif isfile(source)
+                obj.Arduino = [];
+                obj.Camera = [];
+                obj.Video = VideoReader(source);
+                obj.Source = "Video";
+            else
+                error("Invalid source %s", source)
             end
             
             obj.BodypartNames = p.Results.BodypartNames;
@@ -39,17 +52,19 @@ classdef VideoAssistantReferee < handle
 
             obj.initBuffer(p.Results.BufferLength);
 
-            obj.Camera.VideoInput.LoggingMode = 'disk&memory';
+            switch obj.Source
+                case {"Arduino", "Camera"}
+                    obj.Camera.VideoInput.LoggingMode = 'disk&memory';
+                case "Video"
+            end
             obj.MemMapFilePath = obj.createMemMapFile(p.Results.MemMapFolder); % This changes logging mode from 'disk' to 'disk&memory'!
 
         end
 
+        % Create our own preview window for video, drawing DLC-live results
 		function preview(obj)
-			% Create a custom figure and axes
 			fig = figure;
 			ax = axes(fig);
-
-			% Initialize an image object in the axes
 			hImage = image(ax, zeros(480, 640, 3));
 			preview(obj.Camera.VideoInput, hImage);
 
@@ -65,15 +80,21 @@ classdef VideoAssistantReferee < handle
             if ~exist(folder, 'dir')
                 mkdir(folder)
             end
-            memMapFilePath = fullfile(folder, sprintf("memmap_var_%i.dat", obj.Camera.VideoInput.DeviceID));
+            memMapFilePath = fullfile(folder, "memmap_var.dat");
             if exist(memMapFilePath, 'file')
                 delete(memMapFilePath);
             end
 
             % Create the file
-            sz = obj.Camera.VideoInput.VideoResolution;
-            w = sz(1);
-            h = sz(2);
+            switch obj.Source
+                case {"Arduino", "Camera"}
+                    sz = obj.Camera.VideoInput.VideoResolution;
+                    w = sz(1);
+                    h = sz(2);
+                case "Video"
+                    w = obj.Video.Width;
+                    h = obj.Video.Height;
+            end
             headerSize = 4; % uint32 for frame index
             frameSize = w*h*3; % uint8, 3 color channels
             poseSize = 3*4; % 3 single floats per bodypart (there should be 3: jaw, lefthand, righthand)
@@ -90,12 +111,28 @@ classdef VideoAssistantReferee < handle
                     'uint8', [h, w, 3], 'frame'; ... image
                     'single', [length(obj.BodypartNames), 3], 'pose'; ... each row is [x, y, likelihood] for a different bodypart (hand; jaw)
                 });
-            obj.Camera.VideoInput.FramesAcquiredFcn = @obj.onFrameAcquired;
-            obj.Camera.VideoInput.FramesAcquiredFcnCount = 1;
+
+            switch obj.Source
+                case {"Arduino", "Camera"}
+                    obj.Camera.VideoInput.FramesAcquiredFcn = @obj.onFrameAcquired;
+                    obj.Camera.VideoInput.FramesAcquiredFcnCount = 1;
+                case "Video"
+        			fig = figure;
+        			ax = axes(fig);
+        			hImage = image(ax, zeros(480, 640, 3));
+                    axis(ax, 'image')
+                    ax.XAxis.Visible = false;
+                    ax.YAxis.Visible = false;
+
+                    hTimer = timer(Period=1/30, ExecutionMode="fixedDelay", BusyMode="queue");
+                    hTimer.TimerFcn = @(~, ~) obj.onFrameAcquiredFromVideo(hImage);
+                    hTimer.start();
+            end
 
             fprintf("Created memmapfile at %s...\n", memMapFilePath);
         end
 
+        % Call back used when a frame is read acquired from camera
 		function onFrameAcquired(obj, vid, ~)
 			framesAvailable = vid.FramesAvailable;
 			if framesAvailable > 0
@@ -122,6 +159,40 @@ classdef VideoAssistantReferee < handle
 			end
         end
 
+        % Call back used when a frame is read from file (for TESTING)
+        function onFrameAcquiredFromVideo(obj, hImage)
+            if hasFrame(obj.Video)
+                % Safely extract data and timestamps from memory without disrupting the disk write
+                t = obj.Video.CurrentTime;
+                frame = readFrame(obj.Video);
+
+                % Write frame index and image to memmap'd file
+                mmf = obj.MemMapFile;
+                newFrameIdx = uint32(round(t*obj.Video.FrameRate));
+                if ~isempty(frame)
+                    mmf.Data.frame = frame;
+                    mmf.Data.idx = newFrameIdx; % idx will be incremented
+                end
+                % Read results back from Python (race conditions exist, to fix: use a handshake, or try tcp/ip instead of memmap) but honestly it probably does not matter for 30fps:
+                % MATLAB gets new frame from cam (30Hz) -> MATLAB sends a new frame and reads last pose estimate from Python -> Python sends back new pose data
+                obj.CurrentPose = mmf.Data.pose;
+                % fprintf("Frame %i, x=%.2f, y=%.2f, llh=%.2f\n", mmf.Data.idx, obj.Pose(1), obj.Pose(2), obj.Pose(3))
+
+                % Write to buffer
+                obj.addToBuffer(obj.CurrentFrameIdx, obj.CurrentAbsTime, obj.CurrentPose);
+                obj.CurrentFrameIdx = newFrameIdx;
+                obj.CurrentAbsTime = datetime('now');
+
+                % Update preview
+                if obj.Source == "Video"
+                    event = struct(Data=frame);
+                    obj.updatePreview([], event, hImage);
+                end
+
+                % fprintf("Read frame %i\n", newFrameIdx);
+            end
+        end
+
         function initBuffer(obj, bufferLength)
             obj.BufferLength = bufferLength;
             obj.Buffer = struct( ...
@@ -144,6 +215,9 @@ classdef VideoAssistantReferee < handle
         end
 
 		function updatePreview(obj, ~, event, hImage)
+            if ~isgraphics(hImage)
+                return
+            end
 			% Get the current video frame from the event data
 			frame = event.Data;
 
@@ -154,13 +228,13 @@ classdef VideoAssistantReferee < handle
                     sprintf("%s %.2f", obj.BodypartNames(2), obj.CurrentPose(2, 3)); ...
                     sprintf("%s %.2f", obj.BodypartNames(3), obj.CurrentPose(3, 3)) ...
                 ], ...
-				'FontSize', 18, 'BoxColor', ["yellow", "red", "blue"], 'BoxOpacity', 0.4, 'AnchorPoint', 'LeftTop');
-            for frameShift = -1:-1:-15
+				'FontSize', 9, 'BoxColor', ["yellow", "red", "blue"], 'BoxOpacity', 0.4, 'AnchorPoint', 'LeftTop');
+            for frameShift = -1:-2:-30
                 iFrame = obj.CurrentBufferIdx + frameShift;
                 if iFrame <= 0
                     iFrame = obj.BufferLength + iFrame;
                 end
-			    annotatedFrame = insertShape(annotatedFrame, 'filled-circle', [obj.Buffer.Pose(:, 1:2, iFrame), repmat(11+frameShift/15*5, [size(obj.Buffer.Pose, 1), 1])], ...
+			    annotatedFrame = insertShape(annotatedFrame, 'filled-circle', [obj.Buffer.Pose(:, 1:2, iFrame), repmat(2+frameShift/30*1, [size(obj.Buffer.Pose, 1), 1])], ...
 				    'ShapeColor', ["yellow", "red", "blue"], 'Opacity', 0.4, LineWidth=1);
             end
 
