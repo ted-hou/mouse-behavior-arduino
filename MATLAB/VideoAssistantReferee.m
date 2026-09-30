@@ -3,19 +3,26 @@ classdef VideoAssistantReferee < handle
     %   to make sure mouse does not lick during reach trials, and vice versa
 
     properties
+        Params = struct(ThresholdMin=[10, 10, 10], ThresholdMax=[50, 50, 50], NFramesBefore=7, NFramesAfter=7, MinLikelihood=0.3)
         Arduino
         Camera
-        Video % For testing on pre-recorded videos only
-        Source
+        SourceType
         MemMapFilePath
         MemMapFile
         BodypartNames
         CurrentPose
         CurrentFrameIdx = zeros(1, 'uint32') % This corresponds to CurrentPose, but should lag behind actual FramesAcquired by 1
         CurrentAbsTime = NaT(1, Format='uuuu-MM-dd HH:mm:ss.SSS'); % This corresponds to CurrentFrameIdx, but should lag behind actual FramesAcquired by 1
+        CurrentSpeed
+        CurrentResult = "none"        
         Buffer = struct(FrameIdx=[], AbsTime=[], Pose=[]) % (BufferLength x 1, BufferLength x 1, nBodyparts x 3 x BufferLength)
         BufferLength = 0; % 300 frames ~= 10s
         CurrentBufferIdx = 0;
+    end
+
+    properties (Hidden)
+        TestVideo % For testing on pre-recorded videos only
+        TestEvents % For testing on pre-recorded videos only
     end
 
     methods
@@ -31,18 +38,18 @@ classdef VideoAssistantReferee < handle
             if isa(source, 'ArduinoConnection')
                 obj.Arduino = p.Results.Arduino;
                 obj.Camera = arduino.Cameras(p.Results.camId).Camera;
-                obj.Video = [];
-                obj.Source = "Arduino";
+                obj.TestVideo = [];
+                obj.SourceType = "Arduino";
             elseif isa(source, 'CameraConnection')
                 obj.Arduino = [];
                 obj.Camera = source;
-                obj.Video = [];
-                obj.Source = "Camera";
+                obj.TestVideo = [];
+                obj.SourceType = "Camera";
             elseif isfile(source)
                 obj.Arduino = [];
                 obj.Camera = [];
-                obj.Video = VideoReader(source);
-                obj.Source = "Video";
+                obj.TestVideo = VideoReader(source);
+                obj.SourceType = "TestVideo";
             else
                 error("Invalid source %s", source)
             end
@@ -52,10 +59,10 @@ classdef VideoAssistantReferee < handle
 
             obj.initBuffer(p.Results.BufferLength);
 
-            switch obj.Source
+            switch obj.SourceType
                 case {"Arduino", "Camera"}
                     obj.Camera.VideoInput.LoggingMode = 'disk&memory';
-                case "Video"
+                case "TestVideo"
             end
             obj.MemMapFilePath = obj.createMemMapFile(p.Results.MemMapFolder); % This changes logging mode from 'disk' to 'disk&memory'!
 
@@ -66,9 +73,17 @@ classdef VideoAssistantReferee < handle
 			fig = figure;
 			ax = axes(fig);
 			hImage = image(ax, zeros(480, 640, 3));
-			preview(obj.Camera.VideoInput, hImage);
+            preview(obj.Camera.VideoInput, hImage);
 
 			setappdata(hImage, 'UpdatePreviewWindowFcn', @obj.updatePreview);
+        end
+
+        function [pose, idx, t] = fetchBuffer(obj, nFrames)
+            sel = obj.CurrentBufferIdx-nFrames+1 : obj.CurrentBufferIdx;
+            sel(sel<=0) = sel(sel<=0) + obj.BufferLength;
+            pose = obj.Buffer.Pose(:, :, sel);
+            idx = obj.Buffer.FrameIdx(sel);
+            t = obj.Buffer.AbsTime(sel);
         end
     end
 
@@ -86,14 +101,14 @@ classdef VideoAssistantReferee < handle
             end
 
             % Create the file
-            switch obj.Source
+            switch obj.SourceType
                 case {"Arduino", "Camera"}
                     sz = obj.Camera.VideoInput.VideoResolution;
                     w = sz(1);
                     h = sz(2);
-                case "Video"
-                    w = obj.Video.Width;
-                    h = obj.Video.Height;
+                case "TestVideo"
+                    w = obj.TestVideo.Width;
+                    h = obj.TestVideo.Height;
             end
             headerSize = 4; % uint32 for frame index
             frameSize = w*h*3; % uint8, 3 color channels
@@ -112,11 +127,11 @@ classdef VideoAssistantReferee < handle
                     'single', [length(obj.BodypartNames), 3], 'pose'; ... each row is [x, y, likelihood] for a different bodypart (hand; jaw)
                 });
 
-            switch obj.Source
+            switch obj.SourceType
                 case {"Arduino", "Camera"}
                     obj.Camera.VideoInput.FramesAcquiredFcn = @obj.onFrameAcquired;
                     obj.Camera.VideoInput.FramesAcquiredFcnCount = 1;
-                case "Video"
+                case "TestVideo"
         			fig = figure;
         			ax = axes(fig);
         			hImage = image(ax, zeros(480, 640, 3));
@@ -161,14 +176,14 @@ classdef VideoAssistantReferee < handle
 
         % Call back used when a frame is read from file (for TESTING)
         function onFrameAcquiredFromVideo(obj, hImage)
-            if hasFrame(obj.Video)
+            if hasFrame(obj.TestVideo)
                 % Safely extract data and timestamps from memory without disrupting the disk write
-                t = obj.Video.CurrentTime;
-                frame = readFrame(obj.Video);
+                t = obj.TestVideo.CurrentTime;
+                frame = readFrame(obj.TestVideo);
 
                 % Write frame index and image to memmap'd file
                 mmf = obj.MemMapFile;
-                newFrameIdx = uint32(round(t*obj.Video.FrameRate));
+                newFrameIdx = uint32(round(t*obj.TestVideo.FrameRate));
                 if ~isempty(frame)
                     mmf.Data.frame = frame;
                     mmf.Data.idx = newFrameIdx; % idx will be incremented
@@ -183,21 +198,62 @@ classdef VideoAssistantReferee < handle
                 obj.CurrentFrameIdx = newFrameIdx;
                 obj.CurrentAbsTime = datetime('now');
 
+                % Calculate recent movement magnitudes
+                [pose, ~, t] = obj.fetchBuffer(obj.Params.NFramesBefore + obj.Params.NFramesAfter + 1); % 15 frames ~ 0.5s
+                p = pose(:, 3, :);
+                x = pose(:, 1:2, :);
+                x(p<obj.Params.MinLikelihood) = NaN;
+                dx = diff(x, 1, 3); % x,y displacement
+                dx = squeeze(sqrt(sum(dx(:, :, :).^2, 2))); % euclidean
+                dt = seconds(diff(t));
+                speed = [NaN(3, 1), dx./dt];
+
+                % Check for spurious movements when a TestEvent occurs
+                result = "none";
+                hasSpuriousMovement = false;
+                if ~isempty(obj.TestEvents)
+                    for trialType = ["press", "lick"]
+                        if any(obj.TestEvents.(trialType) == obj.CurrentFrameIdx - obj.Params.NFramesAfter)
+                            fprintf("%s", trialType)
+                            switch trialType
+                                case "press"
+                                    % Check for unwanted jaw movements
+                                    if any(speed(1, :) > obj.Params.ThresholdMax(1))
+                                        hasSpuriousMovement = true;
+                                    end
+                                case "lick"
+                                    % Check for unwanted hand movements
+                                    if any(speed(2, :) > obj.Params.ThresholdMax(2)) || any(speed(3, :) > obj.Params.ThresholdMax(3))
+                                        hasSpuriousMovement = true;
+                                    end
+                            end
+                            fprintf("hasSpuriousMovement=%s\n", string(hasSpuriousMovement))
+                            if hasSpuriousMovement
+                                result = "spuriousMovement";
+                            else
+                                result = "cleanMovement";
+                            end
+                            break
+                        end
+                    end
+                end
+
+                obj.CurrentSpeed = speed;
+                obj.CurrentResult = result;
+
                 % Update preview
-                if obj.Source == "Video"
+                if obj.SourceType == "TestVideo"
                     event = struct(Data=frame);
                     obj.updatePreview([], event, hImage);
                 end
-
-                % fprintf("Read frame %i\n", newFrameIdx);
             end
         end
 
         function initBuffer(obj, bufferLength)
             obj.BufferLength = bufferLength;
             obj.Buffer = struct( ...
-                FrameIdx=zeros(bufferLength, 1, 'uint32'), ...
-                AbsTime=NaT(bufferLength, 1, Format='uuuu-MM-dd HH:mm:ss.SSS'), ...
+                FrameIdx=zeros(1, bufferLength, 'uint32'), ...
+                AbsTime=NaT(1, bufferLength, Format='uuuu-MM-dd HH:mm:ss.SSS'), ...
                 Pose=zeros(length(obj.BodypartNames), 3, bufferLength, 'single') ...
                 );
             obj.CurrentBufferIdx = 0;
@@ -219,27 +275,48 @@ classdef VideoAssistantReferee < handle
                 return
             end
 			% Get the current video frame from the event data
-			frame = event.Data;
+            frame = event.Data;
+            colors = ["yellow", "red", "blue"];
+            speed = obj.CurrentSpeed;
+            result = obj.CurrentResult;
 
-			% Add text annotation using insertText
-			annotatedFrame = insertText(frame, obj.CurrentPose(:, 1:2), ...
-                [ ...
-                    sprintf("%s %.2f", obj.BodypartNames(1), obj.CurrentPose(1, 3)); ...
-                    sprintf("%s %.2f", obj.BodypartNames(2), obj.CurrentPose(2, 3)); ...
-                    sprintf("%s %.2f", obj.BodypartNames(3), obj.CurrentPose(3, 3)) ...
-                ], ...
-				'FontSize', 9, 'BoxColor', ["yellow", "red", "blue"], 'BoxOpacity', 0.4, 'AnchorPoint', 'LeftTop');
+            pMove = (speed(:, end)-obj.Params.ThresholdMin) ./ (obj.Params.ThresholdMax-obj.Params.ThresholdMin);
+            pMove(isnan(pMove)) = 0;
+            pMove(pMove<0) = 0;
+            textColor = ["white", "white", "white"];
+            textColor(pMove>=1) = "black";
+
+            % Label dlc-live pose
+            for iBodypart = 1:3
+                frame = insertText(frame, obj.CurrentPose(iBodypart, 1:2), ...
+                    sprintf("%s p=%.2f spd=%04.0f", obj.BodypartNames(iBodypart), obj.CurrentPose(1, 3), speed(iBodypart, end)), ...
+                    FontSize=9, TextColor=textColor(iBodypart), BoxColor=colors(iBodypart), BoxOpacity=min(1, floor(pMove(iBodypart))), AnchorPoint='LeftTop', Font='Courier');
+            end
             for frameShift = -1:-2:-30
                 iFrame = obj.CurrentBufferIdx + frameShift;
                 if iFrame <= 0
                     iFrame = obj.BufferLength + iFrame;
                 end
-			    annotatedFrame = insertShape(annotatedFrame, 'filled-circle', [obj.Buffer.Pose(:, 1:2, iFrame), repmat(2+frameShift/30*1, [size(obj.Buffer.Pose, 1), 1])], ...
-				    'ShapeColor', ["yellow", "red", "blue"], 'Opacity', 0.4, LineWidth=1);
+			    frame = insertShape(frame, 'filled-circle', [obj.Buffer.Pose(:, 1:2, iFrame), repmat(2+frameShift/30*1, [size(obj.Buffer.Pose, 1), 1])], ...
+				    ShapeColor=colors, Opacity=0.4, LineWidth=1);
+            end
+
+            % Display recent speed
+            for iBodypart = 1:3
+                frame = insertText(frame, [0, 27*(iBodypart-1)], ...
+                    sprintf("%s %04.0f pMove=%.2f", obj.BodypartNames(iBodypart), speed(iBodypart, end), pMove(iBodypart)), ...
+                    FontSize=12, TextColor=textColor(iBodypart), BoxColor=colors(iBodypart), BoxOpacity=min(1, floor(pMove(iBodypart))), AnchorPoint='LeftTop', Font='Courier');
+            end
+
+            switch result
+                case "spuriousMovement"
+                    frame(:, :, 1) = 255;
+                case "cleanMovement"
+                    frame(:, :, 2) = 255;
             end
 
 			% Update the image object with the annotated frame
-			set(hImage, 'CData', annotatedFrame);
+			set(hImage, 'CData', frame);
         end
     end
 end

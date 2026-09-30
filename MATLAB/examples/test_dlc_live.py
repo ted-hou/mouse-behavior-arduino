@@ -1,6 +1,7 @@
 from dlclive import DLCLive, Processor
 import numpy as np
 import matplotlib.pyplot as plt
+import time
 
 w, h = 640, 480
 header_size = 4  # uint32, for frame index
@@ -35,6 +36,7 @@ print("Up and running!")
 
 last_idx = 0
 while True:
+    time.sleep(1/15)
     idx = mm[:header_size].view(np.uint32)[0]
     # print("Waiting for next frame...")
     if idx != last_idx:
