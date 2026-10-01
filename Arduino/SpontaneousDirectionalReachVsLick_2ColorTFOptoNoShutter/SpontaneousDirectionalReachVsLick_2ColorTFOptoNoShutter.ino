@@ -17,6 +17,7 @@ $ // State
 + // eventMarkerName
 : // analogWriteResolution
 ; // Request opto
+? // Request VAR
 
 // Inputs
 R - reset
@@ -31,6 +32,7 @@ A [channel] [value] - manual set analog output
 ^ [(1-4)leverPos] - MATLAB return lever motor target index (1 based)
 ; [(0/1)doOpto] - MATLAB finished setting up laser, can proceded to OPTO (1), or SKIP (0)
 J - idle -> reward -> idle
+V [(0/1)isGood] - VideoAssistantReferee result (1 to continue, 0 to aboart/donotreward because spurious movement)
 *********************************************************************/
 
 /*****************************************************
@@ -119,6 +121,7 @@ enum State
 	STATE_IDLE,
 	STATE_WAITFORTOUCH,
 	STATE_TIMEOUT,
+	STATE_REQUEST_VAR,
 	STATE_REWARD,
 	STATE_REQUEST_TASK,
 	STATE_REQUEST_OPTO,
@@ -134,6 +137,7 @@ static const char *_stateNames[] =
 	"IDLE",
 	"WAITFORTOUCH",
 	"TIMEOUT",
+	"REQUEST_VAR",
 	"REWARD",
 	"REQUEST_TASK",
 	"REQUEST_OPTO",
@@ -147,6 +151,7 @@ static const int _stateCanUpdateParams[] =
 	1,	// STATE_IDLE
 	1,	// STATE_WAITFORTOUCH
 	1,	// STATE_TIMEOUT
+	1,  // STATE_REQUEST_VAR
 	1,	// STATE_REWARD
 	1,	// STATE_REQUEST_TASK
 	1,	// STATE_REQUEST_OPTO
@@ -194,6 +199,9 @@ enum EventMarker
 	EVENT_LASERMOTOR_REACHED,
 	EVENT_IMEC_SYNC_ON,
 	EVENT_IMEC_SYNC_OFF,
+	EVENT_VAR_SPURIOUS_MOVEMENT_DETECTED, // after review, decision is no-goal
+	EVENT_VAR_CLEARED, // after review, decision is goal
+	EVENT_VAR_REQUEST_TIMEOUT, // MATLAB did not respond to VAR request, went ahead
 	_NUM_EVENT_MARKERS
 };
 
@@ -235,6 +243,9 @@ static const char *_eventMarkerNames[] =
 	"LASERMOTOR_REACHED",
 	"IMEC_SYNC_ON",
 	"IMEC_SYNC_OFF",
+	"VAR_SPURIOUS_MOVEMENT_DETECTED",
+	"VAR_CLEARED",
+	"VAR_REQUEST_TIMEOUT",
 };
 
 /*****************************************************
@@ -330,7 +341,10 @@ enum ParamID
 	ACCEL_SMOOTH_SAMPLE_PERIOD_LICK,// in ms, sampling period for accelerometer
 	ACCEL_SMOOTH_SAMPLE_PERIOD_LEVER,// in ms, sampling period for accelerometer
 	ACCEL_BLANK_POST_MOVE_TUBE,  	// in ms, ignore accel-based-lick during tube deploy/retract and for this duration after STATE_DEPLOYED/STATE_RETRACTED
-	ACCEL_BLANK_POST_MOVE_LEVER, 	// in ms, ignore accel-based-lever during lever deploy/retract and for this duration after STATE_DEPLOYED/STATE_RETRACTED	
+	ACCEL_BLANK_POST_MOVE_LEVER, 	// in ms, ignore accel-based-lever during lever deploy/retract and for this duration after STATE_DEPLOYED/STATE_RETRACTED
+	VAR_REQUIRED_FOR_REWARD,		// if true, do not reward successful movements until cleared by VAR
+	VAR_REQUIRED_FOR_PREMOVEMENT,	// if true, penalize spurious movements (jaw in reach trial, handL/handR in lick trial) during TIMEOUT/WAITFORTOUCH
+	VAR_REQUEST_TIMEOUT, 			// in ms, how long to wait after VAR request, goes to timeout if MATLAB does not respond
 	_NUM_PARAMS						// (Private) Used to count how many parameters there are so we can initialize the param array with the correct size. Insert additional parameters before this.
 };
 
@@ -386,6 +400,9 @@ static const char *_paramNames[] =
 	"ACCEL_SMOOTH_SAMPLE_PERIOD_LEVER",// in ms, sampling period for accelerometer
 	"ACCEL_BLANK_POST_MOVE_TUBE",  	// in ms, ignore accel-based-lick during tube deploy/retract and for this duration after STATE_DEPLOYED/STATE_RETRACTED
 	"ACCEL_BLANK_POST_MOVE_LEVER", 	// in ms, ignore accel-based-lever during lever deploy/retract and for this duration after STATE_DEPLOYED/STATE_RETRACTED
+	"VAR_REQUIRED_FOR_REWARD",		// if true, do not reward successful movements until cleared by VAR
+	"VAR_REQUIRED_FOR_PREMOVEMENT",	// if true, penalize spurious movements (jaw in reach trial, handL/handR in lick trial) during TIMEOUT/WAITFORTOUCH
+	"VAR_REQUEST_TIMEOUT",
 };
 
 // Initialize parameters
@@ -439,6 +456,9 @@ long _params[_NUM_PARAMS] =
 	1, 		// ACCEL_SMOOTH_SAMPLE_PERIOD_LEVER
 	500,	// ACCEL_BLANK_POST_MOVE_TUBE
 	125,	// ACCEL_BLANK_POST_MOVE_LEVER
+	0, 		// VAR_REQUIRED_FOR_REWARD
+	0, 		// VAR_REQUIRED_FOR_PREMOVEMENT
+	500, 	// VAR_REQUEST_TIMEOUT
 };
 
 /*****************************************************
@@ -678,6 +698,10 @@ void loop()
 				state_timeout();
 				break;
 
+			case STATE_REQUEST_VAR:
+				state_request_VAR();
+				break;
+
 			case STATE_REWARD:
 				state_reward();
 				break;
@@ -809,25 +833,34 @@ void state_waitfortouch()
 		_state = STATE_IDLE;
 		return;
 	}
-
+	
+	{
 	// Touch --> REWARD
-	// Lick task
-	if (_params[USE_LEVER] == 0)
+	// Lick task, licked
+	if (_params[USE_LEVER] == 0 && _isLickHeld)
 	{
-		if (_isLickHeld)
+		if (_params[VAR_REQUIRED_FOR_REWARD] == 0)
 		{
 			_state = STATE_REWARD;
-			return;
 		}
+		else
+		{
+			_state = STATE_REQUEST_VAR;
+		}
+		return;
 	}
-	// Lever task
-	else
+	// Lever task, lever held
+	else (_params[USE_LEVER] != 0 && _isLeverHeld)
 	{
-		if (_isLeverHeld)
+		if (_params[VAR_REQUIRED_FOR_REWARD] == 0)
 		{
 			_state = STATE_REWARD;
-			return;
 		}
+		else
+		{
+			_state = STATE_REQUEST_VAR;
+		}
+		return;
 	}
 
 	// No touch --> OPTO
@@ -841,7 +874,7 @@ void state_waitfortouch()
 }
 
 /*****************************************************
-	INTERTRIAL
+	TIMEOUT
 *****************************************************/
 void state_timeout()
 {
@@ -903,13 +936,34 @@ void state_timeout()
 	/*****************************************************
 		OnEachLoop checks
 	*****************************************************/
+	// VAR has detected a spurious movement
+	if (_command == 'V' && _arguments[0] == 0 && _params[VAR_REQUIRED_FOR_PREMOVEMENT] != 0)
+	{
+		// lick task
+		if (_params[USE_LEVER] == 0 && !_isTubeCycling)
+		{
+			sendEventMarker(EVENT_VAR_SPURIOUS_MOVEMENT_DETECTED, -1);
+			deployTube(false);
+			_timeLastTubeRetract = getTime();
+			_isTubeCycling = true; // disable VAR till spout comes back
+		}
+		// reach task
+		else if (_params[USE_LEVER] != 0 && !_isLeverCycling)
+		{
+			sendEventMarker(EVENT_VAR_SPURIOUS_MOVEMENT_DETECTED, -1);
+			deployLever(false);
+			_timeLastLeverRetract = getTime();
+			_isLeverCycling = true; // disable VAR till lever comes back
+		}
+	}
+
 	// If lever is cycling, wait for it to finish cycling
 	if (!isWaitingForLeverCycling)
 	{
 		// Check if flag needs to be set to true
 		isWaitingForLeverCycling = _params[USE_LEVER] != 0 && _isLeverCycling;
 	}
-	// When lever is done cycling, we draw a new timeout interval
+	// Wait till lever is done cycling, we draw a new timeout interval
 	else if (!_isLeverCycling)
 	{
 		isWaitingForLeverCycling = false;
@@ -935,7 +989,7 @@ void state_timeout()
 		// Check if flag needs to be set to true
 		isWaitingForTubeCycling = _params[USE_LEVER] == 0 && _isTubeCycling;
 	}
-	// When tube is done cycling, we draw a new timeout interval
+	// Wait till tube is done cycling, we draw a new timeout interval
 	else if (!_isTubeCycling)
 	{
 		isWaitingForTubeCycling = false;
@@ -976,6 +1030,76 @@ void state_timeout()
 	}
 
 	_state = STATE_TIMEOUT;
+}
+
+/*****************************************************
+	REQUEST_VAR - Deplay reward decision until MATLAB 
+	returns VAR results (V 0 is bad, V 1 is rewarded)
+*****************************************************/
+void state_request_VAR()
+{
+	static long timeRequest;
+	/*****************************************************
+		ACTION LIST
+	*****************************************************/
+	if (_state != _prevState) 
+	{
+		// Register new state
+		_prevState = _state;
+		sendState(_state);
+
+		sendMessage("?"); // Request VAR from MATLAB
+		timeRequest = getTime();
+	}
+
+	/*****************************************************
+		OnEachLoop checks
+	*****************************************************/
+
+	/*****************************************************
+		TRANSITION LIST
+	*****************************************************/
+	// Quit signal from host --> IDLE
+	if (_command == 'Q') 
+	{
+		_state = STATE_IDLE;
+		return;
+	}
+
+	if (_command == 'V')
+	{
+		// VAR: decision is no reward
+		if (_arguments[0] == 0)
+		{
+			sendEventMarker(EVENT_VAR_SPURIOUS_MOVEMENT_DETECTED, -1);
+			_state = STATE_TIMEOUT;
+			return;
+		}
+		// VAR: decision is reward
+		else
+		{
+			sendEventMarker(EVENT_VAR_CLEARED, -1);
+			_state = STATE_REWARD;
+			return;
+		}
+	}
+
+	// MATLAB unresponsive, go to REWARD
+	if (getTime() - timeRequest >= _params[VAR_REQUEST_TIMEOUT])
+	{
+		sendEventMarker(EVENT_VAR_REQUEST_TIMEOUT, -1)
+		_state = STATE_REWARD;
+		return;
+	}
+
+	// VAR disabled, go to reward
+	if (_params[VAR_REQUIRED_FOR_REWARD] == 0)
+	{
+		_state = STATE_REWARD;
+		return;
+	}
+
+	_state = STATE_REQUEST_VAR;
 }
 
 /*****************************************************
