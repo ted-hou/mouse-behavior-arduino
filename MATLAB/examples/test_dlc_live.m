@@ -43,8 +43,9 @@ close all
 var = VideoAssistantReferee("E:\DATA\Test_DLCLive\desmond46_20260717_laser_3.mp4", BodypartNames=["  Jaw", "HandL", "HandR"], ...
     MemMapFolder='E:\MATLAB_MEMMAP');
 var.TestEvents = events;
-var.Params = struct(ThresholdMin=[10, 10, 10], ThresholdMax=[100, 125, 125], NFramesBefore=7, NFramesAfter=4, MinLikelihood=0.2);
+var.Params = struct(ThresholdMin=[10, 10, 10], ThresholdMax=[100, 125, 125], NFramesBefore=7, NFramesAfter=4, NFramesOnging=15, MinLikelihood=0.2);
 var.TestVideo.CurrentTime = 1295;
+
 %% Start recording to disk, create memmap file to communicate with Python
 % Data will be written to the memmap file
 
