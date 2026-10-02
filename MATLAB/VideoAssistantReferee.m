@@ -3,7 +3,7 @@ classdef VideoAssistantReferee < handle
     %   to make sure mouse does not lick during reach trials, and vice versa
 
     properties
-        Params = struct(ThresholdMin=[10, 10, 10], ThresholdMax=[50, 50, 50], NFramesBefore=7, NFramesAfter=7, MinLikelihood=0.3)
+        Params = struct(ThresholdMin=[0, 0, 0], ThresholdMax=[100, 125, 125], NFramesBefore=7, NFramesAfter=4, NFramesOnging=15, NFramesThreshold=2, MinLikelihood=0.2)
         Arduino
         Camera
         SourceType
@@ -38,8 +38,8 @@ classdef VideoAssistantReferee < handle
             p.parse(source, varargin{:})
             
             if isa(source, 'ArduinoConnection')
-                obj.Arduino = p.Results.Arduino;
-                obj.Camera = arduino.Cameras(p.Results.camId).Camera;
+                obj.Arduino = source;
+                obj.Camera = obj.Arduino.Cameras(p.Results.CamId).Camera;
                 obj.TestVideo = [];
                 obj.SourceType = "Arduino";
             elseif isa(source, 'CameraConnection')
@@ -80,6 +80,7 @@ classdef VideoAssistantReferee < handle
 			fig = figure;
 			ax = axes(fig);
 			hImage = image(ax, zeros(480, 640, 3));
+            axis(ax, 'image')
             preview(obj.Camera.VideoInput, hImage);
 
 			setappdata(hImage, 'UpdatePreviewWindowFcn', @obj.updatePreview);
@@ -180,21 +181,32 @@ classdef VideoAssistantReferee < handle
                 obj.CurrentAbsTime = datetime('now');
 
                 % Check whether a spurious movement occurred (during WARIFORTOUCH and TIMEOUT)
-                if ismember(obj.Arduino.StateNames{obj.Arduino.GetState()}, {'WAITFORTOUCH', 'TIMEOUT'})
-                    [isClear, obj.CurrentSpeed] = runVAR(obj, obj.Params.NFramesOnging);
-                    if ~isClear
-                        obj.Arduino.SendMessage('V 0');
-                    end
-                end
+                obj.CurrentSpeed = NaN(3, 1);
+                switch obj.SourceType
+                    case "Arduino"
+                        if obj.SourceType == "Arduino" && ismember(obj.Arduino.StateNames{obj.Arduino.GetState()}, {'WAITFORTOUCH', 'TIMEOUT'})
+                            [isClear, obj.CurrentSpeed] = obj.runVAR(obj.Params.NFramesOnging);
+                            if ~isClear
+                                obj.Arduino.SendMessage('V 0');
+                            end
+                        end
+        
+                        % Check whether a spurious movement occurred (on arduino request, wait a few frames, then check)
+                        if obj.RequestPending && obj.CurrentFrameIdx >= obj.RequestFrameIdx + obj.Params.NFramesAfter
+                            obj.RequestPending = false;
+                            [isClear, obj.CurrentSpeed] = obj.runVAR(obj.Params.NFramesAfter + 1 + obj.Params.NFramesBefore);
+                            obj.Arduino.SendMessage(sprintf('V %i', isClear));
+                            obj.CurrentResult = isClear;
+                            fprintf('isClear=%s\n', string(isClear));
+                        end
+                        if obj.CurrentResult ~= -1 && obj.CurrentFrameIdx >= obj.RequestFrameIdx + obj.Params.NFramesAfter + 10
+                            obj.CurrentResult = -1;
+                            fprintf('CurrentResult=-1\n');
+                        end
 
-                % Check whether a spurious movement occurred (on arduino request, wait a few frames, then check)
-                if obj.RequestPending && obj.CurrentFrameIdx >= obj.RequestFrameIdx + obj.Params.NFramesAfter
-                    obj.RequestPending = false;
-                    [isClear, obj.CurrentSpeed] = runVAR(obj, obj.Params.NFramesAfter + 1 + obj.Params.NFramesBefore);
-                    obj.Arduino.SendMessage(sprintf('V %i', isClear));
-                    obj.CurrentResult = isClear;
-                else
-                    obj.CurrentResult = -1;
+                    case "Camera"
+                        [~, obj.CurrentSpeed] = obj.runVAR(obj.Params.NFramesOnging);
+                        obj.CurrentResult = -1;
                 end
 			end
         end
@@ -296,10 +308,9 @@ classdef VideoAssistantReferee < handle
         end
 
         % Handle VAR requests for to-be-rewarded reach/lick
-        function onVARRequested(obj)
+        function onVARRequested(obj, ~, ~)
             obj.RequestFrameIdx = obj.CurrentFrameIdx;
             obj.RequestPending = true;
-            % isClear = runVAR(obj, 15);
         end
 
         % Handle ongoing VAR detection of spurious movements during
@@ -308,28 +319,33 @@ classdef VideoAssistantReferee < handle
             [pose, ~, t] = obj.fetchBuffer(nFrames); % try 15 frames ~ 0.5s
             p = pose(:, 3, :);
             x = pose(:, 1:2, :);
-            x(p<obj.Params.MinLikelihood) = NaN;
+            for iBodypart = 1:3
+                x(iBodypart, :, p(iBodypart, :, :)<obj.Params.MinLikelihood) = NaN;
+            end
             dx = diff(x, 1, 3); % x,y displacement
             dx = squeeze(sqrt(sum(dx(:, :, :).^2, 2))); % euclidean
             dt = seconds(diff(t));
             speed = [NaN(3, 1), dx./dt];
 
             % Check for spurious movements when a TestEvent occurs
-            isClear = true;
-            isPressTrial = logical(obj.Arduino.GetParam('USE_LEVER'));
-            
-            % Reach task
-            if isPressTrial
-                % Check for unwanted jaw movements
-                if any(speed(1, :) > obj.Params.ThresholdMax(1))
-                    isClear = false;
+            if obj.SourceType == "Arduino"
+                isClear = true;
+                isPressTrial = logical(obj.Arduino.GetParam('USE_LEVER'));
+                % Reach task
+                if isPressTrial
+                    % Check for unwanted jaw movements
+                    if nnz(speed(1, :) > obj.Params.ThresholdMax(1)) >= obj.Params.NFramesThreshold
+                        isClear = false;
+                    end
+                % Lick task
+                else
+                    % Check for unwanted hand movements
+                    if nnz(speed(2, :) > obj.Params.ThresholdMax(2)) >= obj.Params.NFramesThreshold || nnz(speed(3, :) > obj.Params.ThresholdMax(3)) >= obj.Params.NFramesThreshold
+                        isClear = false;
+                    end
                 end
-            % Lick task
             else
-                % Check for unwanted hand movements
-                if any(speed(2, :) > obj.Params.ThresholdMax(2)) || any(speed(3, :) > obj.Params.ThresholdMax(3))
-                    isClear = false;
-                end
+                isClear = true;
             end
 
             speed = speed(:, end); % return current speed
@@ -352,8 +368,8 @@ classdef VideoAssistantReferee < handle
             % Label dlc-live pose
             for iBodypart = 1:3
                 frame = insertText(frame, obj.CurrentPose(iBodypart, 1:2), ...
-                    sprintf("%s p=%.2f spd=%04.0f", obj.BodypartNames(iBodypart), obj.CurrentPose(1, 3), obj.CurrentSpeed(iBodypart)), ...
-                    FontSize=9, TextColor=textColor(iBodypart), BoxColor=colors(iBodypart), BoxOpacity=min(1, floor(pMove(iBodypart))), AnchorPoint='LeftTop', Font='Courier');
+                    sprintf("%s p=%.2f spd=%03.0f", obj.BodypartNames(iBodypart), obj.CurrentPose(1, 3), obj.CurrentSpeed(iBodypart)), ...
+                    FontSize=12, TextColor=textColor(iBodypart), BoxColor=colors(iBodypart), BoxOpacity=min(1, floor(pMove(iBodypart))), AnchorPoint='LeftTop', Font='Courier');
             end
             for frameShift = -1:-2:-30
                 iFrame = obj.CurrentBufferIdx + frameShift;

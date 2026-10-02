@@ -11,7 +11,7 @@ total_size = header_size + frame_size + 3 * pose_size
 idx_jaw = 4  #0
 idx_handl = 0  #11
 idx_handr = 1  #7
-filename = r"E:\MATLAB_MEMMAP\memmap_var.dat"
+filename = r"C:\DATA\MATLAB_MEMMAP\memmap_var.dat"
 
 print("Initializing DeepLabCut-live...")
 dlc_proc = Processor()
@@ -19,7 +19,7 @@ dlc_proc = Processor()
 #     r"E:\PycharmProjects\DeepLabCut\dlc\daisy910-HLF-2021-12-08\exported-models\DLC_daisy910_resnet_101_iteration-0_shuffle-1",
 #     processor=dlc_proc)
 dlc_live = DLCLive(
-    r"E:\PycharmProjects\DeepLabCut3\exported-models-pytorch\DLC_SNrAutoOpto_NetType.RESNET_50_iteration-3_shuffle-1\DLC_SNrAutoOpto_NetType.RESNET_50_iteration-3_shuffle-1_snapshot-best-30.pt",
+    r"C:\DeepLabCut\exported-models-pytorch\DLC_SNrAutoOpto_NetType.RESNET_50_iteration-3_shuffle-1\DLC_SNrAutoOpto_NetType.RESNET_50_iteration-3_shuffle-1_snapshot-best-30.pt",
     model_type='pytorch',
     processor=dlc_proc, single_animal=True)
 
@@ -36,7 +36,7 @@ print("Up and running!")
 
 last_idx = 0
 while True:
-    time.sleep(1/15)
+    time.sleep(0.001)
     idx = mm[:header_size].view(np.uint32)[0]
     # print("Waiting for next frame...")
     if idx != last_idx:
@@ -49,10 +49,3 @@ while True:
 
         pose_slice = mm[header_size + frame_size:]
         pose_slice.view(np.float32)[:] = pose[[idx_jaw, idx_handl, idx_handr], :].astype(np.float32).ravel('F')
-
-        # ax.clear()
-        # ax.imshow(img)
-        # ax.axis("off")
-        # plt.draw()
-
-        # print(pose_slice.view(np.float32)[:])

@@ -410,12 +410,12 @@ long _params[_NUM_PARAMS] =
 {
 	0,		// _DEBUG
 	1, 		// USE_LEVER
-	0, 		// USE_LEFT_PAW
+	1, 		// USE_LEFT_PAW
 	0,		// TIMEOUT_MIN
 	20000,	// TIMEOUT_MEAN
 	10000,	// TIMEOUT_MAX
-	1, 		// LICK_HOLD_TIME
-	1,		// LEVER_HOLD_TIME
+	2, 		// LICK_HOLD_TIME
+	2,		// LEVER_HOLD_TIME
 	1000,	// LEVER_RETRACT_TIME
 	1000, 	// TUBE_RETRACT_TIME
 	100,	// REWARD_DURATION
@@ -425,24 +425,24 @@ long _params[_NUM_PARAMS] =
 	95,		// LEVER_POS_DEPLOYED
 	36,		// LEVER_SPEED_DEPLOY
 	36,		// LEVER_SPEED_RETRACT
-	70,		// TUBE_POS_RETRACTED
-	90,		// TUBE_POS_DEPLOYED
+	68,		// TUBE_POS_RETRACTED
+	88,		// TUBE_POS_DEPLOYED
 	36,		// TUBE_SPEED_DEPLOY
 	36,		// TUBE_SPEED_RETRACT
 	0,		// OPTO_ENABLED
 	1,		// OPTO_LASER_ID
 	0,		// OPTO_AOUT1_VALUE
 	0,		// OPTO_AOUT2_VALUE
-	10,		// OPTO_PULSE_DURATION
-	500,	// OPTO_PULSE_INTERVAL
-	10,		// OPTO_NUM_PULSES
+	0,		// OPTO_PULSE_DURATION
+	0,		// OPTO_PULSE_INTERVAL
+	1,		// OPTO_NUM_PULSES
 	1000, 	// OPTO_FIXED_DELAY
 	1000,	// OPTO_RANDOM_DELAY_MIN
 	3000,	// OPTO_RANDOM_DELAY_MAX
 	15,		// NUM_REWARDS_PER_BLOCK
 	1,		// REQUEST_TASK_AFTER_BLOCK
 	0,		// REQUEST_OPTO_AFTER_BLOCK
-	30000,	// WAITFORTOUCH_TO_OPTO_TIMEOUT
+	1000000,// WAITFORTOUCH_TO_OPTO_TIMEOUT
 	25, 	// LICK_PIN
 	26, 	// LEVER_PIN
 	0, 		// LOW_IS_TOUCH
@@ -455,7 +455,7 @@ long _params[_NUM_PARAMS] =
 	1, 		// ACCEL_SMOOTH_SAMPLE_PERIOD_LICK
 	1, 		// ACCEL_SMOOTH_SAMPLE_PERIOD_LEVER
 	500,	// ACCEL_BLANK_POST_MOVE_TUBE
-	125,	// ACCEL_BLANK_POST_MOVE_LEVER
+	250,	// ACCEL_BLANK_POST_MOVE_LEVER
 	0, 		// VAR_REQUIRED_FOR_REWARD
 	0, 		// VAR_REQUIRED_FOR_PREMOVEMENT
 	500, 	// VAR_REQUEST_TIMEOUT
@@ -834,7 +834,13 @@ void state_waitfortouch()
 		return;
 	}
 	
+	// VAR has detected a spurious movement
+	if (_command == 'V' && _arguments[0] == 0 && _params[VAR_REQUIRED_FOR_PREMOVEMENT] != 0)
 	{
+		_state = STATE_TIMEOUT;
+		return;
+	}
+
 	// Touch --> REWARD
 	// Lick task, licked
 	if (_params[USE_LEVER] == 0 && _isLickHeld)
@@ -850,7 +856,7 @@ void state_waitfortouch()
 		return;
 	}
 	// Lever task, lever held
-	else (_params[USE_LEVER] != 0 && _isLeverHeld)
+	else if (_params[USE_LEVER] != 0 && _isLeverHeld)
 	{
 		if (_params[VAR_REQUIRED_FOR_REWARD] == 0)
 		{
@@ -1087,7 +1093,7 @@ void state_request_VAR()
 	// MATLAB unresponsive, go to REWARD
 	if (getTime() - timeRequest >= _params[VAR_REQUEST_TIMEOUT])
 	{
-		sendEventMarker(EVENT_VAR_REQUEST_TIMEOUT, -1)
+		sendEventMarker(EVENT_VAR_REQUEST_TIMEOUT, -1);
 		_state = STATE_REWARD;
 		return;
 	}
