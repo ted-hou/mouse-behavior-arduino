@@ -50,6 +50,7 @@ classdef ArduinoConnection < handle
         EventMarkerReceived
         TaskRequested
         OptoRequested
+        VARRequested
 	end
 
 	methods
@@ -508,6 +509,13 @@ classdef ArduinoConnection < handle
 
 					if obj.DebugMode
 						fprintf('\t\tREQUEST_OPTO: Request received.\n')
+                    end
+                % Request VAR (correct touch)
+                case '?'
+                    notify(obj, 'VARRequested')
+
+                    if obj.DebugMode
+                        fprintf('\t\tREQUEST_VAR: Request received.\n')
                     end
 				otherwise
 					% Arduino sent a message

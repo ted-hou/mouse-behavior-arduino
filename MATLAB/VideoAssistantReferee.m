@@ -14,10 +14,12 @@ classdef VideoAssistantReferee < handle
         CurrentFrameIdx = zeros(1, 'uint32') % This corresponds to CurrentPose, but should lag behind actual FramesAcquired by 1
         CurrentAbsTime = NaT(1, Format='uuuu-MM-dd HH:mm:ss.SSS'); % This corresponds to CurrentFrameIdx, but should lag behind actual FramesAcquired by 1
         CurrentSpeed
-        CurrentResult = "none"        
+        CurrentResult = -1 % -1: none; 0: var-no-goal; 1: var-goal-stands
         Buffer = struct(FrameIdx=[], AbsTime=[], Pose=[]) % (BufferLength x 1, BufferLength x 1, nBodyparts x 3 x BufferLength)
         BufferLength = 0; % 300 frames ~= 10s
         CurrentBufferIdx = 0;
+        RequestFrameIdx  = 0; % This is when Arduino sent '?', ususally at movement time
+        RequestPending = false;
     end
 
     properties (Hidden)
@@ -66,6 +68,11 @@ classdef VideoAssistantReferee < handle
             end
             obj.MemMapFilePath = obj.createMemMapFile(p.Results.MemMapFolder); % This changes logging mode from 'disk' to 'disk&memory'!
 
+            if obj.SourceType == "Arduino"
+                if ~isfield(obj.Arduino.Listeners, 'VAR_VARRequested') || ~isvalid(obj.Arduino.Listeners.VAR_VARRequested)
+                    obj.Arduino.Listeners.VAR_VARRequested = addlistener(obj.Arduino, 'VARRequested', @obj.onVARRequested);
+                end                
+            end
         end
 
         % Create our own preview window for video, drawing DLC-live results
@@ -171,6 +178,24 @@ classdef VideoAssistantReferee < handle
                 obj.addToBuffer(obj.CurrentFrameIdx, obj.CurrentAbsTime, obj.CurrentPose);
                 obj.CurrentFrameIdx = newFrameIdx;
                 obj.CurrentAbsTime = datetime('now');
+
+                % Check whether a spurious movement occurred (during WARIFORTOUCH and TIMEOUT)
+                if ismember(obj.Arduino.StateNames{obj.Arduino.GetState()}, {'WAITFORTOUCH', 'TIMEOUT'})
+                    [isClear, obj.CurrentSpeed] = runVAR(obj, obj.Params.NFramesOnging);
+                    if ~isClear
+                        obj.Arduino.SendMessage('V 0');
+                    end
+                end
+
+                % Check whether a spurious movement occurred (on arduino request, wait a few frames, then check)
+                if obj.RequestPending && obj.CurrentFrameIdx >= obj.RequestFrameIdx + obj.Params.NFramesAfter
+                    obj.RequestPending = false;
+                    [isClear, obj.CurrentSpeed] = runVAR(obj, obj.Params.NFramesAfter + 1 + obj.Params.NFramesBefore);
+                    obj.Arduino.SendMessage(sprintf('V %i', isClear));
+                    obj.CurrentResult = isClear;
+                else
+                    obj.CurrentResult = -1;
+                end
 			end
         end
 
@@ -209,7 +234,7 @@ classdef VideoAssistantReferee < handle
                 speed = [NaN(3, 1), dx./dt];
 
                 % Check for spurious movements when a TestEvent occurs
-                result = "none";
+                result = -1;
                 hasSpuriousMovement = false;
                 if ~isempty(obj.TestEvents)
                     for trialType = ["press", "lick"]
@@ -229,16 +254,16 @@ classdef VideoAssistantReferee < handle
                             end
                             fprintf("hasSpuriousMovement=%s\n", string(hasSpuriousMovement))
                             if hasSpuriousMovement
-                                result = "spuriousMovement";
+                                result = 0;
                             else
-                                result = "cleanMovement";
+                                result = 1;
                             end
                             break
                         end
                     end
                 end
 
-                obj.CurrentSpeed = speed;
+                obj.CurrentSpeed = speed(:, end);
                 obj.CurrentResult = result;
 
                 % Update preview
@@ -270,6 +295,46 @@ classdef VideoAssistantReferee < handle
             obj.Buffer.Pose(:, :, obj.CurrentBufferIdx) = pose;
         end
 
+        % Handle VAR requests for to-be-rewarded reach/lick
+        function onVARRequested(obj)
+            obj.RequestFrameIdx = obj.CurrentFrameIdx;
+            obj.RequestPending = true;
+            % isClear = runVAR(obj, 15);
+        end
+
+        % Handle ongoing VAR detection of spurious movements during
+        % timeout/waitfortouch
+        function [isClear, speed] = runVAR(obj, nFrames)
+            [pose, ~, t] = obj.fetchBuffer(nFrames); % try 15 frames ~ 0.5s
+            p = pose(:, 3, :);
+            x = pose(:, 1:2, :);
+            x(p<obj.Params.MinLikelihood) = NaN;
+            dx = diff(x, 1, 3); % x,y displacement
+            dx = squeeze(sqrt(sum(dx(:, :, :).^2, 2))); % euclidean
+            dt = seconds(diff(t));
+            speed = [NaN(3, 1), dx./dt];
+
+            % Check for spurious movements when a TestEvent occurs
+            isClear = true;
+            isPressTrial = logical(obj.Arduino.GetParam('USE_LEVER'));
+            
+            % Reach task
+            if isPressTrial
+                % Check for unwanted jaw movements
+                if any(speed(1, :) > obj.Params.ThresholdMax(1))
+                    isClear = false;
+                end
+            % Lick task
+            else
+                % Check for unwanted hand movements
+                if any(speed(2, :) > obj.Params.ThresholdMax(2)) || any(speed(3, :) > obj.Params.ThresholdMax(3))
+                    isClear = false;
+                end
+            end
+
+            speed = speed(:, end); % return current speed
+        end
+
 		function updatePreview(obj, ~, event, hImage)
             if ~isgraphics(hImage)
                 return
@@ -277,10 +342,8 @@ classdef VideoAssistantReferee < handle
 			% Get the current video frame from the event data
             frame = event.Data;
             colors = ["yellow", "red", "blue"];
-            speed = obj.CurrentSpeed;
-            result = obj.CurrentResult;
 
-            pMove = (speed(:, end)-obj.Params.ThresholdMin) ./ (obj.Params.ThresholdMax-obj.Params.ThresholdMin);
+            pMove = (obj.CurrentSpeed-obj.Params.ThresholdMin) ./ (obj.Params.ThresholdMax-obj.Params.ThresholdMin);
             pMove(isnan(pMove)) = 0;
             pMove(pMove<0) = 0;
             textColor = ["white", "white", "white"];
@@ -289,7 +352,7 @@ classdef VideoAssistantReferee < handle
             % Label dlc-live pose
             for iBodypart = 1:3
                 frame = insertText(frame, obj.CurrentPose(iBodypart, 1:2), ...
-                    sprintf("%s p=%.2f spd=%04.0f", obj.BodypartNames(iBodypart), obj.CurrentPose(1, 3), speed(iBodypart, end)), ...
+                    sprintf("%s p=%.2f spd=%04.0f", obj.BodypartNames(iBodypart), obj.CurrentPose(1, 3), obj.CurrentSpeed(iBodypart)), ...
                     FontSize=9, TextColor=textColor(iBodypart), BoxColor=colors(iBodypart), BoxOpacity=min(1, floor(pMove(iBodypart))), AnchorPoint='LeftTop', Font='Courier');
             end
             for frameShift = -1:-2:-30
@@ -301,17 +364,10 @@ classdef VideoAssistantReferee < handle
 				    ShapeColor=colors, Opacity=0.4, LineWidth=1);
             end
 
-            % Display recent speed
-            for iBodypart = 1:3
-                frame = insertText(frame, [0, 27*(iBodypart-1)], ...
-                    sprintf("%s %04.0f pMove=%.2f", obj.BodypartNames(iBodypart), speed(iBodypart, end), pMove(iBodypart)), ...
-                    FontSize=12, TextColor=textColor(iBodypart), BoxColor=colors(iBodypart), BoxOpacity=min(1, floor(pMove(iBodypart))), AnchorPoint='LeftTop', Font='Courier');
-            end
-
-            switch result
-                case "spuriousMovement"
+            switch obj.CurrentResult
+                case 0
                     frame(:, :, 1) = 255;
-                case "cleanMovement"
+                case 1
                     frame(:, :, 2) = 255;
             end
 
