@@ -3,7 +3,7 @@ classdef VideoAssistantReferee < handle
     %   to make sure mouse does not lick during reach trials, and vice versa
 
     properties
-        Params = struct(ThresholdMin=[0, 0, 0], ThresholdMax=[100, 125, 125], NFramesBefore=7, NFramesAfter=4, NFramesOnging=15, NFramesThreshold=2, MinLikelihood=0.2)
+        Params = struct(ThresholdMin=[0, 0, 0], ThresholdMax=[100, 125, 125], NFramesBefore=7, NFramesAfter=4, NFramesOnging=15, NFramesThreshold=[2, 3, 3], MinLikelihood=[0.3, 0.3, 0.3])
         Arduino
         Camera
         SourceType
@@ -69,9 +69,7 @@ classdef VideoAssistantReferee < handle
             obj.MemMapFilePath = obj.createMemMapFile(p.Results.MemMapFolder); % This changes logging mode from 'disk' to 'disk&memory'!
 
             if obj.SourceType == "Arduino"
-                if ~isfield(obj.Arduino.Listeners, 'VAR_VARRequested') || ~isvalid(obj.Arduino.Listeners.VAR_VARRequested)
-                    obj.Arduino.Listeners.VAR_VARRequested = addlistener(obj.Arduino, 'VARRequested', @obj.onVARRequested);
-                end                
+                obj.Arduino.Listeners.VAR_VARRequested = addlistener(obj.Arduino, 'VARRequested', @obj.onVARRequested);
             end
         end
 
@@ -184,7 +182,7 @@ classdef VideoAssistantReferee < handle
                 obj.CurrentSpeed = NaN(3, 1);
                 switch obj.SourceType
                     case "Arduino"
-                        if obj.SourceType == "Arduino" && ismember(obj.Arduino.StateNames{obj.Arduino.GetState()}, {'WAITFORTOUCH', 'TIMEOUT'})
+                        if ismember(obj.Arduino.StateNames{obj.Arduino.GetState()}, {'WAITFORTOUCH', 'TIMEOUT', 'REWARD', 'IDLE'})
                             [isClear, obj.CurrentSpeed] = obj.runVAR(obj.Params.NFramesOnging);
                             if ~isClear
                                 obj.Arduino.SendMessage('V 0');
@@ -197,11 +195,10 @@ classdef VideoAssistantReferee < handle
                             [isClear, obj.CurrentSpeed] = obj.runVAR(obj.Params.NFramesAfter + 1 + obj.Params.NFramesBefore);
                             obj.Arduino.SendMessage(sprintf('V %i', isClear));
                             obj.CurrentResult = isClear;
-                            fprintf('isClear=%s\n', string(isClear));
+                            fprintf('VAR cleared for reward.\n')
                         end
-                        if obj.CurrentResult ~= -1 && obj.CurrentFrameIdx >= obj.RequestFrameIdx + obj.Params.NFramesAfter + 10
+                        if obj.CurrentResult ~= -1 && obj.CurrentFrameIdx >= obj.RequestFrameIdx + obj.Params.NFramesAfter + 5
                             obj.CurrentResult = -1;
-                            fprintf('CurrentResult=-1\n');
                         end
 
                     case "Camera"
@@ -239,7 +236,9 @@ classdef VideoAssistantReferee < handle
                 [pose, ~, t] = obj.fetchBuffer(obj.Params.NFramesBefore + obj.Params.NFramesAfter + 1); % 15 frames ~ 0.5s
                 p = pose(:, 3, :);
                 x = pose(:, 1:2, :);
-                x(p<obj.Params.MinLikelihood) = NaN;
+                for iBodypart = 1:3
+                    x(iBodypart, p(iBodypart, :, :)<obj.Params.MinLikelihood(iBodypart), :) = NaN;
+                end
                 dx = diff(x, 1, 3); % x,y displacement
                 dx = squeeze(sqrt(sum(dx(:, :, :).^2, 2))); % euclidean
                 dt = seconds(diff(t));
@@ -318,11 +317,12 @@ classdef VideoAssistantReferee < handle
         function [isClear, speed] = runVAR(obj, nFrames)
             [pose, ~, t] = obj.fetchBuffer(nFrames); % try 15 frames ~ 0.5s
             p = pose(:, 3, :);
-            x = pose(:, 1:2, :);
+            x = pose(:, 1:2, :); % nBodyparts x (x,y) x nTimes
             for iBodypart = 1:3
-                x(iBodypart, :, p(iBodypart, :, :)<obj.Params.MinLikelihood) = NaN;
+                x(iBodypart, :, p(iBodypart, :, :)<obj.Params.MinLikelihood(iBodypart)) = NaN;
             end
             dx = diff(x, 1, 3); % x,y displacement
+            dx(1, 1, :) = 0; % ignore x speed for jaw
             dx = squeeze(sqrt(sum(dx(:, :, :).^2, 2))); % euclidean
             dt = seconds(diff(t));
             speed = [NaN(3, 1), dx./dt];
@@ -334,13 +334,13 @@ classdef VideoAssistantReferee < handle
                 % Reach task
                 if isPressTrial
                     % Check for unwanted jaw movements
-                    if nnz(speed(1, :) > obj.Params.ThresholdMax(1)) >= obj.Params.NFramesThreshold
+                    if nnz(speed(1, :) > obj.Params.ThresholdMax(1)) >= obj.Params.NFramesThreshold(1)
                         isClear = false;
                     end
                 % Lick task
                 else
                     % Check for unwanted hand movements
-                    if nnz(speed(2, :) > obj.Params.ThresholdMax(2)) >= obj.Params.NFramesThreshold || nnz(speed(3, :) > obj.Params.ThresholdMax(3)) >= obj.Params.NFramesThreshold
+                    if nnz(speed(2, :) > obj.Params.ThresholdMax(2)) >= obj.Params.NFramesThreshold(2) || nnz(speed(3, :) > obj.Params.ThresholdMax(3)) >= obj.Params.NFramesThreshold(3)
                         isClear = false;
                     end
                 end
