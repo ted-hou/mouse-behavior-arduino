@@ -195,7 +195,11 @@ classdef VideoAssistantReferee < handle
                             [isClear, obj.CurrentSpeed] = obj.runVAR(obj.Params.NFramesAfter + 1 + obj.Params.NFramesBefore);
                             obj.Arduino.SendMessage(sprintf('V %i', isClear));
                             obj.CurrentResult = isClear;
-                            fprintf('VAR cleared for reward.\n')
+                            if isClear
+                                fprintf('%s: VAR cleared for reward.\n', datetime("now", Format = "HH:mm:ss.SSS"))
+                            else
+                                fprintf('%s: VAR denied reward.\n', datetime("now", Format = "HH:mm:ss.SSS"))
+                            end
                         end
                         if obj.CurrentResult ~= -1 && obj.CurrentFrameIdx >= obj.RequestFrameIdx + obj.Params.NFramesAfter + 5
                             obj.CurrentResult = -1;
@@ -336,12 +340,14 @@ classdef VideoAssistantReferee < handle
                     % Check for unwanted jaw movements
                     if nnz(speed(1, :) > obj.Params.ThresholdMax(1)) >= obj.Params.NFramesThreshold(1)
                         isClear = false;
+                        % fprintf('jaw - %s\n', num2str(speed(1, speed(1, :) > obj.Params.ThresholdMax(1))))
                     end
                 % Lick task
                 else
                     % Check for unwanted hand movements
                     if nnz(speed(2, :) > obj.Params.ThresholdMax(2)) >= obj.Params.NFramesThreshold(2) || nnz(speed(3, :) > obj.Params.ThresholdMax(3)) >= obj.Params.NFramesThreshold(3)
                         isClear = false;
+                        % fprintf('l.hand - %s\n', num2str(speed(2, speed(2, :) > obj.Params.ThresholdMax(2))))
                     end
                 end
             else
@@ -359,14 +365,14 @@ classdef VideoAssistantReferee < handle
             frame = event.Data;
             colors = ["yellow", "red", "blue"];
 
-            pMove = (obj.CurrentSpeed-obj.Params.ThresholdMin) ./ (obj.Params.ThresholdMax-obj.Params.ThresholdMin);
+            pMove = (obj.CurrentSpeed-obj.Params.ThresholdMin') ./ (obj.Params.ThresholdMax'-obj.Params.ThresholdMin');
             pMove(isnan(pMove)) = 0;
             pMove(pMove<0) = 0;
             textColor = ["white", "white", "white"];
             textColor(pMove>=1) = "black";
 
             % Label dlc-live pose
-            for iBodypart = 1:3
+            for iBodypart = 1:2 %3, skip drawing right hand
                 frame = insertText(frame, obj.CurrentPose(iBodypart, 1:2), ...
                     sprintf("%s p=%.2f spd=%03.0f", obj.BodypartNames(iBodypart), obj.CurrentPose(1, 3), obj.CurrentSpeed(iBodypart)), ...
                     FontSize=12, TextColor=textColor(iBodypart), BoxColor=colors(iBodypart), BoxOpacity=min(1, floor(pMove(iBodypart))), AnchorPoint='LeftTop', Font='Courier');
@@ -376,8 +382,10 @@ classdef VideoAssistantReferee < handle
                 if iFrame <= 0
                     iFrame = obj.BufferLength + iFrame;
                 end
-			    frame = insertShape(frame, 'filled-circle', [obj.Buffer.Pose(:, 1:2, iFrame), repmat(2+frameShift/30*1, [size(obj.Buffer.Pose, 1), 1])], ...
-				    ShapeColor=colors, Opacity=0.4, LineWidth=1);
+			    % frame = insertShape(frame, 'filled-circle', [obj.Buffer.Pose(:, 1:2, iFrame), repmat(2+frameShift/30*1, [size(obj.Buffer.Pose, 1), 1])], ...
+				%     ShapeColor=colors, Opacity=0.4, LineWidth=1);
+			    frame = insertShape(frame, 'filled-circle', [obj.Buffer.Pose(1:2, 1:2, iFrame), repmat(2+frameShift/30*1, [2, 1])], ...
+				    ShapeColor=colors(1:2), Opacity=0.4, LineWidth=1);
             end
 
             switch obj.CurrentResult
