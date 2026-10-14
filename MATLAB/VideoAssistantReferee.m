@@ -3,7 +3,7 @@ classdef VideoAssistantReferee < handle
     %   to make sure mouse does not lick during reach trials, and vice versa
 
     properties
-        Params = struct(ThresholdMin=[0, 0, 0], ThresholdMax=[100, 125, 125], NFramesBefore=7, NFramesAfter=4, NFramesOnging=15, NFramesThreshold=[2, 3, 3], MinLikelihood=[0.3, 0.3, 0.3])
+        Params = struct(ThresholdMin=[0, 0], ThresholdMax=[100, 125], NFramesBefore=7, NFramesAfter=4, NFramesOnging=15, NFramesThreshold=[2, 3], MinLikelihood=[0.3, 0.3])
         Arduino
         Camera
         SourceType
@@ -32,7 +32,7 @@ classdef VideoAssistantReferee < handle
             p = inputParser();
             p.addRequired('Source', @(x) isa(x, 'ArduinoConnection') || isa(x, 'CameraConnection') || ischar(x) || isstring(x))
             p.addParameter('CamId', 3, @(x) isscalar(x) && isnumeric(x)) % Use left camera as default
-            p.addParameter('BodypartNames', ["Jaw", "HandL", "HandR"], @(x) isstring(x) && length(x)==3);
+            p.addParameter('BodypartNames', ["Jaw", "HandL"], @(x) isstring(x) && length(x)==2);
             p.addParameter('BufferLength', 300, @(x) isnumeric(x) & isscalar(x)) % 300 at 30fps = 10s
             p.addParameter('MemMapFolder', "C:\MATLAB_MEMMAP\VideoAssistantReferee"); % ""
             p.parse(source, varargin{:})
@@ -57,7 +57,7 @@ classdef VideoAssistantReferee < handle
             end
             
             obj.BodypartNames = p.Results.BodypartNames;
-            obj.CurrentPose = zeros(length(obj.BodypartNames), 3, 'single');
+            obj.CurrentPose = zeros(length(obj.BodypartNames), 2, 'single');
 
             obj.initBuffer(p.Results.BufferLength);
 
@@ -179,7 +179,7 @@ classdef VideoAssistantReferee < handle
                 obj.CurrentAbsTime = datetime('now');
 
                 % Check whether a spurious movement occurred (during WARIFORTOUCH and TIMEOUT)
-                obj.CurrentSpeed = NaN(3, 1);
+                obj.CurrentSpeed = NaN(2, 1);
                 switch obj.SourceType
                     case "Arduino"
                         if ismember(obj.Arduino.StateNames{obj.Arduino.GetState()}, {'WAITFORTOUCH', 'TIMEOUT', 'REWARD', 'IDLE'})
@@ -246,7 +246,7 @@ classdef VideoAssistantReferee < handle
                 dx = diff(x, 1, 3); % x,y displacement
                 dx = squeeze(sqrt(sum(dx(:, :, :).^2, 2))); % euclidean
                 dt = seconds(diff(t));
-                speed = [NaN(3, 1), dx./dt];
+                speed = [NaN(2, 1), dx./dt];
 
                 % Check for spurious movements when a TestEvent occurs
                 result = -1;
@@ -263,7 +263,7 @@ classdef VideoAssistantReferee < handle
                                     end
                                 case "lick"
                                     % Check for unwanted hand movements
-                                    if any(speed(2, :) > obj.Params.ThresholdMax(2)) || any(speed(3, :) > obj.Params.ThresholdMax(3))
+                                    if any(speed(2, :) > obj.Params.ThresholdMax(2))
                                         hasSpuriousMovement = true;
                                     end
                             end
@@ -329,7 +329,7 @@ classdef VideoAssistantReferee < handle
             dx(1, 1, :) = 0; % ignore x speed for jaw
             dx = squeeze(sqrt(sum(dx(:, :, :).^2, 2))); % euclidean
             dt = seconds(diff(t));
-            speed = [NaN(3, 1), dx./dt];
+            speed = [NaN(2, 1), dx./dt];
 
             % Check for spurious movements when a TestEvent occurs
             if obj.SourceType == "Arduino"
@@ -345,7 +345,7 @@ classdef VideoAssistantReferee < handle
                 % Lick task
                 else
                     % Check for unwanted hand movements
-                    if nnz(speed(2, :) > obj.Params.ThresholdMax(2)) >= obj.Params.NFramesThreshold(2) || nnz(speed(3, :) > obj.Params.ThresholdMax(3)) >= obj.Params.NFramesThreshold(3)
+                    if nnz(speed(2, :) > obj.Params.ThresholdMax(2)) >= obj.Params.NFramesThreshold(2)
                         isClear = false;
                         % fprintf('l.hand - %s\n', num2str(speed(2, speed(2, :) > obj.Params.ThresholdMax(2))))
                     end
@@ -363,16 +363,16 @@ classdef VideoAssistantReferee < handle
             end
 			% Get the current video frame from the event data
             frame = event.Data;
-            colors = ["yellow", "red", "blue"];
+            colors = ["yellow", "red"];
 
             pMove = (obj.CurrentSpeed-obj.Params.ThresholdMin') ./ (obj.Params.ThresholdMax'-obj.Params.ThresholdMin');
             pMove(isnan(pMove)) = 0;
             pMove(pMove<0) = 0;
-            textColor = ["white", "white", "white"];
+            textColor = ["white", "white"];
             textColor(pMove>=1) = "black";
 
             % Label dlc-live pose
-            for iBodypart = 1:2 %3, skip drawing right hand
+            for iBodypart = 1:2
                 frame = insertText(frame, obj.CurrentPose(iBodypart, 1:2), ...
                     sprintf("%s p=%.2f spd=%03.0f", obj.BodypartNames(iBodypart), obj.CurrentPose(1, 3), obj.CurrentSpeed(iBodypart)), ...
                     FontSize=12, TextColor=textColor(iBodypart), BoxColor=colors(iBodypart), BoxOpacity=min(1, floor(pMove(iBodypart))), AnchorPoint='LeftTop', Font='Courier');
@@ -382,10 +382,8 @@ classdef VideoAssistantReferee < handle
                 if iFrame <= 0
                     iFrame = obj.BufferLength + iFrame;
                 end
-			    % frame = insertShape(frame, 'filled-circle', [obj.Buffer.Pose(:, 1:2, iFrame), repmat(2+frameShift/30*1, [size(obj.Buffer.Pose, 1), 1])], ...
-				%     ShapeColor=colors, Opacity=0.4, LineWidth=1);
-			    frame = insertShape(frame, 'filled-circle', [obj.Buffer.Pose(1:2, 1:2, iFrame), repmat(2+frameShift/30*1, [2, 1])], ...
-				    ShapeColor=colors(1:2), Opacity=0.4, LineWidth=1);
+			    frame = insertShape(frame, 'filled-circle', [obj.Buffer.Pose(:, 1:2, iFrame), repmat(2+frameShift/30*1, [size(obj.Buffer.Pose, 1), 1])], ...
+				    ShapeColor=colors, Opacity=0.4, LineWidth=1);
             end
 
             switch obj.CurrentResult
