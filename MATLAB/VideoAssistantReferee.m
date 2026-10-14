@@ -240,7 +240,7 @@ classdef VideoAssistantReferee < handle
                 [pose, ~, t] = obj.fetchBuffer(obj.Params.NFramesBefore + obj.Params.NFramesAfter + 1); % 15 frames ~ 0.5s
                 p = pose(:, 3, :);
                 x = pose(:, 1:2, :);
-                for iBodypart = 1:3
+                for iBodypart = 1:2
                     x(iBodypart, p(iBodypart, :, :)<obj.Params.MinLikelihood(iBodypart), :) = NaN;
                 end
                 dx = diff(x, 1, 3); % x,y displacement
@@ -322,7 +322,7 @@ classdef VideoAssistantReferee < handle
             [pose, ~, t] = obj.fetchBuffer(nFrames); % try 15 frames ~ 0.5s
             p = pose(:, 3, :);
             x = pose(:, 1:2, :); % nBodyparts x (x,y) x nTimes
-            for iBodypart = 1:3
+            for iBodypart = 1:2
                 x(iBodypart, :, p(iBodypart, :, :)<obj.Params.MinLikelihood(iBodypart)) = NaN;
             end
             dx = diff(x, 1, 3); % x,y displacement
@@ -347,7 +347,7 @@ classdef VideoAssistantReferee < handle
                     % Check for unwanted hand movements
                     if nnz(speed(2, :) > obj.Params.ThresholdMax(2)) >= obj.Params.NFramesThreshold(2)
                         isClear = false;
-                        % fprintf('l.hand - %s\n', num2str(speed(2, speed(2, :) > obj.Params.ThresholdMax(2))))
+                        fprintf('l.hand - %s\n', num2str(speed(2, speed(2, :) > obj.Params.ThresholdMax(2))))
                     end
                 end
             else
