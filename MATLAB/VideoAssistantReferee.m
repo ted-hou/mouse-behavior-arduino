@@ -326,7 +326,7 @@ classdef VideoAssistantReferee < handle
                 x(iBodypart, :, p(iBodypart, :, :)<obj.Params.MinLikelihood(iBodypart)) = NaN;
             end
             dx = diff(x, 1, 3); % x,y displacement
-            dx(1, 1, :) = 0; % ignore x speed for jaw
+            % dx(1, 1, :) = 0; % ignore x speed for jaw
             dx = squeeze(sqrt(sum(dx(:, :, :).^2, 2))); % euclidean
             dt = seconds(diff(t));
             speed = [NaN(2, 1), dx./dt];
@@ -347,7 +347,7 @@ classdef VideoAssistantReferee < handle
                     % Check for unwanted hand movements
                     if nnz(speed(2, :) > obj.Params.ThresholdMax(2)) >= obj.Params.NFramesThreshold(2)
                         isClear = false;
-                        fprintf('l.hand - %s\n', num2str(speed(2, speed(2, :) > obj.Params.ThresholdMax(2))))
+                        % fprintf('l.hand - %s\n', num2str(speed(2, speed(2, :) > obj.Params.ThresholdMax(2))))
                     end
                 end
             else
