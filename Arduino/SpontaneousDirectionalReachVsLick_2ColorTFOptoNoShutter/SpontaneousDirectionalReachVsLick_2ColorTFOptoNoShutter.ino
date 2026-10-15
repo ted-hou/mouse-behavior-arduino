@@ -345,6 +345,7 @@ enum ParamID
 	VAR_REQUIRED_FOR_REWARD,		// if true, do not reward successful movements until cleared by VAR
 	VAR_REQUIRED_FOR_PREMOVEMENT,	// if true, penalize spurious movements (jaw in reach trial, handL/handR in lick trial) during TIMEOUT/WAITFORTOUCH
 	VAR_REQUEST_TIMEOUT, 			// in ms, how long to wait after VAR request, goes to timeout if MATLAB does not respond
+	VAR_COUNT,						// expected number of VARs (i.e. no. cameras/instances of MATLAB VARs being used to monitor movement)
 	_NUM_PARAMS						// (Private) Used to count how many parameters there are so we can initialize the param array with the correct size. Insert additional parameters before this.
 };
 
@@ -403,6 +404,7 @@ static const char *_paramNames[] =
 	"VAR_REQUIRED_FOR_REWARD",		// if true, do not reward successful movements until cleared by VAR
 	"VAR_REQUIRED_FOR_PREMOVEMENT",	// if true, penalize spurious movements (jaw in reach trial, handL/handR in lick trial) during TIMEOUT/WAITFORTOUCH
 	"VAR_REQUEST_TIMEOUT",
+	"VAR_COUNT"
 };
 
 // Initialize parameters
@@ -459,6 +461,7 @@ long _params[_NUM_PARAMS] =
 	0, 		// VAR_REQUIRED_FOR_REWARD
 	0, 		// VAR_REQUIRED_FOR_PREMOVEMENT
 	500, 	// VAR_REQUEST_TIMEOUT
+	1, 		// VAR_COUNT
 };
 
 /*****************************************************
@@ -1045,6 +1048,7 @@ void state_timeout()
 void state_request_VAR()
 {
 	static long timeRequest;
+	static int numDecisionsReceived = 0;
 	/*****************************************************
 		ACTION LIST
 	*****************************************************/
@@ -1054,6 +1058,7 @@ void state_request_VAR()
 		_prevState = _state;
 		sendState(_state);
 
+		numDecisionsReceived = 0;
 		sendMessage("?"); // Request VAR from MATLAB
 		timeRequest = getTime();
 	}
@@ -1084,8 +1089,12 @@ void state_request_VAR()
 		// VAR: decision is reward
 		else
 		{
-			sendEventMarker(EVENT_VAR_CLEARED, -1);
-			_state = STATE_REWARD;
+			numDecisionsReceived += 1;
+			if (numDecisionsReceived >= _params[VAR_COUNT])
+			{
+				sendEventMarker(EVENT_VAR_CLEARED, -1);
+				_state = STATE_REWARD;				
+			}
 			return;
 		}
 	}

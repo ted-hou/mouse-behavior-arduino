@@ -10,7 +10,7 @@ pose_size = 3 * 4  # x, y, llh
 total_size = header_size + frame_size + 2 * pose_size
 idx_jaw = 0
 idx_handl = 1
-filename = r"C:\DATA\MATLAB_MEMMAP\memmap_var.dat"
+filename = r"C:\DATA\MATLAB_MEMMAP\memmap_var_3.dat"
 
 print("Initializing DeepLabCut-live...")
 dlc_proc = Processor()
