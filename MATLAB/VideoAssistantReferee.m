@@ -36,7 +36,7 @@ classdef VideoAssistantReferee < handle
             p.addParameter('BufferLength', 300, @(x) isnumeric(x) & isscalar(x)) % 300 at 30fps = 10s
             p.addParameter('MemMapFolder', "C:\MATLAB_MEMMAP\VideoAssistantReferee"); % ""
             p.parse(source, varargin{:})
-            
+
             if isa(source, 'ArduinoConnection')
                 obj.Arduino = source;
                 obj.Camera = obj.Arduino.Cameras(p.Results.CamId).Camera;
@@ -66,7 +66,7 @@ classdef VideoAssistantReferee < handle
                     obj.Camera.VideoInput.LoggingMode = 'disk&memory';
                 case "TestVideo"
             end
-            obj.MemMapFilePath = obj.createMemMapFile(p.Results.MemMapFolder); % This changes logging mode from 'disk' to 'disk&memory'!
+            obj.MemMapFilePath = obj.createMemMapFile(p.Results.MemMapFolder, p.Results.CamId); % This changes logging mode from 'disk' to 'disk&memory'!
 
             if obj.SourceType == "Arduino"
                 obj.Arduino.Listeners.VAR_VARRequested = addlistener(obj.Arduino, 'VARRequested', @obj.onVARRequested);
@@ -95,13 +95,13 @@ classdef VideoAssistantReferee < handle
 
     % Private methods
     methods (Access={})
-        function memMapFilePath = createMemMapFile(obj, folder)
+        function memMapFilePath = createMemMapFile(obj, folder, id)
             % Create memmapfile
             % Create the folder if needed
             if ~exist(folder, 'dir')
                 mkdir(folder)
             end
-            memMapFilePath = fullfile(folder, "memmap_var.dat");
+            memMapFilePath = fullfile(folder, sprintf("memmap_var_%i.dat", id));
             if exist(memMapFilePath, 'file')
                 delete(memMapFilePath);
             end
