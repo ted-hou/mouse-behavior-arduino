@@ -15,7 +15,7 @@ filename = r"C:\DATA\MATLAB_MEMMAP\memmap_var_1.dat"
 print("Initializing DeepLabCut-live...")
 dlc_proc = Processor()
 dlc_live = DLCLive(
-    r"C:\DeepLabCut\exported-models-pytorch\DLC_dlc-live-daisy38-39-rcam_resnet_50_iteration-3_shuffle-1\DLC_dlc-live-daisy38-39-rcam_resnet_50_iteration-3_shuffle-1_snapshot-050.pt",
+    r"C:\DeepLabCut\exported-models-pytorch\DLC_dlc-live-daisy38-39-rcam_resnet_50_iteration-0_shuffle-1\DLC_dlc-live-daisy38-39-rcam_resnet_50_iteration-0_shuffle-1_snapshot-030.pt",
     model_type='pytorch',
     processor=dlc_proc, single_animal=True)
 
