@@ -14,7 +14,7 @@ classdef OnlineDecoder < handle
     properties (Transient, SetAccess=protected)
         Mode = "off" % "off", "training", "testing", "opto"
         PMove = NaN
-        IsLaserOn = false
+        IsLaserOn = [false, false]
         HasStimHappened = false
         ArduinoState = ""
         Files = struct(DecodedData=-1, Events=-1);
@@ -105,18 +105,20 @@ classdef OnlineDecoder < handle
 
         function planAutoOpto(obj, varargin)
             p = inputParser();
-            p.addParameter('AOutValues', [4095, 0], @isnumeric) % 0 - laser off control
+            p.addParameter('AOutValues', [4095, 0], @isnumeric) % 0 - laser off control; if two rows, 2nd row is for laser 2 (orange)
             p.addParameter('Durations', [1, 3], @isnumeric);
             p.parse(varargin{:})
 
-            % condition(iCond, :) =: [aout, duration]
-            conditions = zeros(length(p.Results.AOutValues)*length(p.Results.Durations), 2);
+            % condition(iCond, :) =: [laser, aout, duration]
+            conditions = zeros(size(p.Results.AOutValues, 1)*size(p.Results.AOutValues, 2)*length(p.Results.Durations), 2);
 
             iCond = 0;
-            for iAOutValue = 1:length(p.Results.AOutValues)
-                for iDuration = 1:length(p.Results.Durations)
-                    iCond = iCond + 1;
-                    conditions(iCond, 1:2) = [p.Results.AOutValues(iAOutValue), p.Results.Durations(iDuration)];
+            for iLaser = 1:size(p.Results.AOutValues, 1)
+                for iAOutValue = 1:size(p.Results.AOutValues, 2)
+                    for iDuration = 1:length(p.Results.Durations)
+                        iCond = iCond + 1;
+                        conditions(iCond, 1:3) = [iLaser, p.Results.AOutValues(iLaser, iAOutValue), p.Results.Durations(iDuration)];
+                    end
                 end
             end
 
@@ -128,7 +130,7 @@ classdef OnlineDecoder < handle
             plan.Length     = size(conditions, 1);
             plan.Index      = 0;
             plan.Completed  = false;
-            plan.Conditions = conditions; % (iCond, [aout, duration])
+            plan.Conditions = conditions; % (iCond, [iLaser, aout, duration])
 
             obj.Params.Opto.Plan = plan;
 
@@ -182,8 +184,9 @@ classdef OnlineDecoder < handle
                 delete(obj.OptoPulseTimer);
             end
             obj.OptoPulseTimer = [];
-            if obj.IsLaserOn
-                obj.setLaser(false);
+            if any(obj.IsLaserOn)
+                obj.setLaser(1, false);
+                obj.setLaser(2, false);
             end
             obj.Mode = "off";
         end
@@ -194,18 +197,19 @@ classdef OnlineDecoder < handle
 
             % In TIMEOUT/WAITFORTOUCH, start opto if pMove exceeds threshold
             % obj.getTimeSinceTimeoutStart(t)
-            if pMove > obj.Params.Opto.Threshold && ~obj.IsLaserOn && ismember(obj.ArduinoState, ["TIMEOUT", "WAITFORTOUCH"]) && ~obj.HasStimHappened && obj.getTimeSinceTimeoutStart(t) >= obj.Params.Opto.WaitAtLeastSeconds
+            if pMove > obj.Params.Opto.Threshold && ~any(obj.IsLaserOn) && ismember(obj.ArduinoState, ["TIMEOUT", "WAITFORTOUCH"]) && ~obj.HasStimHappened && obj.getTimeSinceTimeoutStart(t) >= obj.Params.Opto.WaitAtLeastSeconds
                 % Fetch conditions from plan
                 obj.Params.Opto.Plan.Index = obj.Params.Opto.Plan.Index + 1;
                 if obj.Params.Opto.Plan.Index > obj.Params.Opto.Plan.Length
                     obj.Params.Opto.Plan.Completed = true;
                     obj.Params.Opto.Plan.Index = 1;
                 end
-                aout = obj.Params.Opto.Plan.Conditions(obj.Params.Opto.Plan.Index, 1);
-                duration = obj.Params.Opto.Plan.Conditions(obj.Params.Opto.Plan.Index, 2);
+                iLaser = obj.Params.Opto.Plan.Conditions(obj.Params.Opto.Plan.Index, 1);
+                aout = obj.Params.Opto.Plan.Conditions(obj.Params.Opto.Plan.Index, 2);
+                duration = obj.Params.Opto.Plan.Conditions(obj.Params.Opto.Plan.Index, 3);
 
                 % Turn laser on
-                obj.setLaser(true, aout);
+                obj.setLaser(iLaser, true, aout);
                 obj.HasStimHappened = true;
 
                 % Schedule laser to turn off after "Duration"    
@@ -216,12 +220,12 @@ classdef OnlineDecoder < handle
                 obj.OptoPulseTimer = timer();
                 obj.OptoPulseTimer.StartDelay = duration;
                 obj.OptoPulseTimer.ExecutionMode = 'singleShot'; % fixedDelay, fixedSpacing
-                obj.OptoPulseTimer.TimerFcn = @(~, ~) obj.setLaser(false);
+                obj.OptoPulseTimer.TimerFcn = @(~, ~) obj.setLaser(iLaser, false);
                 start(obj.OptoPulseTimer);
 
                 currentTimeDisp = seconds(t);
                 currentTimeDisp.Format = 'hh:mm:ss.SSS';
-                fprintf("Stim:%s; P(Move)=%.1f%%, iCond=%i, AOut=%g, Duration=%gs\n", currentTimeDisp, pMove*100, obj.Params.Opto.Plan.Index, aout, duration)
+                fprintf("Stim:%s; P(Move)=%.1f%%, iCond=%i, iLaser=%i, AOut=%g, Duration=%gs\n", currentTimeDisp, pMove*100, obj.Params.Opto.Plan.Index, iLaser, aout, duration)
             end
 
             if obj.Debug
@@ -329,16 +333,16 @@ classdef OnlineDecoder < handle
             end
         end
 
-        function setLaser(obj, turnOn, aout)
+        function setLaser(obj, iLaser, turnOn, aout)
             if turnOn
                 obj.IsLaserOn = true;
-                obj.Arduino.SendMessage(sprintf('A %i %i', 1, aout));
+                obj.Arduino.SendMessage(sprintf('A %i %i', iLaser, aout));
                 if obj.Debug
                     fprintf("##########  OPTO ON, aout=%i  ############\n", aout)
                 end
             else
                 obj.IsLaserOn = false;
-                obj.Arduino.SendMessage(sprintf('A %i %i', 1, 0));
+                obj.Arduino.SendMessage(sprintf('A %i %i', iLaser, 0));
                 if obj.Debug
                     fprintf("##########  OPTO OFF  ############\n")
                 end
