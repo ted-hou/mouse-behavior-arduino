@@ -274,22 +274,6 @@ classdef TwoColorExperiment < handle
                 end
             end
 
-            % if isfield(obj.Plan.task, 'TIMEOUT_MAX')
-            %     obj.LaserArduino.SetParam('TIMEOUT_MAX', obj.Plan.task.TIMEOUT_MAX(index));
-            % end
-            % 
-            % if isfield(obj.Plan.task, 'WAITFORTOUCH_TO_OPTO_TIMEOUT')
-            %     obj.LaserArduino.SetParam('WAITFORTOUCH_TO_OPTO_TIMEOUT', obj.Plan.task.WAITFORTOUCH_TO_OPTO_TIMEOUT(index));
-            % end
-            % 
-            % if isfield(obj.Plan.task, 'VAR_REQUIRED_FOR_REWARD')
-            %     obj.LaserArduino.SetParam('VAR_REQUIRED_FOR_REWARD', obj.Plan.task.VAR_REQUIRED_FOR_REWARD(index));
-            % end
-            % 
-            % if isfield(obj.Plan.task, 'VAR_REQUIRED_FOR_PREMOVEMENT')
-            %     obj.LaserArduino.SetParam('VAR_REQUIRED_FOR_PREMOVEMENT', obj.Plan.task.VAR_REQUIRED_FOR_PREMOVEMENT(index));
-            % end
-
             obj.LaserArduino.SendMessage(sprintf('^ %i', pos));
             obj.Plan.task.index = index;
         end
