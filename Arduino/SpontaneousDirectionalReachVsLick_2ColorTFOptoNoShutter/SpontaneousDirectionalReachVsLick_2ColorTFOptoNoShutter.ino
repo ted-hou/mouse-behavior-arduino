@@ -22,7 +22,9 @@ $ // State
 // Inputs
 R - reset
 G - start
-L - opto (manual)
+L - opto (manual, transition to STATE_OPTO)
+J - opto (live, start)
+K - opto (live, stop)
 Q - stop
 S - read servo position
 P [paramID] [(float)newValue] - param update
@@ -192,6 +194,10 @@ enum EventMarker
 	EVENT_OPTO1_OFF,				// End optogenetic stim (single pulse end) on laser 1 (dac1)
 	EVENT_OPTO2_ON,					// Begin optogenetic stim (single pulse start) on laser 2 (dac2)
 	EVENT_OPTO2_OFF,				// End optogenetic stim (single pulse end) on laser 2 (dac2)
+	EVENT_LIVEOPTO1_START,  			// Beginning of live opto stim (either continuous or pulsed, i.e., when the J command was received)
+	EVENT_LIVEOPTO1_END,  			// End of live opto stim (either continuous or pulsed, i.e., when the K command was received)
+	EVENT_LIVEOPTO2_START,  			// Beginning of live opto stim (either continuous or pulsed, i.e., when the J command was received)
+	EVENT_LIVEOPTO2_END,  			// End of live opto stim (either continuous or pulsed, i.e., when the K command was received)
 	EVENT_LEVERMOTOR_POS1_START,
 	EVENT_LEVERMOTOR_POS1_REACHED,
 	EVENT_LEVERMOTOR_POS2_START,
@@ -236,6 +242,10 @@ static const char *_eventMarkerNames[] =
 	"OPTO1_OFF",
 	"OPTO2_ON",
 	"OPTO2_OFF",
+	"LIVEOPTO1_START",
+	"LIVEOPTO1_END",
+	"LIVEOPTO2_START",
+	"LIVEOPTO2_END",
 	"LEVERMOTOR_POS1_START",
 	"LEVERMOTOR_POS1_REACHED",
 	"LEVERMOTOR_POS2_START",
@@ -287,11 +297,12 @@ static const char *_resultCodeNames[] =
 /*****************************************************
 	Opto state tracking
 *****************************************************/
-enum LaserState
+enum OptoState
 {
-	LASERSTATE_OFF,
-	LASERSTATE_ON,
-	_NUM_LASERSTATES
+	OPTOSTATE_OFF,
+	OPTOSTATE_SCHEDULED, // traditional way of scheduling a certain number of pulses (see state_opto)
+	OPTOSTATE_LIVE, // new way of doing pulses until we tell it to stop
+	_NUM_OPTOSTATES
 }
 
 /*****************************************************
@@ -336,6 +347,8 @@ enum ParamID
 	OPTO_AOUT2_VALUE,				// Analog output value to use for modulation of laser power
 	OPTO_PULSE_DURATION,			// Optogenetic stim, duration of single pulse (ms)
 	OPTO_PULSE_INTERVAL,			// Optogenetic stim, interval between pulses (ms)
+	OPTO_PULSE_DURATION_2,			// Optogenetic stim, duration of single pulse (ms), only used for 2nd laser when LASER_ID is not 1or2.
+	OPTO_PULSE_INTERVAL_2,			// Optogenetic stim, interval between pulses (ms), only used for 2nd laser when LASER_ID is not 1or2.
 	OPTO_NUM_PULSES,				// Optogenetic stim, number of pulses to deliver	
 	OPTO_FIXED_DELAY,				// In REQUEST_OPTO, after receiving ';' from MATLAB, wait this long before advancing to OPTO
 	OPTO_RANDOM_DELAY_MIN,			// Minimum random pre-stim delay (ms)
@@ -386,6 +399,8 @@ static const char *_paramNames[] =
 	"OPTO_AOUT2_VALUE",				// Analog output value to use for modulation of laser power
 	"OPTO_PULSE_DURATION",			// Optogenetic stim, duration of single pulse (ms)
 	"OPTO_PULSE_INTERVAL",			// Optogenetic stim, interval between pulses (ms)
+	"OPTO_PULSE_DURATION_2",		// Optogenetic stim, duration of single pulse (ms)
+	"OPTO_PULSE_INTERVAL_2",		// Optogenetic stim, interval between pulses (ms)
 	"OPTO_NUM_PULSES",				// Optogenetic stim, number of pulses to deliver	
 	"OPTO_FIXED_DELAY",				// In REQUEST_OPTO, laser will be kept on this long before advancing to OPTO
 	"OPTO_RANDOM_DELAY_MIN",		// Minimum random pre-stim delay (ms)
@@ -434,6 +449,8 @@ long _params[_NUM_PARAMS] =
 	0,		// OPTO_AOUT2_VALUE
 	0,		// OPTO_PULSE_DURATION
 	0,		// OPTO_PULSE_INTERVAL
+	0,		// OPTO_PULSE_DURATION_2
+	0,		// OPTO_PULSE_INTERVAL_2
 	1,		// OPTO_NUM_PULSES
 	1000, 	// OPTO_FIXED_DELAY
 	1000,	// OPTO_RANDOM_DELAY_MIN
@@ -498,9 +515,6 @@ static long _servoTargetPosTube		= _params[TUBE_POS_DEPLOYED];	// Target positio
 
 static int _nRewardsSinceBlockStart = 0;
 
-static LaserState *_laserState[] = {LASERSTATE_OFF, LASERSTATE_OFF};
-static bool _isOpto1On = false;
-static bool _isOpto2On = false;
 
 static long _accelValueLick = 0;
 static long _accelValueLever = 0;
@@ -510,6 +524,11 @@ static long _accelHighPassLick = 0;
 static long _accelHighPassLever = 0;
 static long _accelLastUpdateMillisLick = 0;
 static long _accelLastUpdateMillisLever = 0;
+
+static OptoState *_optoState[2] = {OPTOSTATE_OFF, OPTOSTATE_OFF};
+static bool *_isOptoOn[2] = {false, false};
+static long *_timeOptoPulseStart[2] = {0, 0};
+static long *_timeOptoPulseEnd[2] = {0, 0};
 
 static bool _isSyncHigh = false;
 
@@ -590,8 +609,6 @@ void mySetup()
 	_servoTargetPosTube		= _params[TUBE_POS_DEPLOYED];	// Target position of servo
 
 	_nRewardsSinceBlockStart = 0;
-	_laserState[0] = LASERSTATE_OFF;
-	_laserState[1] = LASERSTATE_OFF;
 
 	_accelValueLick = 0;
 	_accelValueLever = 0;
@@ -601,6 +618,13 @@ void mySetup()
 	_accelHighPassLever = 0;
 	_accelLastUpdateMillisLick = 0;
 	_accelLastUpdateMillisLever = 0;
+
+	_optoState[0] = OPTOSTATE_OFF;
+	_optoState[1] = OPTOSTATE_OFF;
+	_isOptoOn[0] = false;
+	_isOptoOn[1] = false;
+	_timeOptoPulseStart[0] = 0;
+	_timeOptoPulseEnd[0] = 0;
 
 	_isSyncHigh = false;
 
@@ -667,8 +691,8 @@ void loop()
 		handleParamUpdate();	// Writes to _isUpdatingParams
 		handleAnalogOutput();	// Write to DAC channels to modulate laser pwoer
 		handleSync();
-		handleOpto(1);
-		handleOpto(2);
+		handleLiveOpto(1);
+		handleLiveOpto(2);
 
 		// 3) Update state machine
 		// Depending on what state we're in, call the appropriate state function, which will evaluate the transition conditions, and update the `_state` var to what the next state should be
@@ -1493,7 +1517,8 @@ void state_opto()
 		sendState(_state);
 
 		// Turn off opto
-		setOpto(1, false);
+		
+		(1, false);
 		setOpto(2, false);
 
 		// Retract lever/tube and disable auto-cycling
@@ -1519,6 +1544,17 @@ void state_opto()
 		numPulsesComplete = 0;
 		timePulseStart = 0;
 		timePulseEnd = 0;
+
+		switch (_params[OPTO_LASER_ID])
+		{
+			case 1:
+				_optoState[0] = OPTOSTATE_SCHEDULED;
+			case 2:
+				_optoState[1] = OPTOSTATE_SCHEDULED;
+			default:
+				_optoState[0] = OPTOSTATE_SCHEDULED;
+				_optoState[1] = OPTOSTATE_SCHEDULED;
+		}
 	}
 
 	/*****************************************************
@@ -1556,6 +1592,16 @@ void state_opto()
 	{
 		setOpto(1, false);
 		setOpto(2, false);
+		switch (_params[OPTO_LASER_ID])
+		{
+			case 1:
+				_optoState[0] = OPTOSTATE_OFF;
+			case 2:
+				_optoState[1] = OPTOSTATE_OFF;
+			default:
+				_optoState[0] = OPTOSTATE_OFF;
+				_optoState[1] = OPTOSTATE_OFF;
+		}
 		_state = STATE_IDLE;
 		return;
 	}
@@ -2023,6 +2069,7 @@ void setOpto(int channel, bool turnOn)
 	{
 		if (!isOptoOn(channel))
 		{
+			_timeOptoPulseStart[channel-1] = getTime();
 			switch (channel)
 			{
 				case 1:
@@ -2037,12 +2084,12 @@ void setOpto(int channel, bool turnOn)
 		{
 			case 1:
 				setAnalogOutput(1, _params[OPTO_AOUT1_VALUE]);
-				_laserState[0] = LASERSTATE_ON;
+				_isOptoOn[0] = true;
 				// digitalWrite(PIN_OPTO_1, HIGH);
 				break;
 			case 2:
 				setAnalogOutput(2, _params[OPTO_AOUT2_VALUE]);
-				_laserState[1] = LASERSTATE_ON;
+				_isOptoOn[1] = true;
 				// digitalWrite(PIN_OPTO_2, HIGH);
 				break;
 		}
@@ -2051,6 +2098,7 @@ void setOpto(int channel, bool turnOn)
 	{
 		if (isOptoOn(channel))
 		{
+			_timeOptoPulseEnd[channel-1] = getTime();
 			switch (channel)
 			{
 				case 1:
@@ -2065,12 +2113,12 @@ void setOpto(int channel, bool turnOn)
 		{
 			case 1:
 				setAnalogOutput(1, 0);
-				_laserState[0] = LASERSTATE_OFF;
+				_isOptoOn[0] = false;
 				// digitalWrite(PIN_OPTO_1, LOW);
 				break;
 			case 2:
 				setAnalogOutput(2, 0);
-				_laserState[1] = LASERSTATE_OFF;
+				_isOptoOn[1] = false;
 				// digitalWrite(PIN_OPTO_2, LOW);
 				break;
 		}
@@ -2083,31 +2131,149 @@ bool isOptoOn(int channel)
 	{
 		case 1:
 			// return (digitalRead(PIN_OPTO_1) == HIGH);
-			return _laserState[0] == LASERSTATE_ON;
+			return _isOptoOn[0] == true;
 		case 2:
 			// return (digitalRead(PIN_OPTO_2) == HIGH);
-			return _laserState[1] == LASERSTATE_ON;
+			return _isOptoOn[1] == true;
 		default:
-			return (_laserState[0] == LASERSTATE_ON || _laserState[1] == LASERSTATE_ON);
+			return (_isOptoOn[0] == true || _isOptoOn[1] == true);
 			// return (digitalRead(PIN_OPTO_1) == HIGH || digitalRead(PIN_OPTO_2) == HIGH);
 	}
 }
 
-void handleOpto(int laserIdx)
-{
+// Seprate from traditional state_opto (which does a certain no. pulses)
+// this thing does pulsed opto until we tell it to stop
+// also can be run in any state
 
+// think  of this as a mini-monolith FSM
+void handleLiveOpto(int laserIdx) // laserIdx is 1 or 2
+{
+	switch (_optoState[laserIdx-1])
+	{
+		case OPTOSTATE_SCHEDULED:
+			// ignore
+			break;
+		case OPTOSTATE_OFF:
+			// check for start requests
+			if (_command == 'J' && (_arguments[0]==laserIdx || (_arguments[0]!=1 && _arguments[0]!=2)))
+			{
+				_optoState[laserIdx-1] = OPTOSTATE_LIVE;
+				switch (laserIdx)
+				{
+					case 1:
+						sendEventMarker(EVENT_LIVEOPTO1_START, -1);
+						break;
+					case 2:
+						sendEventMarker(EVENT_LIVEOPTO2_START, -1);
+						break;
+				}
+			}
+			break;
+		case OPTOSTATE_LIVE:
+			// check for exit requests
+			if (_command == 'K' && (_arguments[0]==laserIdx || (_arguments[0]!=1 && _arguments[0]!=2)))
+			{
+				setOpto(laserIdx, false);
+				_optoState[laserIdx-1] = OPTOSTATE_OFF;
+				switch (laserIdx)
+				{
+					case 1:
+						sendEventMarker(EVENT_LIVEOPTO1_END, -1);
+						break;
+					case 2:
+						sendEventMarker(EVENT_LIVEOPTO2_END, -1);
+						break;
+				}
+				return;
+			}
+
+			// Pulsing mode (simulate in pulses until told to stop with K command; 
+			// note, aout changes will take effect next pulse, not instantaneous, but pulses are short so it should be fine)
+			if (getOptoPulseDuration(laserIdx) > 0 && getOptoPulseInterval(laserIdx) > 0)
+			{
+				// Turn on laser
+				if (!isOptoOn(laserIdx) && getTimeSinceOptoPulseOff(laserIdx) >= getOptoPulseInterval(laserIdx))
+				{
+					setOpto(laserIdx, true);
+				}
+
+				// Turn off laser
+				if (isOptoOn(laserIdx) && getTimeSinceOptoPulseOn(laserIdx) >= getOptoPulseDuration(laserIdx))
+				{
+					setOpto(laserIdx, false);
+				}
+			}
+			// Continuous illumination mode (we can use a dial to change power, stop only when exit command is given)
+			else if (getOptoPulseDuration(laserIdx) <= 0 && getOptoPulseInterval(laserIdx) <= 0)
+			{
+				setOpto(laserIdx, true); // this takes care of updating aout values
+			}
+			// Single continuous pulse with fixed duration (turn off after pulseDuration elapsed)
+			else if (getOptoPulseDuration(laserIdx) > 0 && getOptoPulseInterval(laserIdx) <= 0)
+			{
+				// turn on
+				if (!isOptoOn(laserIdx))
+				{
+					setOpto(laserIdx, true);
+				}
+				// turn off
+				else if (getTimeSinceOptoPulseOn(laserIdx) >= getOptoPulseDuration(laserIdx))
+				{
+					setOpto(laserIdx, false);
+					_optoState[laserIdx-1] = OPTOSTATE_OFF;
+					switch (laserIdx)
+					{
+						case 1:
+							sendEventMarker(EVENT_LIVEOPTO1_END, -1);
+							break;
+						case 2:
+							sendEventMarker(EVENT_LIVEOPTO2_END, -1);
+							break;
+					}
+				}
+			}
+			break;
+	}
 }
 
-void startOpto(int laserIdx)
+long getOptoAOutValue(int laserIdx)
 {
-
+	switch (laserIdx)
+	{
+		case 1:
+			return _params[OPTO_AOUT1_VALUE];
+		case 2:
+			return _params[OPTO_AOUT2_VALUE];
+		default:
+			return 0;
+	}
 }
 
-void stopOpto(int laserIdx)
+long getOptoPulseDuration(int laserIdx)
 {
-
+	switch (laserIdx)
+	{
+		case 1:
+			return _params[OPTO_PULSE_DURATION];
+		case 2:
+			return _params[OPTO_PULSE_DURATION_2];
+		default:
+			return 0;
+	}
 }
 
+long getOptoPulseInterval(int laserIdx)
+{
+	switch (laserIdx)
+	{
+		case 1:
+			return _params[OPTO_PULSE_INTERVAL];
+		case 2:
+			return _params[OPTO_PULSE_INTERVAL_2];
+		default:
+			return 0;
+	}
+}
 
 // Move lever (laterally) (to 1-based position index)
 void setLeverPos(int position)
@@ -2508,4 +2674,22 @@ long getTimeSinceLastTubeRetract()
 {
 	long time = getTime() - _timeLastTubeRetract;
 	return time;
+}
+
+long getTimeSinceOptoPulseOn(int laserIdx)
+{
+	if (laserIdx < 0 || laserIdx > 2)
+	{
+		return 0;
+	}
+	long time = getTime() - _timeOptoPulseStart[laserIdx-1];
+}
+
+long getTimeSinceOptoPulseOff(int laserIdx)
+{
+	if (laserIdx < 0 || laserIdx > 2)
+	{
+		return 0;
+	}
+	long time = getTime() - _timeOptoPulseEnd[laserIdx-1];
 }
