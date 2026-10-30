@@ -335,18 +335,61 @@ classdef OnlineDecoder < handle
 
         function setLaser(obj, iLaser, turnOn, aout)
             if turnOn
-                obj.IsLaserOn = true;
+                obj.IsLaserOn(iLaser) = true;
                 obj.Arduino.SendMessage(sprintf('A %i %i', iLaser, aout));
                 if obj.Debug
                     fprintf("##########  OPTO ON, aout=%i  ############\n", aout)
                 end
             else
-                obj.IsLaserOn = false;
+                obj.IsLaserOn(iLaser) = false;
                 obj.Arduino.SendMessage(sprintf('A %i %i', iLaser, 0));
                 if obj.Debug
                     fprintf("##########  OPTO OFF  ############\n")
                 end
             end
+        end
+
+        function startLiveOpto(obj, iLaser)
+            obj.IsLaserOn(iLaser) = true;
+            obj.Arduino.SendMessage(sprintf('J %i', iLaser));
+        end
+
+        function setLiveOptoParams(obj, iLaser, varargin)
+            p = inputParser();
+            p.addRequired('iLaser', @(x) x==1 || x==2)
+            p.addParameter('aout', [], @(x) isnumeric(x) && isscalar(x) && x>=0)
+            p.addParameter('pulseDuration', [], @(x) isnumeric(x) && isscalar(x) && x>=0)
+            p.addParameter('pulseInterval', [], @(x) isnumeric(x) && isscalar(x) && x>=0)
+            p.parse(iLaser, varargin{:});
+            aout = p.Results.aout;
+            pulseDuration = p.Results.pulseDuration;
+            pulseInterval = p.Results.pulseInterval;
+            switch iLaser
+                case 1
+                    if ~isempty(aout)
+                        obj.Arduino.SetParam('OPTO_AOUT1_VALUE', aout)
+                    end
+                    if ~isempty(pulseDuration)
+                        obj.Arduino.SetParam('OPTO_PULSE_DURATION', pulseDuration)
+                    end
+                    if ~isempty(pulseInterval)
+                        obj.Arduino.SetParam('OPTO_PULSE_INTERVAL', pulseInterval)
+                    end
+                case 2
+                    if ~isempty(aout)
+                        obj.Arduino.SetParam('OPTO_AOUT2_VALUE', aout)
+                    end
+                    if ~isempty(pulseDuration)
+                        obj.Arduino.SetParam('OPTO_PULSE_DURATION_2', pulseDuration)
+                    end
+                    if ~isempty(pulseInterval)
+                        obj.Arduino.SetParam('OPTO_PULSE_INTERVAL_2', pulseInterval)
+                    end
+            end
+        end
+
+        function stopLiveOpto(obj, iLaser)
+            obj.IsLaserOn(iLaser) = false;
         end
 
         % Listener callback for ArduinoConnection StateChanged events
