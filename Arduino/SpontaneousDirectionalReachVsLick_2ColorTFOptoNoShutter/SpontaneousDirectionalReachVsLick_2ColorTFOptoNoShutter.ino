@@ -52,6 +52,14 @@ enum ServoState
 };
 
 /*****************************************************
+	Accelorometer based lick/reach detection stuff
+*****************************************************/
+#define ACCEL_SMOOTH_FACTOR_LICK 300.0      // 0<alpha<1. Highpass is applied to accel Y before thresholding. To do high pass, we substract the low pass i.e., exponential smoothing: s0 = x0; s(t) = alpha*x(t) + (1-alpha)*s(t-1); 
+#define ACCEL_SMOOTH_FACTOR_LEVER 300.0     // 0<alpha<1. Highpass is applied to accel Y before thresholding. To do high pass, we substract the low pass i.e., exponential smoothing: s0 = x0; s(t) = alpha*x(t) + (1-alpha)*s(t-1); 
+#define ACCEL_SMOOTH_SAMPLE_PERIOD_LICK 1   // in ms, sampling period for accelerometer
+#define ACCEL_SMOOTH_SAMPLE_PERIOD_LEVER 1	// in ms, sampling period for accelerometer
+
+/*****************************************************
 	Analog Output Stuff
 *****************************************************/
 #define ANALOG_WRITE_RESOLUTION 12 // 12bits: 0-4095
@@ -85,8 +93,6 @@ enum ServoState
 #define PIN_LASER_PWR_2			A22
 
 // Digital IN
-#define PIN_LICK				_params[LICK_PIN]
-#define PIN_LEVER				_params[LEVER_PIN]
 #define PIN_LEVERMOTOR_BUSY		7
 #define PIN_LASERMOTOR_BUSY		4
 
@@ -278,6 +284,15 @@ static const char *_resultCodeNames[] =
 	"OPTO",
 };
 
+/*****************************************************
+	Opto state tracking
+*****************************************************/
+enum LaserState
+{
+	LASERSTATE_OFF,
+	LASERSTATE_ON,
+	_NUM_LASERSTATES
+}
 
 /*****************************************************
 	Audio cue frequencies in Hz
@@ -329,17 +344,8 @@ enum ParamID
 	REQUEST_TASK_AFTER_BLOCK, 		// 1: Request new task parameters from MATLAB at the end of each block
 	REQUEST_OPTO_AFTER_BLOCK,		// 1: Request new opto parameters from MATLAB at the end of each block.
 	WAITFORTOUCH_TO_OPTO_TIMEOUT,	// Go to opto if this much time has elapsed in waitfortouch.
-	LICK_PIN,
-	LEVER_PIN,
-	LOW_IS_TOUCH,					// 1: using janelia, 0: using teensybox
-	ACCEL_BASED_LICK,				// 1: use accelerometer-based lick detection
-	ACCEL_BASED_LEVER,				// 1: use accelerometer-based lever detection
 	ACCEL_THRESHOLD_LICK,			// Accelerometer threshold for lick detection (HLF: I pulled out the Y channel of two accelerometers, fed into A4 and A5. Both are powered by teensy 3V3 and grounded to AGND)
 	ACCEL_THRESHOLD_LEVER,			// Accelerometer threshold for lick detection (HLF: I pulled out the Y channel of two accelerometers, fed into A4 and A5. Both are powered by teensy 3V3 and grounded to AGND)
-	ACCEL_SMOOTH_FACTOR_LICK,		// 0<alpha<1. Highpass is applied to accel Y before thresholding. To do high pass, we substract the low pass i.e., exponential smoothing: s0 = x0; s(t) = alpha*x(t) + (1-alpha)*s(t-1); 
-	ACCEL_SMOOTH_FACTOR_LEVER,		// 0<alpha<1. Highpass is applied to accel Y before thresholding. To do high pass, we substract the low pass i.e., exponential smoothing: s0 = x0; s(t) = alpha*x(t) + (1-alpha)*s(t-1); 
-	ACCEL_SMOOTH_SAMPLE_PERIOD_LICK,// in ms, sampling period for accelerometer
-	ACCEL_SMOOTH_SAMPLE_PERIOD_LEVER,// in ms, sampling period for accelerometer
 	ACCEL_BLANK_POST_MOVE_TUBE,  	// in ms, ignore accel-based-lick during tube deploy/retract and for this duration after STATE_DEPLOYED/STATE_RETRACTED
 	ACCEL_BLANK_POST_MOVE_LEVER, 	// in ms, ignore accel-based-lever during lever deploy/retract and for this duration after STATE_DEPLOYED/STATE_RETRACTED
 	VAR_REQUIRED_FOR_REWARD,		// if true, do not reward successful movements until cleared by VAR
@@ -388,17 +394,8 @@ static const char *_paramNames[] =
 	"REQUEST_TASK_AFTER_BLOCK", 	// 1: Auto switch to other task (lick vs. lever) at the end of each block
 	"REQUEST_OPTO_AFTER_BLOCK",		// 1: Go to opto at end of each block.
 	"WAITFORTOUCH_TO_OPTO_TIMEOUT",	// Go to opto if this much time has elapsed in waitfortouch.
-	"LICK_PIN",
-	"LEVER_PIN",
-	"LOW_IS_TOUCH",					// 1: using janelia, 0: using teensybox
-	"ACCEL_BASED_LICK",				// 1: use accelerometer-based lick detection
-	"ACCEL_BASED_LEVER",			// 1: use accelerometer-based lever detection
 	"ACCEL_THRESHOLD_LICK",			// Accelerometer threshold for lick detection (HLF: I pulled out the Y channel of two accelerometers, fed into A4 and A5. Both are powered by teensy 3V3 and grounded to AGND)
 	"ACCEL_THRESHOLD_LEVER",		// Accelerometer threshold for lick detection (HLF: I pulled out the Y channel of two accelerometers, fed into A4 and A5. Both are powered by teensy 3V3 and grounded to AGND)
-	"ACCEL_SMOOTH_FACTOR_LICK",		// alpha=factor*1000, must satisfy: 0<alpha<1. Highpass is applied to accel Y before thresholding. To do high pass, we substract the low pass i.e., exponential smoothing: s0 = x0; s(t) = alpha*x(t) + (1-alpha)*s(t-1); 
-	"ACCEL_SMOOTH_FACTOR_LEVER",	// alpha=factor*1000, must satisfy: 0<alpha<1. Highpass is applied to accel Y before thresholding. To do high pass, we substract the low pass i.e., exponential smoothing: s0 = x0; s(t) = alpha*x(t) + (1-alpha)*s(t-1); 
-	"ACCEL_SMOOTH_SAMPLE_PERIOD_LICK",// in ms, sampling period for accelerometer
-	"ACCEL_SMOOTH_SAMPLE_PERIOD_LEVER",// in ms, sampling period for accelerometer
 	"ACCEL_BLANK_POST_MOVE_TUBE",  	// in ms, ignore accel-based-lick during tube deploy/retract and for this duration after STATE_DEPLOYED/STATE_RETRACTED
 	"ACCEL_BLANK_POST_MOVE_LEVER", 	// in ms, ignore accel-based-lever during lever deploy/retract and for this duration after STATE_DEPLOYED/STATE_RETRACTED
 	"VAR_REQUIRED_FOR_REWARD",		// if true, do not reward successful movements until cleared by VAR
@@ -445,17 +442,8 @@ long _params[_NUM_PARAMS] =
 	1,		// REQUEST_TASK_AFTER_BLOCK
 	0,		// REQUEST_OPTO_AFTER_BLOCK
 	1000000,// WAITFORTOUCH_TO_OPTO_TIMEOUT
-	25, 	// LICK_PIN
-	26, 	// LEVER_PIN
-	0, 		// LOW_IS_TOUCH
-	1,		// ACCEL_BASED_LICK
-	1,		// ACCEL_BASED_LEVER
 	30,		// ACCEL_THRESHOLD_LICK
 	25,		// ACCEL_THRESHOLD_LEVER
-	300,	// ACCEL_SMOOTH_FACTOR_LICK
-	300,	// ACCEL_SMOOTH_FACTOR_LEVER
-	1, 		// ACCEL_SMOOTH_SAMPLE_PERIOD_LICK
-	1, 		// ACCEL_SMOOTH_SAMPLE_PERIOD_LEVER
 	500,	// ACCEL_BLANK_POST_MOVE_TUBE
 	250,	// ACCEL_BLANK_POST_MOVE_LEVER
 	0, 		// VAR_REQUIRED_FOR_REWARD
@@ -510,6 +498,7 @@ static long _servoTargetPosTube		= _params[TUBE_POS_DEPLOYED];	// Target positio
 
 static int _nRewardsSinceBlockStart = 0;
 
+static LaserState *_laserState[] = {LASERSTATE_OFF, LASERSTATE_OFF};
 static bool _isOpto1On = false;
 static bool _isOpto2On = false;
 
@@ -537,10 +526,8 @@ void setup()
 	}
 
 	// Init input pins
-	pinMode(PIN_LICK, INPUT);					// Lick detector (input)
-	pinMode(PIN_LEVER, INPUT);					// Lever press detector (input)
-	pinMode(25, INPUT);
-	pinMode(26, INPUT);
+	pinMode(25, INPUT); // Hardware lick pin
+	pinMode(26, INPUT); // Hardware lever pin
 	pinMode(PIN_LEVERMOTOR_BUSY, INPUT);		// High when motor is moving
 	pinMode(PIN_LASERMOTOR_BUSY, INPUT);
 	pinMode(PIN_IMEC_SYNC, INPUT);
@@ -603,8 +590,8 @@ void mySetup()
 	_servoTargetPosTube		= _params[TUBE_POS_DEPLOYED];	// Target position of servo
 
 	_nRewardsSinceBlockStart = 0;
-	_isOpto1On = false;
-	_isOpto2On = false;
+	_laserState[0] = LASERSTATE_OFF;
+	_laserState[1] = LASERSTATE_OFF;
 
 	_accelValueLick = 0;
 	_accelValueLever = 0;
@@ -621,8 +608,8 @@ void mySetup()
 	hostInit();
 
 	// Set laser analog modulation to 0
-	setOptogenStim(1, false);					// Optogenetic stim OFF
-	setOptogenStim(2, false);					// Optogenetic stim OFF
+	setOpto(1, false);					// Optogenetic stim OFF
+	setOpto(2, false);					// Optogenetic stim OFF
 	randomSeed(analogRead(0));
 }
 
@@ -680,6 +667,8 @@ void loop()
 		handleParamUpdate();	// Writes to _isUpdatingParams
 		handleAnalogOutput();	// Write to DAC channels to modulate laser pwoer
 		handleSync();
+		handleOpto(1);
+		handleOpto(2);
 
 		// 3) Update state machine
 		// Depending on what state we're in, call the appropriate state function, which will evaluate the transition conditions, and update the `_state` var to what the next state should be
@@ -743,8 +732,8 @@ void state_idle()
 		sendState(_state);
 
 		// Reset output
-		setOptogenStim(1, false);
-		setOptogenStim(2, false);
+		setOpto(1, false);
+		setOpto(2, false);
 		noTone(PIN_SPEAKER);
 		setReward(false);
 		_leverCyclingEnabled = true;
@@ -1504,8 +1493,8 @@ void state_opto()
 		sendState(_state);
 
 		// Turn off opto
-		setOptogenStim(1, false);
-		setOptogenStim(2, false);
+		setOpto(1, false);
+		setOpto(2, false);
 
 		// Retract lever/tube and disable auto-cycling
 		_tubeCyclingEnabled = false;
@@ -1538,14 +1527,14 @@ void state_opto()
 	if (numPulsesComplete < _params[OPTO_NUM_PULSES])
 	{
 		// If stim is off, check if it needs to be turned on
-		if (!isOptogenStimOn(_params[OPTO_LASER_ID]))
+		if (!isOptoOn(_params[OPTO_LASER_ID]))
 		{
 			// Delay first pulse by random interval unless manually opto-ing in IDLE.
 			if (entryState == STATE_IDLE || getTime() - timeEnter >= randomDelayPre)
 			{
 				if (numPulsesComplete == 0 || getTime() - timePulseEnd >= _params[OPTO_PULSE_INTERVAL])
 				{
-					setOptogenStim(_params[OPTO_LASER_ID], true);
+					setOpto(_params[OPTO_LASER_ID], true);
 					timePulseStart = getTime();
 				}
 			}
@@ -1553,7 +1542,7 @@ void state_opto()
 		// If stim is on, check if it needs to be turned off
 		else if (getTime() - timePulseStart >= _params[OPTO_PULSE_DURATION])
 		{
-			setOptogenStim(_params[OPTO_LASER_ID], false);
+			setOpto(_params[OPTO_LASER_ID], false);
 			timePulseEnd = getTime();
 			numPulsesComplete = numPulsesComplete + 1;
 		}
@@ -1565,8 +1554,8 @@ void state_opto()
 	// Quit signal from host --> IDLE
 	if (_command == 'Q') 
 	{
-		setOptogenStim(1, false);
-		setOptogenStim(2, false);
+		setOpto(1, false);
+		setOpto(2, false);
 		_state = STATE_IDLE;
 		return;
 	}
@@ -1611,116 +1600,58 @@ void state_opto()
 // Lever detection
 bool getLeverState() 
 {
-	if (_params[ACCEL_BASED_LEVER])
+	if (_params[ACCEL_BLANK_POST_MOVE_LEVER] >= 0)
 	{
-		if (_params[ACCEL_BLANK_POST_MOVE_LEVER] >= 0)
+		if (_servoStateLever == SERVOSTATE_DEPLOYING || _servoStateLever == SERVOSTATE_RETRACTING || _servoStateLever == SERVOSTATE_RETRACTED)
 		{
-			if (_servoStateLever == SERVOSTATE_DEPLOYING || _servoStateLever == SERVOSTATE_RETRACTING || _servoStateLever == SERVOSTATE_RETRACTED)
-			{
-				digitalWrite(PIN_MIRROR_LEVER, LOW);
-				return false;
-			}
-			if (getTime() <= _servoStopTimeLever + _params[ACCEL_BLANK_POST_MOVE_LEVER])
-			{
-				digitalWrite(PIN_MIRROR_LEVER, LOW);
-				return false;
-			}
+			digitalWrite(PIN_MIRROR_LEVER, LOW);
+			return false;
 		}
+		if (getTime() <= _servoStopTimeLever + _params[ACCEL_BLANK_POST_MOVE_LEVER])
+		{
+			digitalWrite(PIN_MIRROR_LEVER, LOW);
+			return false;
+		}
+	}
 
-		if (abs(_accelHighPassLever) >= _params[ACCEL_THRESHOLD_LEVER]) 
-		{
-			digitalWrite(PIN_MIRROR_LEVER, HIGH);
-			return true;
-		}
-		else 
-		{
-			digitalWrite(PIN_MIRROR_LEVER, LOW);
-			return false;
-		}
-	}
-	else if (_params[LOW_IS_TOUCH] == 0)
+	if (abs(_accelHighPassLever) >= _params[ACCEL_THRESHOLD_LEVER]) 
 	{
-		if (digitalRead(PIN_LEVER) == HIGH) 
-		{
-			digitalWrite(PIN_MIRROR_LEVER, HIGH);
-			return true;
-		}
-		else 
-		{
-			digitalWrite(PIN_MIRROR_LEVER, LOW);
-			return false;
-		}
+		digitalWrite(PIN_MIRROR_LEVER, HIGH);
+		return true;
 	}
-	else
+	else 
 	{
-		if (digitalRead(PIN_LEVER) == LOW) 
-		{
-			digitalWrite(PIN_MIRROR_LEVER, HIGH);
-			return true;
-		}
-		else 
-		{
-			digitalWrite(PIN_MIRROR_LEVER, LOW);
-			return false;
-		}
+		digitalWrite(PIN_MIRROR_LEVER, LOW);
+		return false;
 	}
 }
 
 // Lick detection
 bool getLickState() 
 {
-	if (_params[ACCEL_BASED_LICK])
+	if (_params[ACCEL_BLANK_POST_MOVE_TUBE] >= 0)
 	{
-		if (_params[ACCEL_BLANK_POST_MOVE_TUBE] >= 0)
+		if (_servoStateTube == SERVOSTATE_DEPLOYING || _servoStateTube == SERVOSTATE_RETRACTING || _servoStateTube == SERVOSTATE_RETRACTED)
 		{
-			if (_servoStateTube == SERVOSTATE_DEPLOYING || _servoStateTube == SERVOSTATE_RETRACTING || _servoStateTube == SERVOSTATE_RETRACTED)
-			{
-				digitalWrite(PIN_MIRROR_LICK, LOW);
-				return false;
-			}
-			if (getTime() <= _servoStopTimeTube + _params[ACCEL_BLANK_POST_MOVE_TUBE])
-			{
-				digitalWrite(PIN_MIRROR_LICK, LOW);
-				return false;
-			}
+			digitalWrite(PIN_MIRROR_LICK, LOW);
+			return false;
 		}
+		if (getTime() <= _servoStopTimeTube + _params[ACCEL_BLANK_POST_MOVE_TUBE])
+		{
+			digitalWrite(PIN_MIRROR_LICK, LOW);
+			return false;
+		}
+	}
 
-		if (abs(_accelHighPassLick) >= _params[ACCEL_THRESHOLD_LICK]) 
-		{
-			digitalWrite(PIN_MIRROR_LICK, HIGH);
-			return true;
-		}
-		else 
-		{
-			digitalWrite(PIN_MIRROR_LICK, LOW);
-			return false;
-		}
-	}
-	else if (_params[LOW_IS_TOUCH] == 0)
+	if (abs(_accelHighPassLick) >= _params[ACCEL_THRESHOLD_LICK]) 
 	{
-		if (digitalRead(PIN_LICK) == HIGH) 
-		{
-			digitalWrite(PIN_MIRROR_LICK, HIGH);
-			return true;
-		}
-		else 
-		{
-			digitalWrite(PIN_MIRROR_LICK, LOW);
-			return false;
-		}
+		digitalWrite(PIN_MIRROR_LICK, HIGH);
+		return true;
 	}
-	else
+	else 
 	{
-		if (digitalRead(PIN_LICK) == LOW) 
-		{
-			digitalWrite(PIN_MIRROR_LICK, HIGH);
-			return true;
-		}
-		else 
-		{
-			digitalWrite(PIN_MIRROR_LICK, LOW);
-			return false;
-		}
+		digitalWrite(PIN_MIRROR_LICK, LOW);
+		return false;
 	}
 }
 
@@ -1851,9 +1782,9 @@ void handleAccelLick()
 {
 	static float alpha;
 
-	if (getTime() - _accelLastUpdateMillisLick >= _params[ACCEL_SMOOTH_SAMPLE_PERIOD_LICK])
+	if (getTime() - _accelLastUpdateMillisLick >= ACCEL_SMOOTH_SAMPLE_PERIOD_LICK)
 	{
-		alpha = ((float)_params[ACCEL_SMOOTH_FACTOR_LICK]) / 1000.0;
+		alpha = ACCEL_SMOOTH_FACTOR_LICK / 1000.0;
 		_accelValueLick = analogRead(PIN_LICK_ACCEL);
 		_accelLowPassLick = alpha*_accelValueLick + (1-alpha)*_accelLowPassLick;
 		_accelHighPassLick = _accelValueLick - _accelLowPassLick;
@@ -1866,9 +1797,9 @@ void handleAccelLever()
 {
 	static float alpha;
 
-	if (getTime() - _accelLastUpdateMillisLever >= _params[ACCEL_SMOOTH_SAMPLE_PERIOD_LEVER])
+	if (getTime() - _accelLastUpdateMillisLever >= ACCEL_SMOOTH_SAMPLE_PERIOD_LEVER)
 	{
-		alpha = ((float)_params[ACCEL_SMOOTH_FACTOR_LEVER]) / 1000.0;
+		alpha = ACCEL_SMOOTH_FACTOR_LEVER / 1000.0;
 		_accelValueLever = analogRead(PIN_LEVER_ACCEL);
 		_accelLowPassLever = alpha*_accelValueLever + (1-alpha)*_accelLowPassLever;
 		_accelHighPassLever = _accelValueLever - _accelLowPassLever;
@@ -2078,19 +2009,19 @@ void setReward(bool turnOn)
 
 // Toggle optogenetic stimulation
 // Always writes, only emits event on value change
-void setOptogenStim(int channel, bool turnOn) 
+void setOpto(int channel, bool turnOn) 
 {
 	// Do both channels if not specified
 	if (channel != 1 && channel != 2)
 	{
-		setOptogenStim(1, turnOn);
-		setOptogenStim(2, turnOn);
+		setOpto(1, turnOn);
+		setOpto(2, turnOn);
 		return;
 	}
 
 	if (turnOn)
 	{
-		if (!isOptogenStimOn(channel))
+		if (!isOptoOn(channel))
 		{
 			switch (channel)
 			{
@@ -2106,19 +2037,19 @@ void setOptogenStim(int channel, bool turnOn)
 		{
 			case 1:
 				setAnalogOutput(1, _params[OPTO_AOUT1_VALUE]);
-				_isOpto1On = true;
+				_laserState[0] = LASERSTATE_ON;
 				// digitalWrite(PIN_OPTO_1, HIGH);
 				break;
 			case 2:
 				setAnalogOutput(2, _params[OPTO_AOUT2_VALUE]);
-				_isOpto2On = true;
+				_laserState[1] = LASERSTATE_ON;
 				// digitalWrite(PIN_OPTO_2, HIGH);
 				break;
 		}
 	}
 	else
 	{
-		if (isOptogenStimOn(channel))
+		if (isOptoOn(channel))
 		{
 			switch (channel)
 			{
@@ -2134,33 +2065,49 @@ void setOptogenStim(int channel, bool turnOn)
 		{
 			case 1:
 				setAnalogOutput(1, 0);
-				_isOpto1On = false;
+				_laserState[0] = LASERSTATE_OFF;
 				// digitalWrite(PIN_OPTO_1, LOW);
 				break;
 			case 2:
 				setAnalogOutput(2, 0);
-				_isOpto2On = false;
+				_laserState[1] = LASERSTATE_OFF;
 				// digitalWrite(PIN_OPTO_2, LOW);
 				break;
 		}
 	}
 }
 
-bool isOptogenStimOn(int channel)
+bool isOptoOn(int channel)
 {
 	switch (channel)
 	{
 		case 1:
 			// return (digitalRead(PIN_OPTO_1) == HIGH);
-			return _isOpto1On;
+			return _laserState[0] == LASERSTATE_ON;
 		case 2:
 			// return (digitalRead(PIN_OPTO_2) == HIGH);
-			return _isOpto2On;
+			return _laserState[1] == LASERSTATE_ON;
 		default:
-			return (_isOpto1On || _isOpto2On);
+			return (_laserState[0] == LASERSTATE_ON || _laserState[1] == LASERSTATE_ON);
 			// return (digitalRead(PIN_OPTO_1) == HIGH || digitalRead(PIN_OPTO_2) == HIGH);
 	}
 }
+
+void handleOpto(int laserIdx)
+{
+
+}
+
+void startOpto(int laserIdx)
+{
+
+}
+
+void stopOpto(int laserIdx)
+{
+
+}
+
 
 // Move lever (laterally) (to 1-based position index)
 void setLeverPos(int position)
