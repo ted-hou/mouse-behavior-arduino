@@ -8,6 +8,7 @@ classdef OnlineDecoder < handle
         Params = struct(Train=[], Test=[], Opto=[])
         Data = struct(Train=struct(XBaseline={}, XMove={}, tBaseline={}, tMove={}, trialLength={}), Test=struct(XBaseline={}, XMove={}, tBaseline={}, tMove={}, trialLength={}))
         Model
+        DataBuffer = struct(t=[], x=[])
         Debug = false
     end
 
@@ -24,6 +25,8 @@ classdef OnlineDecoder < handle
         Timer
         OptoPulseTimer
         Listeners
+        Dialog
+        UIHandles
     end
 
     methods
@@ -354,6 +357,11 @@ classdef OnlineDecoder < handle
             obj.Arduino.SendMessage(sprintf('J %i', iLaser));
         end
 
+        function stopLiveOpto(obj, iLaser)
+            obj.IsLaserOn(iLaser) = false;
+            obj.Arduino.SendMessage(sprintf('K %i', iLaser));
+        end
+
         function setLiveOptoParams(obj, iLaser, varargin)
             p = inputParser();
             p.addRequired('iLaser', @(x) x==1 || x==2)
@@ -386,10 +394,6 @@ classdef OnlineDecoder < handle
                         obj.Arduino.SetParam('OPTO_PULSE_INTERVAL_2', pulseInterval)
                     end
             end
-        end
-
-        function stopLiveOpto(obj, iLaser)
-            obj.IsLaserOn(iLaser) = false;
         end
 
         % Listener callback for ArduinoConnection StateChanged events
@@ -480,6 +484,217 @@ classdef OnlineDecoder < handle
 
         function clearEventBuffer(obj)
             obj.EventBuffer = struct(LEVER_PRESSED=[], LICK=[], TIMEOUT_START=[], HasMadeFirstMove=false);
+        end
+
+        % Gizmos and doodads for tinkering with dual color opto, need to
+        % add a PID thingy to do spike rate clamp
+        function createDialog(obj)
+            % Main figure window [left, bottom, width, height]
+            fig = uifigure(Name="Opto Control", Position=[100, 100, 750, 380]);
+            fig.GraphicsSmoothing = 'off'; % Performance tweak
+            
+            % --- PLOTS / DISPLAYS (Left Side Stacked Graphics) ---
+            % Spike rate text header readout anchored on the top-left
+            lblSpikeRate = uilabel(fig, Text="xxx.x sp/s", Position=[100, 330, 200, 22], FontWeight="bold", FontSize=16, VerticalAlignment='top');
+        
+            % Upper Plot: Spike Rate
+            axSpikes = uiaxes(fig, Position=[50, 185, 465, 140]);
+            ylabel(axSpikes, 'sp/s'); grid(axSpikes, 'on');
+        
+            % Lower Plot: Merged Blue & Orange Laser Light Stimulation
+            axLight = uiaxes(fig, Position=[50, 35, 465, 140]);
+            ylabel(axLight, 'mW'); grid(axLight, 'on');
+        
+            xlabel(axLight, 'sec')
+            xlim([axSpikes, axLight], [-4, 0]);
+        
+            % Create low-overhead static plot line references for high-speed updates
+            lineSpikes = plot(axSpikes, NaN, NaN, Color=[0.2, 0.2, 0.2], LineWidth=1.2);
+        
+            hold(axLight, 'on');
+            lineBlue   = plot(axLight, NaN, NaN, Color=[0.0, 0.4, 0.8], LineWidth=1.2);
+            lineOrng   = plot(axLight, NaN, NaN, Color=[0.9, 0.4, 0.0], LineWidth=1.2);
+            hold(axLight, 'off');
+        
+            % --- TOP ROW BUTTONS ---
+            % Master switch (on/off)
+            uilabel(fig, Text="Master:", Position=[330, 350, 50, 22], FontWeight="bold");
+            btnGrpMaster = uibuttongroup(fig, Position=[385, 350, 100, 25], BorderType="none", SelectionChangedFcn=@controlChangedCallback);
+            btnMasterOn  = uiradiobutton(btnGrpMaster, Text="On", Position=[0, 2, 45, 22]);
+            btnMasterOff = uiradiobutton(btnGrpMaster, Text="Off", Position=[50, 2, 45, 22]);
+            btnGrpMaster.SelectedObject = btnMasterOff; % Default to Off
+            
+            % Stim mode (manual/trigger based of pMove)
+            uilabel(fig, Text="Mode:", Position=[495, 350, 45, 22], FontWeight="bold");
+            btnGrpStimMode   = uibuttongroup(fig, Position=[540, 350, 130, 25], BorderType="none", SelectionChangedFcn=@controlChangedCallback);
+            btnStimModeManual   = uiradiobutton(btnGrpStimMode, Text="Manual", Position=[0, 2, 65, 22]);
+            btnStimModeTrigger  = uiradiobutton(btnGrpStimMode, Text="Trigger", Position=[70, 2, 60, 22]);
+            btnGrpStimMode.SelectedObject = btnStimModeManual; % Default to Manual
+        
+            uilabel(fig, Text="p>", Position=[680, 350, 20, 22], FontWeight="bold");
+            editTriggerThreshold = uieditfield(fig, 'numeric', Value=0.5, Position=[700, 350, 30, 22], ValueChangedFcn=@numericChangedCallback, Limits=[0, 1]);
+        
+            % Apply
+            chkInstantApply = uicheckbox(fig, Text="Instant", Value=false, Position=[600, 15, 65, 22], ValueChangedFcn=@instantApplyCheckboxCallback);
+            btnApply = uibutton(fig, "push", Text="Apply", Position=[665, 15, 65, 24], ButtonPushedFcn=@controlChangedCallback);
+        
+            % --- CONTROLS PANEL (Right Side arranged Side-by-Side) ---
+            % Left Column (470nm)
+            pnlBlue = uipanel(fig, Title="470nm (GtACR)", Position=[535, 205, 195, 145]);
+            
+            uilabel(pnlBlue, Text="Mode:", Position=[10, 95, 40, 22]);
+            btnGrpBlue = uibuttongroup(pnlBlue, Position=[55, 95, 135, 25], BorderType="none", SelectionChangedFcn=@controlChangedCallback);
+            btnBlueModePulsed = uiradiobutton(btnGrpBlue, Text="Pulsed", Position=[0, 2, 60, 22]);
+            btnBlueModeCont   = uiradiobutton(btnGrpBlue, Text="Cont.", Position=[65, 2, 65, 22]);
+            btnGrpBlue.SelectedObject = btnBlueModeCont; 
+            
+            uilabel(pnlBlue, Text="Power (aout):", Position=[10, 65, 80, 22]);
+            editBluePower = uieditfield(pnlBlue, 'numeric', Value=0, Position=[100, 65, 50, 22], ValueChangedFcn=@numericChangedCallback, Limits=[0, 4095]);
+            
+            uilabel(pnlBlue, Text="Freq (Hz):", Position=[10, 35, 80, 22]);
+            editBlueFreq = uieditfield(pnlBlue, 'numeric', Value=10, Position=[100, 35, 50, 22], ValueChangedFcn=@numericChangedCallback, Limits=[0, 1000]);
+            
+            uilabel(pnlBlue, 'Text', 'Width (ms):', Position=[10, 5, 80, 22]);
+            editBlueWidth = uieditfield(pnlBlue, 'numeric', Value=1, Position=[100, 5, 50, 22], ValueChangedFcn=@numericChangedCallback, Limits=[0, 1000]);
+        
+            % Right Column (593nm)
+            pnlOrng = uipanel(fig, Title="593nm (ChrimsonR)", Position=[535, 50, 195, 145]);
+            
+            uilabel(pnlOrng, Text="Mode:", Position=[10, 95, 40, 22]);
+            btnGrpOrng = uibuttongroup(pnlOrng, Position=[55, 95, 135, 25], BorderType="none", SelectionChangedFcn=@controlChangedCallback);
+            btnOrngModePulsed = uiradiobutton(btnGrpOrng, Text="Pulsed", Position=[0, 2, 60, 22]);
+            btnOrngModeCont   = uiradiobutton(btnGrpOrng, Text="Cont.", Position=[65, 2, 65, 22]);
+            btnGrpOrng.SelectedObject = btnOrngModePulsed; 
+            
+            uilabel(pnlOrng, Text="Power (aout):", Position=[10, 65, 80, 22]);
+            editOrngPower = uieditfield(pnlOrng, 'numeric', Value=0, Position=[100, 65, 50, 22], ValueChangedFcn=@numericChangedCallback, Limits=[0, 4095]);
+            
+            uilabel(pnlOrng, Text="Freq (Hz):", Position=[10, 35, 80, 22]); 
+            editOrngFreq = uieditfield(pnlOrng, 'numeric', Value=20, Position=[100, 35, 50, 22], ValueChangedFcn=@numericChangedCallback, Limits=[0, 1000]);
+            
+            uilabel(pnlOrng, Text="Width (ms):", Position=[10, 5, 80, 22]);
+            editOrngWidth = uieditfield(pnlOrng, 'numeric', Value=1, Position=[100, 5, 50, 22], ValueChangedFcn=@numericChangedCallback, Limits=[0, 1000]);
+        
+            % Used to define scroll wheel behavior on numeric text fields
+            numericFields = { ...
+                struct(Handle=editBluePower, Panel=pnlBlue,  InstantApply=chkInstantApply, Min=0,   Max=4095, Step=1), ...
+                struct(Handle=editBlueFreq,  Panel=pnlBlue,  InstantApply=chkInstantApply, Min=0,   Max=1000, Step=1), ...
+                struct(Handle=editBlueWidth, Panel=pnlBlue,  InstantApply=chkInstantApply, Min=0,   Max=1000, Step=1), ...
+                struct(Handle=editOrngPower, Panel=pnlOrng,  InstantApply=chkInstantApply, Min=0,   Max=4095, Step=1), ...
+                struct(Handle=editOrngFreq,  Panel=pnlOrng,  InstantApply=chkInstantApply, Min=0,   Max=1000, Step=1), ...
+                struct(Handle=editOrngWidth, Panel=pnlOrng,  InstantApply=chkInstantApply, Min=0,   Max=1000, Step=1), ...
+                struct(Handle=editTriggerThreshold,    Panel=fig,      InstantApply=true, Min=0.0, Max=1.0, Step=0.1) ...
+            };
+        
+            fig.WindowScrollWheelFcn = @scrollWheelCallback;
+        
+            % Output handles for all the doodads
+            uiHandles = struct(...
+                fig=fig, lblSpikeRate=lblSpikeRate, axSpikes=axSpikes, axLight=axLight, ...
+                lineSpikes=lineSpikes, lineBlue=lineBlue, lineOrng=lineOrng, ...
+                btnGrpMaster=btnGrpMaster, btnGrpStimMode=btnGrpStimMode, editTriggerThreshold=editTriggerThreshold, ...
+                btnGrpBlue=btnGrpBlue, editBluePower=editBluePower, editBlueFreq=editBlueFreq, editBlueWidth=editBlueWidth, ...
+                btnGrpOrng=btnGrpOrng, editOrngPower=editOrngPower, editOrngFreq=editOrngFreq, editOrngWidth=editOrngWidth ...
+            );
+
+            obj.Dialog = fig;
+            obj.UIHandles = uiHandles;
+        
+            % --- Instant apply checkbox disables Apply button ---
+            function instantApplyCheckboxCallback(src, ~)
+                if src.Value
+                    btnApply.Enable = 'off';
+                    controlChangedCallback();
+                else
+                    btnApply.Enable = 'on';
+                end
+            end
+        
+            % --- Scroll wheel to edit numeric fields (use shift/alt/shift+alt as speed modifiers) ---
+            function scrollWheelCallback(~, event)
+                mousePos = fig.CurrentPoint; mx = mousePos(1); my = mousePos(2);
+                for i = 1:numel(numericFields)
+                    field = numericFields{i}.Handle; 
+                    panel = numericFields{i}.Panel; 
+                    instantApply = numericFields{i}.InstantApply;
+                    fPos = field.Position;
+                    
+                    if panel == fig
+                        absX = fPos(1); absY = fPos(2);
+                    else
+                        pPos = panel.Position;
+                        absX = pPos(1) + fPos(1); absY = pPos(2) + fPos(2);
+                    end
+                    
+                    if (mx >= absX && mx <= (absX + fPos(3))) && (my >= absY && my <= (absY + fPos(4)))
+                        activeModifiers = fig.CurrentModifier;
+                        
+                        baseStep = numericFields{i}.Step;
+                        if baseStep == 1
+                            if ismember('shift', activeModifiers)
+                                baseStep = 5;
+                            elseif ismember('alt', activeModifiers)
+                                baseStep = 10;
+                            end
+                        end
+                        
+                        newVal = field.Value + (-event.VerticalScrollCount * baseStep);
+                        
+                        if newVal >= numericFields{i}.Min && newVal <= numericFields{i}.Max
+                            field.Value = newVal;
+                            if islogical(instantApply) && instantApply
+                                controlChangedCallback();
+                            elseif instantApply.Value
+                                controlChangedCallback();
+                            end
+                        end
+                        break;
+                    end
+                end
+            end
+        
+            function numericChangedCallback(src, ~)
+                for i = 1:numel(numericFields)
+                    if numericFields{i}.Handle == src
+                        if islogical(numericFields{i}.InstantApply) && numericFields{i}.InstantApply
+                            controlChangedCallback();
+                        elseif numericFields{i}.InstantApply.Value
+                            controlChangedCallback();
+                        end
+                        break;
+                    end
+                end
+            end
+        
+            % --- PIPELINE CALLBACK HOOK ---
+            function controlChangedCallback(~, ~)
+                masterState = btnGrpMaster.SelectedObject.Text;
+                expMode     = btnGrpStimMode.SelectedObject.Text;
+                paramPVal   = editTriggerThreshold.Value;
+        
+                blueMode    = btnGrpBlue.SelectedObject.Text;
+                bluePow     = editBluePower.Value;
+                blueFrq     = editBlueFreq.Value;
+                bluePwd     = editBlueWidth.Value;
+        
+                orngMode    = btnGrpOrng.SelectedObject.Text;
+                orngPow     = editOrngPower.Value;
+                orngFrq     = editOrngFreq.Value;
+                orngPwd     = editOrngWidth.Value;
+        
+                % Print updated optogenetic parameters to Command Window
+                fprintf('\n--- Opto Parameter Update ---\n');
+                fprintf('Global: Master=%s | Mode=%s | p>=%.2f\n', masterState, expMode, paramPVal);
+                fprintf('470nm (Blue): %s | Power: %.1f mW | Freq: %.1f Hz | Width: %.1f ms\n', ...
+                    blueMode, bluePow, blueFrq, bluePwd);
+                fprintf('593nm (Orng): %s | Power: %.1f mW | Freq: %.1f Hz | Width: %.1f ms\n', ...
+                    orngMode, orngPow, orngFrq, orngPwd);
+                fprintf('-----------------------------\n');
+            end
+        end
+
+        function tryUpdateSpikeRate(obj)
+
         end
 
     end
