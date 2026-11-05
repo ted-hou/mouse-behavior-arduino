@@ -8,7 +8,8 @@ classdef OnlineDecoder < handle
         Params = struct(Train=[], Test=[], Opto=[])
         Data = struct(Train=struct(XBaseline={}, XMove={}, tBaseline={}, tMove={}, trialLength={}), Test=struct(XBaseline={}, XMove={}, tBaseline={}, tMove={}, trialLength={}))
         Model
-        DataBuffer = struct(t=[], x=[])
+        ChannelMask
+        Buffer = struct(Data=struct(t=[], x=[], xMasked=[], p=[]), CurrentIndex=[], Length=0)
         Debug = false
     end
 
@@ -23,7 +24,7 @@ classdef OnlineDecoder < handle
 
     properties (Transient)
         Timer
-        OptoPulseTimer
+        OptoTimer
         Listeners
         Dialog
         UIHandles
@@ -31,11 +32,42 @@ classdef OnlineDecoder < handle
 
     methods
         function obj = OnlineDecoder(stb, ac)
+            if isempty(stb) || isempty(ac)
+                return
+            end
             obj.SpikeTimeBuffer = stb;
             obj.Arduino = ac;
             obj.Mode = "off";
             obj.Listeners.StateChanged = addlistener(obj.Arduino, 'StateChanged', @obj.onStateChanged);
             obj.Listeners.EventMarkerReceived = addlistener(obj.Arduino, 'EventMarkerReceived', @obj.onEventMarkerReceived);
+            obj.initBuffer(round(6/0.02));
+        end
+
+        function mask = applyChannelMask(obj, varargin)
+            % See OnlineDecoder.getChannelMap() for explanations;
+            p = inputParser();
+            p.addParameter('ml', 1.300, @(x) isnumeric(x) && x>=0); % ML (left hemisphere is negative, we implant on the right mostly)
+            p.addParameter('ap', -3.280, @isnumeric);
+            p.addParameter('dvFromDura', -4.700, @isnumeric); % tip depth from dura (which is usually 200um below bregma for SNr)
+            p.addParameter('rotation', 0, @isnumeric); % degress of CCW rotation along z axis looking from above (default is zero for the orientation described above)
+            p.addParameter('mlWindow', [-Inf, Inf], @(x) isnumeric(x) && length(x)==2)
+            p.addParameter('apWindow', [-Inf, Inf], @(x) isnumeric(x) && length(x)==2)
+            p.addParameter('dvFromDuraWindow', [-Inf, Inf], @(x) isnumeric(x) && length(x)==2)
+            p.parse(varargin{:})
+            ml = p.Results.ml;
+            ap = p.Results.ap;
+            dvFromDura = p.Results.dvFromDura;
+            rotation = p.Results.rotation;
+            mlWindow = p.Results.mlWindow;
+            apWindow = p.Results.apWindow;
+            dvFromDuraWindow = p.Results.dvFromDuraWindow;
+
+            map = OnlineDecoder.getChannelMap(ml=ml, ap=ap, dvFromDura=dvFromDura, rotation=rotation);
+            mask = map.ml >= mlWindow(1) & map.ml <= mlWindow(2);
+            mask = mask & (map.ap >= apWindow(1) & map.ap <= apWindow(2));
+            mask = mask & (map.dvFromDura >= dvFromDuraWindow(1) & map.dvFromDura <= dvFromDuraWindow(2));
+
+            obj.ChannelMask = mask;
         end
 
         % Start collecting training data
@@ -182,11 +214,11 @@ classdef OnlineDecoder < handle
                 delete(obj.Timer);
             end
             obj.Timer = [];
-            if ~isempty(obj.OptoPulseTimer) && isvalid(obj.OptoPulseTimer)
-                stop(obj.OptoPulseTimer);
-                delete(obj.OptoPulseTimer);
+            if ~isempty(obj.OptoTimer) && isvalid(obj.OptoTimer)
+                stop(obj.OptoTimer);
+                delete(obj.OptoTimer);
             end
-            obj.OptoPulseTimer = [];
+            obj.OptoTimer = [];
             if any(obj.IsLaserOn)
                 obj.setLaser(1, false);
                 obj.setLaser(2, false);
@@ -212,29 +244,36 @@ classdef OnlineDecoder < handle
                 duration = obj.Params.Opto.Plan.Conditions(obj.Params.Opto.Plan.Index, 3);
 
                 % Turn laser on
-                obj.setLaser(iLaser, true, aout);
+                if ~isgraphics(obj.Dialog)
+                    obj.setLaser(iLaser, true, aout); % to be replaced with startLiveOpto
+                else
+                    obj.startPulsedOrContOpto();
+                end
                 obj.HasStimHappened = true;
 
                 % Schedule laser to turn off after "Duration"    
-                if ~isempty(obj.OptoPulseTimer) && isvalid(obj.OptoPulseTimer)
-                    stop(obj.OptoPulseTimer);
-                    delete(obj.OptoPulseTimer);
+                if ~isempty(obj.OptoTimer) && isvalid(obj.OptoTimer)
+                    stop(obj.OptoTimer);
+                    delete(obj.OptoTimer);
                 end
-                obj.OptoPulseTimer = timer();
-                obj.OptoPulseTimer.StartDelay = duration;
-                obj.OptoPulseTimer.ExecutionMode = 'singleShot'; % fixedDelay, fixedSpacing
-                obj.OptoPulseTimer.TimerFcn = @(~, ~) obj.setLaser(iLaser, false);
-                start(obj.OptoPulseTimer);
+                obj.OptoTimer = timer();
+                obj.OptoTimer.StartDelay = duration;
+                obj.OptoTimer.ExecutionMode = 'singleShot'; % fixedDelay, fixedSpacing
+                if ~isgraphics(obj.Dialog)
+                    obj.OptoTimer.TimerFcn = @(~, ~) obj.setLaser(iLaser, false);
+                else
+                    obj.OptoTimer.TimerFcn = @(~, ~) obj.stopPulsedOrContOpto();
+                end
+                start(obj.OptoTimer);
+
 
                 currentTimeDisp = seconds(t);
                 currentTimeDisp.Format = 'hh:mm:ss.SSS';
-                fprintf("Stim:%s; P(Move)=%.1f%%, iCond=%i, iLaser=%i, AOut=%g, Duration=%gs\n", currentTimeDisp, pMove*100, obj.Params.Opto.Plan.Index, iLaser, aout, duration)
-            end
-
-            if obj.Debug
-                currentTimeDisp = seconds(t);
-                currentTimeDisp.Format = 'hh:mm:ss.SSS';
-                fprintf('CurrentTime = %s, X = %.1f sp/s, P(Move) = %.0f%%\n', currentTimeDisp, X, 100*pMove);
+                if ~isgraphics(obj.Dialog)
+                    fprintf("Stim:%s; P(Move)=%.1f%%, iCond=%i, iLaser=%i, AOut=%g, Duration=%gs\n", currentTimeDisp, pMove*100, obj.Params.Opto.Plan.Index, iLaser, aout, duration)
+                else
+                    fprintf("LiveOptoStim:%s; P(Move)=%.1f%%, iCond=%i, Duration=%gs\n", currentTimeDisp, pMove*100, obj.Params.Opto.Plan.Index, duration)
+                end
             end
         end
 
@@ -300,23 +339,61 @@ classdef OnlineDecoder < handle
             % X: spikerate (averaged across channels) during [t-binWidth, t]
             t = obj.getTime();
             X = obj.SpikeTimeBuffer.getSpikeRates([t - binWidth, t]); % There's a more direct way of doing this without aliasing?
-            X = mean(X, 2); % Average across neurons
+            x = mean(X, 2); % Average across neurons
             if isempty(obj.Model)
                 p = NaN;
-                return
+            else
+                p = obj.Model.MDL.predict(x);
+                obj.writeDecodedData(p, t, x); % Write decoded data to file.
             end
-            p = obj.Model.MDL.predict(X);
-            obj.writeDecodedData(p, t, X); % Write decoded data to file.
+            if isempty(obj.ChannelMask)
+                xMasked = x;
+            else
+                xMasked = mean(X(obj.ChannelMask));
+            end
+            obj.writeToBuffer(t, x, xMasked, p);
         end
 
-        function writeDecodedData(obj, p, t, X)
+        function initBuffer(obj, len)
+            obj.Buffer.Length = len;
+            obj.Buffer.CurrentIndex = 0;
+            defaultData = NaN(1, len);
+            obj.Buffer.Data = struct(t=defaultData, x=defaultData, xMasked=defaultData, p=defaultData);
+        end
+
+        function writeToBuffer(obj, t, x, xMasked, p)
+            obj.Buffer.CurrentIndex = obj.Buffer.CurrentIndex + 1;
+            if obj.Buffer.CurrentIndex > obj.Buffer.Length
+                obj.Buffer.CurrentIndex = 1;
+            end
+            i = obj.Buffer.CurrentIndex;
+            obj.Buffer.Data.t(i) = t;
+            obj.Buffer.Data.x(i) = x;
+            obj.Buffer.Data.xMasked(i) = xMasked;
+            obj.Buffer.Data.p(i) = p;
+        end
+
+        function data = fetchBuffer(obj, len, fieldnames)
+            if nargin < 3
+                fieldnames = ["t", "x", "xMasked", "p"];
+            end
+            len = min(len, obj.Buffer.Length);
+            indices = obj.Buffer.CurrentIndex-len+1 : obj.Buffer.CurrentIndex;
+            indices(indices<=0) = indices(indices<=0) + obj.Buffer.Length;
+
+            for fn = fieldnames
+                data.(fn) = obj.Buffer.Data.(fn)(indices);
+            end
+        end
+
+        function writeDecodedData(obj, p, t, x)
             i = uint32(obj.SpikeTimeBuffer.timestampToSampleIndex(t));
-            X = uint16(X / 200 * 65535);
+            x = uint16(x / 200 * 65535);
             p = uint8(p * 255);
 
             fid = obj.getOrCreateFile('DecodedData');
             fwrite(fid, i, 'uint32');
-            fwrite(fid, X, 'uint16');
+            fwrite(fid, x, 'uint16');
             fwrite(fid, p, 'uint8');
         end
 
@@ -352,17 +429,33 @@ classdef OnlineDecoder < handle
             end
         end
 
-        function startLiveOpto(obj, iLaser)
+        function startPulsedOrContOpto(obj, iLaser)
+            if nargin < 2
+                obj.startPulsedOrContOpto(1);
+                obj.startPulsedOrContOpto(2);
+                return
+            end
             obj.IsLaserOn(iLaser) = true;
             obj.Arduino.SendMessage(sprintf('J %i', iLaser));
+            if obj.Debug
+                fprintf("##########  LIVE OPTO ON %i  ############\n", iLaser)
+            end
         end
 
-        function stopLiveOpto(obj, iLaser)
+        function stopPulsedOrContOpto(obj, iLaser)
+            if nargin < 2
+                obj.stopPulsedOrContOpto(1);
+                obj.stopPulsedOrContOpto(2);
+                return
+            end
             obj.IsLaserOn(iLaser) = false;
             obj.Arduino.SendMessage(sprintf('K %i', iLaser));
+            if obj.Debug
+                fprintf("##########  LIVE OPTO OFF %i  ############\n", iLaser)
+            end
         end
 
-        function setLiveOptoParams(obj, iLaser, varargin)
+        function setPulsedOrContOptoParams(obj, iLaser, varargin)
             p = inputParser();
             p.addRequired('iLaser', @(x) x==1 || x==2)
             p.addParameter('aout', [], @(x) isnumeric(x) && isscalar(x) && x>=0)
@@ -404,7 +497,6 @@ classdef OnlineDecoder < handle
 
         % Listener callback for ArduinoConnection EventMarkerReceived events
         function onEventMarkerReceived(obj, src, event)
-
             switch obj.Mode
                 case "training"
                     switch event.Name
@@ -486,8 +578,8 @@ classdef OnlineDecoder < handle
             obj.EventBuffer = struct(LEVER_PRESSED=[], LICK=[], TIMEOUT_START=[], HasMadeFirstMove=false);
         end
 
-        % Gizmos and doodads for tinkering with dual color opto, need to
-        % add a PID thingy to do spike rate clamp
+        % Gizmos and doodads for tinkering with dual color opto need to add a PID thingy to do spike rate clamp
+        % The UI part is vibe coded because the grad student wants to go home for dinner. 
         function createDialog(obj)
             % Main figure window [left, bottom, width, height]
             fig = uifigure(Name="Opto Control", Position=[100, 100, 750, 380]);
@@ -518,81 +610,87 @@ classdef OnlineDecoder < handle
         
             % --- TOP ROW BUTTONS ---
             % Master switch (on/off)
-            uilabel(fig, Text="Master:", Position=[330, 350, 50, 22], FontWeight="bold");
-            btnGrpMaster = uibuttongroup(fig, Position=[385, 350, 100, 25], BorderType="none", SelectionChangedFcn=@controlChangedCallback);
-            btnMasterOn  = uiradiobutton(btnGrpMaster, Text="On", Position=[0, 2, 45, 22]);
-            btnMasterOff = uiradiobutton(btnGrpMaster, Text="Off", Position=[50, 2, 45, 22]);
+            uilabel(fig, Text="Master:", Position=[220, 350, 50, 22], FontWeight="bold");
+            btnGrpMaster = uibuttongroup(fig, Position=[275, 325, 50, 50], BorderType="none", SelectionChangedFcn=@onMasterSwitchToggled);
+            btnMasterOn  = uiradiobutton(btnGrpMaster, Text="On", Position=[2, 26, 45, 23]);
+            btnMasterOff = uiradiobutton(btnGrpMaster, Text="Off", Position=[2, 1, 45, 23]);
             btnGrpMaster.SelectedObject = btnMasterOff; % Default to Off
             
             % Stim mode (manual/trigger based of pMove)
-            uilabel(fig, Text="Mode:", Position=[495, 350, 45, 22], FontWeight="bold");
-            btnGrpStimMode   = uibuttongroup(fig, Position=[540, 350, 130, 25], BorderType="none", SelectionChangedFcn=@controlChangedCallback);
-            btnStimModeManual   = uiradiobutton(btnGrpStimMode, Text="Manual", Position=[0, 2, 65, 22]);
-            btnStimModeTrigger  = uiradiobutton(btnGrpStimMode, Text="Trigger", Position=[70, 2, 60, 22]);
+            uilabel(fig, Text="Mode:", Position=[330, 350, 45, 22], FontWeight="bold");
+            btnGrpStimMode   = uibuttongroup(fig, Position=[375, 325, 60, 50], BorderType="none", SelectionChangedFcn=@onStimModeChanged);
+            btnStimModeManual   = uiradiobutton(btnGrpStimMode, Text="Manual", Position=[2, 26, 60, 23]);
+            btnStimModeTrigger  = uiradiobutton(btnGrpStimMode, Text="Trigger", Position=[2, 1, 60, 23]);
             btnGrpStimMode.SelectedObject = btnStimModeManual; % Default to Manual
-        
-            uilabel(fig, Text="p>", Position=[680, 350, 20, 22], FontWeight="bold");
-            editTriggerThreshold = uieditfield(fig, 'numeric', Value=0.5, Position=[700, 350, 30, 22], ValueChangedFcn=@numericChangedCallback, Limits=[0, 1]);
-        
-            % Apply
-            chkInstantApply = uicheckbox(fig, Text="Instant", Value=false, Position=[600, 15, 65, 22], ValueChangedFcn=@instantApplyCheckboxCallback);
-            btnApply = uibutton(fig, "push", Text="Apply", Position=[665, 15, 65, 24], ButtonPushedFcn=@controlChangedCallback);
-        
-            % --- CONTROLS PANEL (Right Side arranged Side-by-Side) ---
-            % Left Column (470nm)
+
+            uilabel(fig, Text="t=", Position=[445, 350, 20, 22], FontWeight="bold");
+            editStimDuration = uieditfield(fig, 'numeric', Value=1, Position=[465, 350, 30, 22], Limits=[0, 10]);
+
+            uilabel(fig, Text="p>", Position=[445, 325, 20, 22], FontWeight="bold");
+            editTriggerThreshold = uieditfield(fig, 'numeric', Value=0.5, Position=[465, 325, 30, 22], ValueChangedFcn=@onTriggerThresholdChanged, Limits=[0, 1]);
+
+            % Top row (470nm)
             pnlBlue = uipanel(fig, Title="470nm (GtACR)", Position=[535, 205, 195, 145]);
             
             uilabel(pnlBlue, Text="Mode:", Position=[10, 95, 40, 22]);
-            btnGrpBlue = uibuttongroup(pnlBlue, Position=[55, 95, 135, 25], BorderType="none", SelectionChangedFcn=@controlChangedCallback);
-            btnBlueModePulsed = uiradiobutton(btnGrpBlue, Text="Pulsed", Position=[0, 2, 60, 22]);
+            btnGrpBlue = uibuttongroup(pnlBlue, Position=[55, 95, 135, 25], BorderType="none", SelectionChangedFcn=@onLaserSettingsChanged_Mode);
+            btnBlueModePulsed = uiradiobutton(btnGrpBlue, Text="Pulsed", Position=[1, 2, 60, 22]);
             btnBlueModeCont   = uiradiobutton(btnGrpBlue, Text="Cont.", Position=[65, 2, 65, 22]);
             btnGrpBlue.SelectedObject = btnBlueModeCont; 
             
             uilabel(pnlBlue, Text="Power (aout):", Position=[10, 65, 80, 22]);
-            editBluePower = uieditfield(pnlBlue, 'numeric', Value=0, Position=[100, 65, 50, 22], ValueChangedFcn=@numericChangedCallback, Limits=[0, 4095]);
+            editBluePower = uieditfield(pnlBlue, 'numeric', Value=0, Position=[100, 65, 50, 22], ValueChangedFcn=@onLaserSettingsChanged_Numeric, Limits=[0, 4095]);
             
             uilabel(pnlBlue, Text="Freq (Hz):", Position=[10, 35, 80, 22]);
-            editBlueFreq = uieditfield(pnlBlue, 'numeric', Value=10, Position=[100, 35, 50, 22], ValueChangedFcn=@numericChangedCallback, Limits=[0, 1000]);
+            editBlueFreq = uieditfield(pnlBlue, 'numeric', Value=10, Position=[100, 35, 50, 22], ValueChangedFcn=@onLaserSettingsChanged_Numeric, Limits=[0, 1000]);
             
             uilabel(pnlBlue, 'Text', 'Width (ms):', Position=[10, 5, 80, 22]);
-            editBlueWidth = uieditfield(pnlBlue, 'numeric', Value=1, Position=[100, 5, 50, 22], ValueChangedFcn=@numericChangedCallback, Limits=[0, 1000]);
+            editBlueWidth = uieditfield(pnlBlue, 'numeric', Value=1, Position=[100, 5, 50, 22], ValueChangedFcn=@onLaserSettingsChanged_Numeric, Limits=[0, 1000]);
         
-            % Right Column (593nm)
+            % Bottom Row (593nm)
             pnlOrng = uipanel(fig, Title="593nm (ChrimsonR)", Position=[535, 50, 195, 145]);
             
             uilabel(pnlOrng, Text="Mode:", Position=[10, 95, 40, 22]);
-            btnGrpOrng = uibuttongroup(pnlOrng, Position=[55, 95, 135, 25], BorderType="none", SelectionChangedFcn=@controlChangedCallback);
-            btnOrngModePulsed = uiradiobutton(btnGrpOrng, Text="Pulsed", Position=[0, 2, 60, 22]);
+            btnGrpOrng = uibuttongroup(pnlOrng, Position=[55, 95, 135, 25], BorderType="none", SelectionChangedFcn=@onLaserSettingsChanged_Mode);
+            btnOrngModePulsed = uiradiobutton(btnGrpOrng, Text="Pulsed", Position=[1, 2, 60, 22]);
             btnOrngModeCont   = uiradiobutton(btnGrpOrng, Text="Cont.", Position=[65, 2, 65, 22]);
             btnGrpOrng.SelectedObject = btnOrngModePulsed; 
             
             uilabel(pnlOrng, Text="Power (aout):", Position=[10, 65, 80, 22]);
-            editOrngPower = uieditfield(pnlOrng, 'numeric', Value=0, Position=[100, 65, 50, 22], ValueChangedFcn=@numericChangedCallback, Limits=[0, 4095]);
+            editOrngPower = uieditfield(pnlOrng, 'numeric', Value=0, Position=[100, 65, 50, 22], ValueChangedFcn=@onLaserSettingsChanged_Numeric, Limits=[0, 4095]);
             
             uilabel(pnlOrng, Text="Freq (Hz):", Position=[10, 35, 80, 22]); 
-            editOrngFreq = uieditfield(pnlOrng, 'numeric', Value=20, Position=[100, 35, 50, 22], ValueChangedFcn=@numericChangedCallback, Limits=[0, 1000]);
+            editOrngFreq = uieditfield(pnlOrng, 'numeric', Value=20, Position=[100, 35, 50, 22], ValueChangedFcn=@onLaserSettingsChanged_Numeric, Limits=[0, 1000]);
             
             uilabel(pnlOrng, Text="Width (ms):", Position=[10, 5, 80, 22]);
-            editOrngWidth = uieditfield(pnlOrng, 'numeric', Value=1, Position=[100, 5, 50, 22], ValueChangedFcn=@numericChangedCallback, Limits=[0, 1000]);
-        
+            editOrngWidth = uieditfield(pnlOrng, 'numeric', Value=1, Position=[100, 5, 50, 22], ValueChangedFcn=@onLaserSettingsChanged_Numeric, Limits=[0, 1000]);
+
+            % Apply
+            chkInstantApply = uicheckbox(fig, Text="Instant", Value=false, Position=[600, 15, 65, 22], ValueChangedFcn=@onInstantApplyChecked);
+            btnApply = uibutton(fig, "push", Text="Apply", Position=[665, 15, 65, 24], ButtonPushedFcn=@onLaserSettingsApplied);
+
             % Used to define scroll wheel behavior on numeric text fields
             numericFields = { ...
-                struct(Handle=editBluePower, Panel=pnlBlue,  InstantApply=chkInstantApply, Min=0,   Max=4095, Step=1), ...
-                struct(Handle=editBlueFreq,  Panel=pnlBlue,  InstantApply=chkInstantApply, Min=0,   Max=1000, Step=1), ...
-                struct(Handle=editBlueWidth, Panel=pnlBlue,  InstantApply=chkInstantApply, Min=0,   Max=1000, Step=1), ...
-                struct(Handle=editOrngPower, Panel=pnlOrng,  InstantApply=chkInstantApply, Min=0,   Max=4095, Step=1), ...
-                struct(Handle=editOrngFreq,  Panel=pnlOrng,  InstantApply=chkInstantApply, Min=0,   Max=1000, Step=1), ...
-                struct(Handle=editOrngWidth, Panel=pnlOrng,  InstantApply=chkInstantApply, Min=0,   Max=1000, Step=1), ...
-                struct(Handle=editTriggerThreshold,    Panel=fig,      InstantApply=true, Min=0.0, Max=1.0, Step=0.1) ...
-            };
+                struct(Handle=editBluePower, Panel=pnlBlue,  InstantApply=chkInstantApply, IsArduinoParam=true, Min=0,   Max=4095, Step=1), ... Arduino
+                struct(Handle=editBlueFreq,  Panel=pnlBlue,  InstantApply=chkInstantApply, IsArduinoParam=true, Min=0,   Max=1000, Step=1), ... Arduino
+                struct(Handle=editBlueWidth, Panel=pnlBlue,  InstantApply=chkInstantApply, IsArduinoParam=true, Min=0,   Max=1000, Step=1), ... Arduino
+                struct(Handle=editOrngPower, Panel=pnlOrng,  InstantApply=chkInstantApply, IsArduinoParam=true, Min=0,   Max=4095, Step=1), ... Arduino
+                struct(Handle=editOrngFreq,  Panel=pnlOrng,  InstantApply=chkInstantApply, IsArduinoParam=true, Min=0,   Max=1000, Step=1), ... Arduino
+                struct(Handle=editOrngWidth, Panel=pnlOrng,  InstantApply=chkInstantApply, IsArduinoParam=true, Min=0,   Max=1000, Step=1), ... Arduino
+                struct(Handle=editTriggerThreshold, Panel=fig, InstantApply=false, IsArduinoParam=false, Min=0.0, Max=1.0, Step=0.1) ... MATLAB
+                struct(Handle=editStimDuration, Panel=fig, InstantApply=false, IsArduinoParam=false, Min=0.0, Max=10.0, Step=0.5) ... MATLAB
+                };
         
             fig.WindowScrollWheelFcn = @scrollWheelCallback;
-        
+
+            onLaserSettingsChanged_Mode();
+
             % Output handles for all the doodads
             uiHandles = struct(...
                 fig=fig, lblSpikeRate=lblSpikeRate, axSpikes=axSpikes, axLight=axLight, ...
                 lineSpikes=lineSpikes, lineBlue=lineBlue, lineOrng=lineOrng, ...
-                btnGrpMaster=btnGrpMaster, btnGrpStimMode=btnGrpStimMode, editTriggerThreshold=editTriggerThreshold, ...
+                btnGrpMaster=btnGrpMaster, btnGrpStimMode=btnGrpStimMode, ...
+                editTriggerThreshold=editTriggerThreshold, editStimDuration=editStimDuration, ...
                 btnGrpBlue=btnGrpBlue, editBluePower=editBluePower, editBlueFreq=editBlueFreq, editBlueWidth=editBlueWidth, ...
                 btnGrpOrng=btnGrpOrng, editOrngPower=editOrngPower, editOrngFreq=editOrngFreq, editOrngWidth=editOrngWidth ...
             );
@@ -600,23 +698,12 @@ classdef OnlineDecoder < handle
             obj.Dialog = fig;
             obj.UIHandles = uiHandles;
         
-            % --- Instant apply checkbox disables Apply button ---
-            function instantApplyCheckboxCallback(src, ~)
-                if src.Value
-                    btnApply.Enable = 'off';
-                    controlChangedCallback();
-                else
-                    btnApply.Enable = 'on';
-                end
-            end
-        
             % --- Scroll wheel to edit numeric fields (use shift/alt/shift+alt as speed modifiers) ---
             function scrollWheelCallback(~, event)
                 mousePos = fig.CurrentPoint; mx = mousePos(1); my = mousePos(2);
                 for i = 1:numel(numericFields)
                     field = numericFields{i}.Handle; 
                     panel = numericFields{i}.Panel; 
-                    instantApply = numericFields{i}.InstantApply;
                     fPos = field.Position;
                     
                     if panel == fig
@@ -630,72 +717,251 @@ classdef OnlineDecoder < handle
                         activeModifiers = fig.CurrentModifier;
                         
                         baseStep = numericFields{i}.Step;
-                        if baseStep == 1
-                            if ismember('shift', activeModifiers)
-                                baseStep = 5;
-                            elseif ismember('alt', activeModifiers)
-                                baseStep = 10;
-                            end
+                        if ismember('shift', activeModifiers)
+                            baseStep = baseStep*5;
+                        elseif ismember('alt', activeModifiers)
+                            baseStep = baseStep*10;
                         end
                         
                         newVal = field.Value + (-event.VerticalScrollCount * baseStep);
                         
                         if newVal >= numericFields{i}.Min && newVal <= numericFields{i}.Max
                             field.Value = newVal;
-                            if islogical(instantApply) && instantApply
-                                controlChangedCallback();
-                            elseif instantApply.Value
-                                controlChangedCallback();
+                            if numericFields{i}.IsArduinoParam && chkInstantApply.Value
+                                onLaserSettingsApplied();
                             end
                         end
                         break;
                     end
                 end
             end
-        
-            function numericChangedCallback(src, ~)
+
+            function onMasterSwitchToggled(~, ~)
+                masterSwitch = btnGrpMaster.SelectedObject.Text;
+                stimMode = btnGrpStimMode.SelectedObject.Text;
+                switch masterSwitch
+                    case "On"
+                        % Turn that shit on
+                        switch stimMode
+                            case "Manual"
+                                if ~isempty(obj.OptoTimer) && isvalid(obj.OptoTimer)
+                                    stop(obj.OptoTimer);
+                                    delete(obj.OptoTimer);
+                                end
+                                obj.OptoTimer = timer();
+                                obj.OptoTimer.StartDelay = editStimDuration.Value;
+                                obj.OptoTimer.ExecutionMode = 'singleShot'; % fixedDelay, fixedSpacing
+                                obj.OptoTimer.TimerFcn = @(~, ~) obj.stopPulsedOrContOpto();
+                                obj.startPulsedOrContOpto();
+                                start(obj.OptoTimer);
+                            case "Trigger"
+                                obj.startAutoOpto();
+                        end
+                    case "Off"
+                        % Turn off that stupid song
+                        switch stimMode
+                            case "Manual"
+                                if ~isempty(obj.OptoTimer) && isvalid(obj.OptoTimer)
+                                    stop(obj.OptoTimer);
+                                    delete(obj.OptoTimer);
+                                end
+                                obj.stopPulsedOrContOpto();
+                            case "Trigger"
+                                obj.stopAutoOpto();
+                        end
+                end
+            end
+
+            function onStimModeChanged(~, ~)
+                stimMode = btnGrpStimMode.SelectedObject.Text;
+                switch stimMode
+                    case "Manual"
+                        if obj.Mode == "opto"
+                            obj.stopAutoOpto();
+                        end
+                    case "Trigger"
+                end
+            end
+
+            function onTriggerThresholdChanged(~, ~)
+                triggerThreshold = editTriggerThreshold.Value;
+                obj.Params.Opto.Threshold = triggerThreshold;
+            end
+
+            function onLaserSettingsChanged_Numeric(src, ~)
                 for i = 1:numel(numericFields)
                     if numericFields{i}.Handle == src
                         if islogical(numericFields{i}.InstantApply) && numericFields{i}.InstantApply
-                            controlChangedCallback();
+                            onLaserSettingsChanged_Mode();
                         elseif numericFields{i}.InstantApply.Value
-                            controlChangedCallback();
+                            onLaserSettingsChanged_Mode();
                         end
                         break;
                     end
                 end
             end
         
-            % --- PIPELINE CALLBACK HOOK ---
-            function controlChangedCallback(~, ~)
-                masterState = btnGrpMaster.SelectedObject.Text;
-                expMode     = btnGrpStimMode.SelectedObject.Text;
-                paramPVal   = editTriggerThreshold.Value;
-        
+            % --- Laser setting update (Arduino) ---
+            function onLaserSettingsChanged_Mode(~, ~)
                 blueMode    = btnGrpBlue.SelectedObject.Text;
-                bluePow     = editBluePower.Value;
-                blueFrq     = editBlueFreq.Value;
-                bluePwd     = editBlueWidth.Value;
-        
                 orngMode    = btnGrpOrng.SelectedObject.Text;
-                orngPow     = editOrngPower.Value;
-                orngFrq     = editOrngFreq.Value;
-                orngPwd     = editOrngWidth.Value;
-        
-                % Print updated optogenetic parameters to Command Window
-                fprintf('\n--- Opto Parameter Update ---\n');
-                fprintf('Global: Master=%s | Mode=%s | p>=%.2f\n', masterState, expMode, paramPVal);
-                fprintf('470nm (Blue): %s | Power: %.1f mW | Freq: %.1f Hz | Width: %.1f ms\n', ...
-                    blueMode, bluePow, blueFrq, bluePwd);
-                fprintf('593nm (Orng): %s | Power: %.1f mW | Freq: %.1f Hz | Width: %.1f ms\n', ...
-                    orngMode, orngPow, orngFrq, orngPwd);
-                fprintf('-----------------------------\n');
+
+                switch blueMode
+                    case 'Pulsed'
+                        editBlueFreq.Enable = 'on';
+                        editBlueWidth.Enable = 'on';
+                    case 'Cont.'
+                        editBlueFreq.Enable = 'off';
+                        editBlueWidth.Enable = 'off';
+                end
+                switch orngMode
+                    case 'Pulsed'
+                        editOrngFreq.Enable = 'on';
+                        editOrngWidth.Enable = 'on';
+                    case 'Cont.'
+                        editOrngFreq.Enable = 'off';
+                        editOrngWidth.Enable = 'off';
+                end
+                onLaserSettingsApplied();
+            end
+
+            function onInstantApplyChecked(src, ~)
+                if src.Value
+                    btnApply.Enable = 'off';
+                    onLaserSettingsApplied();
+                else
+                    btnApply.Enable = 'on';
+                end
+            end
+
+            function onLaserSettingsApplied(~, ~)
+                masterSwitch = btnGrpMaster.SelectedObject.Text;
+                stimMode = btnGrpStimMode.SelectedObject.Text;
+                triggerThreshold = editTriggerThreshold.Value;
+
+                blueMode    = btnGrpBlue.SelectedObject.Text;
+                bluePower   = round(editBluePower.Value);
+                blueFreq    = round(editBlueFreq.Value);
+                blueWidth   = round(editBlueWidth.Value);
+
+                orngMode    = btnGrpOrng.SelectedObject.Text;
+                orngPower   = round(editOrngPower.Value);
+                orngFreq    = round(editOrngFreq.Value);
+                orngWidth   = round(editOrngWidth.Value);
+
+                switch blueMode
+                    case 'Pulsed'
+                        blueIPI = round(1000/blueFreq - blueWidth);
+                    case 'Cont.'
+                        blueIPI = 0;
+                end
+                switch orngMode
+                    case 'Pulsed'
+                        orngIPI = round(1000/orngFreq - orngWidth);
+                    case 'Cont.'
+                        orngIPI = 0;
+                end
+
+                fprintf("%s - opto param update:\n", datetime('now', Format='HH:mm:ss.SSS'));
+                fprintf('\tMaster=%s | Mode=%s | p>=%.2f\n', masterSwitch, stimMode, triggerThreshold);
+                fprintf('\t470nm (GtACR): %s | AOut=%i | Freq=%iHz | PulseWidth=%ims | IPI=%ims\n', ...
+                    blueMode, bluePower, blueFreq, blueWidth, blueIPI)
+                fprintf('\t593nm (Chrimson): %s | AOut=%i | Freq=%iHz | PulseWidth=%ims | IPI=%ims\n', ...
+                    orngMode, orngPower, orngFreq, orngWidth, orngIPI)
+
+                if masterSwitch == "on"
+                    obj.setPulsedOrContOptoParams(1, aout=bluePower, pulseDuration=blueWidth, pulseInterval=blueIPI);
+                    obj.setPulsedOrContOptoParams(2, aout=orngPower, pulseDuration=orngWidth, pulseInterval=orngIPI);
+                end
             end
         end
 
-        function tryUpdateSpikeRate(obj)
 
+    end
+
+    methods (Static)
+        function map = getChannelMap(varargin)
+            % Probe is mounted along ML, the flat bit is facing forward, the dovetail
+            % is facing posterior of animal (if otherwise, map needs to be mirrored).
+            % Looking from behind the animal is equivalent to SpikeGLX view
+            % Map is looking from behind animal:
+            %   shank 1 - 4 are left-to-right.
+            %   col 1 - 2 are left-to-right, on same shank
+            %   row 1 - n are bottom to top
+            %   x is horizontal coord (um, 0 is center of all 4 shanks, negative is left)
+            %   y is vertical coord (um, 0 is tip of shank, negative is down)
+            %   ml, dv, ap: negative is left, down/ventral, back/posterior
+            %   dv is zeroed relative to dura, make your own corrections
+            % Try this to visualize things
+            %   map=OnlineDecoder.getChannelMap(rotation=90); scatter3(map.ml, map.ap, map.dvFromDura); xlabel('ml'); ylabel('ap'); zlabel('dvFromDura'); text(map.ml, map.ap, map.dvFromDura, string(map.shank))
+            p = inputParser();
+            p.addParameter('ml', 1.300, @(x) isnumeric(x) && x>=0); % ML (left hemisphere is negative, we implant on the right mostly)
+            p.addParameter('ap', -3.280, @isnumeric);
+            p.addParameter('dvFromDura', -4.700, @isnumeric); % tip depth from dura (which is usually 200um below bregma for SNr)
+            p.addParameter('rotation', 0, @isnumeric); % degress of CCW rotation along z axis looking from above (default is zero for the orientation described above)
+            p.parse(varargin{:})
+            ml = p.Results.ml;
+            ap = p.Results.ap;
+            dvFromDura = p.Results.dvFromDura;
+            rotation = p.Results.rotation;
+            tipLength = 175; % um
+            shankPitch = 250;
+            columnPitch = 15; % vertical distance between electrodes
+            rowPitch = 32; % horizontal distance between electrodes
+
+            if ~exist("E:\Data\tips_out.imro", 'file')
+                file = "C:\SERVER\tips_out.imro";
+            else
+                file = "E:\Data\tips_out.imro";
+            end
+            mapStr = string(fileread(file));
+            tokens = regexp(mapStr, '(?<=\()[^)]*(?=\))', 'match');
+            assert(tokens(1) == "2013,384")
+            tokens = tokens(2:end);
+            defaultData = zeros(length(tokens), 1);
+            map = struct(channel=defaultData, shank=defaultData, col=defaultData, row=defaultData, x=defaultData, y=defaultData);
+            for i = 1:length(tokens)
+                subtokens = strsplit(tokens(i), " ");
+                map.channel(i) = str2double(subtokens(1)) + 1;
+                assert(map.channel(i) == i)
+                map.shank(i) = str2double(subtokens(2)) + 1; %
+                idOnShank = str2double(subtokens(5));
+                map.col(i) = 1 + (mod(idOnShank, 2) == 1);
+                switch map.col(i)
+                    case 1
+                        map.row(i) = idOnShank/2 + 1;
+                    case 2
+                        map.row(i) = (idOnShank-1)/2 + 1;
+                end
+                map.x(i) = (map.shank(i)-1)*shankPitch - 1.5*shankPitch;
+                switch map.col(i)
+                    case 1
+                        map.x(i) = map.x(i) - rowPitch/2;
+                    case 2
+                        map.x(i) = map.x(i) + rowPitch/2;
+                end
+                map.y(i) = tipLength + (map.row(i)-1)*columnPitch;
+            end
+
+            % convert um to mm
+            map.x = map.x/1000;
+            map.y = map.y/1000;
+
+            % Create rotation matrix around z axis (clockwise from top
+            % view)
+            R = [ ...
+                    cosd(rotation), -sind(rotation), 0; ... 
+                    sind(rotation),  cosd(rotation), 0; ... 
+                    0, 0, 1 ...
+                ];
+
+            coords = [map.x'; zeros(size(map.x))'; map.y']; % new order: x: left right, y: front back, z: height
+            coords = R*coords; % rotate along z axis
+            coords = coords';
+
+            map.ml = ml + coords(:, 1);
+            map.ap = ap + coords(:, 2);
+            map.dvFromDura = dvFromDura + coords(:, 3);
         end
-
     end
 end
