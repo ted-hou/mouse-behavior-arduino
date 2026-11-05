@@ -33,7 +33,7 @@ T [(0/1)shutterOpen] - manual toggle shutter
 A [channel] [value] - manual set analog output
 ^ [(1-4)leverPos] - MATLAB return lever motor target index (1 based)
 ; [(0/1)doOpto] - MATLAB finished setting up laser, can proceded to OPTO (1), or SKIP (0)
-J - idle -> reward -> idle
+U - idle -> reward -> idle
 V [(0/1)isGood] - VideoAssistantReferee result (1 to continue, 0 to aboart/donotreward because spurious movement)
 *********************************************************************/
 
@@ -792,7 +792,7 @@ void state_idle()
 	}
 
 	// J for manual reward while in IDLE (will deploy tube, deliver juice then retract, return to IDLE)
-	if (_command == 'J')
+	if (_command == 'U')
 	{
 		_state = STATE_REWARD;
 		return;
@@ -2070,15 +2070,15 @@ void setOpto(int channel, bool turnOn)
 		if (!isOptoOn(channel))
 		{
 			_timeOptoPulseStart[channel-1] = getTime();
-			switch (channel)
-			{
-				case 1:
-					sendEventMarker(EVENT_OPTO1_ON, -1);
-					break;
-				case 2:
-					sendEventMarker(EVENT_OPTO2_ON, -1);
-					break;
-			}
+			// switch (channel)
+			// {
+			// 	case 1:
+			// 		sendEventMarker(EVENT_OPTO1_ON, -1);
+			// 		break;
+			// 	case 2:
+			// 		sendEventMarker(EVENT_OPTO2_ON, -1);
+			// 		break;
+			// }
 		}
 		switch (channel)
 		{
@@ -2099,15 +2099,15 @@ void setOpto(int channel, bool turnOn)
 		if (isOptoOn(channel))
 		{
 			_timeOptoPulseEnd[channel-1] = getTime();
-			switch (channel)
-			{
-				case 1:
-					sendEventMarker(EVENT_OPTO1_OFF, -1);
-					break;
-				case 2:
-					sendEventMarker(EVENT_OPTO2_OFF, -1);	
-					break;
-			}
+			// switch (channel)
+			// {
+			// 	case 1:
+			// 		sendEventMarker(EVENT_OPTO1_OFF, -1);
+			// 		break;
+			// 	case 2:
+			// 		sendEventMarker(EVENT_OPTO2_OFF, -1);	
+			// 		break;
+			// }
 		}
 		switch (channel)
 		{
@@ -2609,7 +2609,7 @@ void setAnalogOutput(int channel, int value)
 	    	analogWrite(PIN_LASER_PWR_2, value);
 	    	break;
 	}
-	sendAnalogOutValue(channel, value, -1);
+	// sendAnalogOutValue(channel, value, -1);
 }
 
 /*****************************************************

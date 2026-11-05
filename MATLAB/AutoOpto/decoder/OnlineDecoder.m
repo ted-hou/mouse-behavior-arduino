@@ -130,6 +130,7 @@ classdef OnlineDecoder < handle
         function onTestingUpdate(obj)
             [pMove, t, X] = obj.decodeNow(obj.Params.Test.BinWidth);
             obj.PMove = pMove;
+            obj.updateDialog();
 
             if obj.Debug
                 currentTimeDisp = seconds(t);
@@ -333,7 +334,7 @@ classdef OnlineDecoder < handle
             obj.Model.MDL = mdl;
         end
 
-        function [p, t, X] = decodeNow(obj, binWidth)
+        function [p, t, x] = decodeNow(obj, binWidth)
             % p: decoded movement probability, [0, 1]
             % t: current time (ephys)
             % X: spikerate (averaged across channels) during [t-binWidth, t]
@@ -433,26 +434,31 @@ classdef OnlineDecoder < handle
             if nargin < 2
                 obj.startPulsedOrContOpto(1);
                 obj.startPulsedOrContOpto(2);
+                fprintf("##########  PULSED/CONT. OPTO ON  ############\n")
                 return
             end
             obj.IsLaserOn(iLaser) = true;
             obj.Arduino.SendMessage(sprintf('J %i', iLaser));
-            if obj.Debug
-                fprintf("##########  LIVE OPTO ON %i  ############\n", iLaser)
-            end
         end
 
         function stopPulsedOrContOpto(obj, iLaser)
             if nargin < 2
                 obj.stopPulsedOrContOpto(1);
                 obj.stopPulsedOrContOpto(2);
+                fprintf("##########  PULSED/CONT. OPTO OFF  ############\n")
                 return
             end
             obj.IsLaserOn(iLaser) = false;
             obj.Arduino.SendMessage(sprintf('K %i', iLaser));
-            if obj.Debug
-                fprintf("##########  LIVE OPTO OFF %i  ############\n", iLaser)
+        end
+
+        function stopPulsedOrContOptoManual(obj)
+            obj.stopPulsedOrContOpto(1);
+            obj.stopPulsedOrContOpto(2);
+            if isgraphics(obj.Dialog)
+                obj.UIHandles.btnGrpMaster.SelectedObject = obj.UIHandles.btnGrpMaster.Buttons(2);
             end
+            fprintf("##########  PULSED/CONT. OPTO OFF  ############\n")
         end
 
         function setPulsedOrContOptoParams(obj, iLaser, varargin)
@@ -595,14 +601,18 @@ classdef OnlineDecoder < handle
         
             % Lower Plot: Merged Blue & Orange Laser Light Stimulation
             axLight = uiaxes(fig, Position=[50, 35, 465, 140]);
-            ylabel(axLight, 'mW'); grid(axLight, 'on');
+            ylabel(axLight, 'aout'); grid(axLight, 'on');
         
             xlabel(axLight, 'sec')
             xlim([axSpikes, axLight], [-4, 0]);
+            ylim(axSpikes, [0, 80])
+            ylim(axLight, [0, 40.95])
         
             % Create low-overhead static plot line references for high-speed updates
+            hold(axSpikes, 'on');
             lineSpikes = plot(axSpikes, NaN, NaN, Color=[0.2, 0.2, 0.2], LineWidth=1.2);
-        
+            lineSpikesMasked = plot(axSpikes, NaN, NaN, Color=[0.8, 0.2, 0.2], LineWidth=1.2);
+            hold(axSpikes, 'off');
             hold(axLight, 'on');
             lineBlue   = plot(axLight, NaN, NaN, Color=[0.0, 0.4, 0.8], LineWidth=1.2);
             lineOrng   = plot(axLight, NaN, NaN, Color=[0.9, 0.4, 0.0], LineWidth=1.2);
@@ -688,7 +698,7 @@ classdef OnlineDecoder < handle
             % Output handles for all the doodads
             uiHandles = struct(...
                 fig=fig, lblSpikeRate=lblSpikeRate, axSpikes=axSpikes, axLight=axLight, ...
-                lineSpikes=lineSpikes, lineBlue=lineBlue, lineOrng=lineOrng, ...
+                lineSpikes=lineSpikes, lineSpikesMasked=lineSpikesMasked, lineBlue=lineBlue, lineOrng=lineOrng, ...
                 btnGrpMaster=btnGrpMaster, btnGrpStimMode=btnGrpStimMode, ...
                 editTriggerThreshold=editTriggerThreshold, editStimDuration=editStimDuration, ...
                 btnGrpBlue=btnGrpBlue, editBluePower=editBluePower, editBlueFreq=editBlueFreq, editBlueWidth=editBlueWidth, ...
@@ -751,7 +761,7 @@ classdef OnlineDecoder < handle
                                 obj.OptoTimer = timer();
                                 obj.OptoTimer.StartDelay = editStimDuration.Value;
                                 obj.OptoTimer.ExecutionMode = 'singleShot'; % fixedDelay, fixedSpacing
-                                obj.OptoTimer.TimerFcn = @(~, ~) obj.stopPulsedOrContOpto();
+                                obj.OptoTimer.TimerFcn = @(~, ~) obj.stopPulsedOrContOptoManual();
                                 obj.startPulsedOrContOpto();
                                 start(obj.OptoTimer);
                             case "Trigger"
@@ -765,7 +775,7 @@ classdef OnlineDecoder < handle
                                     stop(obj.OptoTimer);
                                     delete(obj.OptoTimer);
                                 end
-                                obj.stopPulsedOrContOpto();
+                                obj.stopPulsedOrContOptoManual();
                             case "Trigger"
                                 obj.stopAutoOpto();
                         end
@@ -854,12 +864,14 @@ classdef OnlineDecoder < handle
                         blueIPI = round(1000/blueFreq - blueWidth);
                     case 'Cont.'
                         blueIPI = 0;
+                        blueWidth = 0;
                 end
                 switch orngMode
                     case 'Pulsed'
                         orngIPI = round(1000/orngFreq - orngWidth);
                     case 'Cont.'
                         orngIPI = 0;
+                        orngWidth = 0;
                 end
 
                 fprintf("%s - opto param update:\n", datetime('now', Format='HH:mm:ss.SSS'));
@@ -869,10 +881,17 @@ classdef OnlineDecoder < handle
                 fprintf('\t593nm (Chrimson): %s | AOut=%i | Freq=%iHz | PulseWidth=%ims | IPI=%ims\n', ...
                     orngMode, orngPower, orngFreq, orngWidth, orngIPI)
 
-                if masterSwitch == "on"
-                    obj.setPulsedOrContOptoParams(1, aout=bluePower, pulseDuration=blueWidth, pulseInterval=blueIPI);
-                    obj.setPulsedOrContOptoParams(2, aout=orngPower, pulseDuration=orngWidth, pulseInterval=orngIPI);
-                end
+                obj.setPulsedOrContOptoParams(1, aout=bluePower, pulseDuration=blueWidth, pulseInterval=blueIPI);
+                obj.setPulsedOrContOptoParams(2, aout=orngPower, pulseDuration=orngWidth, pulseInterval=orngIPI);
+            end
+        end
+
+        function updateDialog(obj)
+            if isgraphics(obj.Dialog)
+                data = obj.fetchBuffer(4/0.02);
+                set(obj.UIHandles.lineSpikes, XData=data.t - data.t(end), YData=data.x);
+                set(obj.UIHandles.lineSpikesMasked, XData=data.t - data.t(end), YData=data.xMasked);
+                obj.UIHandles.lblSpikeRate.Text = sprintf("%.1f (%.1f) sp/s", obj.Buffer.Data.x(obj.Buffer.CurrentIndex), obj.Buffer.Data.xMasked(obj.Buffer.CurrentIndex));
             end
         end
 
