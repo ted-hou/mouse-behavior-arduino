@@ -303,7 +303,7 @@ enum OptoState
 	OPTOSTATE_SCHEDULED, // traditional way of scheduling a certain number of pulses (see state_opto)
 	OPTOSTATE_LIVE, // new way of doing pulses until we tell it to stop
 	_NUM_OPTOSTATES
-}
+};
 
 /*****************************************************
 	Audio cue frequencies in Hz
@@ -525,10 +525,10 @@ static long _accelHighPassLever = 0;
 static long _accelLastUpdateMillisLick = 0;
 static long _accelLastUpdateMillisLever = 0;
 
-static OptoState *_optoState[2] = {OPTOSTATE_OFF, OPTOSTATE_OFF};
-static bool *_isOptoOn[2] = {false, false};
-static long *_timeOptoPulseStart[2] = {0, 0};
-static long *_timeOptoPulseEnd[2] = {0, 0};
+static OptoState _optoState[2] = {OPTOSTATE_OFF, OPTOSTATE_OFF};
+static bool _isOptoOn[2] = {false, false};
+static long _timeOptoPulseStart[2] = {0, 0};
+static long _timeOptoPulseEnd[2] = {0, 0};
 
 static bool _isSyncHigh = false;
 
@@ -1518,7 +1518,7 @@ void state_opto()
 
 		// Turn off opto
 		
-		(1, false);
+		setOpto(1, false);
 		setOpto(2, false);
 
 		// Retract lever/tube and disable auto-cycling
@@ -2683,6 +2683,7 @@ long getTimeSinceOptoPulseOn(int laserIdx)
 		return 0;
 	}
 	long time = getTime() - _timeOptoPulseStart[laserIdx-1];
+	return time;
 }
 
 long getTimeSinceOptoPulseOff(int laserIdx)
@@ -2692,4 +2693,5 @@ long getTimeSinceOptoPulseOff(int laserIdx)
 		return 0;
 	}
 	long time = getTime() - _timeOptoPulseEnd[laserIdx-1];
+	return time;
 }
