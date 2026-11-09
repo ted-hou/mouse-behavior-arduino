@@ -16,13 +16,13 @@ $ // State
 * // resultCodeName
 + // eventMarkerName
 : // analogWriteResolution
-; // Request opto
+; // Request optotagging
 ? // Request VAR
 
 // Inputs
 R - reset
 G - start
-L - opto (manual, transition to STATE_OPTO)
+L - opto (manual, transition to STATE_OPTO_ITI)
 J - opto (live, start)
 K - opto (live, stop)
 Q - stop
@@ -31,7 +31,7 @@ P [paramID] [(float)newValue] - param update
 O - param transmission complete
 T [(0/1)shutterOpen] - manual toggle shutter
 A [channel] [value] - manual set analog output
-^ [(1-4)leverPos] - MATLAB return lever motor target index (1 based)
+^ [0 or 1] - MATLAB return new task, 0 for lick, 1 for reach
 ; [(0/1)doOpto] - MATLAB finished setting up laser, can proceded to OPTO (1), or SKIP (0)
 U - idle -> reward -> idle
 V [(0/1)isGood] - VideoAssistantReferee result (1 to continue, 0 to aboart/donotreward because spurious movement)
@@ -73,13 +73,11 @@ enum ServoState
 #define PIN_REWARD				24
 #define PIN_SERVO_LEVER			20  // 14
 #define PIN_SERVO_TUBE			14  // 15
-#define PIN_OPTOGEN_STIM		23
 #define PIN_LEVERMOTOR_HI		5
 #define PIN_LEVERMOTOR_LO		6
-// #define PIN_OPTO_1				15
-// #define PIN_OPTO_2				16
-#define PIN_LED_LEFT			8 // left LED (animal's perspective)
-#define PIN_LED_RIGHT			11
+#define PIN_OPTO_LIVE_1			23
+#define PIN_OPTO_LIVE_2			11
+#define PIN_LED_USELEVER		8 // left LED (animal's perspective)
 
 // Mirrors to blackrock
 #define PIN_MIRROR_LICK 		9
@@ -114,9 +112,10 @@ static const int _digOutPins[] =
 	PIN_MIRROR_LEVER,
 	PIN_MIRROR_REWARD,
 	PIN_SPEAKER,
-	PIN_LED_LEFT,
-	PIN_LED_RIGHT,
-	PIN_MIRROR_TIMEOUT
+	PIN_LED_USELEVER,
+	PIN_MIRROR_TIMEOUT,
+	PIN_OPTO_LIVE_1,
+	PIN_OPTO_LIVE_2
 };
 
 /*****************************************************
@@ -132,8 +131,8 @@ enum State
 	STATE_REQUEST_VAR,
 	STATE_REWARD,
 	STATE_REQUEST_TASK,
-	STATE_REQUEST_OPTO,
-	STATE_OPTO,
+	STATE_REQUEST_OPTO_ITI,
+	STATE_OPTO_ITI,
 	_NUM_STATES
 };
 
@@ -148,8 +147,8 @@ static const char *_stateNames[] =
 	"REQUEST_VAR",
 	"REWARD",
 	"REQUEST_TASK",
-	"REQUEST_OPTO",
-	"OPTO",
+	"REQUEST_OPTO_ITI",
+	"OPTO_ITI",
 };
 
 // Define which states accept parameter update from MATLAB
@@ -162,9 +161,10 @@ static const int _stateCanUpdateParams[] =
 	1,  // STATE_REQUEST_VAR
 	1,	// STATE_REWARD
 	1,	// STATE_REQUEST_TASK
-	1,	// STATE_REQUEST_OPTO
-	0,	// STATE_OPTO
+	1,	// STATE_REQUEST_OPTO_ITI
+	0,	// STATE_OPTO_ITI
 }; 
+
 
 /*****************************************************
 	Event Markers
@@ -173,11 +173,7 @@ enum EventMarker
 {
 	EVENT_WAITFORTOUCH,				// New trial initiated
 	EVENT_LICK,						// Lick onset
-	EVENT_LICK_OFF,					// Lick offset
-	EVENT_LICK_HELD,
-	EVENT_LEVER_PRESSED,			// Lever touch onset
-	EVENT_LEVER_RELEASED,			// Lever touch offset
-	EVENT_LEVER_HELD,
+	EVENT_LEVER_PRESSED,			// Lever held onset
 	EVENT_REWARD_ON,				// Reward, juice valve on
 	EVENT_REWARD_OFF,				// Reward, juice valve off
 	EVENT_TIMEOUT_START,			// At start of timeout
@@ -190,23 +186,15 @@ enum EventMarker
 	EVENT_TUBE_RETRACT_END,			// Tube retract end
 	EVENT_TUBE_DEPLOY_START,		// Tube deploy start
 	EVENT_TUBE_DEPLOY_END,			// Tube deploy end
-	EVENT_OPTO1_ON,					// Begin optogenetic stim (single pulse start) on laser 1 (dac1)
-	EVENT_OPTO1_OFF,				// End optogenetic stim (single pulse end) on laser 1 (dac1)
-	EVENT_OPTO2_ON,					// Begin optogenetic stim (single pulse start) on laser 2 (dac2)
-	EVENT_OPTO2_OFF,				// End optogenetic stim (single pulse end) on laser 2 (dac2)
-	EVENT_LIVEOPTO1_START,  			// Beginning of live opto stim (either continuous or pulsed, i.e., when the J command was received)
-	EVENT_LIVEOPTO1_END,  			// End of live opto stim (either continuous or pulsed, i.e., when the K command was received)
-	EVENT_LIVEOPTO2_START,  			// Beginning of live opto stim (either continuous or pulsed, i.e., when the J command was received)
-	EVENT_LIVEOPTO2_END,  			// End of live opto stim (either continuous or pulsed, i.e., when the K command was received)
-	EVENT_LEVERMOTOR_POS1_START,
-	EVENT_LEVERMOTOR_POS1_REACHED,
-	EVENT_LEVERMOTOR_POS2_START,
-	EVENT_LEVERMOTOR_POS2_REACHED,
-	EVENT_LEVERMOTOR_POS3_START,
-	EVENT_LEVERMOTOR_POS3_REACHED,
-	EVENT_LEVERMOTOR_POS4_START,
-	EVENT_LEVERMOTOR_POS4_REACHED,
-	EVENT_REQUEST_OPTO,
+	EVENT_OPTO1_ITI_ON,  			// Beginning of individual opto pulse (only sent during OPTOSTATE_ON_ITI, i.e for traditional optotagging); one event for each pulse
+	EVENT_OPTO1_ITI_OFF,  			// End of individual opto pulse (only sent during OPTOSTATE_ON_ITI, i.e for traditional optotagging); one event for each pulse
+	EVENT_OPTO2_ITI_ON,  			// Beginning of individual opto pulse (only sent during OPTOSTATE_ON_ITI, i.e for traditional optotagging); one event for each pulse
+	EVENT_OPTO2_ITI_OFF,  			// End of individual opto pulse (only sent during OPTOSTATE_ON_ITI, i.e for traditional optotagging); one event for each pulse
+	EVENT_OPTO1_LIVE_ON,  			// Beginning of opto stim (either continuous or pulsed, i.e., when the J command was received); one event for each train
+	EVENT_OPTO1_LIVE_OFF,  			// End of opto stim (either continuous or pulsed, i.e., when the K command was received); one event for each train
+	EVENT_OPTO2_LIVE_ON,  			// Beginning of opto stim (either continuous or pulsed, i.e., when the J command was received); one event for each train
+	EVENT_OPTO2_LIVE_OFF,  			// End of opto stim (either continuous or pulsed, i.e., when the K command was received); one event for each train
+	EVENT_REQUEST_OPTO_ITI,
 	EVENT_LASERMOTOR_START,
 	EVENT_LASERMOTOR_REACHED,
 	EVENT_IMEC_SYNC_ON,
@@ -221,11 +209,7 @@ static const char *_eventMarkerNames[] =
 {
 	"WAITFORTOUCH",
 	"LICK",
-	"LICK_OFF",
-	"LICK_HELD",
 	"LEVER_PRESSED",
-	"LEVER_RELEASED",
-	"LEVER_HELD",
 	"REWARD_ON",
 	"REWARD_OFF",
 	"TIMEOUT_START",
@@ -238,23 +222,15 @@ static const char *_eventMarkerNames[] =
 	"TUBE_RETRACT_END",
 	"TUBE_DEPLOY_START",
 	"TUBE_DEPLOY_END",
-	"OPTO1_ON",
-	"OPTO1_OFF",
-	"OPTO2_ON",
-	"OPTO2_OFF",
-	"LIVEOPTO1_START",
-	"LIVEOPTO1_END",
-	"LIVEOPTO2_START",
-	"LIVEOPTO2_END",
-	"LEVERMOTOR_POS1_START",
-	"LEVERMOTOR_POS1_REACHED",
-	"LEVERMOTOR_POS2_START",
-	"LEVERMOTOR_POS2_REACHED",
-	"LEVERMOTOR_POS3_START",
-	"LEVERMOTOR_POS3_REACHED",
-	"LEVERMOTOR_POS4_START",
-	"LEVERMOTOR_POS4_REACHED",
-	"REQUEST_OPTO",
+	"OPTO1_ITI_ON",
+	"OPTO1_ITI_OFF",
+	"OPTO2_ITI_ON",
+	"OPTO2_ITI_OFF",
+	"OPTO1_LIVE_ON",
+	"OPTO1_LIVE_OFF",
+	"OPTO2_LIVE_ON",
+	"OPTO2_LIVE_OFF",
+	"REQUEST_OPTO_ITI",
 	"LASERMOTOR_START",
 	"LASERMOTOR_REACHED",
 	"IMEC_SYNC_ON",
@@ -273,12 +249,9 @@ static const char *_eventMarkerNames[] =
 enum ResultCode
 {
 	CODE_CORRECT_LICK,
-	CODE_CORRECT_PRESS_1,
-	CODE_CORRECT_PRESS_2,
-	CODE_CORRECT_PRESS_3,
-	CODE_CORRECT_PRESS_4,
+	CODE_CORRECT_PRESS,
 	CODE_TASK_CHANGE,
-	CODE_OPTO,
+	CODE_OPTO_ITI,
 	_NUM_RESULT_CODES
 };
 
@@ -286,12 +259,9 @@ enum ResultCode
 static const char *_resultCodeNames[] =
 {
 	"CORRECT_LICK",
-	"CORRECT_PRESS_1",
-	"CORRECT_PRESS_2",
-	"CORRECT_PRESS_3",
-	"CORRECT_PRESS_4",
+	"CORRECT_PRESS",
 	"TASK_CHANGE",
-	"OPTO",
+	"OPTO_ITI",
 };
 
 /*****************************************************
@@ -300,8 +270,8 @@ static const char *_resultCodeNames[] =
 enum OptoState
 {
 	OPTOSTATE_OFF,
-	OPTOSTATE_SCHEDULED, // traditional way of scheduling a certain number of pulses (see state_opto)
-	OPTOSTATE_LIVE, // new way of doing pulses until we tell it to stop
+	OPTOSTATE_ON_ITI, // traditional way of scheduling a certain number of pulses (see state_opto_iti)
+	OPTOSTATE_ON_LIVE, // new way of doing pulses until we tell it to stop
 	_NUM_OPTOSTATES
 };
 
@@ -341,18 +311,18 @@ enum ParamID
 	TUBE_POS_DEPLOYED,				// Servo (juice tube) position when juice tube is deployed (full is ~ 125)
 	TUBE_SPEED_DEPLOY,				// Servo (juice tube) advance speed when deploying, 0 for max speed
 	TUBE_SPEED_RETRACT,				// Servo (juice tube) retract speed when retracting, 0 for max speed	
-	OPTO_ENABLED,					// 1 to enable optogen stim during ITI and idle
-	OPTO_LASER_ID, 					// 1 for DAC1 (blue laser), 2 for DAC2 (red laser), any other number for both!
+	ITIOPTO_ENABLED,				// 1 to enable optogen stim during ITI and idle
+	ITIOPTO_LASER_ID, 				// 1 for DAC1 (blue laser), 2 for DAC2 (red laser), any other number for both!
 	OPTO_AOUT1_VALUE,				// Analog output value to use for modulation of laser power
 	OPTO_AOUT2_VALUE,				// Analog output value to use for modulation of laser power
-	OPTO_PULSE_DURATION,			// Optogenetic stim, duration of single pulse (ms)
-	OPTO_PULSE_INTERVAL,			// Optogenetic stim, interval between pulses (ms)
+	OPTO_PULSE_DURATION,			// Optogenetic stim, duration of single pulse (ms), we don't use the _1 suffix for backcompatibility
+	OPTO_PULSE_INTERVAL,			// Optogenetic stim, interval between pulses (ms), we don't use the _1 suffix for backcompatibility
 	OPTO_PULSE_DURATION_2,			// Optogenetic stim, duration of single pulse (ms), only used for 2nd laser when LASER_ID is not 1or2.
 	OPTO_PULSE_INTERVAL_2,			// Optogenetic stim, interval between pulses (ms), only used for 2nd laser when LASER_ID is not 1or2.
 	OPTO_NUM_PULSES,				// Optogenetic stim, number of pulses to deliver	
-	OPTO_FIXED_DELAY,				// In REQUEST_OPTO, after receiving ';' from MATLAB, wait this long before advancing to OPTO
-	OPTO_RANDOM_DELAY_MIN,			// Minimum random pre-stim delay (ms)
-	OPTO_RANDOM_DELAY_MAX,			// Maximum random pre-stim delay (ms)
+	ITIOPTO_FIXED_DELAY,			// In REQUEST_OPTO, after receiving ';' from MATLAB, wait this long before advancing to OPTO
+	ITIOPTO_RANDOM_DELAY_MIN,		// Minimum random pre-stim delay (ms)
+	ITIOPTO_RANDOM_DELAY_MAX,		// Maximum random pre-stim delay (ms)
 	NUM_REWARDS_PER_BLOCK,			// A block ends after this many correct trials
 	REQUEST_TASK_AFTER_BLOCK, 		// 1: Request new task parameters from MATLAB at the end of each block
 	REQUEST_OPTO_AFTER_BLOCK,		// 1: Request new opto parameters from MATLAB at the end of each block.
@@ -393,8 +363,8 @@ static const char *_paramNames[] =
 	"TUBE_POS_DEPLOYED",			// Servo (juice tube) position when juice tube is deployed (full is ~ 125)
 	"TUBE_SPEED_DEPLOY",			// Servo (juice tube) advance speed when deploying, 0 for max speed
 	"TUBE_SPEED_RETRACT",			// Servo (juice tube) retract speed when retracting, 0 for max speed	
-	"OPTO_ENABLED",					// 1 to enable optogen stim during ITI and idle
-	"OPTO_LASER_ID", 				// 1 for DAC1 (blue laser), 2 for DAC2 (red laser), any other number for both!
+	"ITIOPTO_ENABLED",				// 1 to enable optogen stim during ITI and idle
+	"ITIOPTO_LASER_ID", 			// 1 for DAC1 (blue laser), 2 for DAC2 (red laser), any other number for both!
 	"OPTO_AOUT1_VALUE",				// Analog output value to use for modulation of laser power
 	"OPTO_AOUT2_VALUE",				// Analog output value to use for modulation of laser power
 	"OPTO_PULSE_DURATION",			// Optogenetic stim, duration of single pulse (ms)
@@ -402,9 +372,9 @@ static const char *_paramNames[] =
 	"OPTO_PULSE_DURATION_2",		// Optogenetic stim, duration of single pulse (ms)
 	"OPTO_PULSE_INTERVAL_2",		// Optogenetic stim, interval between pulses (ms)
 	"OPTO_NUM_PULSES",				// Optogenetic stim, number of pulses to deliver	
-	"OPTO_FIXED_DELAY",				// In REQUEST_OPTO, laser will be kept on this long before advancing to OPTO
-	"OPTO_RANDOM_DELAY_MIN",		// Minimum random pre-stim delay (ms)
-	"OPTO_RANDOM_DELAY_MAX",		// Maximum random pre-stim delay (ms)
+	"ITIOPTO_FIXED_DELAY",			// In REQUEST_OPTO, laser will be kept on this long before advancing to OPTO
+	"ITIOPTO_RANDOM_DELAY_MIN",		// Minimum random pre-stim delay (ms)
+	"ITIOPTO_RANDOM_DELAY_MAX",		// Maximum random pre-stim delay (ms)
 	"NUM_REWARDS_PER_BLOCK",		// A block ends after this many correct trials
 	"REQUEST_TASK_AFTER_BLOCK", 	// 1: Auto switch to other task (lick vs. lever) at the end of each block
 	"REQUEST_OPTO_AFTER_BLOCK",		// 1: Go to opto at end of each block.
@@ -443,8 +413,8 @@ long _params[_NUM_PARAMS] =
 	88,		// TUBE_POS_DEPLOYED
 	36,		// TUBE_SPEED_DEPLOY
 	36,		// TUBE_SPEED_RETRACT
-	0,		// OPTO_ENABLED
-	1,		// OPTO_LASER_ID
+	0,		// ITIOPTO_ENABLED
+	1,		// ITIOPTO_LASER_ID
 	0,		// OPTO_AOUT1_VALUE
 	0,		// OPTO_AOUT2_VALUE
 	0,		// OPTO_PULSE_DURATION
@@ -452,9 +422,9 @@ long _params[_NUM_PARAMS] =
 	0,		// OPTO_PULSE_DURATION_2
 	0,		// OPTO_PULSE_INTERVAL_2
 	1,		// OPTO_NUM_PULSES
-	1000, 	// OPTO_FIXED_DELAY
-	1000,	// OPTO_RANDOM_DELAY_MIN
-	3000,	// OPTO_RANDOM_DELAY_MAX
+	1000, 	// ITIOPTO_FIXED_DELAY
+	1000,	// ITIOPTO_RANDOM_DELAY_MIN
+	3000,	// ITIOPTO_RANDOM_DELAY_MAX
 	15,		// NUM_REWARDS_PER_BLOCK
 	1,		// REQUEST_TASK_AFTER_BLOCK
 	0,		// REQUEST_OPTO_AFTER_BLOCK
@@ -726,12 +696,12 @@ void loop()
 				state_request_task();
 				break;
 
-			case STATE_REQUEST_OPTO:
-				state_request_opto();
+			case STATE_REQUEST_OPTO_ITI:
+				state_request_opto_iti();
 				break;
 
-			case STATE_OPTO:
-				state_opto();
+			case STATE_OPTO_ITI:
+				state_opto_iti();
 				break;
 		}
 	}
@@ -764,7 +734,6 @@ void state_idle()
 		_tubeCyclingEnabled = true;
 		deployLever(true);
 		deployTube(true);
-		setLeverPos(1);
 		_resultCode = -1;
 		_isUpdatingParams = false;
 		_nRewardsSinceBlockStart = 0;
@@ -784,10 +753,10 @@ void state_idle()
 		return;
 	}
 
-	// LASER command from host --> STATE_OPTO
+	// LASER command from host --> STATE_OPTO_ITI
 	if (_command == 'L')
 	{
-		_state = STATE_OPTO;
+		_state = STATE_OPTO_ITI;
 		return;
 	}
 
@@ -824,12 +793,14 @@ void state_waitfortouch()
 		{
 			deployLever(false);
 			deployTube(true);
+			digitalWrite(PIN_LED_USELEVER, LOW);
 		}
-		// Reach task: keep lever retracted
+		// Reach task: keep lever deployed
 		else
 		{
 			deployLever(true);
 			deployTube(false);
+			digitalWrite(PIN_LED_USELEVER, HIGH);
 		}
 
 		// Register events
@@ -886,9 +857,9 @@ void state_waitfortouch()
 	}
 
 	// No touch --> OPTO
-	if (_params[OPTO_ENABLED] != 0 && getTimeSinceTrialStart() >= _params[WAITFORTOUCH_TO_OPTO_TIMEOUT])
+	if (_params[ITIOPTO_ENABLED] != 0 && _params[WAITFORTOUCH_TO_OPTO_TIMEOUT] > 0 && getTimeSinceTrialStart() >= _params[WAITFORTOUCH_TO_OPTO_TIMEOUT])
 	{
-		_state = STATE_REQUEST_OPTO;
+		_state = STATE_REQUEST_OPTO_ITI;
 		return;
 	}
 
@@ -914,13 +885,14 @@ void state_timeout()
 		// Lick task: keep lever retracted
 		// STATE_REWARD
 		// STATE_REQUEST_TASK
-		// STATE_REQUEST_OPTO
-		// STATE_OPTO
+		// STATE_REQUEST_OPTO_ITI
+		// STATE_OPTO_ITI
 		if (_params[USE_LEVER] == 0)
 		{
 			_leverCyclingEnabled = false;
 			_tubeCyclingEnabled = true;
 			deployLever(false);
+			digitalWrite(PIN_LED_USELEVER, LOW);
 		}
 		// Reach task: keep lever retracted
 		else
@@ -928,6 +900,7 @@ void state_timeout()
 			_leverCyclingEnabled = true;
 			_tubeCyclingEnabled = false;
 			deployTube(false);
+			digitalWrite(PIN_LED_USELEVER, HIGH);
 		}
 
 		isWaitingForLeverCycling = _params[USE_LEVER] != 0 && _isLeverCycling;
@@ -1156,22 +1129,7 @@ void state_reward()
 		}
 		else
 		{
-			int leverPos = getLeverPos();
-			switch (leverPos)
-			{
-				case 1:
-					_resultCode = CODE_CORRECT_PRESS_1;
-					break;
-				case 2:
-					_resultCode = CODE_CORRECT_PRESS_2;
-					break;
-				case 3:
-					_resultCode = CODE_CORRECT_PRESS_3;
-					break;
-				case 4:
-					_resultCode = CODE_CORRECT_PRESS_4;
-					break;
-			}
+			_resultCode = CODE_CORRECT_PRESS;
 		}
 		sendResultCode(_resultCode);
 
@@ -1264,7 +1222,7 @@ void state_reward()
 			}
 			else if (_params[REQUEST_OPTO_AFTER_BLOCK] != 0)
 			{
-				_state = STATE_REQUEST_OPTO;
+				_state = STATE_REQUEST_OPTO_ITI;
 			}
 			else
 			{
@@ -1288,9 +1246,6 @@ void state_reward()
 *****************************************************/
 void state_request_task()
 {
-	static long timeTaskReceived;
-	static bool taskReceived;
-	static int leverPos;
 	/*****************************************************
 		ACTION LIST
 	*****************************************************/
@@ -1307,28 +1262,12 @@ void state_request_task()
 		deployLever(false);
 
 		// Send message to MATLAB to request new lever position
-		taskReceived = false;
-		leverPos = -1;
 		sendMessage("^");
 	}
 
 	/*****************************************************
 		OnEachLoop checks
 	*****************************************************/
-	// Receiver motor position from MATLAB
-	// ^ [(1-4)leverPosIndex]
-	if (_command == '^')
-	{
-		taskReceived = true;
-
-		leverPos = _arguments[0];
-		timeTaskReceived = getTime();
-		// 0: lick task, 1-4: directional reach task
-		if (leverPos > 0)
-		{
-			setLeverPos(leverPos);			
-		}
-	}
 
 	/*****************************************************
 		TRANSITION LIST
@@ -1340,55 +1279,35 @@ void state_request_task()
 		return;
 	}
 
-	// Lever reached target --> REQUEST OPTO
-	// Wait at least 100ms for motor command to reach motor arduino
-	// I've tried waiting as little as 1ms before: that worked as well.
-	if (taskReceived && getTime() - timeTaskReceived > 100)
+	// Received task from MATLAB
+	// ^ [0/1] lick or reach
+	if (_command == '^')
 	{
-		if (leverPos == 0 || digitalRead(PIN_LEVERMOTOR_BUSY) == LOW)
+		_resultCode = CODE_TASK_CHANGE;
+		sendResultCode(_resultCode);
+
+		if (_params[ITIOPTO_ENABLED] == 0)
 		{
-			switch (leverPos)
+			if (_params[USE_LEVER] != 0)
 			{
-				case 1:
-					sendEventMarker(EVENT_LEVERMOTOR_POS1_REACHED, -1);
-					break;
-				case 2:
-					sendEventMarker(EVENT_LEVERMOTOR_POS2_REACHED, -1);
-					break;
-				case 3:
-					sendEventMarker(EVENT_LEVERMOTOR_POS3_REACHED, -1);
-					break;
-				case 4:
-					sendEventMarker(EVENT_LEVERMOTOR_POS4_REACHED, -1);
-					break;
-			}
-
-			_resultCode = CODE_TASK_CHANGE;
-			sendResultCode(_resultCode);
-
-			if (_params[OPTO_ENABLED] == 0)
-			{
-				if (_params[USE_LEVER] != 0)
-				{
-					_leverCyclingEnabled = true;
-				}
-				else
-				{
-					_tubeCyclingEnabled = true;
-				}
-				_state = STATE_TIMEOUT;
-				return;
-			}
-			else if (_params[REQUEST_OPTO_AFTER_BLOCK] != 0)
-			{
-				_state = STATE_REQUEST_OPTO;
-				return;
+				_leverCyclingEnabled = true;
 			}
 			else
 			{
-				_state = STATE_OPTO;
-				return;
+				_tubeCyclingEnabled = true;
 			}
+			_state = STATE_TIMEOUT;
+			return;
+		}
+		else if (_params[REQUEST_OPTO_AFTER_BLOCK] != 0)
+		{
+			_state = STATE_REQUEST_OPTO_ITI;
+			return;
+		}
+		else
+		{
+			_state = STATE_OPTO_ITI;
+			return;
 		}
 	}
 
@@ -1398,7 +1317,7 @@ void state_request_task()
 /*****************************************************
 	REQUEST OPTO (MOVES LASER MOTOR, TURNS ON LASER and all that)
 *****************************************************/
-void state_request_opto()
+void state_request_opto_iti()
 {
 	static long timeRequest;
 	static bool laserMotorStarted;
@@ -1425,7 +1344,7 @@ void state_request_opto()
 		laserMotorReached = false;
 		isOptoAvailable = false;
 
-		sendEventMarker(EVENT_REQUEST_OPTO, -1);
+		sendEventMarker(EVENT_REQUEST_OPTO_ITI, -1);
 	}
 
 	/*****************************************************
@@ -1485,17 +1404,17 @@ void state_request_opto()
 	// Make sure the motor has finished moving, since MATLAB does not monitor this
 	if (isOptoAvailable && getTime() - timeRequest > 500 && digitalRead(PIN_LASERMOTOR_BUSY) == LOW)
 	{
-		_state = STATE_OPTO;
+		_state = STATE_OPTO_ITI;
 		return;
 	}
 
-	_state = STATE_REQUEST_OPTO;
+	_state = STATE_REQUEST_OPTO_ITI;
 }
 
 /*****************************************************
 	STIM
 *****************************************************/
-void state_opto()
+void state_opto_iti()
 {
 	static State entryState;
 	static long timeEnter;
@@ -1530,8 +1449,8 @@ void state_opto()
 		// Generate random interval length
 		if (entryState != STATE_IDLE)
 		{
-			randomDelayPre = random(_params[OPTO_RANDOM_DELAY_MIN], _params[OPTO_RANDOM_DELAY_MAX]) + _params[OPTO_FIXED_DELAY];
-			randomDelayPost = random(_params[OPTO_RANDOM_DELAY_MIN], _params[OPTO_RANDOM_DELAY_MAX]) + _params[OPTO_FIXED_DELAY];
+			randomDelayPre = random(_params[ITIOPTO_RANDOM_DELAY_MIN], _params[ITIOPTO_RANDOM_DELAY_MAX]) + _params[ITIOPTO_FIXED_DELAY];
+			randomDelayPost = random(_params[ITIOPTO_RANDOM_DELAY_MIN], _params[ITIOPTO_RANDOM_DELAY_MAX]) + _params[ITIOPTO_FIXED_DELAY];
 		}
 		else
 		{
@@ -1545,15 +1464,15 @@ void state_opto()
 		timePulseStart = 0;
 		timePulseEnd = 0;
 
-		switch (_params[OPTO_LASER_ID])
+		switch (_params[ITIOPTO_LASER_ID])
 		{
 			case 1:
-				_optoState[0] = OPTOSTATE_SCHEDULED;
+				_optoState[0] = OPTOSTATE_ON_ITI;
 			case 2:
-				_optoState[1] = OPTOSTATE_SCHEDULED;
+				_optoState[1] = OPTOSTATE_ON_ITI;
 			default:
-				_optoState[0] = OPTOSTATE_SCHEDULED;
-				_optoState[1] = OPTOSTATE_SCHEDULED;
+				_optoState[0] = OPTOSTATE_ON_ITI;
+				_optoState[1] = OPTOSTATE_ON_ITI;
 		}
 	}
 
@@ -1563,14 +1482,14 @@ void state_opto()
 	if (numPulsesComplete < _params[OPTO_NUM_PULSES])
 	{
 		// If stim is off, check if it needs to be turned on
-		if (!isOptoOn(_params[OPTO_LASER_ID]))
+		if (!isOptoOn(_params[ITIOPTO_LASER_ID]))
 		{
 			// Delay first pulse by random interval unless manually opto-ing in IDLE.
 			if (entryState == STATE_IDLE || getTime() - timeEnter >= randomDelayPre)
 			{
 				if (numPulsesComplete == 0 || getTime() - timePulseEnd >= _params[OPTO_PULSE_INTERVAL])
 				{
-					setOpto(_params[OPTO_LASER_ID], true);
+					setOpto(_params[ITIOPTO_LASER_ID], true);
 					timePulseStart = getTime();
 				}
 			}
@@ -1578,7 +1497,7 @@ void state_opto()
 		// If stim is on, check if it needs to be turned off
 		else if (getTime() - timePulseStart >= _params[OPTO_PULSE_DURATION])
 		{
-			setOpto(_params[OPTO_LASER_ID], false);
+			setOpto(_params[ITIOPTO_LASER_ID], false);
 			timePulseEnd = getTime();
 			numPulsesComplete = numPulsesComplete + 1;
 		}
@@ -1592,7 +1511,7 @@ void state_opto()
 	{
 		setOpto(1, false);
 		setOpto(2, false);
-		switch (_params[OPTO_LASER_ID])
+		switch (_params[ITIOPTO_LASER_ID])
 		{
 			case 1:
 				_optoState[0] = OPTOSTATE_OFF;
@@ -1609,6 +1528,16 @@ void state_opto()
 	// Stim train complete --> TIMEOUT (after random delay) or IDLE
 	if (numPulsesComplete >= _params[OPTO_NUM_PULSES])
 	{
+		switch (_params[ITIOPTO_LASER_ID])
+		{
+			case 1:
+				_optoState[0] = OPTOSTATE_OFF;
+			case 2:
+				_optoState[1] = OPTOSTATE_OFF;
+			default:
+				_optoState[0] = OPTOSTATE_OFF;
+				_optoState[1] = OPTOSTATE_OFF;
+		}
 		// Return after random delay, unless manually triggering opto from IDLE
 		if (entryState == STATE_IDLE)
 		{
@@ -1619,7 +1548,7 @@ void state_opto()
 		{
 			if (getTime() - timePulseEnd >= randomDelayPost)
 			{
-				_resultCode = CODE_OPTO;
+				_resultCode = CODE_OPTO_ITI;
 				sendResultCode(_resultCode);
 
 				if (_params[USE_LEVER] != 0)
@@ -1636,7 +1565,7 @@ void state_opto()
 		}
 	}
 
-	_state = STATE_OPTO;
+	_state = STATE_OPTO_ITI;
 }
 
 
@@ -1710,10 +1639,6 @@ void handleLever()
 		if (!_isLeverPressed)
 		{
 			_isLeverPressed = true;
-			// if (_state != STATE_REWARD)
-			// {
-			// 	sendEventMarker(EVENT_LEVER_PRESSED, -1);
-			// }
 			_timeLastLeverPress = getTime();
 		}
 		// Press-and-hold timeout reached
@@ -1740,7 +1665,6 @@ void handleLever()
 		{
 			_isLeverPressed = false;
 			_isLeverHeld = false;
-			// sendEventMarker(EVENT_LEVER_RELEASED, -1);
 			_timeLastLeverRelease = getTime();
 		}
 	}
@@ -1774,10 +1698,6 @@ void handleLick()
 		{
 			_isLicking = true;
 			_timeLastLick = getTime();
-			// if (_state != STATE_REWARD)
-			// {
-			// 	sendEventMarker(EVENT_LICK, -1);
-			// }
 		}
 		// Lick-and-hold timeout reach
 		if (!_isLickHeld && getTimeSinceLastLick() >= _params[LICK_HOLD_TIME])
@@ -1803,7 +1723,6 @@ void handleLick()
 		{
 			_isLicking = false;
 			_isLickHeld = false;
-			//sendEventMarker(EVENT_LICK_OFF, -1);
 		}
 	}
 
@@ -2070,27 +1989,29 @@ void setOpto(int channel, bool turnOn)
 		if (!isOptoOn(channel))
 		{
 			_timeOptoPulseStart[channel-1] = getTime();
-			// switch (channel)
-			// {
-			// 	case 1:
-			// 		sendEventMarker(EVENT_OPTO1_ON, -1);
-			// 		break;
-			// 	case 2:
-			// 		sendEventMarker(EVENT_OPTO2_ON, -1);
-			// 		break;
-			// }
+			// This should not be sent during LIVEOPTO, since MATLAB GUI/decoder is not optimized for handling frequent pulses
+			if (_optoState[channel-1] == OPTOSTATE_ON_ITI)
+			{
+				switch (channel)
+				{
+					case 1:
+						sendEventMarker(EVENT_OPTO1_ITI_ON, -1);
+						break;
+					case 2:
+						sendEventMarker(EVENT_OPTO2_ITI_ON, -1);
+						break;
+				}
+			}
 		}
 		switch (channel)
 		{
 			case 1:
 				setAnalogOutput(1, _params[OPTO_AOUT1_VALUE]);
 				_isOptoOn[0] = true;
-				// digitalWrite(PIN_OPTO_1, HIGH);
 				break;
 			case 2:
 				setAnalogOutput(2, _params[OPTO_AOUT2_VALUE]);
 				_isOptoOn[1] = true;
-				// digitalWrite(PIN_OPTO_2, HIGH);
 				break;
 		}
 	}
@@ -2099,27 +2020,29 @@ void setOpto(int channel, bool turnOn)
 		if (isOptoOn(channel))
 		{
 			_timeOptoPulseEnd[channel-1] = getTime();
-			// switch (channel)
-			// {
-			// 	case 1:
-			// 		sendEventMarker(EVENT_OPTO1_OFF, -1);
-			// 		break;
-			// 	case 2:
-			// 		sendEventMarker(EVENT_OPTO2_OFF, -1);	
-			// 		break;
-			// }
+			// This should not be sent during LIVEOPTO, since MATLAB GUI/decoder is not optimized for handling frequent pulses
+			if (_optoState[channel-1] == OPTOSTATE_ON_ITI)
+			{
+				switch (channel)
+				{
+					case 1:
+						sendEventMarker(EVENT_OPTO1_ITI_OFF, -1);
+						break;
+					case 2:
+						sendEventMarker(EVENT_OPTO2_ITI_OFF, -1);
+						break;
+				}
+			}
 		}
 		switch (channel)
 		{
 			case 1:
 				setAnalogOutput(1, 0);
 				_isOptoOn[0] = false;
-				// digitalWrite(PIN_OPTO_1, LOW);
 				break;
 			case 2:
 				setAnalogOutput(2, 0);
 				_isOptoOn[1] = false;
-				// digitalWrite(PIN_OPTO_2, LOW);
 				break;
 		}
 	}
@@ -2141,7 +2064,7 @@ bool isOptoOn(int channel)
 	}
 }
 
-// Seprate from traditional state_opto (which does a certain no. pulses)
+// Seprate from traditional state_opto_iti (which does a certain no. pulses)
 // this thing does pulsed opto until we tell it to stop
 // also can be run in any state
 
@@ -2150,26 +2073,26 @@ void handleLiveOpto(int laserIdx) // laserIdx is 1 or 2
 {
 	switch (_optoState[laserIdx-1])
 	{
-		case OPTOSTATE_SCHEDULED:
+		case OPTOSTATE_ON_ITI:
 			// ignore
 			break;
 		case OPTOSTATE_OFF:
 			// check for start requests
 			if (_command == 'J' && (_arguments[0]==laserIdx || (_arguments[0]!=1 && _arguments[0]!=2)))
 			{
-				_optoState[laserIdx-1] = OPTOSTATE_LIVE;
+				_optoState[laserIdx-1] = OPTOSTATE_ON_LIVE;
 				switch (laserIdx)
 				{
 					case 1:
-						sendEventMarker(EVENT_LIVEOPTO1_START, -1);
+						sendEventMarker(EVENT_OPTO1_LIVE_ON, -1);
 						break;
 					case 2:
-						sendEventMarker(EVENT_LIVEOPTO2_START, -1);
+						sendEventMarker(EVENT_OPTO2_LIVE_ON, -1);
 						break;
 				}
 			}
 			break;
-		case OPTOSTATE_LIVE:
+		case OPTOSTATE_ON_LIVE:
 			// check for exit requests
 			if (_command == 'K' && (_arguments[0]==laserIdx || (_arguments[0]!=1 && _arguments[0]!=2)))
 			{
@@ -2178,10 +2101,10 @@ void handleLiveOpto(int laserIdx) // laserIdx is 1 or 2
 				switch (laserIdx)
 				{
 					case 1:
-						sendEventMarker(EVENT_LIVEOPTO1_END, -1);
+						sendEventMarker(EVENT_OPTO1_LIVE_OFF, -1);
 						break;
 					case 2:
-						sendEventMarker(EVENT_LIVEOPTO2_END, -1);
+						sendEventMarker(EVENT_OPTO2_LIVE_OFF, -1);
 						break;
 				}
 				return;
@@ -2224,10 +2147,10 @@ void handleLiveOpto(int laserIdx) // laserIdx is 1 or 2
 					switch (laserIdx)
 					{
 						case 1:
-							sendEventMarker(EVENT_LIVEOPTO1_END, -1);
+							sendEventMarker(EVENT_OPTO1_LIVE_OFF, -1);
 							break;
 						case 2:
-							sendEventMarker(EVENT_LIVEOPTO2_END, -1);
+							sendEventMarker(EVENT_OPTO2_LIVE_OFF, -1);
 							break;
 					}
 				}
@@ -2272,98 +2195,6 @@ long getOptoPulseInterval(int laserIdx)
 			return _params[OPTO_PULSE_INTERVAL_2];
 		default:
 			return 0;
-	}
-}
-
-// Move lever (laterally) (to 1-based position index)
-void setLeverPos(int position)
-{
-	if (position < 1 || position > 4)
-	{
-		return;
-	}
-
-	switch (position)
-	{
-		case 1: // 00
-			digitalWrite(PIN_LEVERMOTOR_HI, LOW);
-			digitalWrite(PIN_LEVERMOTOR_LO, LOW);
-			sendEventMarker(EVENT_LEVERMOTOR_POS1_START, -1);
-			if (_params[USE_LEVER] == 0)
-			{
-				digitalWrite(PIN_LED_LEFT, LOW);
-				digitalWrite(PIN_LED_RIGHT, LOW);
-			}
-			else
-			{
-				if (_params[USE_LEFT_PAW] == 0)
-				{
-					digitalWrite(PIN_LED_LEFT, LOW);
-					digitalWrite(PIN_LED_RIGHT, HIGH);
-				}
-				else
-				{
-					digitalWrite(PIN_LED_LEFT, HIGH);
-					digitalWrite(PIN_LED_RIGHT, LOW);
-				}
-			}
-			break;
-		case 2: // 01
-			digitalWrite(PIN_LEVERMOTOR_HI, LOW);
-			digitalWrite(PIN_LEVERMOTOR_LO, HIGH);
-			sendEventMarker(EVENT_LEVERMOTOR_POS2_START, -1);
-			if (_params[USE_LEVER] == 0)
-			{
-				digitalWrite(PIN_LED_LEFT, LOW);
-				digitalWrite(PIN_LED_RIGHT, LOW);
-			}
-			else
-			{
-				if (_params[USE_LEFT_PAW] == 0)
-				{
-					digitalWrite(PIN_LED_LEFT, HIGH);
-					digitalWrite(PIN_LED_RIGHT, LOW);
-				}
-				else
-				{
-					digitalWrite(PIN_LED_LEFT, LOW);
-					digitalWrite(PIN_LED_RIGHT, HIGH);
-				}
-			}
-			break;
-		case 3: // 10
-			digitalWrite(PIN_LEVERMOTOR_HI, HIGH);
-			digitalWrite(PIN_LEVERMOTOR_LO, LOW);
-			sendEventMarker(EVENT_LEVERMOTOR_POS3_START, -1);
-			break;
-		case 4: // 11
-			digitalWrite(PIN_LEVERMOTOR_HI, HIGH);
-			digitalWrite(PIN_LEVERMOTOR_LO, HIGH);
-			sendEventMarker(EVENT_LEVERMOTOR_POS4_START, -1);
-			break;
-	}
-}
-
-int getLeverPos()
-{
-	bool hi = digitalRead(PIN_LEVERMOTOR_HI);
-	bool lo = digitalRead(PIN_LEVERMOTOR_LO);
-
-	if (hi == LOW && lo == LOW)
-	{
-		return 1;
-	}
-	else if (hi == LOW && lo == HIGH)
-	{
-		return 2;
-	}
-	else if (hi == HIGH && lo == LOW)
-	{
-		return 3;
-	}
-	else // if (hi == HIGH && lo == HIGH)
-	{
-		return 4;
 	}
 }
 
@@ -2532,52 +2363,15 @@ void handleParamUpdate()
 			_isUpdatingParams = true;
 			_params[_arguments[0]] = _arguments[1];
 
-			// Toggle left/right green LEDs on param change
-			if (_arguments[0] == USE_LEFT_PAW || _arguments[0] == USE_LEVER)
+			if (_arguments[0] == USE_LEVER)
 			{
-				int position = getLeverPos();	
-				switch (position)
+				if (_arguments[1] == 0)
 				{
-					case 1: // 00
-						if (_params[USE_LEVER] == 0)
-						{
-							digitalWrite(PIN_LED_LEFT, LOW);
-							digitalWrite(PIN_LED_RIGHT, LOW);
-						}
-						else
-						{
-							if (_params[USE_LEFT_PAW] == 0)
-							{
-								digitalWrite(PIN_LED_LEFT, LOW);
-								digitalWrite(PIN_LED_RIGHT, HIGH);
-							}
-							else
-							{
-								digitalWrite(PIN_LED_LEFT, HIGH);
-								digitalWrite(PIN_LED_RIGHT, LOW);
-							}
-						}
-						break;
-					case 2: // 01
-						if (_params[USE_LEVER] == 0)
-						{
-							digitalWrite(PIN_LED_LEFT, LOW);
-							digitalWrite(PIN_LED_RIGHT, LOW);
-						}
-						else
-						{
-							if (_params[USE_LEFT_PAW] == 0)
-							{
-								digitalWrite(PIN_LED_LEFT, HIGH);
-								digitalWrite(PIN_LED_RIGHT, LOW);
-							}
-							else
-							{
-								digitalWrite(PIN_LED_LEFT, LOW);
-								digitalWrite(PIN_LED_RIGHT, HIGH);
-							}
-						}
-						break;
+					digitalWrite(PIN_LED_USELEVER, LOW);
+				}
+				else
+				{
+					digitalWrite(PIN_LED_USELEVER, HIGH);
 				}
 			}
 		}
@@ -2609,7 +2403,7 @@ void setAnalogOutput(int channel, int value)
 	    	analogWrite(PIN_LASER_PWR_2, value);
 	    	break;
 	}
-	// sendAnalogOutValue(channel, value, -1);
+	sendAnalogOutValue(channel, value, -1);
 }
 
 /*****************************************************

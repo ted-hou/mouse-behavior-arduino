@@ -662,7 +662,7 @@ classdef TwoColorExperiment < handle
                 obj.analogWrite(iLaser, results.aoutValues(iPower, iMirrorPos, iLaser));
     
                 % Step 3: Do pulses
-                obj.setParam('laser', 'OPTO_ENABLED', 1);
+                obj.setParam('laser', 'ITIOPTO_ENABLED', 1);
                 obj.setParam('laser', 'OPTO_PULSE_DURATION', round(r.pulseWidth*1e3));
                 obj.setParam('laser', 'OPTO_PULSE_INTERVAL', round(r.ipi*1e3));
                 obj.setParam('laser', 'OPTO_NUM_PULSES', r.nPulses);
@@ -674,11 +674,11 @@ classdef TwoColorExperiment < handle
             % New version: no shutter
             else
                 % Step 2: Do pulses
-                obj.setParam('laser', 'OPTO_ENABLED', 1);
+                obj.setParam('laser', 'ITIOPTO_ENABLED', 1);
                 obj.setParam('laser', 'OPTO_PULSE_DURATION', round(r.pulseWidth*1e3));
                 obj.setParam('laser', 'OPTO_PULSE_INTERVAL', round(r.ipi*1e3));
                 obj.setParam('laser', 'OPTO_NUM_PULSES', r.nPulses);
-                obj.setParam('laser', 'OPTO_LASER_ID', r.iLaser);
+                obj.setParam('laser', 'ITIOPTO_LASER_ID', r.iLaser);
                 obj.setParam('laser', sprintf('OPTO_AOUT%i_VALUE', r.iLaser), results.aoutValues(iPower, iMirrorPos, iLaser));
                 if DEBUG
                     fprintf('\t%s: starting stim train.\n', datetime())
@@ -764,7 +764,7 @@ classdef TwoColorExperiment < handle
                 pause(r.preTrainDelay);
     
                 % Step 3: Do pulses
-                obj.setParam('laser', 'OPTO_ENABLED', 1);
+                obj.setParam('laser', 'ITIOPTO_ENABLED', 1);
                 obj.setParam('laser', 'OPTO_PULSE_DURATION', round(r.pulseWidth*1e3));
                 obj.setParam('laser', 'OPTO_PULSE_INTERVAL', round(r.ipi*1e3));
                 obj.setParam('laser', 'OPTO_NUM_PULSES', r.nPulses);
@@ -798,11 +798,11 @@ classdef TwoColorExperiment < handle
                 pause(r.preTrainDelay);
     
                 % Step 3: Do pulses
-                obj.setParam('laser', 'OPTO_ENABLED', 1);
+                obj.setParam('laser', 'ITIOPTO_ENABLED', 1);
                 obj.setParam('laser', 'OPTO_PULSE_DURATION', round(r.pulseWidth*1e3));
                 obj.setParam('laser', 'OPTO_PULSE_INTERVAL', round(r.ipi*1e3));
                 obj.setParam('laser', 'OPTO_NUM_PULSES', r.nPulses);
-                obj.setParam('laser', 'OPTO_LASER_ID', iLaser);
+                obj.setParam('laser', 'ITIOPTO_LASER_ID', iLaser);
                 obj.setParam('laser', sprintf('OPTO_AOUT%i_VALUE', r.iLaser), results.aoutValues(iPower, iMirrorPos, iLaser));
                 pause(0.1);
                 if DEBUG
