@@ -108,14 +108,14 @@ static const int _digOutPins[] =
 	PIN_SERVO_TUBE,
 	PIN_LEVERMOTOR_HI,
 	PIN_LEVERMOTOR_LO,
+	PIN_OPTO_LIVE_1,
+	PIN_OPTO_LIVE_2,
+	PIN_LED_USELEVER,
 	PIN_MIRROR_LICK,
 	PIN_MIRROR_LEVER,
 	PIN_MIRROR_REWARD,
-	PIN_SPEAKER,
-	PIN_LED_USELEVER,
 	PIN_MIRROR_TIMEOUT,
-	PIN_OPTO_LIVE_1,
-	PIN_OPTO_LIVE_2
+	PIN_SPEAKER
 };
 
 /*****************************************************
@@ -319,7 +319,7 @@ enum ParamID
 	OPTO_PULSE_INTERVAL,			// Optogenetic stim, interval between pulses (ms), we don't use the _1 suffix for backcompatibility
 	OPTO_PULSE_DURATION_2,			// Optogenetic stim, duration of single pulse (ms), only used for 2nd laser when LASER_ID is not 1or2.
 	OPTO_PULSE_INTERVAL_2,			// Optogenetic stim, interval between pulses (ms), only used for 2nd laser when LASER_ID is not 1or2.
-	OPTO_NUM_PULSES,				// Optogenetic stim, number of pulses to deliver	
+	ITIOPTO_NUM_PULSES,				// Optogenetic stim, number of pulses to deliver	
 	ITIOPTO_FIXED_DELAY,			// In REQUEST_OPTO, after receiving ';' from MATLAB, wait this long before advancing to OPTO
 	ITIOPTO_RANDOM_DELAY_MIN,		// Minimum random pre-stim delay (ms)
 	ITIOPTO_RANDOM_DELAY_MAX,		// Maximum random pre-stim delay (ms)
@@ -371,7 +371,7 @@ static const char *_paramNames[] =
 	"OPTO_PULSE_INTERVAL",			// Optogenetic stim, interval between pulses (ms)
 	"OPTO_PULSE_DURATION_2",		// Optogenetic stim, duration of single pulse (ms)
 	"OPTO_PULSE_INTERVAL_2",		// Optogenetic stim, interval between pulses (ms)
-	"OPTO_NUM_PULSES",				// Optogenetic stim, number of pulses to deliver	
+	"ITIOPTO_NUM_PULSES",				// Optogenetic stim, number of pulses to deliver	
 	"ITIOPTO_FIXED_DELAY",			// In REQUEST_OPTO, laser will be kept on this long before advancing to OPTO
 	"ITIOPTO_RANDOM_DELAY_MIN",		// Minimum random pre-stim delay (ms)
 	"ITIOPTO_RANDOM_DELAY_MAX",		// Maximum random pre-stim delay (ms)
@@ -421,7 +421,7 @@ long _params[_NUM_PARAMS] =
 	0,		// OPTO_PULSE_INTERVAL
 	0,		// OPTO_PULSE_DURATION_2
 	0,		// OPTO_PULSE_INTERVAL_2
-	1,		// OPTO_NUM_PULSES
+	1,		// ITIOPTO_NUM_PULSES
 	1000, 	// ITIOPTO_FIXED_DELAY
 	1000,	// ITIOPTO_RANDOM_DELAY_MIN
 	3000,	// ITIOPTO_RANDOM_DELAY_MAX
@@ -429,8 +429,8 @@ long _params[_NUM_PARAMS] =
 	1,		// REQUEST_TASK_AFTER_BLOCK
 	0,		// REQUEST_OPTO_AFTER_BLOCK
 	1000000,// WAITFORTOUCH_TO_OPTO_TIMEOUT
-	30,		// ACCEL_THRESHOLD_LICK
-	25,		// ACCEL_THRESHOLD_LEVER
+	28,		// ACCEL_THRESHOLD_LICK
+	26,		// ACCEL_THRESHOLD_LEVER
 	500,	// ACCEL_BLANK_POST_MOVE_TUBE
 	250,	// ACCEL_BLANK_POST_MOVE_LEVER
 	0, 		// VAR_REQUIRED_FOR_REWARD
@@ -1479,7 +1479,7 @@ void state_opto_iti()
 	/*****************************************************
 		OnEachLoop checks
 	*****************************************************/
-	if (numPulsesComplete < _params[OPTO_NUM_PULSES])
+	if (numPulsesComplete < _params[ITIOPTO_NUM_PULSES])
 	{
 		// If stim is off, check if it needs to be turned on
 		if (!isOptoOn(_params[ITIOPTO_LASER_ID]))
@@ -1526,7 +1526,7 @@ void state_opto_iti()
 	}
 
 	// Stim train complete --> TIMEOUT (after random delay) or IDLE
-	if (numPulsesComplete >= _params[OPTO_NUM_PULSES])
+	if (numPulsesComplete >= _params[ITIOPTO_NUM_PULSES])
 	{
 		switch (_params[ITIOPTO_LASER_ID])
 		{
@@ -2084,9 +2084,11 @@ void handleLiveOpto(int laserIdx) // laserIdx is 1 or 2
 				switch (laserIdx)
 				{
 					case 1:
+						digitalWrite(PIN_OPTO_LIVE_1, HIGH);
 						sendEventMarker(EVENT_OPTO1_LIVE_ON, -1);
 						break;
 					case 2:
+						digitalWrite(PIN_OPTO_LIVE_2, HIGH);
 						sendEventMarker(EVENT_OPTO2_LIVE_ON, -1);
 						break;
 				}
@@ -2101,9 +2103,11 @@ void handleLiveOpto(int laserIdx) // laserIdx is 1 or 2
 				switch (laserIdx)
 				{
 					case 1:
+						digitalWrite(PIN_OPTO_LIVE_1, LOW);
 						sendEventMarker(EVENT_OPTO1_LIVE_OFF, -1);
 						break;
 					case 2:
+						digitalWrite(PIN_OPTO_LIVE_2, LOW);
 						sendEventMarker(EVENT_OPTO2_LIVE_OFF, -1);
 						break;
 				}
@@ -2147,9 +2151,11 @@ void handleLiveOpto(int laserIdx) // laserIdx is 1 or 2
 					switch (laserIdx)
 					{
 						case 1:
+							digitalWrite(PIN_OPTO_LIVE_1, LOW);
 							sendEventMarker(EVENT_OPTO1_LIVE_OFF, -1);
 							break;
 						case 2:
+							digitalWrite(PIN_OPTO_LIVE_2, LOW);
 							sendEventMarker(EVENT_OPTO2_LIVE_OFF, -1);
 							break;
 					}
@@ -2403,7 +2409,7 @@ void setAnalogOutput(int channel, int value)
 	    	analogWrite(PIN_LASER_PWR_2, value);
 	    	break;
 	}
-	sendAnalogOutValue(channel, value, -1);
+	// sendAnalogOutValue(channel, value, -1); this breaks matlab when pulses are too frequent
 }
 
 /*****************************************************

@@ -10,6 +10,7 @@ classdef OnlineDecoder < handle
         Model
         ChannelMask
         Buffer = struct(Data=struct(t=[], x=[], xMasked=[], p=[]), CurrentIndex=[], Length=0)
+        OptoLog
         Debug = false
     end
 
@@ -438,6 +439,23 @@ classdef OnlineDecoder < handle
                 return
             end
             obj.IsLaserOn(iLaser) = true;
+            switch iLaser
+                case 1
+                    aout = obj.Arduino.GetParam('OPTO_AOUT1_VALUE');
+                    pulseDuration = obj.Arduino.GetParam('OPTO_PULSE_DURATION');
+                    pulseInterval = obj.Arduino.GetParam('OPTO_PULSE_INTERVAL');
+                case 2
+                    aout = obj.Arduino.GetParam('OPTO_AOUT2_VALUE');
+                    pulseDuration = obj.Arduino.GetParam('OPTO_PULSE_DURATION_2');
+                    pulseInterval = obj.Arduino.GetParam('OPTO_PULSE_INTERVAL_2');
+            end
+            logEntry = struct( ...
+                LaserIndex=iLaser, ...
+                AOut=aout, ...
+                PulseDuration=pulseDuration, ...
+                PulseInterval=pulseInterval, ...
+                StartTime=datetime());
+            obj.addOptoLogEntry(logEntry);
             obj.Arduino.SendMessage(sprintf('J %i', iLaser));
         end
 
@@ -895,7 +913,21 @@ classdef OnlineDecoder < handle
             end
         end
 
+        function addOptoLogEntry(obj, entry)
+            log = obj.OptoLog;
+            if isempty(log)
+                log = entry;
+            else
+                log(length(log) + 1) = entry;
+            end
+            obj.OptoLog = log;
+        end
 
+        function save(obj, tce)
+            assert(isa(tce, 'TwoColorExperiment'))
+            [path, file, ~] = fileparts(tce.Path);
+            save(fullfile(path, sprintf('%s_onlinedecoder.mat', file)), 'obj')
+        end
     end
 
     methods (Static)
