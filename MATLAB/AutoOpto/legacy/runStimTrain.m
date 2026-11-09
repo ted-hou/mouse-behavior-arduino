@@ -68,7 +68,7 @@ function trainlog = runStimTrain(hMotor, hLaser, p, result, iMirrorPos, iPower, 
     pause(r.preTrainDelay);
 
     % Step 3: Do pulses
-    hLaser.Arduino.SetParam(find(strcmpi(hLaser.Arduino.ParamNames, 'OPTO_ENABLED')), 1);
+    hLaser.Arduino.SetParam(find(strcmpi(hLaser.Arduino.ParamNames, 'ITIOPTO_ENABLED')), 1);
     hLaser.Arduino.SetParam(find(strcmpi(hLaser.Arduino.ParamNames, 'OPTO_PULSE_DURATION')), round(r.pulseWidth*1e3));
     hLaser.Arduino.SetParam(find(strcmpi(hLaser.Arduino.ParamNames, 'OPTO_PULSE_INTERVAL')), round(r.ipi*1e3));
     hLaser.Arduino.SetParam(find(strcmpi(hLaser.Arduino.ParamNames, 'OPTO_NUM_PULSES')), r.nPulses);
