@@ -128,14 +128,14 @@ classdef OnlineDecoder < handle
         end
 
         function onTestingUpdate(obj)
-            [pMove, t, X] = obj.decodeNow(obj.Params.Test.BinWidth);
+            [pMove, t, x] = obj.decodeNow(obj.Params.Test.BinWidth);
             obj.PMove = pMove;
             obj.updateDialog();
 
             if obj.Debug
                 currentTimeDisp = seconds(t);
                 currentTimeDisp.Format = 'hh:mm:ss.SSS';
-                fprintf('CurrentTime = %s, X = %.1f sp/s, P(Move) = %.0f%%\n', currentTimeDisp, X, 100*pMove);
+                fprintf('CurrentTime = %s, x = %.1f sp/s, P(Move) = %.0f%%\n', currentTimeDisp, x, 100*pMove);
             end
         end
 
@@ -228,8 +228,9 @@ classdef OnlineDecoder < handle
         end
 
         function onAutoOptoUpdate(obj)
-            [pMove, t, X] = obj.decodeNow(obj.Params.Opto.BinWidth);
+            [pMove, t, x] = obj.decodeNow(obj.Params.Opto.BinWidth);
             obj.PMove = pMove;
+            obj.updateDialog();
 
             % In TIMEOUT/WAITFORTOUCH, start opto if pMove exceeds threshold
             % obj.getTimeSinceTimeoutStart(t)
@@ -266,7 +267,6 @@ classdef OnlineDecoder < handle
                     obj.OptoTimer.TimerFcn = @(~, ~) obj.stopPulsedOrContOpto();
                 end
                 start(obj.OptoTimer);
-
 
                 currentTimeDisp = seconds(t);
                 currentTimeDisp.Format = 'hh:mm:ss.SSS';
@@ -765,7 +765,7 @@ classdef OnlineDecoder < handle
                                 obj.startPulsedOrContOpto();
                                 start(obj.OptoTimer);
                             case "Trigger"
-                                obj.startAutoOpto();
+                                obj.startAutoOpto(UpdateInterval=0.02, BinWidth=0.1, Threshold=0.3, WaitAtLeastSeconds=2);
                         end
                     case "Off"
                         % Turn off that stupid song
